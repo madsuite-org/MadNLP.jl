@@ -27,7 +27,7 @@ using MadNLPTests
         result = madnlp(
             qp;
             kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCPUSolver,
+            linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
@@ -63,7 +63,7 @@ using MadNLPTests
         schur = madnlp(
             mk();
             kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCPUSolver,
+            linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
@@ -99,7 +99,7 @@ using MadNLPTests
         result = madnlp(
             qp;
             kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCPUSolver,
+            linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
@@ -126,7 +126,7 @@ using MadNLPTests
         result = madnlp(
             qp;
             kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCPUSolver,
+            linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
@@ -137,12 +137,14 @@ using MadNLPTests
     end
 
     @testset "Autodetect dims via tags" begin
-        # Fake `cb` exposing the tag interface that _resolve_schur_dims expects.
+        # Fake `cb` exposing the legacy tag interface that _resolve_schur_dims reads.
         mkcb(tags) = (; nlp = (; tags))
 
         # Happy case: ns=2, nv=1, nd=1, nc=1 → var_scen [1, 2, 0], con_scen [1, 2]
         ok = (; ns = 2, var_scenario = [1, 2, 0], con_scenario = [1, 2])
-        @test MadNLP._resolve_schur_dims(mkcb(ok), 3, 2, 0, 0, 0, 0) == (2, 1, 1, 1)
+        r = MadNLP._resolve_schur_dims(mkcb(ok), 3, 2, 0, 0, 0, 0)
+        @test (r.ns, r.nv, r.nd, r.nc, r.nc_design) == (2, 1, 1, 1, 0)
+        @test r.var_scen == [1, 2, 0] && r.con_scen == [1, 2]
 
         # Out-of-range variable tag
         bad_tag = (; ns = 2, var_scenario = [1, 5, 0], con_scenario = [1, 2])
@@ -156,22 +158,29 @@ using MadNLPTests
         nu_con = (; ns = 2, var_scenario = [1, 2, 0], con_scenario = [1, 2, 2])
         @test_throws ErrorException MadNLP._resolve_schur_dims(mkcb(nu_con), 3, 3, 0, 0, 0, 0)
 
-        # Design-only constraint (con tag 0) is rejected.
+        # Design-only constraint (con tag 0) is now SUPPORTED and counted in nc_design.
         d_only = (; ns = 2, var_scenario = [1, 2, 0], con_scenario = [1, 2, 0])
-        @test_throws ErrorException MadNLP._resolve_schur_dims(mkcb(d_only), 3, 3, 0, 0, 0, 0)
+        r2 = MadNLP._resolve_schur_dims(mkcb(d_only), 3, 3, 0, 0, 0, 0)
+        @test (r2.ns, r2.nv, r2.nd, r2.nc, r2.nc_design) == (2, 1, 1, 1, 1)
+
+        # Explicit kkt_options vectors take priority over dims and tags.
+        r3 = MadNLP._resolve_schur_dims(mkcb(ok), 3, 3, 0, 0, 0, 0, [0, 1, 2], [0, 1, 2])
+        @test (r3.ns, r3.nv, r3.nd, r3.nc, r3.nc_design) == (2, 1, 1, 1, 1)
+        @test r3.var_scen == [0, 1, 2]
     end
 
     @testset "Layout validation" begin
-        # ns=2, nv=1, nd=1, nc=1: vars [v1, v2, d], cons [c1, c2]
+        # ns=2, nv=1, nd=1, nc=1: vars [v1, v2, d], cons [c1, c2]. RelaxEquality-only:
+        # all constraints are inequalities (ind_eq must be empty).
         ns, nv, nd, nc = 2, 1, 1, 1
         n, m = ns*nv + nd, ns*nc
 
         # Happy case as a baseline: diagonal Hessian, each constraint touches its own
-        # scenario var and the design var, all equality.
+        # scenario var and the design var.
         hess_I_ok = Int32[1, 2, 3]; hess_J_ok = Int32[1, 2, 3]
         jac_I_ok  = Int32[1, 1, 2, 2]; jac_J_ok = Int32[1, 3, 2, 3]
-        ind_eq    = Int32[1, 2]
-        ind_ineq  = Int32[]
+        ind_eq    = Int32[]
+        ind_ineq  = Int32[1, 2]
         @test MadNLP._build_schur_symbolic(
             Float64, n, m, ns, nv, nd, nc,
             hess_I_ok, hess_J_ok, jac_I_ok, jac_J_ok, ind_eq, ind_ineq,
@@ -193,7 +202,7 @@ using MadNLPTests
             hess_I_ok, hess_J_ok, jac_I_bad, jac_J_bad, ind_eq, ind_ineq,
         )
 
-        # Non-uniform eq/ineq counts: c_1 is equality, c_2 is inequality.
+        # RelaxEquality-only: a non-empty `ind_eq` is rejected.
         @test_throws ErrorException MadNLP._build_schur_symbolic(
             Float64, n, m, ns, nv, nd, nc,
             hess_I_ok, hess_J_ok, jac_I_ok, jac_J_ok, Int32[1], Int32[2],
@@ -213,7 +222,70 @@ using MadNLPTests
         jac_J_nu  = Int32[1, 2, 5, 3, 4, 5]
         @test_throws ErrorException MadNLP._build_schur_symbolic(
             Float64, n2, m2, ns2, nv2, nd2, nc2,
-            hess_I_nu, hess_J_nu, jac_I_nu, jac_J_nu, Int32[1, 2], Int32[],
+            hess_I_nu, hess_J_nu, jac_I_nu, jac_J_nu, Int32[], Int32[1, 2],
+        )
+    end
+
+    @testset "Design-only constraints — match SparseKKT reference" begin
+        # Non-contiguous layout (design vars NOT last, scenario vars scattered) with
+        # design-only equality AND inequality constraints. Strict convexity ⇒ unique
+        # optimum, so Schur must match the default sparse KKT solve.
+        for (ns, nv, nd) in ((2, 2, 2), (3, 2, 3), (4, 1, 2))
+            qp, var_scen, con_scen, kkt_opts =
+                build_twostage_qp_general(; ns, nv, nd, permute = true)
+            qp_ref = build_twostage_qp_general(; ns, nv, nd, permute = true)[1]
+
+            ref = madnlp(qp_ref; linear_solver = LapackCPUSolver, print_level = MadNLP.ERROR)
+            schur = madnlp(
+                qp;
+                kkt_system = SchurComplementKKTSystem,
+                linear_solver = MadNLP.MumpsSolver,
+                kkt_options = kkt_opts,
+                print_level = MadNLP.ERROR,
+            )
+
+            @test ref.status == MadNLP.SOLVE_SUCCEEDED
+            @test schur.status == MadNLP.SOLVE_SUCCEEDED
+            @test isapprox(schur.objective, ref.objective; atol = 1.0e-6)
+            @test isapprox(schur.solution, ref.solution; atol = 1.0e-4)
+        end
+    end
+
+    @testset "Design-only constraints — symbolic build" begin
+        # ns=2, nv=1, nd=2: vars [v1, v2, d1, d2]. RelaxEquality-only, so all cons
+        # are inequalities that condense into A_kk / C_dk / S_dd:
+        #   c1 (scen 1): v1 + d1   c2 (scen 2): v2 + d1
+        #   c3 (design): d1 + d2   c4 (design): d1
+        ns, nv, nd, nc = 2, 1, 2, 1
+        n, m = ns * nv + nd, 4
+        var_scen = [1, 2, 0, 0]
+        con_scen = [1, 2, 0, 0]
+        hess_I = Int32[1, 2, 3, 4]; hess_J = Int32[1, 2, 3, 4]
+        # jac rows: c1:(v1=1,d1=3), c2:(v2=2,d1=3), c3:(d1=3,d2=4), c4:(d1=3)
+        jac_I = Int32[1, 1, 2, 2, 3, 3, 4]
+        jac_J = Int32[1, 3, 2, 3, 3, 4, 3]
+        ind_eq = Int32[]
+        ind_ineq = Int32[1, 2, 3, 4]
+
+        sym = MadNLP._build_schur_symbolic(
+            Float64, n, m, ns, nv, nd, nc,
+            hess_I, hess_J, jac_I, jac_J, ind_eq, ind_ineq,
+            var_scen, con_scen,
+        )
+        @test sym.nc_design_ineq == 2          # c3, c4 are design-only
+        @test sym.design_var_global == [3, 4]
+        # Design inequalities condense into S_dd (design-local cols: d1→1, d2→2):
+        # c3 over {1,2} ⇒ (1,1),(1,2),(2,1),(2,2);  c4 over {1} ⇒ (1,1).
+        S_entries = Set(zip(sym.design_ineq_S_row, sym.design_ineq_S_col))
+        @test (1, 1) in S_entries && (2, 2) in S_entries
+        @test (1, 2) in S_entries && (2, 1) in S_entries
+
+        # A design-only constraint that reaches a scenario variable must error.
+        jac_J_bad = Int32[1, 3, 2, 3, 3, 1, 3]  # c3 now touches v1 (col 1, scenario 1)
+        @test_throws ErrorException MadNLP._build_schur_symbolic(
+            Float64, n, m, ns, nv, nd, nc,
+            hess_I, hess_J, jac_I, jac_J_bad, ind_eq, ind_ineq,
+            var_scen, con_scen,
         )
     end
 end

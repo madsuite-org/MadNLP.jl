@@ -41,7 +41,9 @@ end
     @inbounds C_dk[v_idx_flat[i], d_idx_flat[i], k] += src[src_idx[i]]
 end
 
-# Inequality condensation → A_kk (lower triangle).
+# Inequality condensation → A_kk (lower triangle). ATOMIC: a scenario variable
+# that appears in several inequalities produces several contributions to the SAME
+# A_kk nzval slot (e.g. its diagonal), so concurrent threads must not race.
 @kernel function _ineq_condense_Akk_kernel!(
     nzval,
     @Const(jac),
@@ -55,11 +57,15 @@ end
 )
     i = @index(Global)
     offset = ((i - 1) ÷ n_per_s) * nnz_per_block
-    @inbounds nzval[offset + nzpos_flat[i]] += diag_buffer[bufidx_flat[i]] *
-        jac[jcoo1_flat[i]] * jac[jcoo2_flat[i]]
+    @inbounds begin
+        val = diag_buffer[bufidx_flat[i]] * jac[jcoo1_flat[i]] * jac[jcoo2_flat[i]]
+        CUDACore.@atomic nzval[offset + nzpos_flat[i]] += val
+    end
 end
 
 # Inequality condensation → C_dk (blk_size × nd × ns; see _scatter_to_Cdk_batched!).
+# ATOMIC for the same reason as the A_kk kernel: a (design, scenario-var) pair can
+# receive contributions from several inequalities targeting the same C_dk cell.
 @kernel function _ineq_condense_Cdk_kernel!(
     C_dk,
     @Const(jac),
@@ -73,8 +79,10 @@ end
 )
     i = @index(Global)
     k = (i - 1) ÷ n_per_s + 1
-    @inbounds C_dk[v_idx_flat[i], d_idx_flat[i], k] += diag_buffer[bufidx_flat[i]] *
-        jac[jcoo_d_flat[i]] * jac[jcoo_v_flat[i]]
+    @inbounds begin
+        val = diag_buffer[bufidx_flat[i]] * jac[jcoo_d_flat[i]] * jac[jcoo_v_flat[i]]
+        CUDACore.@atomic C_dk[v_idx_flat[i], d_idx_flat[i], k] += val
+    end
 end
 
 # Inequality condensation → S (atomic adds since multiple scenarios target the
@@ -108,67 +116,108 @@ end
     @inbounds S[row_indices[idx], col_indices[idx]] += hess[coo_indices[idx]]
 end
 
-# Add pr_diag_dd to S diagonal
+# Add pr_diag_dd to S diagonal (design vars indexed by their global position —
+# they are not necessarily the last nd entries).
 @kernel function _init_S_diag_kernel!(
     S,
     @Const(pr_diag),
-    @Const(diag_offset),
+        @Const(design_var_global),
     @Const(nd),
 )
     idx = @index(Global)
     if idx <= nd
-        @inbounds S[idx, idx] += pr_diag[diag_offset + idx]
+        @inbounds S[idx, idx] += pr_diag[design_var_global[idx]]
     end
 end
 
-# Extract per-scenario RHS from global wx/wy → rhs_k_batched (blk_size × ns)
+# Extract per-scenario RHS from global wx → rhs_k_batched (nv × ns). Under
+# RelaxEquality the per-scenario block has no equality rows (blk_size == nv), so
+# only scenario variables are gathered. Their global indices come from
+# `scen_var_global` (flat, length ns*nv, scenario-major), since a scenario's
+# variables need not be contiguous.
 @kernel function _extract_rhs_kernel!(
     rhs_k,
     @Const(wx),
-    @Const(wy),
-    @Const(eq_global_indices),
+    @Const(scen_var_global),
     @Const(nv),
-    @Const(nc_eq),
     @Const(ns),
-    @Const(blk_size),
 )
     i = @index(Global)
-    k = (i - 1) ÷ blk_size + 1
-    local_idx = (i - 1) % blk_size + 1
+    k = (i - 1) ÷ nv + 1
+    local_idx = (i - 1) % nv + 1
     if k <= ns
-        if local_idx <= nv
-            gi = (k - 1) * nv + local_idx
-            @inbounds rhs_k[local_idx, k] = wx[gi]
-        else
-            eq_idx = local_idx - nv
-            flat_idx = (k - 1) * nc_eq + eq_idx
-            @inbounds rhs_k[local_idx, k] = wy[eq_global_indices[flat_idx]]
-        end
+        @inbounds gi = scen_var_global[(k - 1) * nv + local_idx]
+        @inbounds rhs_k[local_idx, k] = wx[gi]
     end
 end
 
-# Write back per-scenario solution to global wx/wy
+# Write back per-scenario solution to global wx
 @kernel function _writeback_rhs_kernel!(
     wx,
-    wy,
     @Const(rhs_k),
-    @Const(eq_global_indices),
+    @Const(scen_var_global),
     @Const(nv),
-    @Const(nc_eq),
     @Const(ns),
-    @Const(blk_size),
 )
     i = @index(Global)
-    k = (i - 1) ÷ blk_size + 1
-    local_idx = (i - 1) % blk_size + 1
+    k = (i - 1) ÷ nv + 1
+    local_idx = (i - 1) % nv + 1
     if k <= ns
-        if local_idx <= nv
-            gi = (k - 1) * nv + local_idx
-            @inbounds wx[gi] = rhs_k[local_idx, k]
-        else
-            eq_idx = local_idx - nv
-            flat_idx = (k - 1) * nc_eq + eq_idx
-            @inbounds wy[eq_global_indices[flat_idx]] = rhs_k[local_idx, k]
-        end
+        @inbounds gi = scen_var_global[(k - 1) * nv + local_idx]
+        @inbounds wx[gi] = rhs_k[local_idx, k]
+    end
+end
+
+# ===== Sparse-Schur (cuDSS) assembly kernels =====================================
+# These scatter into the lower-triangular CSC `nzval` of the sparse Schur complement
+# at precomputed nzval positions. Atomic because overlapping contributions (design
+# Hessian + inequality condensation + Schur fill) can target the same slot.
+
+# Scatter src[src_idx[i]] into nzval[nzpos[i]]. Used for design Hessian, pr_diag
+# diagonal, design-eq border, and -Δ_eq diagonal.
+@kernel function _scatter_to_csc_atomic!(
+        nzval,
+        @Const(src),
+        @Const(src_idx),
+        @Const(nzpos),
+    )
+    i = @index(Global)
+    @inbounds CUDACore.@atomic nzval[nzpos[i]] += src[src_idx[i]]
+end
+
+# Inequality condensation → CSC nzval (scenario + design): atomic quad-add.
+@kernel function _ineq_condense_csc_kernel!(
+        nzval,
+        @Const(jac),
+        @Const(diag_buffer),
+        @Const(nzpos),
+        @Const(jcoo1),
+        @Const(jcoo2),
+        @Const(bufidx),
+    )
+    i = @index(Global)
+    @inbounds begin
+        val = diag_buffer[bufidx[i]] * jac[jcoo1[i]] * jac[jcoo2[i]]
+        CUDACore.@atomic nzval[nzpos[i]] += val
+    end
+end
+
+# Schur reduction block → CSC nzval: subtract -D[a,b,k] for the lower-or-diagonal
+# half (a>=b) into the single lower-triangle slot fill_nzpos[a,b]. D is the
+# per-scenario m×m symmetric block C_dk_red[:,:,k]' * tmp_red[:,:,k]; writing only
+# a>=b avoids double-counting off-diagonals on the lower-only CSC.
+@kernel function _scatter_schur_block!(
+        nzval,
+        @Const(D),
+        @Const(fill_nzpos),
+        @Const(m),
+        @Const(ns),
+    )
+    i = @index(Global)
+    a = (i - 1) % m + 1
+    b = ((i - 1) ÷ m) % m + 1
+    k = (i - 1) ÷ (m * m) + 1
+    if k <= ns && a >= b
+        @inbounds CUDACore.@atomic nzval[fill_nzpos[a, b]] += -D[a, b, k]
     end
 end
