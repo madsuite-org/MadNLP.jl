@@ -164,13 +164,15 @@ struct GPUSchurComplementKKTSystem{
     scenario_b_multi::CUDSS.CudssMatrix{T}
 end
 
-# cuDSS sparse-LDL needs a step of iterative refinement to match the accuracy the
-# dense cuSOLVER (`sytrf`) path had on the bordered Schur complement. Without it the
-# complement solve is only ~1e-5 even at modest conditioning (cond≈3e7), while ONE IR
-# step restores ~1e-12 (dense-level); 2-3 steps add nothing. So the GPU Schur path's
-# cuDSS solvers — both the batched per-scenario blocks and the nbatch=1 complement —
-# default to one IR step. Override via the `schur_*_opt_linear_solver` kwargs.
-const SCHUR_DEFAULT_CUDSS_IR = 1
+# cuDSS sparse-LDL is less accurate than a direct factorization. The relaxed Schur
+# path solves each (SPD) per-scenario block with it and accumulates A_kk⁻¹ into the
+# first-stage complement, so per-block error compounds — iterative refinement is the
+# remedy, applied to both the batched per-scenario blocks and the nbatch=1 complement.
+# Empirically on case9 two-stage SCOPF: ir=1 diverges to NaN, ir=3 reaches the optimum
+# neighbourhood but stalls (inf_du ~1e-1), ir=5 converges cleanly to tol=1e-4 (obj
+# matches the CPU / `:single` solve). Default to 5; stiffer/larger problems may need
+# more — override via `--cudss-ir` / the `schur_*_opt_linear_solver` kwargs.
+const SCHUR_DEFAULT_CUDSS_IR = 5
 function _default_schur_cudss_options()
     opt = MadNLP.default_options(CUDSSSolver)
     opt.cudss_ir = SCHUR_DEFAULT_CUDSS_IR
