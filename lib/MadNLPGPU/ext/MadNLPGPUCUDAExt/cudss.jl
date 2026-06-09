@@ -168,10 +168,19 @@ end
 
 function MadNLP.factorize!(M::CUDSSSolver)
     CUDSS.cudss_update(M.inner.matrix, nonzeros(M.tril))
-    if M.inner.fresh_factorization
-        CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
-    else
-        CUDSS.cudss("refactorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    # A cuDSS error during (re)factorization is translated into a FactorizationException
+    # (→ ERROR_IN_STEP_COMPUTATION) rather than crashing with a raw CUDSSError. This does
+    # not interfere with the inertia→regularization recovery, which only runs when
+    # factorize! returns normally and reports indefiniteness via `inertia` (info != 0
+    # yields a dummy inertia).
+    try
+        if M.inner.fresh_factorization
+            CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+        else
+            CUDSS.cudss("refactorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+        end
+    catch e
+        e isa CUDSS.CUDSSError ? throw(FactorizationException()) : rethrow(e)
     end
     return M
 end
@@ -184,7 +193,15 @@ function MadNLP.solve_linear_system!(M::CUDSSSolver{T, V}, xb::V) where {T, V}
         CUDSS.cudss_update(M.b_gpu, xb)
     end
     CUDSS.cudss_update(M.x_gpu, xb)
-    CUDSS.cudss("solve", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    # A cuDSS failure here — e.g. iterative refinement on a numerically singular system
+    # reporting CUDSS_STATUS_EXECUTION_FAILED — is a step-computation failure, not a bug.
+    # Translate it into a MadNLP SolveException so the IPM maps it to
+    # ERROR_IN_STEP_COMPUTATION (-3) instead of crashing with a raw CUDSSError.
+    try
+        CUDSS.cudss("solve", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    catch e
+        e isa CUDSS.CUDSSError ? throw(SolveException()) : rethrow(e)
+    end
     return xb
 end
 

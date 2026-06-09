@@ -172,6 +172,14 @@ end
 # neighbourhood but stalls (inf_du ~1e-1), ir=5 converges cleanly to tol=1e-4 (obj
 # matches the CPU / `:single` solve). Default to 5; stiffer/larger problems may need
 # more — override via `--cudss-ir` / the `schur_*_opt_linear_solver` kwargs.
+#
+# This inner cuDSS IR is COMPLEMENTARY to — not a replacement for — the outer full-KKT
+# `RichardsonIterator` (src/LinearSolvers/backsolve.jl), which already refines every Newton
+# step against the true KKT residual. The outer IR's approximate inverse is one Schur
+# reduction, whose accuracy depends on these per-scenario solves, so accurate inner solves
+# are a prerequisite for the outer IR to converge (cf. Petra–Schenk–Lubin 2014). When the
+# inner solve genuinely fails (e.g. IR on a numerically singular block), the cuDSS wrappers
+# raise a Solve/FactorizationException → ERROR_IN_STEP_COMPUTATION rather than crashing.
 const SCHUR_DEFAULT_CUDSS_IR = 5
 function _default_schur_cudss_options()
     opt = MadNLP.default_options(CUDSSSolver)
@@ -566,11 +574,19 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         # cuDSS solve (m RHS per scenario). Zero-copy onto the (blk, m, ns) buffers.
         CUDSS.cudss_update(kkt.scenario_b_multi, kkt.C_dk_batched)
         CUDSS.cudss_update(kkt.scenario_x_multi, kkt.tmp_blk_nd_batched)
-        CUDSS.cudss(
-            "solve", kkt.scenario_solver.inner,
-            kkt.scenario_x_multi, kkt.scenario_b_multi;
-            asynchronous = kkt.scenario_solver.opt.cudss_asynchronous,
-        )
+        # This batched multi-RHS solve assembles the Schur complement (A_kk⁻¹ C_dk'); it runs
+        # in the factorization/build phase and does NOT route through solve_linear_system!, so
+        # translate a cuDSS failure into a FactorizationException (→ ERROR_IN_STEP_COMPUTATION)
+        # here too, rather than letting a raw CUDSSError crash the solve.
+        try
+            CUDSS.cudss(
+                "solve", kkt.scenario_solver.inner,
+                kkt.scenario_x_multi, kkt.scenario_b_multi;
+                asynchronous = kkt.scenario_solver.opt.cudss_asynchronous,
+            )
+        catch e
+            e isa CUDSS.CUDSSError ? throw(FactorizationException()) : rethrow(e)
+        end
 
         # D[:,:,k] = C_dk_red[:,:,k]' * tmp_red[:,:,k] (m×m) for all k in ONE batched
         # GEMM (each batch slice is independent, so this is the correct batched form —
