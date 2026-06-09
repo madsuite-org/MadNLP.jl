@@ -60,12 +60,22 @@ using MadNLPTests
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
+        # The equality constraints (lcon == ucon == 0) are relaxed into slacks, whose
+        # barrier weight σ_s ~ 1/μ² blows up near convergence and enters each condensed
+        # per-scenario block as σ_s·JᵀJ — a rank-1 term that drives cond → 1e16. cuDSS
+        # iterative refinement cannot refine a numerically singular system and raises
+        # CUDSS_STATUS_IR_FAILED, so pin the batched scenario solver to ir=0 (best-effort
+        # direct solve); MadNLP's outer Richardson refinement handles the residual.
+        gpu_opts = schur_opts(; ns, nv, nd, nc)
+        scenario_opt = MadNLP.default_options(CUDSSSolver)
+        scenario_opt.cudss_ir = 0
+        gpu_opts[:schur_scenario_opt_linear_solver] = scenario_opt
         gpu_result = madnlp(
             nlp_gpu;
             callback = MadNLP.SparseCallback,
             kkt_system = SchurComplementKKTSystem,
             linear_solver = CUDSSSolver,
-            kkt_options = schur_opts(; ns, nv, nd, nc),
+            kkt_options = gpu_opts,
             print_level = MadNLP.ERROR,
         )
 
@@ -189,6 +199,19 @@ using MadNLPTests
                 build_twostage_qp_general(zeros(Float64, n); ns, nv, nd, permute = true)
             qp_gpu, _, _, _ =
                 build_twostage_qp_general(CUDA.zeros(Float64, n); ns, nv, nd, permute = true)
+
+            # Pin both cuDSS solvers to ir=0: relaxed-equality slacks drive the condensed
+            # systems numerically singular near convergence (σ_s·JᵀJ, σ_s ~ 1/μ²), where
+            # cuDSS iterative refinement raises CUDSS_STATUS_IR_FAILED. Here the design-only
+            # equality lands in the first-stage Schur complement, so the complement solver
+            # is the one that goes singular (the scenario blocks can too). The best-effort
+            # direct solve plus MadNLP's outer Richardson refinement suffice.
+            scenario_opt = MadNLP.default_options(CUDSSSolver)
+            scenario_opt.cudss_ir = 0
+            complement_opt = MadNLP.default_options(CUDSSSolver)
+            complement_opt.cudss_ir = 0
+            kkt_opts[:schur_scenario_opt_linear_solver] = scenario_opt
+            kkt_opts[:schur_opt_linear_solver] = complement_opt
 
             ref = madnlp(qp_cpu; linear_solver = LapackCPUSolver, print_level = MadNLP.ERROR)
             gpu_result = madnlp(
