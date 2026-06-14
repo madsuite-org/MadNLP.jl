@@ -1,5 +1,10 @@
 @kwdef mutable struct RichardsonOptions <: AbstractOptions
     richardson_max_iter::Int = 10
+    # Minimum number of refinement passes BEYOND the initial backsolve, matching
+    # Ipopt's min_refinement_steps (=1). The first loop pass (ir==1) is the base
+    # solve; tolerance-based acceptance is gated until at least this many extra
+    # refinement passes have run.
+    richardson_min_iter::Int = 1
     richardson_tol::Float64
     richardson_acceptable_tol::Float64
 end
@@ -58,7 +63,10 @@ function solve_refine!(
             @debug(iterator.logger, @sprintf("%4i %6.2e", iterator.cnt.ir, residual_ratio))
             iterator.cnt.ir += 1
 
-            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
+            # ir==1 is the base solve; enforce >= richardson_min_iter refinement
+            # passes before accepting on the residual tolerance (Ipopt parity).
+            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) ||
+               (residual_ratio < iterator.opt.richardson_tol && iterator.cnt.ir > iterator.opt.richardson_min_iter)
                 break
             end
         end

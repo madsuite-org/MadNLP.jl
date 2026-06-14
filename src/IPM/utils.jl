@@ -170,7 +170,7 @@ function print_iter(solver::AbstractMadNLPSolver; is_resto=false)
         mu = log10(RR.mu_R)
     else
         inf_du = get_inf_du(solver)
-        inf_pr = get_inf_pr(solver)
+        inf_pr = get_inf_pr_orig(solver)   # original-NLP constraint violation (matches Ipopt display + termination)
         inf_compl = get_inf_compl(solver)
         mu = log10(get_mu(solver))
     end

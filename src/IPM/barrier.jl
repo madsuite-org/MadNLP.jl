@@ -23,10 +23,15 @@ function _update_monotone!(
             barrier.mu_linear_decrease_factor,
             barrier.mu_superlinear_decrease_power,
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
+        # Update mu FIRST so that tau and the barrier sub-problem error (used by
+        # the loop guard via get_inf_barrier) are evaluated at the NEW mu, matching
+        # Ipopt CalcNewMuAndTau (new_tau = max(tau_min, 1-new_mu)) and MadNLP's own
+        # _update_monotone_RR!. Previously both used the pre-decrease mu.
+        set_mu!(solver, mu_new)
         set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
         set_tau!(solver, get_tau(get_mu(solver), get_opt(solver).tau_min))
-        set_mu!(solver, mu_new)
         empty!(get_filter(solver))
         push!(get_filter(solver), (get_theta_max(solver), -Inf))
     end
@@ -64,6 +69,7 @@ function _update_monotone_RR!(
             barrier.mu_linear_decrease_factor,
             barrier.mu_superlinear_decrease_power,
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
         inf_compl_mu_R = get_inf_compl_R(
             get_x_lr(solver),

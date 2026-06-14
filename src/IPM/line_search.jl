@@ -116,7 +116,7 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
 
     if !switching_condition || !armijo_condition
         @trace(get_logger(solver),"Augmenting filter.")
-        augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta)
+        augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta,get_opt(solver).gamma_phi)
     end
 
     return LINESEARCH_SUCCEEDED
@@ -215,7 +215,7 @@ function filter_line_search_RR!(solver::AbstractMadNLPSolver{T}) where T
 
     if !switching_condition || !armijo_condition
         @trace(get_logger(solver),"Augmenting restoration phase filter.")
-        augment_filter!(RR.filter,theta_R_trial,varphi_R_trial,get_opt(solver).gamma_theta)
+        augment_filter!(RR.filter,theta_R_trial,varphi_R_trial,get_opt(solver).gamma_theta,get_opt(solver).gamma_phi)
     end
 
     return LINESEARCH_SUCCEEDED

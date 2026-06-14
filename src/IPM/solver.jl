@@ -44,7 +44,8 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
             get_y(solver),
             get_rhs(solver),
             get_ind_ineq(solver),
-            opt.nlp_scaling_max_gradient
+            opt.nlp_scaling_max_gradient,
+            opt.nlp_scaling_min_value
         )
     end
 
@@ -237,7 +238,7 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         # evaluate termination criteria
         @trace(get_logger(solver),"Evaluating termination criteria.")
         !(get_intermediate_callback(solver)(solver, UserCallbackRegular()) :: Bool) && return USER_REQUESTED_STOP
-        get_inf_total(solver) <= get_opt(solver).tol && return SOLVE_SUCCEEDED
+        is_converged(solver) && return SOLVE_SUCCEEDED
         get_inf_total(solver) <= get_opt(solver).acceptable_tol ?
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
