@@ -77,3 +77,16 @@ function is_converged(solver::AbstractMadNLPSolver{T}) where T
     (get_inf_compl(solver) <= opt.compl_inf_tol) || return false
     return true
 end
+
+# Ipopt-style acceptable-point test: same structure as is_converged but with the looser
+# acceptable_* component tolerances (IpOptErrorConvCheck.cpp:328). The obj-change term is
+# omitted (acceptable_obj_change_tol defaults to 1e20, i.e. vacuous).
+function is_acceptable(solver::AbstractMadNLPSolver{T}) where T
+    opt = get_opt(solver)
+    get_inf_total(solver) <= opt.acceptable_tol || return false
+    obj_scale = get_cb(solver).obj_scale[]
+    (get_inf_du(solver) / obj_scale <= opt.acceptable_dual_inf_tol) || return false
+    (get_inf_pr_orig(solver; unscaled=true) <= opt.acceptable_constr_viol_tol) || return false
+    (get_inf_compl(solver) <= opt.acceptable_compl_inf_tol) || return false
+    return true
+end

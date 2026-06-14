@@ -142,6 +142,10 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     dual_inf_tol::T = 1.0
     constr_viol_tol::T = 1e-4
     compl_inf_tol::T = 1e-4
+    # Ipopt-style acceptable-point component tolerances (IpOptErrorConvCheck.cpp:328).
+    acceptable_dual_inf_tol::T = 1e10
+    acceptable_constr_viol_tol::T = 1e-2
+    acceptable_compl_inf_tol::T = 1e-2
     max_iter::Int = 3000
     max_wall_time::T = 1e6
     s_max::T = 100.
