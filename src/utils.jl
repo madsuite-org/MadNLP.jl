@@ -118,6 +118,7 @@ const SubVector{Tv,VT, VI} = SubArray{Tv, 1, VT, Tuple{VI}, false}
     l::Int = 0 # backtracking line search counter
     t::Int = 0 # restoration phase counter
     ir::Int = 0 # iterative refinement counter
+    tiny_step::Bool = false # a tiny (relative) step was just taken (Ipopt tiny_step_flag)
 
     start_time::Float64
 

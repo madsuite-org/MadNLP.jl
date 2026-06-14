@@ -45,7 +45,12 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         varphi_trial= get_varphi(get_obj_val_trial(solver),get_x_trial_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_trial_ur(solver),get_mu(solver))
         armijo_condition = is_armijo(varphi_trial,varphi,get_opt(solver).eta_phi,get_alpha(solver),varphi_d)
 
-        small_search_norm && break
+        # Tiny relative step: accept it and flag it so the barrier update forces a mu decrease
+        # next iteration (Ipopt tiny_step_flag -> MonotoneMuUpdate).
+        if small_search_norm
+            get_cnt(solver).tiny_step = true
+            break
+        end
 
         set_ftype!(solver, get_ftype(
             get_filter(solver),theta,theta_trial,varphi,varphi_trial,switching_condition,armijo_condition,

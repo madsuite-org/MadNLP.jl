@@ -15,8 +15,12 @@ function _update_monotone!(
     sc::T
 ) where T
     set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
+    # A tiny step (Ipopt tiny_step_flag) forces one mu decrease even if the barrier sub-problem
+    # is not yet solved, to escape a stall. The flag is consumed and only forces the first pass.
+    tiny = get_cnt(solver).tiny_step
+    get_cnt(solver).tiny_step = false
     while (get_mu(solver) > max(barrier.mu_min, get_opt(solver).tol/10)) &&
-        (get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor*get_mu(solver))
+        (get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor*get_mu(solver) || tiny)
         mu_new = get_mu(
             get_mu(solver),
             barrier.mu_min,
@@ -34,6 +38,7 @@ function _update_monotone!(
         set_tau!(solver, get_tau(get_mu(solver), get_opt(solver).tau_min))
         empty!(get_filter(solver))
         push!(get_filter(solver), (get_theta_max(solver), -Inf))
+        tiny = false   # only the first decrease is forced by the tiny step
     end
     return
 end
