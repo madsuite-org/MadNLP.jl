@@ -1,3 +1,51 @@
+function WatchdogState(solver::AbstractMadNLPSolver{T}) where {T}
+    VT = typeof(get_y(solver))
+    return WatchdogState{T,VT}(
+        false, 0, 0,
+        similar(get_y(solver), length(full(get_x(solver)))),  # x_ref (primals + slacks)
+        similar(get_y(solver), get_m(solver)),                # y_ref
+        similar(get_y(solver), length(full(get_zl(solver)))), # zl_ref (full)
+        similar(get_y(solver), length(full(get_zu(solver)))), # zu_ref (full)
+        similar(get_y(solver), length(full(get_xl(solver)))), # xl_ref (full)
+        similar(get_y(solver), length(full(get_xu(solver)))), # xu_ref (full)
+        similar(get_y(solver), get_m(solver)),                # c_ref
+        zero(T),
+        similar(get_y(solver), length(full(get_d(solver)))),  # d_ref
+        Tuple{T,T}[],
+    )
+end
+
+# Save the full primal-dual iterate + search direction as the watchdog reference.
+function save_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogState)
+    copyto!(wd.x_ref,  full(get_x(solver)))
+    copyto!(wd.y_ref,  get_y(solver))
+    copyto!(wd.zl_ref, full(get_zl(solver)))
+    copyto!(wd.zu_ref, full(get_zu(solver)))
+    copyto!(wd.xl_ref, full(get_xl(solver)))
+    copyto!(wd.xu_ref, full(get_xu(solver)))
+    copyto!(wd.c_ref,  get_c(solver))
+    wd.obj_val_ref = get_obj_val(solver)
+    copyto!(wd.d_ref, full(get_d(solver)))
+    empty!(wd.filter); append!(wd.filter, get_filter(solver))
+    return
+end
+
+# Roll back to the saved reference iterate (bit-identical) and recompute the gradient.
+function restore_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogState)
+    copyto!(full(get_x(solver)),  wd.x_ref)
+    copyto!(get_y(solver),  wd.y_ref)
+    copyto!(full(get_zl(solver)), wd.zl_ref)
+    copyto!(full(get_zu(solver)), wd.zu_ref)
+    copyto!(full(get_xl(solver)), wd.xl_ref)
+    copyto!(full(get_xu(solver)), wd.xu_ref)
+    copyto!(get_c(solver),  wd.c_ref)
+    set_obj_val!(solver, wd.obj_val_ref)
+    copyto!(full(get_d(solver)), wd.d_ref)
+    empty!(get_filter(solver)); append!(get_filter(solver), wd.filter)
+    eval_grad_f_wrapper!(solver, get_f(solver), get_x(solver))
+    return
+end
+
 function RobustRestorer(solver::AbstractMadNLPSolver{T}) where {T}
 
     f_R = similar(get_y(solver), get_n(solver))

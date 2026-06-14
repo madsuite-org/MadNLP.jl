@@ -31,6 +31,24 @@ mutable struct RobustRestorer{T, VT}
     filter::Vector{Tuple{T,T}}
 end
 
+# Watchdog line-search state (Ipopt IpBacktrackingLineSearch.cpp). Saves the full
+# primal-dual iterate + search direction so a failed watchdog can roll back exactly.
+mutable struct WatchdogState{T, VT}
+    in_watchdog::Bool
+    shortened_iter::Int          # consecutive shortened-step counter
+    trial_iter::Int              # watchdog trial counter while in_watchdog
+    x_ref::VT                    # full(get_x): primals incl. slacks
+    y_ref::VT                    # get_y: constraint duals
+    zl_ref::VT                   # full(get_zl) snapshot
+    zu_ref::VT                   # full(get_zu) snapshot
+    xl_ref::VT                   # full(get_xl) snapshot (adjust_boundary! relaxes these each iter)
+    xu_ref::VT                   # full(get_xu) snapshot
+    c_ref::VT                    # get_c snapshot
+    obj_val_ref::T               # get_obj_val snapshot
+    d_ref::VT                    # full(get_d): saved search direction
+    filter::Vector{Tuple{T,T}}
+end
+
 abstract type AbstractInertiaCorrector end
 struct InertiaAuto <: AbstractInertiaCorrector end
 struct InertiaBased <: AbstractInertiaCorrector end

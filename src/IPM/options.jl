@@ -199,6 +199,13 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     kappa_sigma::T = 1e10
     barrier_tol_factor::T = 10.
     rho::T = 1000.
+    # Watchdog line search (Ipopt IpBacktrackingLineSearch.cpp). EXPERIMENTAL: default off.
+    # The success criterion still uses current-point acceptance rather than Ipopt's
+    # reference-relative progress test, so on some problems (e.g. POLAK6) a tentative full
+    # step blows up the iterate without recovering. Helps others (e.g. DJTL 1941->1524).
+    watchdog::Bool = false
+    watchdog_shortened_iter_trigger::Int = 10
+    watchdog_trial_iter_max::Int = 3
 
     # Barrier
     # mu_min by courtesy of Ipopt

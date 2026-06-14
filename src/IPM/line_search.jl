@@ -58,6 +58,15 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
             break
         end
 
+        # Watchdog: the step was NOT normally accepted; take the full (alpha_max) step as a
+        # tentative watchdog trial (ftype "w"). Watchdog success is the normal f/h accept above.
+        if get_opt(solver).watchdog && (wd = get_watchdog(solver)) !== nothing && wd.in_watchdog &&
+           get_cnt(solver).l == 1 && is_valid(get_c_trial(solver)) &&
+           isfinite(varphi_trial) && isfinite(theta_trial)
+            set_ftype!(solver, "w")
+            break
+        end
+
         if get_cnt(solver).l==1 && theta_trial>=theta
             if second_order_correction(
                 solver,alpha_max,theta,varphi,theta_trial,varphi_d,switching_condition
@@ -114,7 +123,9 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         get_cnt(solver).unsuccessful_iterate = 0
     end
 
-    if !switching_condition || !armijo_condition
+    # Do not augment the filter during a watchdog trial step (Ipopt defers this).
+    in_wd = get_opt(solver).watchdog && (wd = get_watchdog(solver)) !== nothing && wd.in_watchdog
+    if (!switching_condition || !armijo_condition) && !in_wd
         @trace(get_logger(solver),"Augmenting filter.")
         augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta,get_opt(solver).gamma_phi)
     end
