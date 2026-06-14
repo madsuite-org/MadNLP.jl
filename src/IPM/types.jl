@@ -51,7 +51,14 @@ end
 
 abstract type AbstractInertiaCorrector end
 struct InertiaAuto <: AbstractInertiaCorrector end
-struct InertiaBased <: AbstractInertiaCorrector end
+mutable struct InertiaBased <: AbstractInertiaCorrector
+    # Ipopt-style Jacobian-degeneracy state (IpPDPerturbationHandler): once the dual block has
+    # needed regularization for `degen_iters_max` iterations the Jacobian is declared degenerate
+    # and delta_c is applied proactively (without advancing the Hessian perturbation delta_w).
+    degen_iters::Int
+    jac_degenerate::Bool
+end
+InertiaBased() = InertiaBased(0, false)
 struct InertiaIgnore <: AbstractInertiaCorrector end
 struct InertiaFree{
     T,
