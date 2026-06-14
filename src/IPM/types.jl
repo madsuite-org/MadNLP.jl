@@ -45,6 +45,8 @@ mutable struct WatchdogState{T, VT}
     xu_ref::VT                   # full(get_xu) snapshot
     c_ref::VT                    # get_c snapshot
     obj_val_ref::T               # get_obj_val snapshot
+    theta_ref::T                 # constraint violation at the reference (for reference-relative success)
+    varphi_ref::T                # barrier objective at the reference
     d_ref::VT                    # full(get_d): saved search direction
     filter::Vector{Tuple{T,T}}
 end

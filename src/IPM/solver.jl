@@ -242,7 +242,10 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         is_acceptable(solver) ?
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
-        get_inf_total(solver) >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
+        # Skip the diverging-iterates test while a watchdog is active: tentative full steps may
+        # temporarily blow up the iterate, and the watchdog will roll back to the reference.
+        (!(get_opt(solver).watchdog && (wdg = get_watchdog(solver)) !== nothing && wdg.in_watchdog)) &&
+            get_inf_total(solver) >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
@@ -289,14 +292,24 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
                 # A normally-acceptable step was found -> watchdog succeeded; keep the progress.
                 wd.in_watchdog = false
             elseif status == LINESEARCH_SUCCEEDED
-                # ftype == "w": a tentative relaxed full step.
-                wd.trial_iter += 1
-                if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
-                    restore_watchdog_iterate!(solver, wd)        # roll back to reference
-                    wd.in_watchdog = false
-                    status = filter_line_search!(solver)         # normal line search from reference
+                # ftype == "w": a tentative relaxed full step. Watchdog SUCCESS only if it makes
+                # sufficient progress RELATIVE TO THE REFERENCE point (Ipopt's reference-relative
+                # acceptance) -- this rejects a step that merely cut the objective while blowing up
+                # infeasibility, so the iterate cannot run away to a bad point.
+                theta_t = get_theta(get_c_trial(solver))
+                varphi_t = get_varphi(get_obj_val_trial(solver),get_x_trial_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_trial_ur(solver),get_mu(solver))
+                if is_filter_acceptable(get_filter(solver), theta_t, varphi_t) &&
+                   is_sufficient_progress(theta_t, wd.theta_ref, get_opt(solver).gamma_theta, varphi_t, wd.varphi_ref, get_opt(solver).gamma_phi, has_constraints(solver))
+                    wd.in_watchdog = false                       # progress vs reference -> success
+                else
+                    wd.trial_iter += 1
+                    if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
+                        restore_watchdog_iterate!(solver, wd)    # roll back to reference
+                        wd.in_watchdog = false
+                        status = filter_line_search!(solver)     # normal line search from reference
+                    end
+                    # else: tentatively accept the full step, stay in watchdog
                 end
-                # else: tentatively accept the full step, stay in watchdog
             else
                 restore_watchdog_iterate!(solver, wd)            # eval error / restoration request
                 wd.in_watchdog = false

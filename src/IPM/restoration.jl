@@ -9,7 +9,8 @@ function WatchdogState(solver::AbstractMadNLPSolver{T}) where {T}
         similar(get_y(solver), length(full(get_xl(solver)))), # xl_ref (full)
         similar(get_y(solver), length(full(get_xu(solver)))), # xu_ref (full)
         similar(get_y(solver), get_m(solver)),                # c_ref
-        zero(T),
+        zero(T),                                              # obj_val_ref
+        zero(T), zero(T),                                     # theta_ref, varphi_ref
         similar(get_y(solver), length(full(get_d(solver)))),  # d_ref
         Tuple{T,T}[],
     )
@@ -25,6 +26,8 @@ function save_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogState)
     copyto!(wd.xu_ref, full(get_xu(solver)))
     copyto!(wd.c_ref,  get_c(solver))
     wd.obj_val_ref = get_obj_val(solver)
+    wd.theta_ref = get_theta(get_c(solver))
+    wd.varphi_ref = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
     copyto!(wd.d_ref, full(get_d(solver)))
     empty!(wd.filter); append!(wd.filter, get_filter(solver))
     return
