@@ -221,3 +221,79 @@ end
         @inbounds CUDACore.@atomic nzval[fill_nzpos[a, b]] += -D[a, b, k]
     end
 end
+
+# ===== Deterministic (atomic-free) condensation scatters ========================
+# The atomic-add condensation scatters above are correct but their summation ORDER is
+# nondeterministic. With the RelaxEquality condensation weights Σ ≈ 1e8, that reorders the
+# accumulation enough to perturb the assembled blocks by ~1e-7 run-to-run; amplified by the
+# (legitimate) KKT conditioning this tips the IPM step-acceptance residual across its
+# threshold → nondeterministic convergence. These deterministic variants assign ONE thread
+# per output slot, which sums that slot's contributions in a fixed (sorted) order with a plain
+# `+=` (no two threads touch the same slot within a launch, and launches are sequential), so
+# the assembled blocks are reproducible run-to-run — matching the deterministic CPU assembly.
+#
+# `segstart`/`segslot` describe, for one target array, the contiguous contribution ranges per
+# slot in a stable-by-slot ordering: segment `s` owns sorted contributions
+# `segstart[s] : segstart[s+1]-1`, all targeting linear index `segslot[s]`.
+
+# Linear scatter value = src[src_idx] → any target nzval, deterministic (one thread per slot).
+@kernel function _det_lin_scatter!(
+        nzval,
+        @Const(src),
+        @Const(src_idx),
+        @Const(segstart),
+        @Const(segslot),
+    )
+    s = @index(Global)
+    @inbounds begin
+        acc = zero(eltype(nzval))
+        for j in segstart[s]:(segstart[s + 1] - 1)
+            acc += src[src_idx[j]]
+        end
+        nzval[segslot[s]] += acc
+    end
+end
+
+# Inequality condensation (Σ-amplified) → any target nzval (A_kk / C_dk / S), deterministic.
+@kernel function _det_quad_scatter!(
+        nzval,
+        @Const(jac),
+        @Const(diag_buffer),
+        @Const(jc1),
+        @Const(jc2),
+        @Const(buf),
+        @Const(segstart),
+        @Const(segslot),
+    )
+    s = @index(Global)
+    @inbounds begin
+        acc = zero(eltype(nzval))
+        for j in segstart[s]:(segstart[s + 1] - 1)
+            acc += diag_buffer[buf[j]] * jac[jc1[j]] * jac[jc2[j]]
+        end
+        nzval[segslot[s]] += acc
+    end
+end
+
+# Schur reduction block → CSC nzval, deterministic: one thread per lower-triangle (a,b) slot
+# sums -D[a,b,k] over the ns scenarios in fixed order.
+@kernel function _det_schur_block!(
+        nzval,
+        @Const(D),
+        @Const(fill_nzpos),
+        @Const(m),
+        @Const(ns),
+    )
+    i = @index(Global)
+    a = (i - 1) % m + 1
+    b = (i - 1) ÷ m + 1
+    if a >= b
+        @inbounds begin
+            acc = zero(eltype(nzval))
+            for k in 1:ns
+                acc += -D[a, b, k]
+            end
+            nzval[fill_nzpos[a, b]] += acc
+        end
+    end
+end

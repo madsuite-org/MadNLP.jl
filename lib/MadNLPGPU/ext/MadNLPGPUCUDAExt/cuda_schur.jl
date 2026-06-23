@@ -162,6 +162,10 @@ struct GPUSchurComplementKKTSystem{
     # sides per scenario, ns batch). Zero-copy onto the `(blk, m, ns)` buffers.
     scenario_x_multi::CUDSS.CudssMatrix{T}
     scenario_b_multi::CUDSS.CudssMatrix{T}
+
+    # Lazily-built deterministic condensation-scatter structure (NamedTuple of _DetScatter /
+    # _DetLinScatter), memoized here so it is owned by — and freed with — the kkt.
+    det_cache::Base.RefValue{Any}
 end
 
 # cuDSS sparse-LDL is less accurate than a direct factorization. The relaxed Schur
@@ -186,6 +190,105 @@ function _default_schur_cudss_options()
     opt.cudss_ir = SCHUR_DEFAULT_CUDSS_IR
     opt.cudss_ir_tol = 0.0  # disarm cuDSS 0.8's IR_FAILED gate; keep the refinement steps
     return opt
+end
+
+# --- Deterministic condensation scatter: sorted-by-slot segment structure -------------
+# The Σ-amplified inequality-condensation scatters were atomic-add (nondeterministic
+# summation order). For a given target array, group the contributions by their linear target
+# slot so each slot can be summed by a single thread in a fixed order (see _det_quad_scatter!
+# in kernels_schur.jl). Built once per kkt from the static index maps and cached.
+struct _DetScatter{VI}      # quadratic condensation: value = diag_buffer*jac*jac
+    jc1::VI
+    jc2::VI
+    buf::VI
+    segstart::VI
+    segslot::VI
+end
+struct _DetLinScatter{VI}   # linear scatter: value = src[src_idx]
+    src_idx::VI
+    segstart::VI
+    segslot::VI
+end
+
+# Build the contiguous per-slot segment boundaries for a stable sort of `slots`.
+function _segments(slots::Vector{Int})
+    perm = sortperm(slots)
+    s = slots[perm]
+    segslot = Int[]; segstart = Int[]
+    @inbounds for t in eachindex(s)
+        if t == 1 || s[t] != s[t - 1]
+            push!(segslot, s[t]); push!(segstart, t)
+        end
+    end
+    push!(segstart, length(s) + 1)
+    return perm, segstart, segslot
+end
+
+function _segment_scatter(slots::Vector{Int}, jc1::Vector{Int}, jc2::Vector{Int}, buf::Vector{Int})
+    if isempty(slots)
+        z = CuVector{Int}(undef, 0)
+        return _DetScatter(z, z, z, CuVector{Int}([1]), z)
+    end
+    perm, segstart, segslot = _segments(slots)
+    return _DetScatter(
+        CuVector{Int}(jc1[perm]), CuVector{Int}(jc2[perm]), CuVector{Int}(buf[perm]),
+        CuVector{Int}(segstart), CuVector{Int}(segslot),
+    )
+end
+
+function _segment_lin_scatter(slots::Vector{Int}, src_idx::Vector{Int})
+    if isempty(slots)
+        z = CuVector{Int}(undef, 0)
+        return _DetLinScatter(z, CuVector{Int}([1]), z)
+    end
+    perm, segstart, segslot = _segments(slots)
+    return _DetLinScatter(CuVector{Int}(src_idx[perm]), CuVector{Int}(segstart), CuVector{Int}(segslot))
+end
+
+# Build the (A_kk, C_dk, S) deterministic scatter structures for `kkt` from its static index
+# maps. Computed once and memoized in `kkt.det_cache` (a Ref field owned by the kkt, so it is
+# freed with the kkt — no global cache, no leak).
+function _compute_det_scatter(kkt::GPUSchurComplementKKTSystem)
+    ns = kkt.ns; nnzb = kkt.nnz_per_scenario; blk = kkt.blk_size; m = kkt.m
+    # ineq → A_kk: linear slot into the batched nzVal = (k-1)*nnzb + nzpos
+    n_iA = kkt.n_per_s_ineq_Akk
+    nz = Array(kkt.gpu_ineq_Akk_nzpos)
+    slotA = n_iA > 0 ? Int[((i - 1) ÷ n_iA) * nnzb + nz[i] for i in eachindex(nz)] : Int[]
+    Akk = _segment_scatter(slotA,
+        Array(kkt.gpu_ineq_Akk_jcoo1), Array(kkt.gpu_ineq_Akk_jcoo2), Array(kkt.gpu_ineq_Akk_bufidx))
+    # ineq → C_dk: linear slot into (blk × m × ns) = v + (d-1)*blk + (k-1)*blk*m
+    n_iC = kkt.n_per_s_ineq_Cdk
+    vv = Array(kkt.gpu_ineq_Cdk_col); dd = Array(kkt.gpu_ineq_Cdk_row)
+    slotC = n_iC > 0 ? Int[vv[i] + (dd[i] - 1) * blk + ((i - 1) ÷ n_iC) * blk * m for i in eachindex(vv)] : Int[]
+    Cdk = _segment_scatter(slotC,
+        Array(kkt.gpu_ineq_Cdk_jcoo_d), Array(kkt.gpu_ineq_Cdk_jcoo_v), Array(kkt.gpu_ineq_Cdk_bufidx))
+    # ineq → S: merge scenario + design-only contributions, slot = nzpos
+    slotS = vcat(Array(kkt.schur_ineq_S_nzpos), Array(kkt.schur_design_ineq_S_nzpos))
+    j1S = vcat(Array(kkt.schur_ineq_S_jcoo1), Array(kkt.schur_design_ineq_S_jcoo1))
+    j2S = vcat(Array(kkt.schur_ineq_S_jcoo2), Array(kkt.schur_design_ineq_S_jcoo2))
+    bfS = vcat(Array(kkt.schur_ineq_S_bufidx), Array(kkt.schur_design_ineq_S_bufidx))
+    S = _segment_scatter(slotS, j1S, j2S, bfS)
+
+    # Hessian scatters are ALSO large-valued (constraint Hessian × the relaxed-equality duals
+    # λ) and the Hessian COO has many duplicates → the non-atomic `+=` races. Make them
+    # deterministic linear scatters too. (pr_diag scatters target distinct diagonal slots with
+    # no collision, so they are already deterministic and left as-is.)
+    n_hA = kkt.n_per_s_hess_Akk
+    hnz = Array(kkt.gpu_hess_Akk_nzpos)
+    slotHA = n_hA > 0 ? Int[((i - 1) ÷ n_hA) * nnzb + hnz[i] for i in eachindex(hnz)] : Int[]
+    hessAkk = _segment_lin_scatter(slotHA, Array(kkt.gpu_hess_Akk_coo))
+    n_hC = kkt.n_per_s_hess_Cdk
+    hv = Array(kkt.gpu_hess_Cdk_col); hd = Array(kkt.gpu_hess_Cdk_row)
+    slotHC = n_hC > 0 ? Int[hv[i] + (hd[i] - 1) * blk + ((i - 1) ÷ n_hC) * blk * m for i in eachindex(hv)] : Int[]
+    hessCdk = _segment_lin_scatter(slotHC, Array(kkt.gpu_hess_Cdk_coo))
+    hessS = _segment_lin_scatter(Array(kkt.schur_hess_nzpos), Array(kkt.schur_hess_coo))
+
+    return (Akk = Akk, Cdk = Cdk, S = S, hessAkk = hessAkk, hessCdk = hessCdk, hessS = hessS)
+end
+
+function _get_det_scatter(kkt::GPUSchurComplementKKTSystem)
+    kkt.det_cache[] === nothing && (kkt.det_cache[] = _compute_det_scatter(kkt))
+    return kkt.det_cache[]
 end
 
 # --- Dispatch: GPU path when callback uses CuVector ---
@@ -408,6 +511,7 @@ function MadNLP.create_kkt_system(
         ns_ineq, CuVector{Int}(cpu_ind_ineq), CuVector{Int}(cpu_ind_lb), CuVector{Int}(cpu_ind_ub),
         scenario_solver, schur_solver,
         scenario_x_multi, scenario_b_multi,
+        Base.RefValue{Any}(nothing),
     )
 end
 
@@ -461,6 +565,7 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
     nzval = kkt.A_kk_batched.nzVal
     nnz_s = kkt.nnz_per_scenario
     Snz = kkt.schur_csc.nzVal
+    det = _get_det_scatter(kkt)   # deterministic condensation scatter (sorted by target slot)
 
     # Compute condensing diagonal for inequalities
     if kkt.n_ineq > 0
@@ -474,12 +579,13 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
     fill!(nzval, zero(T))
     fill!(kkt.C_dk_batched, zero(T))
 
-    # Scatter design-design Hessian (lower-only) and pr_diag diagonal into the
-    # sparse Schur nzval. Atomic: overlapping contributions can share an nzval slot.
-    n_hess_S = length(kkt.schur_hess_coo)
-    if n_hess_S > 0
-        _scatter_to_csc_atomic!(backend)(
-            Snz, kkt.hess, kkt.schur_hess_coo, kkt.schur_hess_nzpos; ndrange = n_hess_S,
+    # Scatter design-design Hessian (deterministic) and pr_diag diagonal into the sparse
+    # Schur nzval. Design Hessian is large-valued + has duplicates → deterministic linear
+    # scatter; pr_diag targets distinct diagonal slots → already race-free, left atomic.
+    if length(det.hessS.segslot) > 0
+        _det_lin_scatter!(backend)(
+            Snz, kkt.hess, det.hessS.src_idx, det.hessS.segstart, det.hessS.segslot;
+            ndrange = length(det.hessS.segslot),
         )
     end
     if nd > 0
@@ -488,23 +594,19 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         )
     end
 
-    # Scatter Hessian diagonal → A_kk (flattened maps)
-    n_hA = kkt.n_per_s_hess_Akk
-    if n_hA > 0
-        _scatter_to_Akk_batched!(backend)(
-            nzval, kkt.hess, kkt.gpu_hess_Akk_coo, kkt.gpu_hess_Akk_nzpos,
-            nnz_s, n_hA;
-            ndrange=ns * n_hA,
+    # Scatter Hessian diagonal → A_kk (deterministic linear scatter)
+    if length(det.hessAkk.segslot) > 0
+        _det_lin_scatter!(backend)(
+            nzval, kkt.hess, det.hessAkk.src_idx, det.hessAkk.segstart, det.hessAkk.segslot;
+            ndrange = length(det.hessAkk.segslot),
         )
     end
 
-    # Scatter Hessian coupling → C_dk
-    n_hC = kkt.n_per_s_hess_Cdk
-    if n_hC > 0
-        _scatter_to_Cdk_batched!(backend)(
-            kkt.C_dk_batched, kkt.hess, kkt.gpu_hess_Cdk_coo,
-            kkt.gpu_hess_Cdk_col, kkt.gpu_hess_Cdk_row, n_hC;
-            ndrange=ns * n_hC,
+    # Scatter Hessian coupling → C_dk (deterministic linear scatter)
+    if length(det.hessCdk.segslot) > 0
+        _det_lin_scatter!(backend)(
+            reshape(kkt.C_dk_batched, :), kkt.hess, det.hessCdk.src_idx, det.hessCdk.segstart, det.hessCdk.segslot;
+            ndrange = length(det.hessCdk.segslot),
         )
     end
 
@@ -518,49 +620,29 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         )
     end
 
-    # Inequality condensation → A_kk
-    n_iA = kkt.n_per_s_ineq_Akk
-    if n_iA > 0
-        _ineq_condense_Akk_kernel!(backend)(
+    # Inequality condensation (Σ-amplified) → A_kk / C_dk / S, DETERMINISTIC (one thread per
+    # output slot, fixed-order sum). Replaces the atomic-add scatters whose nondeterministic
+    # summation order perturbed the blocks ~1e-7 run-to-run and made convergence a roulette.
+    if length(det.Akk.segslot) > 0
+        _det_quad_scatter!(backend)(
             nzval, kkt.jac, kkt.diag_buffer,
-            kkt.gpu_ineq_Akk_nzpos, kkt.gpu_ineq_Akk_jcoo1,
-            kkt.gpu_ineq_Akk_jcoo2, kkt.gpu_ineq_Akk_bufidx,
-            nnz_s, n_iA;
-            ndrange=ns * n_iA,
+            det.Akk.jc1, det.Akk.jc2, det.Akk.buf, det.Akk.segstart, det.Akk.segslot;
+            ndrange = length(det.Akk.segslot),
         )
     end
-
-    # Inequality condensation → C_dk
-    n_iC = kkt.n_per_s_ineq_Cdk
-    if n_iC > 0
-        _ineq_condense_Cdk_kernel!(backend)(
-            kkt.C_dk_batched, kkt.jac, kkt.diag_buffer,
-            kkt.gpu_ineq_Cdk_col, kkt.gpu_ineq_Cdk_row,
-            kkt.gpu_ineq_Cdk_jcoo_d, kkt.gpu_ineq_Cdk_jcoo_v,
-            kkt.gpu_ineq_Cdk_bufidx, n_iC;
-            ndrange=ns * n_iC,
+    if length(det.Cdk.segslot) > 0
+        _det_quad_scatter!(backend)(
+            reshape(kkt.C_dk_batched, :), kkt.jac, kkt.diag_buffer,
+            det.Cdk.jc1, det.Cdk.jc2, det.Cdk.buf, det.Cdk.segstart, det.Cdk.segslot;
+            ndrange = length(det.Cdk.segslot),
         )
     end
-
-    # Inequality condensation → Schur nzval (scenario, flattened lower-only over all scenarios).
-    n_iS = length(kkt.schur_ineq_S_nzpos)
-    if n_iS > 0
-        _ineq_condense_csc_kernel!(backend)(
+    # Scenario + design-only inequalities → S, merged into one deterministic scatter.
+    if length(det.S.segslot) > 0
+        _det_quad_scatter!(backend)(
             Snz, kkt.jac, kkt.diag_buffer,
-            kkt.schur_ineq_S_nzpos, kkt.schur_ineq_S_jcoo1,
-            kkt.schur_ineq_S_jcoo2, kkt.schur_ineq_S_bufidx;
-            ndrange = n_iS,
-        )
-    end
-
-    # Design-only inequalities: condense into S (lower-only) in the sparse nzval.
-    n_diS = length(kkt.schur_design_ineq_S_nzpos)
-    if n_diS > 0
-        _ineq_condense_csc_kernel!(backend)(
-            Snz, kkt.jac, kkt.diag_buffer,
-            kkt.schur_design_ineq_S_nzpos, kkt.schur_design_ineq_S_jcoo1,
-            kkt.schur_design_ineq_S_jcoo2, kkt.schur_design_ineq_S_bufidx;
-            ndrange = n_diS,
+            det.S.jc1, det.S.jc2, det.S.buf, det.S.segstart, det.S.segslot;
+            ndrange = length(det.S.segslot),
         )
     end
 
@@ -598,8 +680,9 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
             'T', 'N', one(T), kkt.C_dk_batched, kkt.tmp_blk_nd_batched,
             zero(T), kkt.schur_block_batched,
         )
-        _scatter_schur_block!(backend)(
-            Snz, kkt.schur_block_batched, kkt.schur_fill_nzpos, m, ns; ndrange = m * m * ns,
+        # Deterministic: one thread per lower-triangle (a,b) slot sums -D[a,b,k] over k.
+        _det_schur_block!(backend)(
+            Snz, kkt.schur_block_batched, kkt.schur_fill_nzpos, m, ns; ndrange = m * m,
         )
     end
 
