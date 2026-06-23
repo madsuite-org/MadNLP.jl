@@ -184,6 +184,7 @@ const SCHUR_DEFAULT_CUDSS_IR = 5
 function _default_schur_cudss_options()
     opt = MadNLP.default_options(CUDSSSolver)
     opt.cudss_ir = SCHUR_DEFAULT_CUDSS_IR
+    opt.cudss_ir_tol = 0.0  # disarm cuDSS 0.8's IR_FAILED gate; keep the refinement steps
     return opt
 end
 

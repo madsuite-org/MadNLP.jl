@@ -4,7 +4,12 @@ MadNLP.@kwdef mutable struct CudssSolverOptions <: MadNLP.AbstractOptions
     cudss_ordering::ORDERING = DEFAULT_ORDERING
     cudss_perm::Vector{Cint} = Cint[]
     cudss_ir::Int = 0
-    cudss_ir_tol::Float64 = 1.0e-8  # currently ignored by cuDSS
+    # cuDSS 0.8 newly honors CUDSS_CONFIG_IR_TOL: with ir_n_steps>0 AND ir_tol>0 it arms a
+    # hard convergence gate and returns CUDSS_STATUS_IR_FAILED when IR can't reach ir_tol in
+    # the step budget (pre-0.8 it was ignored). The near-singular Schur blocks never reach a
+    # tight tol in a few steps, so keep ir_tol=0.0 to disarm the gate while still running the
+    # (load-bearing) ir_n_steps refinement passes. See case9-twostage-findings.md.
+    cudss_ir_tol::Float64 = 0.0
     cudss_pivot_threshold::Float64 = 0.0
     cudss_pivot_epsilon::Float64 = 0.0
     cudss_matching_alg::String = "default"
