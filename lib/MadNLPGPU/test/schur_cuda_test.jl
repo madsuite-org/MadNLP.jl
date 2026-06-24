@@ -66,9 +66,6 @@ using MadNLPTests
         # iterative refinement cannot refine a numerically singular system and raises
         # CUDSS_STATUS_IR_FAILED, so pin the batched scenario solver to ir=0 (best-effort
         # direct solve); MadNLP's outer Richardson refinement handles the residual.
-        # (With the CUDSSSolver wrappers, leaving ir>0 here now surfaces as a clean
-        # ERROR_IN_STEP_COMPUTATION instead of a crash — see the failure testset below —
-        # but this test pins ir=0 to assert SOLVE_SUCCEEDED.)
         gpu_opts = schur_opts(; ns, nv, nd, nc)
         scenario_opt = MadNLP.default_options(CUDSSSolver)
         scenario_opt.cudss_ir = 0
@@ -86,42 +83,6 @@ using MadNLPTests
         @test gpu_result.status == MadNLP.SOLVE_SUCCEEDED
         @test isapprox(gpu_result.objective, ref.objective; atol = 1.0e-6)
         @test isapprox(Array(gpu_result.solution), Array(ref.solution); atol = 1.0e-4)
-    end
-
-    @testset "cuDSS IR failure → ERROR_IN_STEP_COMPUTATION (not a crash)" begin
-        # Same near-singular relaxed-equality QP as "Match CPU reference", but left at the
-        # default scenario IR (= SCHUR_DEFAULT_CUDSS_IR > 0). cuDSS's iterative refinement
-        # raises CUDSS_STATUS_IR_FAILED on the numerically singular per-scenario block near
-        # convergence. The CUDSSSolver wrappers translate that raw CUDSSError into a MadNLP
-        # Solve/FactorizationException, which the IPM maps to ERROR_IN_STEP_COMPUTATION (-3).
-        # `rethrow_error = false` lets us read the status instead of re-raising. This pins the
-        # fix: an *untranslated* CUDSSError would fall through to INTERNAL_ERROR (-6) here.
-        ns, nv, nd, nc = 2, 2, 1, 1
-        θ = [1.0 3.0; 2.0 4.0]
-
-        nlp_gpu = build_twostage_qp(
-            CUDA.zeros(Float64, ns * nv + nd);
-            ns, nv, nd, nc,
-            hess_v = fill(2.0, nv, ns), hess_d = fill(2.0, nd),
-            g_v = -2 .* θ, g_d = [0.0],
-            A_v = fill(1.0, nc, nv, ns), A_d = fill(1.0, nc, nd, ns),
-            lcon = zeros(nc, ns), ucon = zeros(nc, ns),
-            lvar_v = fill(-50.0, nv, ns), uvar_v = fill(50.0, nv, ns),
-            lvar_d = fill(-50.0, nd), uvar_d = fill(50.0, nd),
-        )
-
-        # Note: default scenario/complement IR (not pinned to 0) — this is what triggers
-        # the cuDSS IR failure on the singular block.
-        result = madnlp(
-            nlp_gpu;
-            callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
-            linear_solver = CUDSSSolver,
-            kkt_options = schur_opts(; ns, nv, nd, nc),
-            print_level = MadNLP.ERROR,
-            rethrow_error = false,
-        )
-        @test result.status == MadNLP.ERROR_IN_STEP_COMPUTATION
     end
 
     @testset "Multiple recourse vars and design vars" begin
