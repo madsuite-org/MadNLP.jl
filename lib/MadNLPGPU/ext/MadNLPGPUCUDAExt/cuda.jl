@@ -9,7 +9,9 @@ function MadNLP.MadNLPOptions{T}(
         kkt_system = dense_callback ? MadNLP.DenseCondensedKKTSystem : MadNLP.SparseCondensedKKTSystem,
         linear_solver = dense_callback ? LapackCUDASolver : CUDSSSolver,
         tol = MadNLP.get_tolerance(T, kkt_system),
-        bound_relax_factor = (kkt_system == MadNLP.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
+        # See MadNLP.MadNLPOptions in src/IPM/options.jl for why condensed systems (Sparse + Schur)
+        # relax by `tol` while the rest use 1e-8. Kept identical on CPU / CUDA / ROCm.
+        bound_relax_factor = (kkt_system <: Union{MadNLP.SparseCondensedKKTSystem, MadNLP.SchurComplementKKTSystem}) ? tol : T(1.0e-8),
     ) where {T, VT <: CuVector{T}}
     return MadNLP.MadNLPOptions{T}(
         tol = tol,

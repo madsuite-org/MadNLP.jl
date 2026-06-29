@@ -224,13 +224,21 @@ function MadNLPOptions{T}(
     callback = dense_callback ? DenseCallback : SparseCallback,
     kkt_system = dense_callback ? DenseCondensedKKTSystem : SparseKKTSystem,
     linear_solver = dense_callback ? LapackCPUSolver : default_sparse_solver(nlp),
-    tol = get_tolerance(T,kkt_system)
+    tol = get_tolerance(T,kkt_system),
+    # Condensed KKT systems (Sparse + Schur) relax equalities into the barrier — the SAME
+    # systems selected for RelaxEquality below. Flooring those slacks at a tiny 1e-8 box blows up
+    # the condensation weights z/s and ruins the conditioning of the (SPD) factorization, so relax
+    # by `tol` there (feasible to ~tol, but well-conditioned). Non-condensed systems keep equalities
+    # exact and use the tight 1e-8. Must match the CUDA / ROCm extension constructors so a problem
+    # behaves identically on CPU and GPU.
+    bound_relax_factor = (kkt_system <: Union{SparseCondensedKKTSystem, SchurComplementKKTSystem}) ? tol : T(1.0e-8),
 ) where {T}
     return MadNLPOptions{T}(
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,
         linear_solver = linear_solver,
+        bound_relax_factor = bound_relax_factor,
     )
 end
 

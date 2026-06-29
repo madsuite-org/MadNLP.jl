@@ -60,11 +60,16 @@ using MadNLPTests
         end
 
         ref = madnlp(mk(); linear_solver = LapackCPUSolver, print_level = MadNLP.ERROR)
+        # The condensed default `bound_relax_factor = tol` (= 1e-4 here) relaxes the
+        # EQUALITY constraint into a ±2e-4 box, landing ~2·tol off the exact-equality
+        # reference — this testset compares against ground truth, so pin the tight
+        # relaxation explicitly.
         schur = madnlp(
             mk();
             kkt_system = SchurComplementKKTSystem,
             linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
+            bound_relax_factor = 1.0e-8,
             print_level = MadNLP.ERROR,
         )
 
@@ -236,11 +241,15 @@ using MadNLPTests
             qp_ref = build_twostage_qp_general(; ns, nv, nd, permute = true)[1]
 
             ref = madnlp(qp_ref; linear_solver = LapackCPUSolver, print_level = MadNLP.ERROR)
+            # Pin the tight relaxation for the ground-truth compare (see "Match SparseKKT
+            # reference" above): the condensed default relaxes the design-only equalities
+            # by ±2·tol.
             schur = madnlp(
                 qp;
                 kkt_system = SchurComplementKKTSystem,
                 linear_solver = MadNLP.MumpsSolver,
                 kkt_options = kkt_opts,
+                bound_relax_factor = 1.0e-8,
                 print_level = MadNLP.ERROR,
             )
 

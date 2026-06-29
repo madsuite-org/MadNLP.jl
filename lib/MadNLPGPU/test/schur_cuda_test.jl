@@ -214,12 +214,17 @@ using MadNLPTests
             kkt_opts[:schur_opt_linear_solver] = complement_opt
 
             ref = madnlp(qp_cpu; linear_solver = LapackCPUSolver, print_level = MadNLP.ERROR)
+            # The condensed default `bound_relax_factor = tol` (= 1e-4 here) relaxes the
+            # design-only EQUALITIES into ±2e-4 boxes; the optimizer exploits that slack and
+            # lands ~2·tol off the exact-equality reference — this testset compares against
+            # ground truth, so pin the tight relaxation explicitly.
             gpu_result = madnlp(
                 qp_gpu;
                 callback = MadNLP.SparseCallback,
                 kkt_system = SchurComplementKKTSystem,
                 linear_solver = CUDSSSolver,
                 kkt_options = kkt_opts,
+                bound_relax_factor = 1.0e-8,
                 print_level = MadNLP.ERROR,
             )
 
