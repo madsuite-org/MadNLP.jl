@@ -59,7 +59,7 @@ MadNLP.introduce(M::LapackCUDASolver) = "cuSOLVER v$(cuSOLVER.version()) -- ($(M
 # cuSOLVER's `sytrf` produces the same LAPACK-format Bunch–Kaufman factorization
 # (lower triangle + LAPACK pivot convention) as the CPU path, so the inertia can
 # be read off the host copy of the factor and pivots. Without this, an indefinite
-# dense block (e.g. the bordered first-stage block of `SchurComplementKKTSystem`
+# dense block (e.g. the bordered first-stage block of `SchurComplementCondensedKKTSystem`
 # with design-only constraints) falls back to inertia-free regularization, which
 # over-regularizes and stalls the IPM. The host copy is O(n²) on a small dense
 # block — negligible next to the GPU factorization.

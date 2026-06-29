@@ -3,7 +3,7 @@ using LinearAlgebra
 using MadNLP
 using MadNLPTests
 
-@testset "SchurComplementKKTSystem" begin
+@testset "SchurComplementCondensedKKTSystem" begin
 
     @testset "Basic convergence — quadratic with coupling" begin
         # min sum_k (v_k - θ_k)^2 + (d - 1)^2
@@ -26,7 +26,7 @@ using MadNLPTests
 
         result = madnlp(
             qp;
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
@@ -66,7 +66,7 @@ using MadNLPTests
         # relaxation explicitly.
         schur = madnlp(
             mk();
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             bound_relax_factor = 1.0e-8,
@@ -103,7 +103,7 @@ using MadNLPTests
 
         result = madnlp(
             qp;
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
@@ -130,7 +130,7 @@ using MadNLPTests
 
         result = madnlp(
             qp;
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
@@ -246,7 +246,7 @@ using MadNLPTests
             # by ±2·tol.
             schur = madnlp(
                 qp;
-                kkt_system = SchurComplementKKTSystem,
+                kkt_system = SchurComplementCondensedKKTSystem,
                 linear_solver = MadNLP.MumpsSolver,
                 kkt_options = kkt_opts,
                 bound_relax_factor = 1.0e-8,

@@ -7,7 +7,7 @@ using MadNLP
 using MadNLPGPU
 using MadNLPTests
 
-@testset "GPUSchurComplementKKTSystem" begin
+@testset "GPUSchurComplementCondensedKKTSystem" begin
 
     @testset "Basic convergence — quadratic with coupling" begin
         ns, nv, nd, nc = 3, 1, 1, 1
@@ -27,7 +27,7 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = CUDSSSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
@@ -55,7 +55,7 @@ using MadNLPTests
         ref = madnlp(
             nlp_cpu;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
@@ -73,7 +73,7 @@ using MadNLPTests
         gpu_result = madnlp(
             nlp_gpu;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = CUDSSSolver,
             kkt_options = gpu_opts,
             print_level = MadNLP.ERROR,
@@ -107,7 +107,7 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = CUDSSSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
@@ -153,7 +153,7 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = CUDSSSolver,
             kkt_options = opts,
             print_level = MadNLP.ERROR,
@@ -179,7 +179,7 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
+            kkt_system = SchurComplementCondensedKKTSystem,
             linear_solver = CUDSSSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
@@ -221,7 +221,7 @@ using MadNLPTests
             gpu_result = madnlp(
                 qp_gpu;
                 callback = MadNLP.SparseCallback,
-                kkt_system = SchurComplementKKTSystem,
+                kkt_system = SchurComplementCondensedKKTSystem,
                 linear_solver = CUDSSSolver,
                 kkt_options = kkt_opts,
                 bound_relax_factor = 1.0e-8,
@@ -242,7 +242,7 @@ using MadNLPTests
         cb = MadNLP.create_callback(
             MadNLP.SparseCallback, qp; equality_treatment = MadNLP.RelaxEquality,
         )
-        kkt = MadNLP.create_kkt_system(MadNLP.SchurComplementKKTSystem, cb, solver; kkt_opts...)
+        kkt = MadNLP.create_kkt_system(MadNLP.SchurComplementCondensedKKTSystem, cb, solver; kkt_opts...)
         x0 = cb.nlp.meta.x0
         y0 = cb.nlp.meta.y0
         MadNLP._eval_jac_wrapper!(cb, x0, MadNLP.get_jacobian(kkt))

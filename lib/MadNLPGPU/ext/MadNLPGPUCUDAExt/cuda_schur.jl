@@ -1,12 +1,12 @@
 ###########################################################
-##### CUDA wrappers for SchurComplementKKTSystem ##########
+##### CUDA wrappers for SchurComplementCondensedKKTSystem ##########
 ###########################################################
 
 """
-    GPUSchurComplementKKTSystem
+    GPUSchurComplementCondensedKKTSystem
 
 GPU-native Schur complement KKT system, the CUDA counterpart of CPU
-[`MadNLP.SchurComplementKKTSystem`](@ref). Uses a single batched
+[`MadNLP.SchurComplementCondensedKKTSystem`](@ref). Uses a single batched
 `CuSparseMatrixCSC` holding all `ns` scenario blocks (factored by `CUDSSSolver`
 with uniform batching) and CUBLAS strided batched GEMM for the Schur reduction.
 
@@ -27,7 +27,7 @@ scenarios concatenated in scenario order. Each `n_per_s_*` field stores the
 per-scenario length; the matching `gpu_*` vector then has length `ns * n_per_s_*`
 and is indexed directly by the kernel global index.
 """
-struct GPUSchurComplementKKTSystem{
+struct GPUSchurComplementCondensedKKTSystem{
     T,
     VT <: AbstractVector{T},
     MT <: AbstractMatrix{T},
@@ -248,7 +248,7 @@ end
 # Build the (A_kk, C_dk, S) deterministic scatter structures for `kkt` from its static index
 # maps. Computed once and memoized in `kkt.det_cache` (a Ref field owned by the kkt, so it is
 # freed with the kkt — no global cache, no leak).
-function _compute_det_scatter(kkt::GPUSchurComplementKKTSystem)
+function _compute_det_scatter(kkt::GPUSchurComplementCondensedKKTSystem)
     ns = kkt.ns; nnzb = kkt.nnz_per_scenario; blk = kkt.blk_size; m = kkt.m
     # ineq → A_kk: linear slot into the batched nzVal = (k-1)*nnzb + nzpos
     n_iA = kkt.n_per_s_ineq_Akk
@@ -286,14 +286,14 @@ function _compute_det_scatter(kkt::GPUSchurComplementKKTSystem)
     return (Akk = Akk, Cdk = Cdk, S = S, hessAkk = hessAkk, hessCdk = hessCdk, hessS = hessS)
 end
 
-function _get_det_scatter(kkt::GPUSchurComplementKKTSystem)
+function _get_det_scatter(kkt::GPUSchurComplementCondensedKKTSystem)
     kkt.det_cache[] === nothing && (kkt.det_cache[] = _compute_det_scatter(kkt))
     return kkt.det_cache[]
 end
 
 # --- Dispatch: GPU path when callback uses CuVector ---
 function MadNLP.create_kkt_system(
-    ::Type{MadNLP.SchurComplementKKTSystem},
+    ::Type{MadNLP.SchurComplementCondensedKKTSystem},
     cb::MadNLP.SparseCallback{T, VT},
     linear_solver::Type;
     opt_linear_solver=MadNLP.default_options(linear_solver),
@@ -487,7 +487,7 @@ function MadNLP.create_kkt_system(
         asynchronous=scenario_solver.opt.cudss_asynchronous,
     )
 
-    return GPUSchurComplementKKTSystem(
+    return GPUSchurComplementCondensedKKTSystem(
         hess, jac,
         hess_raw, jt_coo,
         hess_csc, hess_csc_map, jt_csc, jt_csc_map,
@@ -516,14 +516,14 @@ function MadNLP.create_kkt_system(
 end
 
 # --- Trivial accessors ---
-MadNLP.num_variables(kkt::GPUSchurComplementKKTSystem) = size(kkt.hess_csc, 1)
+MadNLP.num_variables(kkt::GPUSchurComplementCondensedKKTSystem) = size(kkt.hess_csc, 1)
 
-function MadNLP.get_slack_regularization(kkt::GPUSchurComplementKKTSystem)
+function MadNLP.get_slack_regularization(kkt::GPUSchurComplementCondensedKKTSystem)
     n = MadNLP.num_variables(kkt)
     return view(kkt.pr_diag, n+1:n+kkt.n_ineq)
 end
 
-function MadNLP.is_inertia_correct(kkt::GPUSchurComplementKKTSystem, num_pos, num_zero, num_neg)
+function MadNLP.is_inertia_correct(kkt::GPUSchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg)
     # RelaxEquality-only: the first-stage Schur complement is SPD (nd positive
     # eigenvalues, no negative or zero ones).
     return (num_zero == 0) && (num_pos == kkt.nd) && (num_neg == 0)
@@ -531,11 +531,11 @@ end
 # the Schur complement is definite: the duals are eliminated, not factorized
 MadNLP.block_structure(kkt::GPUSchurComplementKKTSystem) = (size(kkt.aug_com, 1), 0)
 
-MadNLP.should_regularize_dual(kkt::GPUSchurComplementKKTSystem, num_pos, num_zero, num_neg) = true
+MadNLP.should_regularize_dual(kkt::GPUSchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg) = true
 
-MadNLP.nnz_jacobian(kkt::GPUSchurComplementKKTSystem) = MadNLP.nnz(kkt.jt_coo)
+MadNLP.nnz_jacobian(kkt::GPUSchurComplementCondensedKKTSystem) = MadNLP.nnz(kkt.jt_coo)
 
-function MadNLP.jtprod!(y::VT, kkt::GPUSchurComplementKKTSystem, x::VT) where {VT <: CuVector}
+function MadNLP.jtprod!(y::VT, kkt::GPUSchurComplementCondensedKKTSystem, x::VT) where {VT <: CuVector}
     nx = MadNLP.num_variables(kkt)
     ns_ineq = kkt.n_ineq
     yx = view(y, 1:nx)
@@ -545,16 +545,16 @@ function MadNLP.jtprod!(y::VT, kkt::GPUSchurComplementKKTSystem, x::VT) where {V
     return
 end
 
-function MadNLP.compress_jacobian!(kkt::GPUSchurComplementKKTSystem)
+function MadNLP.compress_jacobian!(kkt::GPUSchurComplementCondensedKKTSystem)
     MadNLP.transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
-function MadNLP.compress_hessian!(kkt::GPUSchurComplementKKTSystem)
+function MadNLP.compress_hessian!(kkt::GPUSchurComplementCondensedKKTSystem)
     MadNLP.transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
 end
 
 # --- build_kkt! ---
-function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
+function MadNLP.build_kkt!(kkt::GPUSchurComplementCondensedKKTSystem{T}) where T
     ns = kkt.ns
     nv = kkt.nv
     nd = kkt.nd
@@ -690,7 +690,7 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
 end
 
 # --- factorize_kkt! ---
-function MadNLP.factorize_kkt!(kkt::GPUSchurComplementKKTSystem)
+function MadNLP.factorize_kkt!(kkt::GPUSchurComplementCondensedKKTSystem)
     # cuDSS reads `nonzeros(schur_solver.tril)` (=== schur_csc.nzVal, populated by
     # build_kkt!) and runs factorization (first iter) / refactorization (later).
     return MadNLP.factorize!(kkt.linear_solver)
@@ -698,7 +698,7 @@ end
 
 # --- solve_kkt! ---
 function MadNLP.solve_kkt!(
-    kkt::GPUSchurComplementKKTSystem{T},
+    kkt::GPUSchurComplementCondensedKKTSystem{T},
     w::MadNLP.AbstractKKTVector{T},
 ) where T
 
@@ -789,7 +789,7 @@ end
 # --- mul! for iterative refinement ---
 function MadNLP.mul!(
     w::MadNLP.AbstractKKTVector{T, VT},
-    kkt::GPUSchurComplementKKTSystem{T},
+    kkt::GPUSchurComplementCondensedKKTSystem{T},
     x::MadNLP.AbstractKKTVector,
     alpha = one(T),
     beta = zero(T),
@@ -820,7 +820,7 @@ function MadNLP.mul!(
     return w
 end
 
-function MadNLP.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementKKTSystem{T}, t) where {T, VT <: CuVector{T}}
+function MadNLP.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementCondensedKKTSystem{T}, t) where {T, VT <: CuVector{T}}
     n = MadNLP.num_variables(kkt)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess_csc, :L), @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)

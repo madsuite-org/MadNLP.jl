@@ -2,7 +2,7 @@
     TwoStageQP{T, VT, MT, VI} <: NLPModels.AbstractNLPModel{T, VT}
 
 Diagonal-Hessian two-stage stochastic QP, used to exercise
-`SchurComplementKKTSystem` (CPU and GPU) without depending on ExaModels.
+`SchurComplementCondensedKKTSystem` (CPU and GPU) without depending on ExaModels.
 
 Variable layout:   `x = [v_{1,1},...,v_{1,nv}, v_{2,1},...,v_{ns,nv}, d_1,...,d_nd]`
 Constraint layout: `c = [c_{1,1},...,c_{1,nc}, c_{2,1},...,c_{ns,nc}]`
@@ -183,7 +183,7 @@ end
 """
     schur_opts(; ns, nv, nd, nc, var_scen=nothing, con_scen=nothing) -> Dict
 
-Convenience: build the `kkt_options` dict for `SchurComplementKKTSystem` with the
+Convenience: build the `kkt_options` dict for `SchurComplementCondensedKKTSystem` with the
 four scenario dimensions. When `var_scen`/`con_scen` are supplied (per-variable /
 per-constraint scenario tags, 0 = design), they are passed through so the Schur
 build partitions by tag instead of assuming the contiguous `[v_1..v_ns, d]` /

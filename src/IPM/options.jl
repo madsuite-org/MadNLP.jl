@@ -156,8 +156,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
 
     # NLP options
     kappa_d::T = 1e-5
-    fixed_variable_treatment::Type = kkt_system <: Union{MadNLP.SparseCondensedKKTSystem, MadNLP.SchurComplementKKTSystem} ? MadNLP.RelaxBound : MadNLP.MakeParameter
-    equality_treatment::Type = kkt_system <: Union{MadNLP.SparseCondensedKKTSystem, MadNLP.SchurComplementKKTSystem} ? MadNLP.RelaxEquality : MadNLP.EnforceEquality
+    fixed_variable_treatment::Type = kkt_system <: Union{MadNLP.SparseCondensedKKTSystem, MadNLP.SchurComplementCondensedKKTSystem} ? MadNLP.RelaxBound : MadNLP.MakeParameter
+    equality_treatment::Type = kkt_system <: Union{MadNLP.SparseCondensedKKTSystem, MadNLP.SchurComplementCondensedKKTSystem} ? MadNLP.RelaxEquality : MadNLP.EnforceEquality
     bound_relax_factor::T = 1e-8
     jacobian_constant::Bool = false
     hessian_constant::Bool = false
@@ -170,7 +170,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
 
     # initialization options
     dual_initialized::Bool = false
-    dual_initialization_method::Type = kkt_system <: Union{MadNLP.SparseCondensedKKTSystem, MadNLP.SchurComplementKKTSystem} ? DualInitializeSetZero : DualInitializeLeastSquares
+    dual_initialization_method::Type = kkt_system <: Union{MadNLP.SparseCondensedKKTSystem, MadNLP.SchurComplementCondensedKKTSystem} ? DualInitializeSetZero : DualInitializeLeastSquares
     constr_mult_init_max::T = 1e3
     bound_push::T = 1e-2
     bound_fac::T = 1e-2
@@ -231,7 +231,7 @@ function MadNLPOptions{T}(
     # by `tol` there (feasible to ~tol, but well-conditioned). Non-condensed systems keep equalities
     # exact and use the tight 1e-8. Must match the CUDA / ROCm extension constructors so a problem
     # behaves identically on CPU and GPU.
-    bound_relax_factor = (kkt_system <: Union{SparseCondensedKKTSystem, SchurComplementKKTSystem}) ? tol : T(1.0e-8),
+    bound_relax_factor = (kkt_system <: Union{SparseCondensedKKTSystem, SchurComplementCondensedKKTSystem}) ? tol : T(1.0e-8),
 ) where {T}
     return MadNLPOptions{T}(
         tol = tol,
@@ -244,14 +244,14 @@ end
 
 get_tolerance(::Type{T},::Type{KKT}) where {T, KKT} = 10^round(log10(eps(T))/2)
 get_tolerance(::Type{T},::Type{SparseCondensedKKTSystem}) where T = 10^(round(log10(eps(T))/2))
-get_tolerance(::Type{T},::Type{SchurComplementKKTSystem}) where T = 10^(round(log10(eps(T))/4))
+get_tolerance(::Type{T},::Type{SchurComplementCondensedKKTSystem}) where T = 10^(round(log10(eps(T))/4))
 
 default_sparse_solver(nlp::AbstractNLPModel) = MumpsSolver
 
 function check_option_sanity(options)
-    is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem || options.kkt_system <: SchurComplementKKTSystem
+    is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem || options.kkt_system <: SchurComplementCondensedKKTSystem
     is_hess_approx_dense = options.hessian_approximation <: Union{BFGS, DampedBFGS}
-    # `SchurComplementKKTSystem` factorizes its first-stage block with a dense solver
+    # `SchurComplementCondensedKKTSystem` factorizes its first-stage block with a dense solver
     # on CPU but a sparse solver (cuDSS) on GPU, so a :csc linear solver is valid for
     # it — only the genuinely dense KKT systems require a dense linear solver here.
     if input_type(options.linear_solver) == :csc && options.kkt_system <: AbstractDenseKKTSystem

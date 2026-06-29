@@ -14,7 +14,7 @@ import SolverCore: getStatus, AbstractOptimizationSolver, AbstractExecutionStats
 import LDLFactorizations
 import MUMPS_seq_jll, OpenBLAS32_jll
 
-export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementKKTSystem
+export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementCondensedKKTSystem
 Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
 
 function __init__()
@@ -43,5 +43,10 @@ include("precompile.jl")
 madsuite(::Val{:madnlp}, args...; kwargs...) = madnlp(args...; kwargs...)
 
 global Optimizer
+
+# Backwards-compatible alias: `SchurComplementKKTSystem` was renamed to
+# `SchurComplementCondensedKKTSystem` to reflect that it is a condensed (RelaxEquality) system.
+const SchurComplementKKTSystem = SchurComplementCondensedKKTSystem
+export SchurComplementKKTSystem
 
 end # end module

@@ -41,7 +41,7 @@ struct ScenarioBlockMap
 end
 
 """
-    SchurComplementKKTSystem{T, VT, MT, QN, LS, LS2, VI} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
+    SchurComplementCondensedKKTSystem{T, VT, MT, QN, LS, LS2, VI} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
 
 KKT system exploiting block-arrowhead structure from two-stage stochastic programs
 via Schur complement decomposition, using sparse COO/CSC storage for the global
@@ -61,7 +61,7 @@ coupled-design block of `schur_csc`, factored by a sparse symmetric solver
 (`MumpsSolver` by default; any `:csc` symmetric solver that reports inertia,
 e.g. `Ma57Solver`/`LDLSolver`, works).
 """
-struct SchurComplementKKTSystem{
+struct SchurComplementCondensedKKTSystem{
     T,
     VT <: AbstractVector{T},
     MT <: AbstractMatrix{T},
@@ -196,7 +196,7 @@ end
     -> (; ns, nv, nd, nc, nc_design, var_scen, con_scen)
 
 Resolve two-stage stochastic dimensions AND the per-variable/per-constraint
-scenario-assignment vectors for a `SchurComplementKKTSystem`. The vectors encode
+scenario-assignment vectors for a `SchurComplementCondensedKKTSystem`. The vectors encode
 `var_scen[i] ∈ {0..ns}` (0 = design) and `con_scen[j] ∈ {0..ns}`; the symbolic
 build partitions the Hessian/Jacobian by these tags rather than by index
 arithmetic, so design variables and a scenario's variables need NOT be contiguous
@@ -271,11 +271,11 @@ function _resolve_schur_dims(
         @inbounds nc_k = con_hist[k + 1]
         nv_k == nv || error(
             "Scenario $k has $nv_k variables; scenario 1 has $nv. " *
-                "SchurComplementKKTSystem requires uniform per-scenario sizes."
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario sizes."
         )
         nc_k == nc || error(
             "Scenario $k has $nc_k constraints; scenario 1 has $nc. " *
-                "SchurComplementKKTSystem requires uniform per-scenario sizes."
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario sizes."
         )
     end
 
@@ -319,8 +319,8 @@ end
                           hess_I, hess_J, jac_I, jac_J,
                           ind_eq, ind_ineq) -> NamedTuple
 
-Pure-CPU symbolic construction shared by the CPU `SchurComplementKKTSystem`
-and GPU `GPUSchurComplementKKTSystem` constructors. Inputs are CPU-resident
+Pure-CPU symbolic construction shared by the CPU `SchurComplementCondensedKKTSystem`
+and GPU `GPUSchurComplementCondensedKKTSystem` constructors. Inputs are CPU-resident
 sparsity arrays (the GPU side downloads its sparsity before calling).
 
 **Assumes uniform per-scenario structure** (same A_kk pattern for every k).
@@ -392,7 +392,7 @@ function _build_schur_symbolic(
     # so the per-scenario blocks and the first-stage Schur complement are condensed
     # and SPD — there is no equality saddle / bordered block.
     isempty(ind_eq) || error(
-        "SchurComplementKKTSystem is RelaxEquality-only; got $(length(ind_eq)) equality " *
+        "SchurComplementCondensedKKTSystem is RelaxEquality-only; got $(length(ind_eq)) equality " *
         "constraint(s). Use equality_treatment=MadNLP.RelaxEquality (the default for Schur)."
     )
     ind_ineq_set = Set(Int.(ind_ineq))
@@ -418,7 +418,7 @@ function _build_schur_symbolic(
         n_in_k = length(ineq_per_scenario[k])
         if n_in_k != nc_ineq_per_s
             error(
-                "SchurComplementKKTSystem requires uniform per-scenario constraint counts. " *
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario constraint counts. " *
                 "Scenario 1 has ineq=$nc_ineq_per_s; scenario $k has ineq=$n_in_k."
             )
         end
@@ -501,7 +501,7 @@ function _build_schur_symbolic(
         sample = first(bad, min(5, length(bad)))
         details = join(("(row=$(Int(hess_I[ci])), col=$(Int(hess_J[ci])))" for ci in sample), ", ")
         error(
-            "$n_bad_hess Hessian COO entries do not fit the SchurComplementKKTSystem " *
+            "$n_bad_hess Hessian COO entries do not fit the SchurComplementCondensedKKTSystem " *
             "block-arrowhead pattern (likely cross-scenario coupling). First few: " *
             details
         )
@@ -559,7 +559,7 @@ function _build_schur_symbolic(
     # scenario 1's template) surfaces as a meaningful error instead of KeyError.
     @inline akk_pos(key, k) = let p = get(akk_lookup, key, 0)
         p == 0 && error(
-            "SchurComplementKKTSystem: scenario $k has an A_kk entry at local " *
+            "SchurComplementCondensedKKTSystem: scenario $k has an A_kk entry at local " *
             "(row=$(key[1]), col=$(key[2])) absent from scenario 1's template. " *
             "Per-scenario Hessian/Jacobian sparsity must be uniform."
         )
@@ -714,7 +714,7 @@ function _build_schur_symbolic(
         sample = first(bad, min(5, length(bad)))
         details = join(("(row=$(Int(jac_I[ci])), col=$(Int(jac_J[ci])))" for ci in sample), ", ")
         error(
-            "$n_bad_jac Jacobian COO entries do not fit the SchurComplementKKTSystem " *
+            "$n_bad_jac Jacobian COO entries do not fit the SchurComplementCondensedKKTSystem " *
             "block-arrowhead pattern (column belongs to a different scenario). First few: " *
             details
         )
@@ -735,7 +735,7 @@ function _build_schur_symbolic(
         nk = length(getfield(block_maps[k], f))
         if nk != n1
             error(
-                "SchurComplementKKTSystem requires uniform per-scenario sparsity. " *
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario sparsity. " *
                 "Scenario 1 has $n1 entries in $f; scenario $k has $nk."
             )
         end
@@ -762,7 +762,7 @@ function _build_schur_symbolic(
     end
     for k in 2:ns
         coupled_per_s[k] == coupled_per_s[1] || error(
-            "SchurComplementKKTSystem (sparse): scenario $k couples a different set of design " *
+            "SchurComplementCondensedKKTSystem (sparse): scenario $k couples a different set of design " *
                 "variables than scenario 1; the sparse Schur path requires uniform coupling."
         )
     end
@@ -961,7 +961,7 @@ function _flatten_block_maps(block_maps::Vector{ScenarioBlockMap})
 end
 
 function create_kkt_system(
-    ::Type{SchurComplementKKTSystem},
+    ::Type{SchurComplementCondensedKKTSystem},
     cb::SparseCallback{T,VT},
     linear_solver::Type;
     opt_linear_solver=default_options(linear_solver),
@@ -1063,7 +1063,7 @@ function create_kkt_system(
     scenario_solvers = [schur_scenario_linear_solver(A_kk_vec[k]) for k in 1:ns]
     _linear_solver = linear_solver(schur_csc; opt = opt_linear_solver)
 
-    return SchurComplementKKTSystem(
+    return SchurComplementCondensedKKTSystem(
         hess, jac,
         hess_raw, jt_coo,
         hess_csc, hess_csc_map, jt_csc, jt_csc_map,
@@ -1087,15 +1087,15 @@ function create_kkt_system(
     )
 end
 
-num_variables(kkt::SchurComplementKKTSystem) = size(kkt.hess_csc, 1)
+num_variables(kkt::SchurComplementCondensedKKTSystem) = size(kkt.hess_csc, 1)
 
-function get_slack_regularization(kkt::SchurComplementKKTSystem)
+function get_slack_regularization(kkt::SchurComplementCondensedKKTSystem)
     n = num_variables(kkt)
     ns_ineq = kkt.n_ineq
     return view(kkt.pr_diag, n+1:n+ns_ineq)
 end
 
-function is_inertia_correct(kkt::SchurComplementKKTSystem, num_pos, num_zero, num_neg)
+function is_inertia_correct(kkt::SchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg)
     # RelaxEquality-only: the first-stage Schur complement is SPD (nd positive
     # eigenvalues, no negative or zero ones).
     return (num_zero == 0) && (num_pos == kkt.nd) && (num_neg == 0)
@@ -1103,9 +1103,9 @@ end
 # the Schur complement is definite: the duals are eliminated, not factorized
 block_structure(kkt::SchurComplementKKTSystem) = (size(kkt.aug_com, 1), 0)
 
-should_regularize_dual(kkt::SchurComplementKKTSystem, num_pos, num_zero, num_neg) = true
+should_regularize_dual(kkt::SchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg) = true
 
-function jtprod!(y::AbstractVector, kkt::SchurComplementKKTSystem, x::AbstractVector)
+function jtprod!(y::AbstractVector, kkt::SchurComplementCondensedKKTSystem, x::AbstractVector)
     nx = num_variables(kkt)
     ns_ineq = kkt.n_ineq
     yx = view(y, 1:nx)
@@ -1115,17 +1115,17 @@ function jtprod!(y::AbstractVector, kkt::SchurComplementKKTSystem, x::AbstractVe
     return
 end
 
-function compress_jacobian!(kkt::SchurComplementKKTSystem)
+function compress_jacobian!(kkt::SchurComplementCondensedKKTSystem)
     transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
-function compress_hessian!(kkt::SchurComplementKKTSystem)
+function compress_hessian!(kkt::SchurComplementCondensedKKTSystem)
     transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
 end
 
-nnz_jacobian(kkt::SchurComplementKKTSystem) = nnz(kkt.jt_coo)
+nnz_jacobian(kkt::SchurComplementCondensedKKTSystem) = nnz(kkt.jt_coo)
 
-function build_kkt!(kkt::SchurComplementKKTSystem{T, VT, MT}) where {T, VT, MT}
+function build_kkt!(kkt::SchurComplementCondensedKKTSystem{T, VT, MT}) where {T, VT, MT}
     ns = kkt.ns
     nv = kkt.nv
     nd = kkt.nd
@@ -1218,12 +1218,12 @@ function build_kkt!(kkt::SchurComplementKKTSystem{T, VT, MT}) where {T, VT, MT}
     return
 end
 
-function factorize_kkt!(kkt::SchurComplementKKTSystem)
+function factorize_kkt!(kkt::SchurComplementCondensedKKTSystem)
     return factorize!(kkt.linear_solver)
 end
 
 function solve_kkt!(
-    kkt::SchurComplementKKTSystem,
+    kkt::SchurComplementCondensedKKTSystem,
     w::AbstractKKTVector{T},
 ) where T
 
@@ -1312,7 +1312,7 @@ function solve_kkt!(
 end
 
 # KKT matrix-vector product for iterative refinement
-function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementKKTSystem{T}, x::AbstractKKTVector, alpha = one(T), beta = zero(T)) where T
+function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementCondensedKKTSystem{T}, x::AbstractKKTVector, alpha = one(T), beta = zero(T)) where T
     n = num_variables(kkt)
     ns_ineq = kkt.n_ineq
     wx = @view(primal(w)[1:n])
@@ -1341,7 +1341,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementKKTSystem{T}, x::Abst
     return w
 end
 
-function mul_hess_blk!(wx, kkt::SchurComplementKKTSystem, t)
+function mul_hess_blk!(wx, kkt::SchurComplementCondensedKKTSystem, t)
     n = num_variables(kkt)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess_csc, :L), @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
