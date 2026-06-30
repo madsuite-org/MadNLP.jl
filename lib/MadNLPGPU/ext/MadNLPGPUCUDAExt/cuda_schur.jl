@@ -283,7 +283,24 @@ function _compute_det_scatter(kkt::GPUSchurComplementCondensedKKTSystem)
     hessCdk = _segment_lin_scatter(slotHC, Array(kkt.gpu_hess_Cdk_coo))
     hessS = _segment_lin_scatter(Array(kkt.schur_hess_nzpos), Array(kkt.schur_hess_coo))
 
-    return (Akk = Akk, Cdk = Cdk, S = S, hessAkk = hessAkk, hessCdk = hessCdk, hessS = hessS)
+    # --- Correct Hessian for the iterative-refinement mul! -----------------------------
+    # The refinement matvec needs the TRUE full symmetric Hessian H. Two GPU pitfalls make
+    # the naive `mul!(.., Symmetric(hess_csc,:L), ..)` wrong (it only poisons mul!, not the
+    # Schur step — but mul! is the Richardson reference operator, so a wrong mul! stalls the
+    # outer refinement and inflates the IPM iteration count ~10x):
+    #   (1) the generic GPU `transfer!` is a non-summing scatter `view(nzVal,map) .= V`, so
+    #       duplicate Hessian COO entries (very common from AD) are dropped, not summed;
+    #   (2) CUSPARSE ignores the `Symmetric(.,:L)` wrapper and multiplies only the stored
+    #       lower triangle, dropping the strict-upper contribution.
+    # Fix both here: (1) a deterministic segmented SUM that fills hess_csc.nzVal correctly,
+    # and (2) a full-symmetric CSC `hess_full` so a plain general SpMV computes the true H*x.
+    nnzc = length(kkt.hess)
+    hess_lin = _segment_lin_scatter(Array(kkt.hess_csc_map), collect(1:nnzc))
+    hess_full, hess_full_perm = MadNLP.get_tril_to_full(kkt.hess_csc)
+    fill!(hess_full.nzVal, zero(eltype(hess_full.nzVal)))
+
+    return (Akk = Akk, Cdk = Cdk, S = S, hessAkk = hessAkk, hessCdk = hessCdk, hessS = hessS,
+            hess_lin = hess_lin, hess_full = hess_full, hess_full_perm = hess_full_perm)
 end
 
 function _get_det_scatter(kkt::GPUSchurComplementCondensedKKTSystem)
@@ -550,7 +567,21 @@ function MadNLP.compress_jacobian!(kkt::GPUSchurComplementCondensedKKTSystem)
 end
 
 function MadNLP.compress_hessian!(kkt::GPUSchurComplementCondensedKKTSystem)
-    MadNLP.transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
+    # NOT the generic non-summing `transfer!`: deterministically SUM duplicate Hessian COO
+    # entries into hess_csc.nzVal, then materialize the full symmetric `hess_full` used by the
+    # refinement mul!. (See the hess_full comment in `_compute_det_scatter`.)
+    backend = CUDABackend()
+    det = _get_det_scatter(kkt)
+    nz = kkt.hess_csc.nzVal
+    fill!(nz, zero(eltype(nz)))
+    if length(det.hess_lin.segslot) > 0
+        _det_lin_scatter!(backend)(
+            nz, kkt.hess, det.hess_lin.src_idx, det.hess_lin.segstart, det.hess_lin.segslot;
+            ndrange = length(det.hess_lin.segslot),
+        )
+    end
+    copyto!(det.hess_full.nzVal, det.hess_full_perm)
+    return
 end
 
 # --- build_kkt! ---
@@ -805,7 +836,9 @@ function MadNLP.mul!(
     xz = @view(MadNLP.dual(x)[kkt.ind_ineq])
 
     wx .= beta .* wx
-    mul!(wx, Symmetric(kkt.hess_csc, :L), xx, alpha, one(T))
+    # Use the correctly-summed full-symmetric Hessian (general SpMV) — NOT
+    # Symmetric(hess_csc,:L), which CUSPARSE multiplies as lower-triangle-only.
+    mul!(wx, _get_det_scatter(kkt).hess_full, xx, alpha, one(T))
 
     m = size(kkt.jt_csc, 2)
     if m > 0
@@ -822,7 +855,7 @@ end
 
 function MadNLP.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementCondensedKKTSystem{T}, t) where {T, VT <: CuVector{T}}
     n = MadNLP.num_variables(kkt)
-    mul!(@view(wx[1:n]), Symmetric(kkt.hess_csc, :L), @view(t[1:n]))
+    mul!(@view(wx[1:n]), _get_det_scatter(kkt).hess_full, @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
     wx .+= t .* kkt.pr_diag
 end
