@@ -684,22 +684,27 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementCondensedKKTSystem{T}) where T
     # columns that couple to a scenario contribute (the rest of C_dk is exactly
     # zero), so the reduction fills only the coupled × coupled sub-block.
     if m > 0
-        # tmp_red = A_kk⁻¹ * C_dk_red' for all scenarios in one batched multi-RHS
-        # cuDSS solve (m RHS per scenario). Zero-copy onto the (blk, m, ns) buffers.
-        CUDSS.cudss_update(kkt.scenario_b_multi, kkt.C_dk_batched)
-        CUDSS.cudss_update(kkt.scenario_x_multi, kkt.tmp_blk_nd_batched)
-        # This batched multi-RHS solve assembles the Schur complement (A_kk⁻¹ C_dk'); it runs
-        # in the factorization/build phase and does NOT route through solve_linear_system!, so
-        # translate a cuDSS failure into a FactorizationException (→ ERROR_IN_STEP_COMPUTATION)
-        # here too, rather than letting a raw CUDSSError crash the solve.
-        try
-            CUDSS.cudss(
-                "solve", kkt.scenario_solver.inner,
-                kkt.scenario_x_multi, kkt.scenario_b_multi;
-                asynchronous = kkt.scenario_solver.opt.cudss_asynchronous,
-            )
-        catch e
-            e isa CUDSS.CUDSSError ? throw(FactorizationException()) : rethrow(e)
+        # tmp_red = A_kk⁻¹ * C_dk_red'  (m right-hand sides per scenario).
+        #
+        # cuDSS's uniform-batch ("ubatch") solve is BROKEN for MULTI-RHS (nrhs > 1) once the
+        # batch count nbatch ≳ 14: it returns garbage (off by ~1e13). Verified on case118
+        # (ns=176) and reproduced in PURE CUDSS with a synthetic uniform batch — single-RHS
+        # (nrhs=1) is always correct, multi-RHS fails above the threshold regardless of the
+        # matrix (a synthetic pure-CUDSS batch reproduces it). cuDSS's own batched tests only
+        # cover single-RHS, so this path was never exercised upstream.
+        # So solve the m coupled columns one at a time with the (correct) single-RHS batched
+        # solve — column j across all ns scenarios — mirroring the CPU path's column-by-column
+        # `A_kk \ C_dk'`. Slower than one multi-RHS call, but correct. (Remove this loop and
+        # restore the batched `scenario_*_multi` solve once cuDSS fixes multi-RHS ubatch.)
+        for j in 1:m
+            copyto!(reshape(kkt.solve_buffer, blk, ns), view(kkt.C_dk_batched, :, j, :))
+            try
+                MadNLP.solve_linear_system!(kkt.scenario_solver, kkt.solve_buffer)
+            catch e
+                e isa Union{CUDSS.CUDSSError, MadNLP.SolveException} ?
+                    throw(FactorizationException()) : rethrow(e)
+            end
+            copyto!(view(kkt.tmp_blk_nd_batched, :, j, :), reshape(kkt.solve_buffer, blk, ns))
         end
 
         # D[:,:,k] = C_dk_red[:,:,k]' * tmp_red[:,:,k] (m×m) for all k in ONE batched
