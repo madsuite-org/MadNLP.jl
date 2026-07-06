@@ -106,7 +106,8 @@ struct SchurComplementCondensedKKTSystem{
 
     # Per-scenario sparse augmented blocks (lower triangle only)
     A_kk::Vector{SparseMatrixCSC{T, Int32}}
-    C_dk::Vector{MT}                # ns × (nd × blk_size) — dense
+    C_dk::Vector{MT}                # ns × (m × blk_size) — dense, reduced to the m COUPLED
+                                    # design rows (design vars that never couple are exactly zero)
 
     # Sparse first-stage Schur complement (lower-triangular CSC, size nd × nd): the
     # design block S_dd plus the condensed design inequalities. SPD. Only `m` design
@@ -122,8 +123,9 @@ struct SchurComplementCondensedKKTSystem{
     diag_buffer::VT                 # n_ineq — condensing diagonal
     buffer::VT                      # m_total — general
     rhs_d::VT                       # nd — design vars
+    rhs_d_red::VT                   # m — reduced (coupled) design RHS accumulator
     rhs_k::Vector{VT}              # ns × blk_size — scenario RHS buffers
-    tmp_blk_nd::Vector{MT}         # ns × (blk_size × nd)
+    tmp_blk_nd::Vector{MT}         # ns × (blk_size × m) — A_kk⁻¹ C_dk_red' (reduced coupled cols)
     solve_buffers::Vector{VT}      # ns × blk_size — per-scenario column-by-column solve buffers
 
     block_maps::Vector{ScenarioBlockMap}
@@ -1037,23 +1039,40 @@ function create_kkt_system(
     )
     nc_ineq_per_s = sym.nc_ineq_per_s
     blk_size = sym.blk_size
-    block_maps = sym.block_maps
-    nd_aug = nd
+    m_coupled = sym.m_coupled
+    coupled_inv = sym.coupled_inv               # design-local → compact coupled col (1:m) or 0
+
+    # Reduce the per-scenario coupling maps to the m COUPLED design rows: remap each C_dk row
+    # (a design-local index in 1:nd) to its compact column in 1:m. Every C_dk row is coupled by
+    # construction, so `coupled_inv` is nonzero there. Mirrors the GPU reduction — the coupling
+    # blocks and their solves are width m, not nd, which is what makes SCOPF-shaped problems
+    # (nd ≫ m) tractable on CPU.
+    block_maps = [
+        let bm = sym.block_maps[k]
+            ScenarioBlockMap(
+                bm.hess_Akk_coo, bm.hess_Akk_nzpos,
+                bm.hess_Cdk_coo, coupled_inv[bm.hess_Cdk_row], bm.hess_Cdk_col,
+                bm.ineq_Akk_nzpos, bm.ineq_Akk_jcoo1, bm.ineq_Akk_jcoo2, bm.ineq_Akk_bufidx,
+                coupled_inv[bm.ineq_Cdk_row], bm.ineq_Cdk_col, bm.ineq_Cdk_jcoo_d, bm.ineq_Cdk_jcoo_v, bm.ineq_Cdk_bufidx,
+                bm.ineq_S_row, bm.ineq_S_col, bm.ineq_S_jcoo1, bm.ineq_S_jcoo2, bm.ineq_S_bufidx,
+                bm.pr_diag_global, bm.pr_diag_nzpos,
+            )
+        end for k in 1:ns
+    ]
 
     # Per-scenario A_kk: independent copies of the shared template (same sparsity, fresh nzval).
     A_kk_vec = [copy(sym.akk_csc_template) for _ in 1:ns]
 
-    # --- Sparse Schur complement + dense coupling blocks ---
-    # schur_csc is the bordered first-stage block (lower-triangular, size nd_aug);
-    # C_dk / tmp_blk_nd stay dense at width nd (only design VARIABLES couple, and only
-    # the m coupled columns are nonzero — exploited by the Schur reduction in build_kkt!).
-    m_coupled = sym.m_coupled
+    # --- Sparse Schur complement + reduced dense coupling blocks ---
+    # schur_csc is the first-stage block (lower-triangular, size nd). The reduction
+    # `Σ_k C_dk A_kk⁻¹ C_dk'` fills only the m×m coupled block, so C_dk is stored reduced to its
+    # m coupled design rows (m × blk_size) and tmp_blk_nd = A_kk⁻¹ C_dk_red' is (blk_size × m).
     schur_csc = SparseMatrixCSC{T, Int32}(
-        nd_aug, nd_aug, sym.schur_csc_colptr, sym.schur_csc_rowval, zeros(T, sym.schur_nnz),
+        nd, nd, sym.schur_csc_colptr, sym.schur_csc_rowval, zeros(T, sym.schur_nnz),
     )
     schur_block = Matrix{T}(undef, m_coupled, m_coupled)
-    C_dk = [Matrix{T}(undef, nd, blk_size) for _ in 1:ns]
-    tmp_blk_nd = [Matrix{T}(undef, blk_size, nd) for _ in 1:ns]
+    C_dk = [Matrix{T}(undef, m_coupled, blk_size) for _ in 1:ns]
+    tmp_blk_nd = [Matrix{T}(undef, blk_size, m_coupled) for _ in 1:ns]
 
     # --- Diagonal vectors ---
     reg     = VT(undef, n + ns_ineq)
@@ -1067,7 +1086,8 @@ function create_kkt_system(
     # --- Buffers ---
     diag_buffer = VT(undef, ns_ineq)
     buffer      = VT(undef, m)
-    rhs_d = VT(undef, nd_aug)
+    rhs_d = VT(undef, nd)
+    rhs_d_red = VT(undef, m_coupled)
     rhs_k       = [VT(undef, blk_size) for _ in 1:ns]
     solve_buffers = [VT(undef, blk_size) for _ in 1:ns]
 
@@ -1090,7 +1110,7 @@ function create_kkt_system(
         nc_ineq_per_s, blk_size,
         A_kk_vec, C_dk,
         schur_csc, m_coupled, sym.coupled_design_local, sym.schur_fill_nzpos, schur_block,
-        diag_buffer, buffer, rhs_d, rhs_k, tmp_blk_nd, solve_buffers,
+        diag_buffer, buffer, rhs_d, rhs_d_red, rhs_k, tmp_blk_nd, solve_buffers,
         block_maps,
         sym.schur_hess_coo, sym.schur_hess_nzpos,
         sym.schur_diag_nzpos,
@@ -1192,15 +1212,17 @@ function build_kkt!(kkt::SchurComplementCondensedKKTSystem{T, VT, MT}) where {T,
         # Factor A_kk
         factorize!(kkt.scenario_solvers[k])
 
-        # Compute tmp = A_kk^{-1} * C_dk'  (blk × nd)
+        # Compute tmp_red = A_kk^{-1} * C_dk_red'  (blk × m): only the m coupled columns —
+        # the other nd-m design columns of C_dk are exactly zero, so we never solve them.
         buf = kkt.solve_buffers[k]
-        for j in 1:nd
+        tmp = kkt.tmp_blk_nd[k]
+        for j in 1:m
             @inbounds for i in 1:blk
-                buf[i] = C_dk[j, i]  # C_dk' column j
+                buf[i] = C_dk[j, i]  # C_dk_red' column j = row j of the reduced C_dk
             end
             solve_linear_system!(kkt.scenario_solvers[k], buf)
             @inbounds for i in 1:blk
-                kkt.tmp_blk_nd[k][i, j] = buf[i]
+                tmp[i, j] = buf[i]
             end
         end
     end
@@ -1216,9 +1238,11 @@ function build_kkt!(kkt::SchurComplementCondensedKKTSystem{T, VT, MT}) where {T,
         kkt.schur_ineq_S_jcoo2, kkt.schur_ineq_S_bufidx
     )
     if m > 0
-        cd = kkt.coupled_design_local
         for k in 1:ns
-            mul!(kkt.schur_block, view(kkt.C_dk[k], cd, :), view(kkt.tmp_blk_nd[k], :, cd))
+            # C_dk_red (m×blk) and tmp_red (blk×m) are already reduced to the coupled block, so
+            # this is a plain contiguous GEMM (BLAS) — no Vector{Int}-indexed views, unlike the
+            # old full-width nd path which fell back to the generic (non-BLAS) mul!.
+            mul!(kkt.schur_block, kkt.C_dk[k], kkt.tmp_blk_nd[k])
             @inbounds for b in 1:m, a in b:m
                 nz[kkt.schur_fill_nzpos[a, b]] -= kkt.schur_block[a, b]
             end
@@ -1248,6 +1272,7 @@ function solve_kkt!(
     nv = kkt.nv
     nd = kkt.nd
     nc = kkt.nc
+    m = kkt.m
     n = num_variables(kkt)
     blk = kkt.blk_size
 
@@ -1284,18 +1309,27 @@ function solve_kkt!(
     @blas_safe_threads for k in 1:ns
         solve_linear_system!(kkt.scenario_solvers[k], kkt.rhs_k[k])
     end
-    # Phase 2 (sequential): accumulate into the design-VAR head of rhs_d only.
-    rhs_d_v = view(kkt.rhs_d, 1:nd)
-    for k in 1:ns
-        mul!(rhs_d_v, kkt.C_dk[k], kkt.rhs_k[k], -one(T), one(T))
+    # Phase 2 (sequential): rhs_d[coupled] -= Σ_k C_dk_red[k] * rhs_k[k]. Only the m coupled
+    # design rows receive a contribution (the reduced C_dk holds exactly those rows). Accumulate
+    # into the contiguous reduced buffer (BLAS GEMV), then scatter-subtract into rhs_d.
+    if m > 0
+        fill!(kkt.rhs_d_red, zero(T))
+        for k in 1:ns
+            mul!(kkt.rhs_d_red, kkt.C_dk[k], kkt.rhs_k[k], one(T), one(T))
+        end
+        @views kkt.rhs_d[kkt.coupled_design_local] .-= kkt.rhs_d_red
     end
 
     # Step 4: Solve the first-stage Schur complement system (size nd, SPD)
     solve_linear_system!(kkt.linear_solver, kkt.rhs_d)
 
-    # Step 5: Back-substitution (reads the design-var head of rhs_d only)
-    @blas_safe_threads for k in 1:ns
-        mul!(kkt.rhs_k[k], kkt.tmp_blk_nd[k], rhs_d_v, -one(T), one(T))
+    # Step 5: Back-substitution. rhs_k[k] -= tmp_red[k] * rhs_d[coupled] per scenario (only the
+    # coupled design entries feed back; tmp_red is the reduced blk×m block).
+    if m > 0
+        @views kkt.rhs_d_red .= kkt.rhs_d[kkt.coupled_design_local]
+        @blas_safe_threads for k in 1:ns
+            mul!(kkt.rhs_k[k], kkt.tmp_blk_nd[k], kkt.rhs_d_red, -one(T), one(T))
+        end
     end
 
     # Step 6: Write back to w
