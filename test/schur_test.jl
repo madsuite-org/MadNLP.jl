@@ -260,6 +260,35 @@ using MadNLPTests
         end
     end
 
+    @testset "Uncoupled design variables (m < nd) — match SparseKKT reference" begin
+        # Only the first `n_coupled` design vars couple to scenarios; the remaining
+        # `nd - n_coupled` are design-only, so the Schur fill width m = n_coupled < nd.
+        # Exercises the reduced-width (coupled-subset) elimination path. The weakly-
+        # constrained uncoupled design directions need the tight tol to match the exact-
+        # equality reference (the default condensed tol of 1e-4 leaves them ~3e-4 off).
+        for (ns, nv, nd, n_coupled) in ((3, 2, 3, 1), (4, 2, 4, 2), (2, 3, 5, 1))
+            qp, var_scen, con_scen, kkt_opts =
+                build_twostage_qp_general(; ns, nv, nd, permute = true, n_coupled)
+            qp_ref = build_twostage_qp_general(; ns, nv, nd, permute = true, n_coupled)[1]
+
+            ref = madnlp(qp_ref; linear_solver = LapackCPUSolver, print_level = MadNLP.ERROR)
+            schur = madnlp(
+                qp;
+                kkt_system = SchurComplementCondensedKKTSystem,
+                linear_solver = MadNLP.MumpsSolver,
+                kkt_options = kkt_opts,
+                bound_relax_factor = 1.0e-8,
+                tol = 1.0e-8,
+                print_level = MadNLP.ERROR,
+            )
+
+            @test ref.status == MadNLP.SOLVE_SUCCEEDED
+            @test schur.status == MadNLP.SOLVE_SUCCEEDED
+            @test isapprox(schur.objective, ref.objective; atol = 1.0e-6)
+            @test isapprox(schur.solution, ref.solution; atol = 1.0e-4)
+        end
+    end
+
     @testset "Design-only constraints — symbolic build" begin
         # ns=2, nv=1, nd=2: vars [v1, v2, d1, d2]. RelaxEquality-only, so all cons
         # are inequalities that condense into A_kk / C_dk / S_dd:

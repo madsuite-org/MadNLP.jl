@@ -210,9 +210,13 @@ scattered). Strict convexity (positive-diagonal Hessian) gives a unique optimum,
 the Schur solve must match the reference `SparseKKTSystem` solve exactly.
 
 Per scenario: `nv` variables, one equality and one inequality constraint coupling
-that scenario's variables to all `nd` design variables. Globally: one design-only
-equality (`Σ d = 1`) and one design-only inequality (`-5 ≤ d_1 - d_2 ≤ 5`,
-inactive). With `permute = true` the canonical contiguous layout is reordered to
+that scenario's variables to the first `n_coupled` design variables (default all
+`nd`). Globally: one design-only equality (`Σ d = 1`) and one design-only
+inequality (`-5 ≤ d_1 - d_2 ≤ 5`, inactive). Passing `n_coupled < nd` leaves
+`nd - n_coupled` design variables **uncoupled** (they enter only the objective and
+the design-only constraints), so the Schur fill width `m = n_coupled < nd` — this
+exercises the reduced-width coupling path. With `permute = true` the canonical
+contiguous layout is reordered to
 `[design vars, then component-major scenario vars]` / `[design cons, then scenario
 cons]`; the returned `var_scen` / `con_scen` describe that order.
 
@@ -220,9 +224,10 @@ Returns the `TwoStageQP`, the tag vectors, and a ready `kkt_options` dict.
 """
 function build_twostage_qp_general(
         x0_template::AbstractVector{T} = Vector{Float64}(undef, 0);
-        ns::Int, nv::Int, nd::Int, permute::Bool = true,
+        ns::Int, nv::Int, nd::Int, permute::Bool = true, n_coupled::Int = nd,
     ) where {T}
     nd >= 2 || error("build_twostage_qp_general needs nd >= 2 for the design constraints")
+    1 <= n_coupled <= nd || error("build_twostage_qp_general needs 1 <= n_coupled <= nd")
 
     # Per-scenario: 1 equality + 1 inequality. Design: 1 equality + 1 inequality.
     nc = 2
@@ -255,12 +260,15 @@ function build_twostage_qp_general(
     end
 
     @inbounds for k in 1:ns
-        # scenario equality: Σ_j v[k,j] + Σ_l d[l] = 0
+        # scenario equality: Σ_j v[k,j] + Σ_{l≤n_coupled} d[l] = 0. Only the first `n_coupled`
+        # design vars appear in a scenario constraint, so exactly those couple into C_dk; design
+        # vars l > n_coupled are "design-only" (they enter only the objective and the design-only
+        # constraints below). With n_coupled < nd this exercises the m < nd reduced Schur path.
         re = cscon(k, 1)
         for j in 1:nv
             A[re, cvar(k, j)] = 1
         end
-        for l in 1:nd
+        for l in 1:n_coupled
             A[re, cdes(l)] = 1
         end
         lcon[re] = 0; ucon[re] = 0
