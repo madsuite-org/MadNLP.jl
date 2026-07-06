@@ -92,6 +92,8 @@ struct GPUSchurComplementCondensedKKTSystem{
     buffer::VT
     rhs_d::VT                           # nd
     rhs_d_red::VT                       # m — reduced design coupling RHS
+    rhs_d_red_batched::CuArray{T, 3}    # (m, 1, ns) — strided-batched reduction GEMM output
+    rhs_d_red_mat::MT                   # (m, ns) — rhs_d_red broadcast across scenarios (back-sub)
     rhs_k_batched::MT                   # (blk_size, ns)
     tmp_blk_nd_batched::CuArray{T, 3}   # (blk_size, m, ns)
     solve_buffer::VT                    # blk_size * ns
@@ -464,6 +466,8 @@ function MadNLP.create_kkt_system(
     buffer      = CuVector{T}(undef, m)
     rhs_d = CuVector{T}(undef, nd)
     rhs_d_red = CuVector{T}(undef, m_coupled)
+    rhs_d_red_batched = CuArray{T, 3}(undef, m_coupled, 1, ns)
+    rhs_d_red_mat = CuMatrix{T}(undef, m_coupled, ns)
     rhs_k_batched = CuMatrix{T}(undef, blk_size, ns)
     solve_buffer = CuVector{T}(undef, blk_size * ns)
 
@@ -525,7 +529,7 @@ function MadNLP.create_kkt_system(
         ns, nv, nd, nc, nc_ineq_per_s, blk_size, m_coupled,
         A_kk_batched, nnz_per_scenario,
         C_dk_batched, schur_csc, schur_block_batched, gpu_coupled_design_local, gpu_schur_fill_nzpos,
-        diag_buffer, buffer, rhs_d, rhs_d_red, rhs_k_batched, tmp_blk_nd_batched, solve_buffer,
+        diag_buffer, buffer, rhs_d, rhs_d_red, rhs_d_red_batched, rhs_d_red_mat, rhs_k_batched, tmp_blk_nd_batched, solve_buffer,
         flat.n_per_s_hess_Akk, gpu_hess_Akk_coo, gpu_hess_Akk_nzpos,
         flat.n_per_s_hess_Cdk, gpu_hess_Cdk_coo, gpu_hess_Cdk_row, gpu_hess_Cdk_col,
         flat.n_per_s_pr_diag, gpu_pr_diag_global, gpu_pr_diag_nzpos,
@@ -800,27 +804,33 @@ function MadNLP.solve_kkt!(
     MadNLP.solve_linear_system!(kkt.scenario_solver, kkt.solve_buffer)
     copyto!(vec(kkt.rhs_k_batched), kkt.solve_buffer)
 
-    # rhs_d[coupled] -= Σ_k C_dk_red[:,:,k]' * rhs_k[:,k]. Only the coupled design
-    # rows receive a contribution (non-coupled C_dk columns are exactly zero); the
-    # design eq tail (the J0_eq row residual) is untouched by scenario elimination.
-    # Accumulate the sum in the reduced buffer, then scatter-subtract.
+    # rhs_d[coupled] -= Σ_k C_dk_red[:,:,k]' * rhs_k[:,k]. Only the coupled design rows receive a
+    # contribution (non-coupled C_dk columns are exactly zero). One strided-batched GEMM computes
+    # the per-scenario (m×1) products C_dk_red[:,:,k]' rhs_k[:,k]; sum over the batch dim gives the
+    # accumulated reduced RHS, which is then scatter-subtracted. (Replaces the per-scenario `mul!`
+    # loop = ns kernel launches per solve.)
     if m > 0
-        fill!(kkt.rhs_d_red, zero(T))
-        for k in 1:ns
-            mul!(kkt.rhs_d_red, view(kkt.C_dk_batched, :, :, k)', view(kkt.rhs_k_batched, :, k), one(T), one(T))
-        end
+        cuBLAS.gemm_strided_batched!(
+            'T', 'N', one(T), kkt.C_dk_batched, reshape(kkt.rhs_k_batched, blk, 1, ns),
+            zero(T), kkt.rhs_d_red_batched,
+        )
+        sum!(reshape(kkt.rhs_d_red, m, 1, 1), kkt.rhs_d_red_batched)   # reduce over scenarios
         @views kkt.rhs_d[kkt.coupled_design_local] .-= kkt.rhs_d_red
     end
 
     # Step 4: Solve the first-stage Schur complement system (size nd, SPD) with cuDSS.
     MadNLP.solve_linear_system!(kkt.linear_solver, kkt.rhs_d)
 
-    # Step 5: Back-substitution. rhs_k[:,k] -= tmp_red[:,:,k] * rhs_d[coupled] per scenario.
+    # Step 5: Back-substitution. rhs_k[:,k] -= tmp_red[:,:,k] * rhs_d[coupled] per scenario. The
+    # reduced design update is shared across scenarios, so broadcast it into an (m×ns) buffer and
+    # do the whole back-substitution as one strided-batched GEMM.
     if m > 0
         @views kkt.rhs_d_red .= kkt.rhs_d[kkt.coupled_design_local]
-        for k in 1:ns
-            mul!(view(kkt.rhs_k_batched, :, k), view(kkt.tmp_blk_nd_batched, :, :, k), kkt.rhs_d_red, -one(T), one(T))
-        end
+        kkt.rhs_d_red_mat .= reshape(kkt.rhs_d_red, m, 1)
+        cuBLAS.gemm_strided_batched!(
+            'N', 'N', -one(T), kkt.tmp_blk_nd_batched, reshape(kkt.rhs_d_red_mat, m, 1, ns),
+            one(T), reshape(kkt.rhs_k_batched, blk, 1, ns),
+        )
     end
 
     # Step 6: Write back to w via kernel
