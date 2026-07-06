@@ -349,6 +349,16 @@ function MadNLP.create_kkt_system(
             "$(schur_scenario_linear_solver)` is ignored. Pass `schur_scenario_opt_linear_solver` " *
             "to configure the cuDSS scenario solver."
     )
+    # The first-stage Schur complement is also cuDSS (nbatch=1, so it reports inertia); the
+    # positional `linear_solver`/`opt_linear_solver` chosen by the IPM are NOT used here. Warn
+    # loudly when the user overrode `linear_solver` (e.g. LapackCUDASolver or a custom
+    # AbstractLinearSolver) instead of silently substituting cuDSS. The first-stage cuDSS options
+    # are configured via `schur_opt_linear_solver`.
+    linear_solver === CUDSSSolver || Base.@warn(
+        "GPUSchurComplementCondensedKKTSystem factorizes the first-stage Schur complement with " *
+            "cuDSS; the requested `linear_solver=$(linear_solver)` (and its `opt_linear_solver`) " *
+            "is ignored. Configure the first-stage cuDSS solver via `schur_opt_linear_solver`."
+    )
 
     n = cb.nvar
     m = cb.ncon
