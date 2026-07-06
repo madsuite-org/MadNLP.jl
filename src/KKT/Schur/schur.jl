@@ -978,7 +978,20 @@ function create_kkt_system(
         schur_var_scen = nothing,
         schur_con_scen = nothing,
     schur_scenario_linear_solver::Type=MumpsSolver,
+    schur_scenario_opt_linear_solver=default_options(schur_scenario_linear_solver),
+    schur_opt_linear_solver=nothing,
+    kwargs...,
 ) where {T, VT}
+
+    isempty(kwargs) || Base.@warn(
+        "SchurComplementCondensedKKTSystem (CPU) ignores unsupported kkt_options: " *
+            join(string.(keys(kwargs)), ", ")
+    )
+    schur_opt_linear_solver === nothing || Base.@warn(
+        "SchurComplementCondensedKKTSystem (CPU): `schur_opt_linear_solver` is a GPU-only option " *
+            "(first-stage cuDSS options) and is ignored on CPU; the first-stage Schur complement " *
+            "is solved by `linear_solver` with `opt_linear_solver`."
+    )
 
     n = cb.nvar
     m = cb.ncon
@@ -1064,7 +1077,7 @@ function create_kkt_system(
 
     # --- Create solvers ---
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
-    scenario_solvers = [schur_scenario_linear_solver(A_kk_vec[k]) for k in 1:ns]
+    scenario_solvers = [schur_scenario_linear_solver(A_kk_vec[k]; opt = schur_scenario_opt_linear_solver) for k in 1:ns]
     _linear_solver = linear_solver(schur_csc; opt = opt_linear_solver)
 
     return SchurComplementCondensedKKTSystem(

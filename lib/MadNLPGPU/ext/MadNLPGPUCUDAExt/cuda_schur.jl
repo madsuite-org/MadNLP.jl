@@ -322,9 +322,22 @@ function MadNLP.create_kkt_system(
     schur_nc::Int=0,
         schur_var_scen = nothing,
         schur_con_scen = nothing,
+        schur_scenario_linear_solver::Type = CUDSSSolver,
         schur_scenario_opt_linear_solver = _default_schur_cudss_options(),
         schur_opt_linear_solver = _default_schur_cudss_options(),
+        kwargs...,
 ) where {T, VT <: CuVector{T}}
+
+    isempty(kwargs) || Base.@warn(
+        "GPUSchurComplementCondensedKKTSystem ignores unsupported kkt_options: " *
+            join(string.(keys(kwargs)), ", ")
+    )
+    schur_scenario_linear_solver === CUDSSSolver || Base.@warn(
+        "GPUSchurComplementCondensedKKTSystem always factorizes the per-scenario blocks with a " *
+            "batched cuDSS solver; the requested `schur_scenario_linear_solver=" *
+            "$(schur_scenario_linear_solver)` is ignored. Pass `schur_scenario_opt_linear_solver` " *
+            "to configure the cuDSS scenario solver."
+    )
 
     n = cb.nvar
     m = cb.ncon
