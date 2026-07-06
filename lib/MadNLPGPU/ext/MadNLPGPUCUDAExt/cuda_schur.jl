@@ -157,12 +157,6 @@ struct GPUSchurComplementCondensedKKTSystem{
     # Schur complement (CUDSSSolver, nbatch=1); the IPM queries this field for inertia/factorize.
     linear_solver::LS
 
-    # Multi-RHS descriptors over `C_dk_batched` / `tmp_blk_nd_batched`, used to solve
-    # A_kk * tmp[:, :, k] = C_dk_red[:, :, k] for all k in one cuDSS call (m right-hand
-    # sides per scenario, ns batch). Zero-copy onto the `(blk, m, ns)` buffers.
-    scenario_x_multi::CUDSS.CudssMatrix{T}
-    scenario_b_multi::CUDSS.CudssMatrix{T}
-
     # Lazily-built deterministic condensation-scatter structure (NamedTuple of _DetScatter /
     # _DetLinScatter), memoized here so it is owned by — and freed with — the kkt.
     det_cache::Base.RefValue{Any}
@@ -515,27 +509,12 @@ function MadNLP.create_kkt_system(
     # The per-scenario blocks are batched (nbatch=ns); the Schur complement is a single
     # lower-triangular CSC (nbatch=1), so cuDSS reports its inertia. The dense cuSOLVER
     # `sytrf` path is replaced. `linear_solver`/`opt_linear_solver` are unused on GPU.
+    # The batched scenario solver is analyzed once for its single-RHS shape (nbatch=ns) inside
+    # the CUDSSSolver constructor, and every scenario solve in build_kkt!/solve_kkt! is
+    # single-RHS (the multi-RHS ubatch solve is broken above nbatch≈14, see build_kkt!), so no
+    # extra multi-RHS descriptors/analysis are needed.
     scenario_solver = CUDSSSolver(A_kk_batched; opt=schur_scenario_opt_linear_solver)
     schur_solver = CUDSSSolver(schur_csc; opt = schur_opt_linear_solver)  # analysis runs once
-
-    # --- Multi-RHS cuDSS descriptors for batched A_kk \ C_dk_red' (m RHS per scenario) ---
-    mdesc = max(m_coupled, 1)
-    scenario_b_multi = CUDSS.CudssMatrix(T, blk_size, mdesc; nbatch = ns)
-    scenario_x_multi = CUDSS.CudssMatrix(T, blk_size, mdesc; nbatch = ns)
-    # Re-analyze for the multi-RHS shape so cuDSS plans enough workspace.
-    # This is the LARGEST RHS shape we will ever solve with on this handle;
-    # the later single-RHS solve at `solve_kkt!` step 3 reuses the same handle
-    # with a (blk × 1) × ns descriptor, which relies on the invariant that
-    # "analysis planned for a larger RHS accepts a smaller RHS at solve time".
-    # If that breaks on a future cuDSS version (e.g. a strict shape check or
-    # per-column IR state), the single-RHS path would need its own handle or
-    # padding. The `schur_cudss_ir` test exercises `cudss_ir > 0` — the config
-    # most likely to surface such a regression — as a tripwire.
-    CUDSS.cudss(
-        "analysis", scenario_solver.inner,
-        scenario_x_multi, scenario_b_multi;
-        asynchronous=scenario_solver.opt.cudss_asynchronous,
-    )
 
     return GPUSchurComplementCondensedKKTSystem(
         hess, jac,
@@ -560,7 +539,6 @@ function MadNLP.create_kkt_system(
         n_eq_total, CuVector{Int}(cpu_ind_eq),
         ns_ineq, CuVector{Int}(cpu_ind_ineq), CuVector{Int}(cpu_ind_lb), CuVector{Int}(cpu_ind_ub),
         scenario_solver, schur_solver,
-        scenario_x_multi, scenario_b_multi,
         Base.RefValue{Any}(nothing),
     )
 end
