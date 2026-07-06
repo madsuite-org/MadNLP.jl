@@ -79,8 +79,11 @@ DenseCondensedKKTSystem
 
 For two-stage stochastic programs with a block-arrowhead structure,
 MadNLP provides a specialized KKT system that eliminates the per-scenario
-blocks and reduces the linear system to a dense `nd × nd` Schur complement
-on the design variables.
+blocks and reduces the linear system to a **sparse** (lower-triangular CSC)
+`nd × nd` Schur complement on the design variables. All equality constraints
+are relaxed into the barrier (RelaxEquality), so the per-scenario blocks and
+the first-stage Schur complement are symmetric positive definite; the reduction
+`Σ_k C_dk A_kk⁻¹ C_dk'` fills only the coupled-design × coupled-design block.
 ```@docs
 SchurComplementCondensedKKTSystem
 
