@@ -299,8 +299,19 @@ function _compute_det_scatter(kkt::GPUSchurComplementCondensedKKTSystem)
     hess_full, hess_full_perm = MadNLP.get_tril_to_full(kkt.hess_csc)
     fill!(hess_full.nzVal, zero(eltype(hess_full.nzVal)))
 
+    # --- Correct Jacobian assembly for compress_jacobian! -------------------------------
+    # The generic GPU `transfer!` (`view(jt_csc.nzVal, map) .= jac`) is a NON-summing scatter, so
+    # duplicate Jacobian COO entries (same (constraint, variable) coordinate — common with
+    # ExaModels AD) are dropped last-write-wins. The condensation kernels and the Hessian scatter
+    # SUM duplicates, so jt_csc must too, else jtprod!/mul!/dual recovery use a *different*
+    # Jacobian than the assembled A_kk/C_dk/S blocks. Build a deterministic segmented SUM keyed by
+    # jt_csc nzval slot (source = the jac COO values).
+    njac = length(kkt.jac)
+    jt_lin = _segment_lin_scatter(Array(kkt.jt_csc_map), collect(1:njac))
+
     return (Akk = Akk, Cdk = Cdk, S = S, hessAkk = hessAkk, hessCdk = hessCdk, hessS = hessS,
-            hess_lin = hess_lin, hess_full = hess_full, hess_full_perm = hess_full_perm)
+            hess_lin = hess_lin, hess_full = hess_full, hess_full_perm = hess_full_perm,
+            jt_lin = jt_lin)
 end
 
 function _get_det_scatter(kkt::GPUSchurComplementCondensedKKTSystem)
@@ -576,7 +587,22 @@ function MadNLP.jtprod!(y::VT, kkt::GPUSchurComplementCondensedKKTSystem, x::VT)
 end
 
 function MadNLP.compress_jacobian!(kkt::GPUSchurComplementCondensedKKTSystem)
-    MadNLP.transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
+    # NOT the generic non-summing `transfer!` (`view(jt_csc.nzVal, map) .= jac`), which drops
+    # duplicate Jacobian COO entries (last-write-wins). Deterministically SUM duplicates into
+    # jt_csc.nzVal so jtprod!/mul!/dual recovery use the SAME Jacobian as the assembled
+    # A_kk/C_dk/S blocks (which also sum duplicates). See the `jt_lin` comment in
+    # `_compute_det_scatter`. Matches the CPU `_transfer!`, which sums with `+=`.
+    backend = CUDABackend()
+    det = _get_det_scatter(kkt)
+    nz = kkt.jt_csc.nzVal
+    fill!(nz, zero(eltype(nz)))
+    if length(det.jt_lin.segslot) > 0
+        _det_lin_scatter!(backend)(
+            nz, kkt.jac, det.jt_lin.src_idx, det.jt_lin.segstart, det.jt_lin.segslot;
+            ndrange = length(det.jt_lin.segslot),
+        )
+    end
+    return
 end
 
 function MadNLP.compress_hessian!(kkt::GPUSchurComplementCondensedKKTSystem)
