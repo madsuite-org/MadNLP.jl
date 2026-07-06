@@ -55,15 +55,3 @@ MadNLP.transfer_matrix!(M::LapackCUDASolver) = MadNLPGPU.gpu_transfer!(M.fact, M
 MadNLP._get_info(M::LapackCUDASolver) = sum(M.info)
 MadNLP.solve!(M::LapackCUDASolver{T}, x::CuVector{T}) where {T} = MadNLP._solve!(M, x)
 MadNLP.introduce(M::LapackCUDASolver) = "cuSOLVER v$(cuSOLVER.version()) -- ($(M.opt.lapack_algorithm))"
-
-# cuSOLVER's `sytrf` produces the same LAPACK-format Bunch–Kaufman factorization
-# (lower triangle + LAPACK pivot convention) as the CPU path, so the inertia can
-# be read off the host copy of the factor and pivots. Without this, an indefinite
-# dense block (e.g. the bordered first-stage block of `SchurComplementCondensedKKTSystem`
-# with design-only constraints) falls back to inertia-free regularization, which
-# over-regularizes and stalls the IPM. The host copy is O(n²) on a small dense
-# block — negligible next to the GPU factorization.
-MadNLP.supports_bunchkaufman_inertia(::LapackCUDASolver) = true
-function MadNLP.inertia_bunchkaufman(M::LapackCUDASolver)
-    return MadNLP.inertia(Array(M.fact), Array(M.ipiv), Array(M.info)[1])
-end
