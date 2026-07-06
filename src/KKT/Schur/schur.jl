@@ -392,8 +392,12 @@ function _build_schur_symbolic(
     # so the per-scenario blocks and the first-stage Schur complement are condensed
     # and SPD — there is no equality saddle / bordered block.
     isempty(ind_eq) || error(
-        "SchurComplementCondensedKKTSystem is RelaxEquality-only; got $(length(ind_eq)) equality " *
-        "constraint(s). Use equality_treatment=MadNLP.RelaxEquality (the default for Schur)."
+        "SchurComplementCondensedKKTSystem is RelaxEquality-only, but got $(length(ind_eq)) " *
+        "constraint(s) kept as equalities. The bordered EnforceEquality saddle that the old " *
+        "`SchurComplementKKTSystem` used was removed: the first-stage Schur complement is now SPD " *
+        "and requires every constraint to be relaxed into the barrier. Pass " *
+        "`equality_treatment=MadNLP.RelaxEquality` (the default when " *
+        "`kkt_system=SchurComplementCondensedKKTSystem`) — do not override it with `EnforceEquality`."
     )
     ind_ineq_set = Set(Int.(ind_ineq))
 
