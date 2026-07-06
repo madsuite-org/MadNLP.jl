@@ -24,112 +24,6 @@
     @inbounds nzval[offset + nzpos_flat[i]] += src[src_idx[i]]
 end
 
-# Scatter src[src_idx[i]] into C_dk[v_idx, d_idx, k] (blk_size × nd × ns).
-# Layout has scenario-var dim first so each C_dk[:, :, k] is a contiguous
-# (blk × nd) matrix — directly usable as a cuDSS multi-RHS dense matrix.
-# Used for: Hessian coupling entries, equality Jacobian coupling entries.
-@kernel function _scatter_to_Cdk_batched!(
-    C_dk,
-    @Const(src),
-    @Const(src_idx),
-    @Const(v_idx_flat),       # scenario-var index (1..blk)
-    @Const(d_idx_flat),       # design-var index (1..nd)
-    @Const(n_per_s),
-)
-    i = @index(Global)
-    k = (i - 1) ÷ n_per_s + 1
-    @inbounds C_dk[v_idx_flat[i], d_idx_flat[i], k] += src[src_idx[i]]
-end
-
-# Inequality condensation → A_kk (lower triangle). ATOMIC: a scenario variable
-# that appears in several inequalities produces several contributions to the SAME
-# A_kk nzval slot (e.g. its diagonal), so concurrent threads must not race.
-@kernel function _ineq_condense_Akk_kernel!(
-    nzval,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(nzpos_flat),
-    @Const(jcoo1_flat),
-    @Const(jcoo2_flat),
-    @Const(bufidx_flat),
-    @Const(nnz_per_block),
-    @Const(n_per_s),
-)
-    i = @index(Global)
-    offset = ((i - 1) ÷ n_per_s) * nnz_per_block
-    @inbounds begin
-        val = diag_buffer[bufidx_flat[i]] * jac[jcoo1_flat[i]] * jac[jcoo2_flat[i]]
-        CUDACore.@atomic nzval[offset + nzpos_flat[i]] += val
-    end
-end
-
-# Inequality condensation → C_dk (blk_size × nd × ns; see _scatter_to_Cdk_batched!).
-# ATOMIC for the same reason as the A_kk kernel: a (design, scenario-var) pair can
-# receive contributions from several inequalities targeting the same C_dk cell.
-@kernel function _ineq_condense_Cdk_kernel!(
-    C_dk,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(v_idx_flat),       # scenario-var index (1..blk)
-    @Const(d_idx_flat),       # design-var index (1..nd)
-    @Const(jcoo_d_flat),
-    @Const(jcoo_v_flat),
-    @Const(bufidx_flat),
-    @Const(n_per_s),
-)
-    i = @index(Global)
-    k = (i - 1) ÷ n_per_s + 1
-    @inbounds begin
-        val = diag_buffer[bufidx_flat[i]] * jac[jcoo_d_flat[i]] * jac[jcoo_v_flat[i]]
-        CUDACore.@atomic C_dk[v_idx_flat[i], d_idx_flat[i], k] += val
-    end
-end
-
-# Inequality condensation → S (atomic adds since multiple scenarios target the
-# same nd × nd dense matrix).
-@kernel function _ineq_condense_S_kernel!(
-    S,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(row_flat),
-    @Const(col_flat),
-    @Const(jcoo1_flat),
-    @Const(jcoo2_flat),
-    @Const(bufidx_flat),
-)
-    i = @index(Global)
-    @inbounds begin
-        val = diag_buffer[bufidx_flat[i]] * jac[jcoo1_flat[i]] * jac[jcoo2_flat[i]]
-        CUDACore.@atomic S[row_flat[i], col_flat[i]] += val
-    end
-end
-
-# Initialize S from design-design Hessian
-@kernel function _init_S_hess_kernel!(
-    S,
-    @Const(hess),
-    @Const(coo_indices),
-    @Const(row_indices),
-    @Const(col_indices),
-)
-    idx = @index(Global)
-    @inbounds S[row_indices[idx], col_indices[idx]] += hess[coo_indices[idx]]
-end
-
-# Add pr_diag_dd to S diagonal (design vars indexed by their global position —
-# they are not necessarily the last nd entries).
-@kernel function _init_S_diag_kernel!(
-    S,
-    @Const(pr_diag),
-        @Const(design_var_global),
-    @Const(nd),
-)
-    idx = @index(Global)
-    if idx <= nd
-        @inbounds S[idx, idx] += pr_diag[design_var_global[idx]]
-    end
-end
-
 # Extract per-scenario RHS from global wx → rhs_k_batched (nv × ns). Under
 # RelaxEquality the per-scenario block has no equality rows (blk_size == nv), so
 # only scenario variables are gathered. Their global indices come from
@@ -168,13 +62,11 @@ end
     end
 end
 
-# ===== Sparse-Schur (cuDSS) assembly kernels =====================================
-# These scatter into the lower-triangular CSC `nzval` of the sparse Schur complement
-# at precomputed nzval positions. Atomic because overlapping contributions (design
-# Hessian + inequality condensation + Schur fill) can target the same slot.
-
-# Scatter src[src_idx[i]] into nzval[nzpos[i]]. Used for design Hessian, pr_diag
-# diagonal, design-eq border, and -Δ_eq diagonal.
+# ===== Sparse-Schur (cuDSS) assembly kernel ======================================
+# Scatters into the lower-triangular CSC `nzval` of the sparse Schur complement at a
+# precomputed nzval position. Used for the design pr_diag diagonal, which targets distinct
+# diagonal slots with no collision (so a plain atomic add is race-free and deterministic; the
+# Σ-amplified / duplicate-prone contributions go through the deterministic scatters below).
 @kernel function _scatter_to_csc_atomic!(
         nzval,
         @Const(src),
@@ -183,43 +75,6 @@ end
     )
     i = @index(Global)
     @inbounds CUDACore.@atomic nzval[nzpos[i]] += src[src_idx[i]]
-end
-
-# Inequality condensation → CSC nzval (scenario + design): atomic quad-add.
-@kernel function _ineq_condense_csc_kernel!(
-        nzval,
-        @Const(jac),
-        @Const(diag_buffer),
-        @Const(nzpos),
-        @Const(jcoo1),
-        @Const(jcoo2),
-        @Const(bufidx),
-    )
-    i = @index(Global)
-    @inbounds begin
-        val = diag_buffer[bufidx[i]] * jac[jcoo1[i]] * jac[jcoo2[i]]
-        CUDACore.@atomic nzval[nzpos[i]] += val
-    end
-end
-
-# Schur reduction block → CSC nzval: subtract -D[a,b,k] for the lower-or-diagonal
-# half (a>=b) into the single lower-triangle slot fill_nzpos[a,b]. D is the
-# per-scenario m×m symmetric block C_dk_red[:,:,k]' * tmp_red[:,:,k]; writing only
-# a>=b avoids double-counting off-diagonals on the lower-only CSC.
-@kernel function _scatter_schur_block!(
-        nzval,
-        @Const(D),
-        @Const(fill_nzpos),
-        @Const(m),
-        @Const(ns),
-    )
-    i = @index(Global)
-    a = (i - 1) % m + 1
-    b = ((i - 1) ÷ m) % m + 1
-    k = (i - 1) ÷ (m * m) + 1
-    if k <= ns && a >= b
-        @inbounds CUDACore.@atomic nzval[fill_nzpos[a, b]] += -D[a, b, k]
-    end
 end
 
 # ===== Deterministic (atomic-free) condensation scatters ========================
