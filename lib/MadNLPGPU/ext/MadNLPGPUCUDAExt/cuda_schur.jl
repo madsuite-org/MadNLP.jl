@@ -419,7 +419,6 @@ function MadNLP.create_kkt_system(
     blk_size = sym.blk_size
     nnz_per_scenario = sym.nnz_per_scenario
     akk_csc_cpu = sym.akk_csc_template
-    nd_aug = sym.nd_aug
     m_coupled = sym.m_coupled
     coupled_inv = sym.coupled_inv
 
@@ -445,7 +444,7 @@ function MadNLP.create_kkt_system(
     schur_rowVal = CuVector{Cint}(Vector{Cint}(sym.schur_csc_rowval))
     schur_nzVal = CUDACore.fill(zero(T), sym.schur_nnz)
     schur_csc = cuSPARSE.CuSparseMatrixCSC{T, Cint}(
-        schur_colPtr, schur_rowVal, schur_nzVal, (nd_aug, nd_aug),
+        schur_colPtr, schur_rowVal, schur_nzVal, (nd, nd),
     )
     # Reduced coupling: only the m design columns that couple to a scenario.
     C_dk_batched = CUDACore.fill(zero(T), blk_size, m_coupled, ns)
@@ -469,7 +468,7 @@ function MadNLP.create_kkt_system(
     # --- Buffers ---
     diag_buffer = CuVector{T}(undef, max(ns_ineq, 1))
     buffer      = CuVector{T}(undef, m)
-    rhs_d = CuVector{T}(undef, nd_aug)
+    rhs_d = CuVector{T}(undef, nd)
     rhs_d_red = CuVector{T}(undef, m_coupled)
     rhs_k_batched = CuMatrix{T}(undef, blk_size, ns)
     solve_buffer = CuVector{T}(undef, blk_size * ns)

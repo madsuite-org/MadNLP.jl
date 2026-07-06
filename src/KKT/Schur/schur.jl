@@ -754,7 +754,6 @@ function _build_schur_symbolic(
     # coupled design vars (uniform across scenarios), the lower-triangular sparsity
     # pattern, and per-contribution nzval-position maps used to assemble and factorize
     # `schur_csc` (the GPU additionally uploads them to build a CuSparseMatrixCSC).
-    nd_aug = nd
 
     # (1) Coupled design vars per scenario (design-local indices appearing in C_dk).
     coupled_per_s = [Set{Int}() for _ in 1:ns]
@@ -813,7 +812,7 @@ function _build_schur_symbolic(
         end
     end
     schur_csc_template, schur_coo_map = coo_to_csc(
-        SparseMatrixCOO(nd_aug, nd_aug, schur_I, schur_J, zeros(T, schur_nnz))
+        SparseMatrixCOO(nd, nd, schur_I, schur_J, zeros(T, schur_nnz))
     )
     # (row,col) → nzval position, from the canonical (column-major) CSC ordering.
     schur_pos = Dict{Tuple{Int, Int}, Int}()
@@ -889,7 +888,6 @@ function _build_schur_symbolic(
         design_ineq_S_jcoo2 = design_ineq_S_jcoo2,
         design_ineq_S_bufidx = design_ineq_S_bufidx,
         # Sparse-Schur (GPU cuDSS) pattern + nzpos maps.
-        nd_aug = nd_aug,
         m_coupled = m_coupled,
         coupled_design_local = coupled_design_local,
         coupled_inv = coupled_inv,

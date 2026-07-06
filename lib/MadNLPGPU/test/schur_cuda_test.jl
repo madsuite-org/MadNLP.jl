@@ -272,9 +272,9 @@ using MadNLPTests
 
             A_dense = Array(Symmetric(Matrix(kkt_cpu.schur_csc), :L))
             S = kkt_gpu.schur_csc
-            nd_aug = size(S, 1)
+            nS = size(S, 1)
             S_lower = SparseMatrixCSC(
-                nd_aug, nd_aug, Array(S.colPtr), Array(S.rowVal), Array(S.nzVal),
+                nS, nS, Array(S.colPtr), Array(S.rowVal), Array(S.nzVal),
             )
             S_full = Array(Symmetric(Matrix(S_lower), :L))
 
