@@ -577,14 +577,15 @@ function MadNLP.jtprod!(y::VT, kkt::GPUSchurComplementCondensedKKTSystem, x::VT)
     return
 end
 
-function MadNLP.compress_jacobian!(kkt::GPUSchurComplementCondensedKKTSystem)
+MadNLP.compress_jacobian!(kkt::GPUSchurComplementCondensedKKTSystem) =
+    _schur_compress_jacobian!(kkt, _get_det_scatter(kkt))   # function barrier (see build_kkt!)
+function _schur_compress_jacobian!(kkt::GPUSchurComplementCondensedKKTSystem, det)
     # NOT the generic non-summing `transfer!` (`view(jt_csc.nzVal, map) .= jac`), which drops
     # duplicate Jacobian COO entries (last-write-wins). Deterministically SUM duplicates into
     # jt_csc.nzVal so jtprod!/mul!/dual recovery use the SAME Jacobian as the assembled
     # A_kk/C_dk/S blocks (which also sum duplicates). See the `jt_lin` comment in
     # `_compute_det_scatter`. Matches the CPU `_transfer!`, which sums with `+=`.
     backend = CUDABackend()
-    det = _get_det_scatter(kkt)
     nz = kkt.jt_csc.nzVal
     fill!(nz, zero(eltype(nz)))
     if length(det.jt_lin.segslot) > 0
@@ -596,12 +597,13 @@ function MadNLP.compress_jacobian!(kkt::GPUSchurComplementCondensedKKTSystem)
     return
 end
 
-function MadNLP.compress_hessian!(kkt::GPUSchurComplementCondensedKKTSystem)
+MadNLP.compress_hessian!(kkt::GPUSchurComplementCondensedKKTSystem) =
+    _schur_compress_hessian!(kkt, _get_det_scatter(kkt))   # function barrier (see build_kkt!)
+function _schur_compress_hessian!(kkt::GPUSchurComplementCondensedKKTSystem, det)
     # NOT the generic non-summing `transfer!`: deterministically SUM duplicate Hessian COO
     # entries into hess_csc.nzVal, then materialize the full symmetric `hess_full` used by the
     # refinement mul!. (See the hess_full comment in `_compute_det_scatter`.)
     backend = CUDABackend()
-    det = _get_det_scatter(kkt)
     nz = kkt.hess_csc.nzVal
     fill!(nz, zero(eltype(nz)))
     if length(det.hess_lin.segslot) > 0
@@ -615,7 +617,12 @@ function MadNLP.compress_hessian!(kkt::GPUSchurComplementCondensedKKTSystem)
 end
 
 # --- build_kkt! ---
-function MadNLP.build_kkt!(kkt::GPUSchurComplementCondensedKKTSystem{T}) where T
+# Function barrier: `_get_det_scatter` returns the memoized scatter as `::Any` (its concrete
+# NamedTuple type is huge), so accessing `det.X` in-body would dynamic-dispatch every IPM
+# iteration. Passing `det` to a specialized inner method makes every `det.X` access (and the
+# kernel launches taking them) type-stable after a single dynamic dispatch at the call.
+MadNLP.build_kkt!(kkt::GPUSchurComplementCondensedKKTSystem) = _schur_build_kkt!(kkt, _get_det_scatter(kkt))
+function _schur_build_kkt!(kkt::GPUSchurComplementCondensedKKTSystem{T}, det) where T
     ns = kkt.ns
     nv = kkt.nv
     nd = kkt.nd
@@ -626,7 +633,6 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementCondensedKKTSystem{T}) where T
     nzval = kkt.A_kk_batched.nzVal
     nnz_s = kkt.nnz_per_scenario
     Snz = kkt.schur_csc.nzVal
-    det = _get_det_scatter(kkt)   # deterministic condensation scatter (sorted by target slot)
 
     # Compute condensing diagonal for inequalities
     if kkt.n_ineq > 0
@@ -858,12 +864,24 @@ function MadNLP.solve_kkt!(
 end
 
 # --- mul! for iterative refinement ---
+# Function barrier: hoist the `::Any` det access (its `hess_full` is the SpMV reference operator,
+# hit many times per Richardson step) out of the hot body so the SpMV dispatches statically.
 function MadNLP.mul!(
     w::MadNLP.AbstractKKTVector{T, VT},
     kkt::GPUSchurComplementCondensedKKTSystem{T},
     x::MadNLP.AbstractKKTVector,
     alpha = one(T),
     beta = zero(T),
+) where {T, VT <: CuVector{T}}
+    return _schur_mul!(w, kkt, x, alpha, beta, _get_det_scatter(kkt).hess_full)
+end
+function _schur_mul!(
+    w::MadNLP.AbstractKKTVector{T, VT},
+    kkt::GPUSchurComplementCondensedKKTSystem{T},
+    x::MadNLP.AbstractKKTVector,
+    alpha,
+    beta,
+    hess_full,
 ) where {T, VT <: CuVector{T}}
     n = MadNLP.num_variables(kkt)
 
@@ -878,7 +896,7 @@ function MadNLP.mul!(
     wx .= beta .* wx
     # Use the correctly-summed full-symmetric Hessian (general SpMV) — NOT
     # Symmetric(hess_csc,:L), which CUSPARSE multiplies as lower-triangle-only.
-    mul!(wx, _get_det_scatter(kkt).hess_full, xx, alpha, one(T))
+    mul!(wx, hess_full, xx, alpha, one(T))
 
     m = size(kkt.jt_csc, 2)
     if m > 0
@@ -893,9 +911,11 @@ function MadNLP.mul!(
     return w
 end
 
-function MadNLP.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementCondensedKKTSystem{T}, t) where {T, VT <: CuVector{T}}
+MadNLP.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementCondensedKKTSystem{T}, t) where {T, VT <: CuVector{T}} =
+    _schur_mul_hess_blk!(wx, kkt, t, _get_det_scatter(kkt).hess_full)   # function barrier (see mul!)
+function _schur_mul_hess_blk!(wx::VT, kkt::GPUSchurComplementCondensedKKTSystem{T}, t, hess_full) where {T, VT <: CuVector{T}}
     n = MadNLP.num_variables(kkt)
-    mul!(@view(wx[1:n]), _get_det_scatter(kkt).hess_full, @view(t[1:n]))
+    mul!(@view(wx[1:n]), hess_full, @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
     wx .+= t .* kkt.pr_diag
 end
