@@ -747,12 +747,11 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementCondensedKKTSystem{T}) where T
         # restore the batched `scenario_*_multi` solve once cuDSS fixes multi-RHS ubatch.)
         for j in 1:m
             copyto!(reshape(kkt.solve_buffer, blk, ns), view(kkt.C_dk_batched, :, j, :))
-            try
-                MadNLP.solve_linear_system!(kkt.scenario_solver, kkt.solve_buffer)
-            catch e
-                e isa Union{CUDSS.CUDSSError, MadNLP.SolveException} ?
-                    throw(FactorizationException()) : rethrow(e)
-            end
+            # `solve_linear_system!` already converts a cuDSS failure into a SolveException (after
+            # logging the status), which the IPM maps to ERROR_IN_STEP_COMPUTATION. The old outer
+            # try/catch that re-wrapped it as a FactorizationException was redundant double-handling
+            # (and its `CUDSS.CUDSSError` branch was dead — never reached the outer scope).
+            MadNLP.solve_linear_system!(kkt.scenario_solver, kkt.solve_buffer)
             copyto!(view(kkt.tmp_blk_nd_batched, :, j, :), reshape(kkt.solve_buffer, blk, ns))
         end
 

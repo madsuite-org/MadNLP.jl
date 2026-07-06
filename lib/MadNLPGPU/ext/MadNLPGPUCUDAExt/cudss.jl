@@ -180,7 +180,16 @@ function MadNLP.factorize!(M::CUDSSSolver)
             CUDSS.cudss("refactorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
         end
     catch e
-        e isa CUDSS.CUDSSError ? throw(FactorizationException()) : rethrow(e)
+        # Log the cuDSS status before erasing it: FactorizationException is field-less, so an OOM
+        # (CUDSS_STATUS_ALLOC_FAILED), a not-initialized handle, or an internal error would
+        # otherwise be indistinguishable from numerical breakdown once the IPM maps this to
+        # ERROR_IN_STEP_COMPUTATION.
+        if e isa CUDSS.CUDSSError
+            @warn(M.logger, "cuDSS (re)factorization failed with status $(e.code); reporting a FactorizationException (-> ERROR_IN_STEP_COMPUTATION).")
+            throw(FactorizationException())
+        else
+            rethrow(e)
+        end
     end
     return M
 end
@@ -200,7 +209,14 @@ function MadNLP.solve_linear_system!(M::CUDSSSolver{T, V}, xb::V) where {T, V}
     try
         CUDSS.cudss("solve", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
     catch e
-        e isa CUDSS.CUDSSError ? throw(SolveException()) : rethrow(e)
+        # As in factorize!: attach the cuDSS status before converting to the field-less
+        # SolveException, so OOM vs numerical breakdown is diagnosable.
+        if e isa CUDSS.CUDSSError
+            @warn(M.logger, "cuDSS solve failed with status $(e.code); reporting a SolveException (-> ERROR_IN_STEP_COMPUTATION).")
+            throw(SolveException())
+        else
+            rethrow(e)
+        end
     end
     return xb
 end
