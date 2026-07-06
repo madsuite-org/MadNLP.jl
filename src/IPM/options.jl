@@ -249,11 +249,15 @@ get_tolerance(::Type{T},::Type{SchurComplementCondensedKKTSystem}) where T = 10^
 default_sparse_solver(nlp::AbstractNLPModel) = MumpsSolver
 
 function check_option_sanity(options)
-    is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem || options.kkt_system <: SchurComplementCondensedKKTSystem
+    is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem
     is_hess_approx_dense = options.hessian_approximation <: Union{BFGS, DampedBFGS}
-    # `SchurComplementCondensedKKTSystem` factorizes its first-stage block with a dense solver
-    # on CPU but a sparse solver (cuDSS) on GPU, so a :csc linear solver is valid for
-    # it — only the genuinely dense KKT systems require a dense linear solver here.
+    # `SchurComplementCondensedKKTSystem` is a *sparse-callback* KKT system: on both CPU and
+    # GPU it factorizes a sparse lower-triangular first-stage Schur complement (MumpsSolver /
+    # any `:csc` solver on CPU, cuDSS on GPU), so a `:csc` linear solver is valid for it — only
+    # the genuinely dense KKT systems require a dense linear solver here. It also has no dense
+    # quasi-Newton wiring, so it is NOT classified as dense above: a dense BFGS/DampedBFGS
+    # approximation is rejected below with a clear options error instead of failing later with
+    # an obscure constructor/dispatch error.
     if input_type(options.linear_solver) == :csc && options.kkt_system <: AbstractDenseKKTSystem
         error("[options] Sparse Linear solver is not supported in dense mode.\n"*
               "Please use a dense linear solver or change `kkt_system` ")
