@@ -49,7 +49,14 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
     # cuDSS 1.0 enables matching ("default" = automatic) for symmetric matrices,
     # so it must be disabled explicitly with "none".
     if opt.cudss_matching
-        if opt.cudss_matching_alg != "default"
+        if solver.matrix.nbatch > 1
+            # cuDSS matching (`matching_alg`) fails the *analysis* phase with
+            # CUDSS_STATUS_NOT_SUPPORTED on a uniform-batch solver (through cuDSS 0.8),
+            # so never enable it there (e.g. the two-stage per-scenario batch solver).
+            # cuDSS 1.0 enables matching by default, so it must be disabled explicitly.
+            Base.@warn "cuDSS matching is not supported on uniform-batch (ubatch) solvers; ignoring `cudss_matching = true` for this batched solver." maxlog = 1
+            CUDSS.cudss_set(solver, "matching_alg", "none")
+        elseif opt.cudss_matching_alg != "default"
             CUDSS.cudss_set(solver, "matching_alg", opt.cudss_matching_alg)
         end
     else
@@ -86,6 +93,7 @@ mutable struct CUDSSSolver{T, V} <: MadNLP.AbstractLinearSolver{T}
     x_gpu::CUDSS.CudssMatrix{T}
     b_gpu::CUDSS.CudssMatrix{T}
     buffer::V
+    diag::V
 
     opt::CudssSolverOptions
     logger::MadNLP.MadNLPLogger
@@ -147,9 +155,13 @@ function CUDSSSolver(
     # Always allocate it to support dynamic updates to opt.cudss_ir
     buffer = CuVector{T}(undef, n * nbatch)
 
+    # Scratch for the factor diagonal, used to recover the inertia when matching is on
+    # (cuDSS misreports it as (0, 0)); only the nbatch == 1 path ever queries inertia.
+    diag = CuVector{T}(undef, n)
+
     return CUDSSSolver(
         solver, csc,
-        x_gpu, b_gpu, buffer,
+        x_gpu, b_gpu, buffer, diag,
         opt, logger,
     )
 end
@@ -198,6 +210,21 @@ function MadNLP.inertia(M::CUDSSSolver)
     elseif M.opt.cudss_algorithm == MadNLP.LDL
         # N.B.: cuDSS does not always return the correct inertia.
         if info == 0
+            if M.opt.cudss_matching
+                # cuDSS (through 0.8) reports inertia (0, 0) whenever matching is enabled,
+                # even though the factorization is correct — trusting it sends
+                # InertiaBased/InertiaAuto into an endless regularization bump and then
+                # restoration. Recover the inertia from the sign counts of the factor
+                # diagonal instead. Caveat: exact only for 1×1 pivots, which holds for the
+                # (quasi-definite) condensed KKT family this solver targets.
+                CUDSS.cudss_set(M.inner, "diag", M.diag)
+                CUDSS.cudss_get(M.inner, "diag")
+                d = Array(M.diag)
+                z = zero(eltype(d))
+                npos = count(>(z), d)
+                nneg = count(<(z), d)
+                return (npos, n - npos - nneg, nneg)
+            end
             (k, l) = CUDSS.cudss_get(M.inner, "inertia")
             @assert 0 ≤ k + l ≤ n
             return (k, n - k - l, l)
