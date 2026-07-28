@@ -158,6 +158,14 @@ struct SchurComplementCondensedKKTSystem{
     ind_lb::VI
     ind_ub::VI
 
+    # Aggregated inertia of the per-scenario blocks A_k, refreshed by `build_kkt!`.
+    # Haynsworth additivity gives In(K) = Σ_k In(A_k) + In(S), but the IPM only ever
+    # queries the linear solver for In(S) (`solver.jl`: `inertia(kkt.linear_solver)`).
+    # `is_inertia_correct` reads these so the test covers all of In(K).
+    block_num_neg::Base.RefValue{Int}     # Σ_k #negative eigenvalues of A_k
+    block_num_zero::Base.RefValue{Int}    # Σ_k #zero eigenvalues of A_k
+    block_num_indef::Base.RefValue{Int}   # #{k : A_k not positive definite} — diagnostics
+
     # Solvers
     scenario_solvers::Vector{LS2}
     linear_solver::LS               # for Schur complement S (dense)
@@ -1117,6 +1125,7 @@ function create_kkt_system(
         sym.design_var_global, sym.scen_var_global,
         n_eq, cb.ind_eq,
         ns_ineq, cb.ind_ineq, cb.ind_lb, cb.ind_ub,
+        Ref(0), Ref(0), Ref(0),
         scenario_solvers,
         _linear_solver,
     )
@@ -1130,10 +1139,63 @@ function get_slack_regularization(kkt::SchurComplementCondensedKKTSystem)
     return view(kkt.pr_diag, n+1:n+ns_ineq)
 end
 
+"""
+    is_inertia(kkt::SchurComplementCondensedKKTSystem)
+
+The Schur path can only certify In(K) if *every* factorization contributing to the
+Haynsworth sum reports inertia — the complement solver and all `ns` block solvers.
+"""
+is_inertia(kkt::SchurComplementCondensedKKTSystem) =
+    is_inertia(kkt.linear_solver) && all(is_inertia, kkt.scenario_solvers)
+
 function is_inertia_correct(kkt::SchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg)
-    # RelaxEquality-only: the first-stage Schur complement is SPD (nd positive
-    # eigenvalues, no negative or zero ones).
-    return (num_zero == 0) && (num_pos == kkt.nd) && (num_neg == 0)
+    # `(num_pos, num_zero, num_neg)` is In(S) alone — the IPM reads it off
+    # `kkt.linear_solver`, which factorizes only the nd×nd first-stage complement. By
+    # Haynsworth additivity In(K) = Σ_k In(A_k) + In(S), so In(S) == (nd, 0, 0) certifies
+    # the whole condensed KKT matrix ONLY if every block A_k is positive definite too.
+    #
+    # This is not a conservative omission: an indefinite A_k makes its contribution
+    # −C_k A_k⁻¹ C_kᵀ to S a *positive* shift, which can leave S positive definite. S then
+    # passes, δ_w is never raised, and the IPM accepts a direction with wrong curvature.
+    # The counts below are refreshed by `build_kkt!`, which factorizes the blocks; the IPM
+    # calls `factorize_wrapper!` (→ `build_kkt!`) before every inertia query, so they are
+    # always in sync with the In(S) passed in.
+    is_inertia(kkt) || throw(InertiaException())
+    return (num_zero == 0) && (num_pos == kkt.nd) && (num_neg == 0) &&
+           (kkt.block_num_neg[] == 0) && (kkt.block_num_zero[] == 0)
+end
+
+"""
+    _accumulate_block_inertia!(kkt::SchurComplementCondensedKKTSystem)
+
+Sum the per-scenario block inertias into `kkt.block_num_neg` / `block_num_zero` /
+`block_num_indef`. Called by `build_kkt!` right after the blocks are factorized; the
+counts are a by-product of that factorization (MUMPS stores them in INFOG(12)), so this
+only reads them back. Solvers that do not report inertia are skipped — `is_inertia(kkt)`
+is then false and `is_inertia_correct` refuses to certify anything.
+
+Set `MADNLP_SCHUR_BLOCK_INERTIA` in the environment to log the counts per factorization.
+"""
+function _accumulate_block_inertia!(kkt::SchurComplementCondensedKKTSystem)
+    num_neg = 0
+    num_zero = 0
+    num_indef = 0
+    worst = 0
+    for s in kkt.scenario_solvers
+        is_inertia(s) || continue
+        (_, z, neg) = inertia(s)
+        num_neg += neg
+        num_zero += z
+        (neg > 0 || z > 0) && (num_indef += 1)
+        worst = max(worst, neg)
+    end
+    kkt.block_num_neg[] = num_neg
+    kkt.block_num_zero[] = num_zero
+    kkt.block_num_indef[] = num_indef
+    if haskey(ENV, "MADNLP_SCHUR_BLOCK_INERTIA")
+        Base.@info "schur block inertia" blocks_indefinite = num_indef total_neg_pivots = num_neg total_zero_pivots = num_zero max_neg_pivots = worst ns = kkt.ns
+    end
+    return
 end
 
 should_regularize_dual(kkt::SchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg) = true
@@ -1222,6 +1284,10 @@ function build_kkt!(kkt::SchurComplementCondensedKKTSystem{T, VT, MT}) where {T,
             end
         end
     end
+
+    # Aggregate the block inertias for `is_inertia_correct`. Each solver computed this as a
+    # by-product of the `factorize!` above (MUMPS: INFOG(12)), so this is a read, not work.
+    _accumulate_block_inertia!(kkt)
 
     # Phase 2 (sequential): scatter the scenario inequality condensation into `nz`
     # (flattened over scenarios), then the Schur reduction. The reduction
