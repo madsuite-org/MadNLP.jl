@@ -87,11 +87,11 @@ Number of Lagrangian Hessian evaluations              = 13
 Number of KKT factorizations                          = 14
 Number of KKT backsolves                              = 15
 
-Total wall secs in initialization                     =  1.540 s
+Total wall secs in initialization                     =  1.519 s
 Total wall secs in linear solver                      =  0.001 s
 Total wall secs in NLP function evaluations           =  0.000 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  7.068 s
-Total wall secs                                       =  8.609 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  7.329 s
+Total wall secs                                       =  8.849 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-03).</span></code></pre><div class="admonition is-info" id="Note-c284bfdafb05e2fe"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-c284bfdafb05e2fe" title="Permalink"></a></header><div class="admonition-body"><p>Note that the distribution of Lapack shipped with Julia supports <code>Float32</code>, so here we do not have to worry whether the type is supported by the linear solver. Almost all linear solvers shipped with MadNLP supports <code>Float32</code>.</p></div></div><p>The final solution is</p><pre><code class="language-julia hljs">results.solution</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">84-element Vector{Float32}:
  -6.1042237
@@ -167,11 +167,11 @@ Number of Lagrangian Hessian evaluations              = 14
 Number of KKT factorizations                          = 15
 Number of KKT backsolves                              = 16
 
-Total wall secs in initialization                     =  0.957 s
+Total wall secs in initialization                     =  1.470 s
 Total wall secs in linear solver                      =  0.002 s
 Total wall secs in NLP function evaluations           =  0.000 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  3.264 s
-Total wall secs                                       =  4.224 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  3.305 s
+Total wall secs                                       =  4.777 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>The final objective is now</p><pre><code class="language-julia hljs">results_64.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">47952.701409727124</code></pre><p>As expected when solving an optimization problem with <code>Float32</code>, the relative difference between the two solutions is far from being negligible:</p><pre><code class="language-julia hljs">rel_diff = abs(results.objective - results_64.objective) / results_64.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">4.4307249125524247e-7</code></pre><h2 id="Solving-a-problem-in-Float128"><a class="docs-heading-anchor" href="#Solving-a-problem-in-Float128">Solving a problem in Float128</a><a id="Solving-a-problem-in-Float128-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-a-problem-in-Float128" title="Permalink"></a></h2><p>Now, we go in the opposite direction and solve a problem using <code>Float128</code> to get a better accuracy. We start by loading the library <code>Quadmath</code> to work with quadruple precision:</p><pre><code class="language-julia hljs">using Quadmath</code></pre><p>We can instantiate our problem using <code>Float128</code> directly as:</p><pre><code class="language-julia hljs">nlp_128 = airport_model(Float128)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">An ExaModel{Quadmath.Float128, Vector{Quadmath.Float128}, ...}
 
@@ -241,11 +241,11 @@ Number of Lagrangian Hessian evaluations              = 15
 Number of KKT factorizations                          = 16
 Number of KKT backsolves                              = 16
 
-Total wall secs in initialization                     =  1.777 s
-Total wall secs in linear solver                      =  0.212 s
+Total wall secs in initialization                     =  1.809 s
+Total wall secs in linear solver                      =  0.214 s
 Total wall secs in NLP function evaluations           =  0.014 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  7.377 s
-Total wall secs                                       =  9.380 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  6.841 s
+Total wall secs                                       =  8.878 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-17).</span></code></pre><p>Note that the final tolerance is much lower than before. We get the solution in quadruple precision</p><pre><code class="language-julia hljs">results_128.solution</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">84-element Vector{Quadmath.Float128}:
  Float128(-6.1042234677998407532474631763730019)
@@ -267,4 +267,4 @@ Total wall secs                                       =  9.380 s
  Float128(-7.1062161149340136396429960987844019)
  Float128(-5.7435715598042185042098093600235545)
  Float128(-4.6168228207901912289336891907247589)
- Float128(0.30903578608203203829338240387770656)</code></pre><p>as well as the final objective:</p><pre><code class="language-julia hljs">results_128.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Float128(47952.701409621918113075838963085597)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gpu/">« GPU acceleration</a><a class="docs-footer-nextpage" href="../warmstart/">Warm-start »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 23 July 2026 10:14">Thursday 23 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+ Float128(0.30903578608203203829338240387770656)</code></pre><p>as well as the final objective:</p><pre><code class="language-julia hljs">results_128.objective</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Float128(47952.701409621918113075838963085597)</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../gpu/">« GPU acceleration</a><a class="docs-footer-nextpage" href="../warmstart/">Warm-start »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Friday 31 July 2026 03:48">Friday 31 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
