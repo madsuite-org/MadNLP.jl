@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Custom KKT system · MadNLP.jl</title><meta name="title" content="Custom KKT system · MadNLP.jl"/><meta property="og:title" content="Custom KKT system · MadNLP.jl"/><meta property="twitter:title" content="Custom KKT system · MadNLP.jl"/><meta name="description" content="Documentation for MadNLP.jl."/><meta property="og:description" content="Documentation for MadNLP.jl."/><meta property="twitter:description" content="Documentation for MadNLP.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="MadNLP.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">MadNLP.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li><li><a class="tocitem" href="../../options/">Options</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../multiprecision/">Multi-precision</a></li><li><a class="tocitem" href="../warmstart/">Warm-start</a></li><li><a class="tocitem" href="../lbfgs/">LBFGS</a></li><li class="is-active"><a class="tocitem" href>Custom KKT system</a><ul class="internal"><li><a class="tocitem" href="#Structure-exploiting-methods"><span>Structure exploiting methods</span></a></li><li><a class="tocitem" href="#Solving-AbstractKKTSystem-in-MadNLP"><span>Solving AbstractKKTSystem in MadNLP</span></a></li><li><a class="tocitem" href="#Example:-Implementing-a-new-KKT-system"><span>Example: Implementing a new KKT system</span></a></li></ul></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../man/solver/">IPM solver</a></li><li><a class="tocitem" href="../../man/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../man/linear_solvers/">Linear Solvers</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../lib/ipm/">IPM solver</a></li><li><a class="tocitem" href="../../lib/callbacks/">Callback wrappers</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/linear_solvers/">Linear Solvers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Custom KKT system</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Custom KKT system</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MadNLP/MadNLP.jl/blob/master/docs/src/tutorials/kktsystem.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Implementing-a-custom-KKT-system"><a class="docs-heading-anchor" href="#Implementing-a-custom-KKT-system">Implementing a custom KKT system</a><a id="Implementing-a-custom-KKT-system-1"></a><a class="docs-heading-anchor-permalink" href="#Implementing-a-custom-KKT-system" title="Permalink"></a></h1><p>This tutorial explains how to implement a custom <a href="../../lib/kkt/#AbstractKKTSystem"><code>AbstractKKTSystem</code></a> in MadNLP.</p><h2 id="Structure-exploiting-methods"><a class="docs-heading-anchor" href="#Structure-exploiting-methods">Structure exploiting methods</a><a id="Structure-exploiting-methods-1"></a><a class="docs-heading-anchor-permalink" href="#Structure-exploiting-methods" title="Permalink"></a></h2><p>MadNLP gives the user the possibility to exploit the problem&#39;s structure at the linear algebra level, when solving the KKT system at every Newton iteration. By default, the KKT system is factorized using a sparse linear solver (MUMPS or HSL ma27/ma57). A sparse linear solver analyses the problem&#39;s algebraic structure when computing the symbolic factorization, with a heuristic that determines an optimal elimination tree. As an alternative, the problem&#39;s structure can be exploited directly, by specifying the order of the pivots to perform (e.g. using a block elimination algorithm). Doing so usually leads to significant speed-up in the algorithm.</p><p>We recall that the KKT system solved at each Newton iteration has the structure:</p><p class="math-container">\[\overline{
+\begin{pmatrix}
+ W       &amp; J^\top &amp; - I    &amp; I \\
+ J       &amp; 0      &amp; 0      &amp; 0 \\
+ -Z_\ell &amp; 0      &amp; X_\ell &amp; 0 \\
+ Z_u     &amp; 0      &amp; 0      &amp; X_u
+\end{pmatrix}}^{K}
+\begin{pmatrix}
+    \Delta x \\
+    \Delta y \\
+    \Delta z_\ell \\
+    \Delta z_u
+\end{pmatrix}
+=
+\begin{pmatrix}
+    r_1 \\ r_2 \\ r_3 \\ r_4
+\end{pmatrix}\]</p><p>with <span>$W$</span> a sparse matrix storing the Hessian of the Lagrangian, and <span>$J$</span> a sparse matrix storing the Jacobian of the constraints. We note the diagonal matrices <span>$Z_\ell = diag(z_\ell)$</span>, <span>$Z_u = diag(z_u)$</span>, <span>$X_\ell = diag(x_\ell - x)$</span>, <span>$X_u = diag(x - x_u)$</span>.</p><p>In MadNLP, every linear system with the structure <span>$K$</span> is implemented as an <a href="../../lib/kkt/#AbstractKKTSystem"><code>AbstractKKTSystem</code></a>. By default, MadNLP represents a KKT system as a <a href="../../lib/kkt/#MadNLP.SparseKKTSystem"><code>SparseKKTSystem</code></a>:</p><pre><code class="language-julia hljs">nlp = HS15Model()
+results = madnlp(nlp; kkt_system=MadNLP.SparseKKTSystem, linear_solver=LapackCPUSolver)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is MadNLP version v0.8.12, running with Lapack-CPU (BUNCHKAUFMAN)
+
+Number of nonzeros in constraint Jacobian............:        4
+Number of nonzeros in Lagrangian Hessian.............:        3
+
+Total number of variables............................:        2
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        1
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        2
+        inequality constraints with only lower bounds:        2
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.0000000e+00 1.01e+00 1.00e+00 5.00e-01  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.9758855e-01 1.00e+00 4.61e+01 3.80e-01  -1.0 1.01e+00    -  4.29e-01 9.80e-03h  1
+   2  9.9664309e-01 1.00e+00 5.00e+02 2.35e-03  -1.0 4.81e+00    -  1.00e+00 9.93e-05h  1
+   3  1.3615174e+00 9.99e-01 4.41e+02 2.44e-03  -1.0 5.73e+02    -  9.98e-05 4.71e-04H  1
+   4  1.3742697e+00 9.99e-01 3.59e+02 1.40e-01  -1.0 3.90e+01    -  2.30e-02 2.68e-05h  1
+   5  1.4692139e+00 9.99e-01 4.94e+02 2.31e+00  -1.0 5.07e+01    -  2.76e-04 1.46e-04h  1
+   6  3.1727722e+00 9.97e-01 3.76e+02 2.36e+00  -1.0 8.08e+01    -  1.88e-06 9.77e-04h  11
+   7  3.1746542e+00 9.96e-01 1.53e+02 3.13e-03  -1.0 9.93e-01   4.0 9.96e-01 7.98e-04h  1
+   8  8.2322599e+00 9.85e-01 2.47e+02 5.06e-03  -1.0 1.51e+01    -  1.43e-03 7.81e-03h  8
+   9  8.2886173e+00 9.84e-01 4.78e+02 1.51e-04  -1.0 3.92e+00    -  1.00e+00 2.48e-04h  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  4.0285546e+01 8.72e-01 4.57e+02 6.32e-04  -1.0 4.94e+00    -  1.00e+00 6.25e-02h  5
+  11  2.8602303e+02 2.66e-01 4.91e+02 5.99e-04  -1.0 1.16e+00    -  6.87e-01 5.00e-01h  2
+  12  3.9870638e+02 6.41e-03 4.21e+02 3.32e-03  -1.0 1.89e-01    -  2.69e-01 1.00e+00h  1
+  13  3.4928113e+02 2.93e-02 2.62e+01 1.02e+00  -1.0 5.07e-01    -  1.00e+00 1.00e+00h  1
+  14  3.5909050e+02 6.98e-03 1.66e+00 6.15e-02  -1.0 2.60e-01    -  6.84e-01 1.00e+00h  1
+  15  3.6047026e+02 6.05e-05 1.44e-02 6.46e-02  -1.0 2.91e-02    -  1.00e+00 1.00e+00h  1
+  16  3.6038251e+02 2.50e-07 7.99e-05 1.89e-03  -2.5 1.37e-03    -  1.00e+00 1.00e+00h  1
+  17  3.6037976e+02 2.63e-10 7.93e-08 1.27e-06  -5.7 4.63e-05    -  1.00e+00 1.00e+00h  1
+  18  3.6037976e+02 1.11e-16 5.96e-14 1.58e-09  -8.6 3.06e-08    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 18
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.6037976240508465e+02    3.6037976240508465e+02
+Dual infeasibility......:   5.9563010060664213e-14    5.9563010060664213e-14
+Constraint violation....:   1.1102230246251565e-16    1.1102230246251565e-16
+Complementarity.........:   1.5755252336109936e-09    1.5755252336109936e-09
+Overall NLP error.......:   1.5755252336109936e-09    1.5755252336109936e-09
+
+Number of objective function evaluations             = 46
+Number of objective gradient evaluations             = 19
+Number of constraint evaluations                     = 46
+Number of constraint Jacobian evaluations            = 19
+Number of Lagrangian Hessian evaluations             = 18
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  5.742
+Total wall-clock secs in linear solver                      =  0.000
+Total wall-clock secs in NLP function evaluations           =  0.000
+Total wall-clock secs                                       =  5.743
+
+EXIT: Optimal Solution Found (tol = 1.0e-08).</code></pre><h2 id="Solving-AbstractKKTSystem-in-MadNLP"><a class="docs-heading-anchor" href="#Solving-AbstractKKTSystem-in-MadNLP">Solving AbstractKKTSystem in MadNLP</a><a id="Solving-AbstractKKTSystem-in-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-AbstractKKTSystem-in-MadNLP" title="Permalink"></a></h2><p>The <code>AbstractKKTSystem</code> object is an abstraction to solve the generic system <span>$K x = b$</span>. Depending on the implementation, the structure of the linear system is exploited in different fashions. Solving a KKT system amounts to the four following operations:</p><ol><li>Querying the current sensitivities to assemble the different blocks constituting the matrix <span>$K$</span>.</li><li>Assembling a reduced sparse matrix condensing the sparse matrix <span>$K$</span> to an equivalent smaller symmetric system.</li><li>Calling a linear solver to solve the condensed system.</li><li>Calling a routine to unpack the condensed solution to get the original descent direction <span>$(\Delta x, \Delta y, \Delta z_\ell, \Delta z_u)$</span>.</li></ol><p>Exploiting the problem&#39;s structure usually happens in steps (2) and (4). We skim through the four successive steps in more details.</p><h3 id="Getting-the-sensitivities"><a class="docs-heading-anchor" href="#Getting-the-sensitivities">Getting the sensitivities</a><a id="Getting-the-sensitivities-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-the-sensitivities" title="Permalink"></a></h3><p>The KKT system requires the following information:</p><ul><li>the (approximated) Hessian of the Lagrangian <span>$W$</span> ;</li><li>the constraints&#39; Jacobian <span>$J$</span> ;</li><li>the diagonal matrices <span>$Z_\ell$</span>, <span>$Z_u$</span> and <span>$X_\ell$</span>, <span>$X_u$</span>.</li></ul><p>The Hessian and the Jacobian are assumed sparse by default.</p><p>At every IPM iteration, MadNLP updates automatically the values in <span>$W$</span>, <span>$J$</span> and in the diagonal matrices <span>$Z_\ell, Z_u, X_\ell, X_u$</span>. By default, we expect the following attributes available in every instance <code>kkt</code> of an <code>AbstractKKTSystem</code>:</p><ul><li><code>kkt.hess</code>: stores the nonzeroes of the Hessian <span>$W$</span>;</li><li><code>kkt.jac</code>: stores the nonzeroes of the Jacobian <span>$J$</span>;</li><li><code>kkt.l_diag</code>: stores the diagonal entries in <span>$X_\ell$</span>;</li><li><code>kkt.u_diag</code>: stores the diagonal entries in <span>$X_u$</span>;</li><li><code>kkt.l_lower</code>: stores the diagonal entries in <span>$Z_\ell$</span>;</li><li><code>kkt.u_lower</code>: stores the diagonal entries in <span>$Z_u$</span>.</li></ul><p>The attributes <code>kkt.hess</code> and <code>kkt.jac</code> are accessed respectively using the getters <a href="../../lib/kkt/#MadNLP.get_hessian"><code>get_hessian</code></a> and <a href="../../lib/kkt/#MadNLP.get_jacobian"><code>get_jacobian</code></a>.</p><p>Every time MadNLP queries the Hessian and the Jacobian, it updates the nonzeroes values in <code>kkt.hess</code> and <code>kkt.jac</code>. Rightafter, MadNLP calls respectively the functions <a href="../../lib/kkt/#MadNLP.compress_hessian!"><code>compress_hessian!</code></a> and <a href="../../lib/kkt/#MadNLP.compress_jacobian!"><code>compress_jacobian!</code></a> to update all the internal values in the KKT system <code>kkt</code>.</p><p>To recap, every time we evaluate the Hessian and the Jacobian, MadNLP calls automatically the functions:</p><pre><code class="language-julia hljs">hess = MadNLP.get_hessian(kkt)
+MadNLP.compress_hessian!(kkt)</code></pre><p>to update the values in the Hessian, and for the Jacobian:</p><pre><code class="language-julia hljs">jac = MadNLP.get_jacobian(kkt)
+MadNLP.compress_jacobian!(kkt)</code></pre><h3 id="Assembling-the-KKT-system"><a class="docs-heading-anchor" href="#Assembling-the-KKT-system">Assembling the KKT system</a><a id="Assembling-the-KKT-system-1"></a><a class="docs-heading-anchor-permalink" href="#Assembling-the-KKT-system" title="Permalink"></a></h3><p>Once the sensitivities have been updated, we can assemble the KKT matrix <span>$K$</span> and condense it to an equivalent system <span>$K_{c}$</span> before factorizing it with a linear solver. The assembling of the KKT system is done in the function <a href="../../lib/kkt/#MadNLP.build_kkt!"><code>build_kkt!</code></a>.</p><p>The system is usually stored in the attribute <code>kkt.aug_com</code>. Its dimension depends on the condensation used. The matrix <code>kkt.aug_com</code> can be dense or sparse, depending on the condensation used. MadNLP uses the getter <code>get_kkt</code> to query the matrix <code>kkt.aug_com</code> stored in the KKT system <code>kkt</code>.</p><h3 id="Solving-the-system"><a class="docs-heading-anchor" href="#Solving-the-system">Solving the system</a><a id="Solving-the-system-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-system" title="Permalink"></a></h3><p>Once the matrix <span>$K_c$</span> is assembled, we pass it to the linear solver for factorization. The linear solver is stored internally in <code>kkt</code>: by default, it is stored in the attribute <code>kkt.linear_solver</code>. The factorization is handled internally in MadNLP.</p><p>Once factorized, it remains to solve the linear system using a backsolve. The backsolve has to be implemented by the user in the function <code>solve!</code>. It reduces the right-hand-side (RHS) down to a form adapted to the condensed matrix <span>$K_c$</span> and calls the linear solver to perform the backsolve. Then the condensed solution is unpacked to recover the full solution <span>$(\Delta x, \Delta y, \Delta z_\ell, \Delta z_u)$</span>.</p><p>To recap, MadNLP assembles and solves the KKT linear system using the following operations:</p><pre><code class="language-julia hljs"># Assemble
+MadNLP.build_kkt!(kkt)
+# Factorize  the KKT system
+MadNLP.factorize!(kkt.linear_solver)
+# Backsolve
+MadNLP.solve!(kkt, w)
+</code></pre><h2 id="Example:-Implementing-a-new-KKT-system"><a class="docs-heading-anchor" href="#Example:-Implementing-a-new-KKT-system">Example: Implementing a new KKT system</a><a id="Example:-Implementing-a-new-KKT-system-1"></a><a class="docs-heading-anchor-permalink" href="#Example:-Implementing-a-new-KKT-system" title="Permalink"></a></h2><p>As an example, we detail how to implement a custom KKT system in MadNLP. Note that we consider this usage as an advanced use of MadNLP. After this work of caution, let&#39;s dive into the details!</p><p>In this example, we want to approximate the Hessian of the Lagrangian <span>$W$</span> as a diagonal matrix <span>$D_w$</span> and solve the following KKT system at each IPM iteration:</p><p class="math-container">\[\begin{pmatrix}
+ D_w &amp; J^\top &amp; - I &amp; I \\
+ J &amp; 0 &amp;  0 &amp; 0 \\
+ -Z_\ell &amp;  0 &amp; X_\ell &amp; 0 \\
+ Z_u &amp; W &amp;  0 &amp; X_u
+\end{pmatrix}
+\begin{pmatrix}
+    \Delta x \\
+    \Delta y \\
+    \Delta z_\ell \\
+    \Delta z_u
+\end{pmatrix}
+=
+\begin{pmatrix}
+    r_1 \\ r_2 \\ r_3 \\ r_4
+\end{pmatrix}\]</p><p>This new system is not equivalent to the original system <span>$K$</span>, but it&#39;s much easier to solve at it does not involve the generic Hessian <span>$W$</span>. If the diagonal values of <span>$D_w$</span> are constant and are equal to <span>$\alpha$</span>, the algorithm becomes equivalent to a gradient descent with step <span>$\alpha^{-1}$</span>.</p><p>Using the relations <span>$\Delta z_\ell = X_\ell^{-1} (r_3 + Z_\ell \Delta x)$</span> and <span>$\Delta z_u = X_u^{-1} (r_3 - Z_u \Delta x)$</span>, we condense the matrix down to the reduced form:</p><p class="math-container">\[\begin{pmatrix}
+ D_w + \Sigma_x &amp; J^\top \\
+ J &amp; 0  \\
+\end{pmatrix}
+\begin{pmatrix}
+    \Delta x  \\
+    \Delta y
+\end{pmatrix}
+=
+\begin{pmatrix}
+    r_1 + X_\ell^{-1} r_3 - X_u^{-1} r_4\\ r_2
+\end{pmatrix}\]</p><p>with the diagonal matrix <span>$\Sigma_x = -X_\ell^{-1} Z_\ell - X_u^{-1} Z_u$</span>. The new system is symmetric indefinite, but much easier to solve than the original one.</p><p>The previous reduction is standard in NLP solvers: MadNLP implements the reduced KKT system operating in the space <span>$(\Delta x, \Delta y)$</span> using the abstraction <a href="../../lib/kkt/#MadNLP.AbstractReducedKKTSystem"><code>AbstractReducedKKTSystem</code></a>. If <span>$D_w$</span> is replaced by the original Hessian matrix <span>$W$</span>, we recover exactly the <a href="../../lib/kkt/#MadNLP.SparseKKTSystem"><code>SparseKKTSystem</code></a> used by default in MadNLP.</p><h3 id="Creating-the-KKT-system"><a class="docs-heading-anchor" href="#Creating-the-KKT-system">Creating the KKT system</a><a id="Creating-the-KKT-system-1"></a><a class="docs-heading-anchor-permalink" href="#Creating-the-KKT-system" title="Permalink"></a></h3><p>We create a new KKT system <code>DiagonalHessianKKTSystem</code>, inheriting from <a href="../../lib/kkt/#MadNLP.AbstractReducedKKTSystem"><code>AbstractReducedKKTSystem</code></a>. Using generic types, the structure <code>DiagonalHessianKKTSystem</code> is defined as:</p><pre><code class="language-julia hljs">struct DiagonalHessianKKTSystem{T, VT, MT, QN, LS, VI, VI32} &lt;: MadNLP.AbstractReducedKKTSystem{T, VT, MT, QN}
+    # Nonzeroes values for Hessian and Jacobian
+    hess::VT
+    jac_callback::VT
+    jac::VT
+    # Diagonal matrices
+    reg::VT
+    pr_diag::VT
+    du_diag::VT
+    l_diag::VT
+    u_diag::VT
+    l_lower::VT
+    u_lower::VT
+    # Augmented system K
+    aug_raw::MadNLP.SparseMatrixCOO{T,Int32,VT, VI32}
+    aug_com::MT
+    aug_csc_map::Union{Nothing, VI}
+    # Diagonal of the Hessian
+    diag_hess::VT
+    # Jacobian
+    jac_raw::MadNLP.SparseMatrixCOO{T,Int32,VT, VI32}
+    jac_com::MT
+    jac_csc_map::Union{Nothing, VI}
+    # LinearSolver
+    linear_solver::LS
+    # Info
+    n_var::Int
+    n_ineq::Int
+    n_tot::Int
+    ind_ineq::VI
+    ind_lb::VI
+    ind_ub::VI
+    # Quasi-Newton approximation
+    quasi_newton::QN
+end
+</code></pre><div class="admonition is-info" id="Info-36f9d2ab996558e6"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-36f9d2ab996558e6" title="Permalink"></a></header><div class="admonition-body"><p>Here, we define a DiagonalHessianKKTSystem as a subtype of a <a href="../../lib/kkt/#MadNLP.AbstractReducedKKTSystem"><code>AbstractReducedKKTSystem</code></a>. Depending on the condensation, the following alternatives are available:</p><ul><li><a href="../../lib/kkt/#MadNLP.AbstractUnreducedKKTSystem"><code>AbstractUnreducedKKTSystem</code></a>: no condensation is applied.</li><li><a href="../../lib/kkt/#MadNLP.AbstractCondensedKKTSystem"><code>AbstractCondensedKKTSystem</code></a>: the reduced KKT system is condensed further by removing the blocks associated to the slack variables.</li></ul></div></div><div class="admonition is-info" id="Info-f4124647aa602737"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-f4124647aa602737" title="Permalink"></a></header><div class="admonition-body"><p>The attributes <code>pr_diag</code> and <code>du_diag</code> store respectively the primal regularization (terms in the diagonal of the (1, 1) block) and the dual regularization (terms in the diagonal of the (2, 2) block). By default, the dual regularization is keep equal to 0, whereas the primal regularization is set equal to <span>$\Sigma_x$</span>.</p></div></div><p>MadNLP instantiates a new KKT system with the function <a href="../../lib/kkt/#MadNLP.create_kkt_system"><code>create_kkt_system</code></a>, with the following signature:</p><pre><code class="language-julia hljs">function MadNLP.create_kkt_system(
+    ::Type{DiagonalHessianKKTSystem},
+    cb::MadNLP.SparseCallback{T,VT},
+    ind_cons,
+    linear_solver::Type;
+    opt_linear_solver=MadNLP.default_options(linear_solver),
+    hessian_approximation=MadNLP.ExactHessian,
+    qn_options=MadNLP.QuasiNewtonOptions(),
+) where {T,VT}</code></pre><p>We pass as arguments:</p><ol><li>the type of the KKT system to build (here, <code>DiagonalHessianKKTSystem</code>),</li><li>the structure used to evaluate the callbacks <code>cb</code>,</li><li>the index of the constraints,</li><li>a generic linear solver <code>linear_solver</code>.</li></ol><p>This function instantiates all the data structures needed in <code>DiagonalHessianKKTSystem</code>. The most difficult part is to assemble the sparse matrices <code>aug_raw</code> and <code>jac_raw</code>, here stored in COO format. This is done in four steps:</p><p><strong>Step 1.</strong> We import the sparsity pattern of the Jacobian :</p><pre><code class="language-julia hljs">    jac_sparsity_I = MadNLP.create_array(cb, Int32, cb.nnzj)
+    jac_sparsity_J = MadNLP.create_array(cb, Int32, cb.nnzj)
+    MadNLP._jac_sparsity_wrapper!(cb, jac_sparsity_I, jac_sparsity_J)</code></pre><p><strong>Step 2.</strong> We build the resulting KKT matrix <code>aug_raw</code> in COO format, knowing that <span>$D_w$</span> is diagonal:</p><pre><code class="language-julia hljs">    # System&#39;s dimension
+    n_hess = n_tot # Diagonal Hessian!
+    n_jac = length(jac_sparsity_I)
+    aug_vec_length = n_tot+m
+    aug_mat_length = n_tot+m+n_hess+n_jac+n_slack
+
+    # Build vectors to store COO coortinates
+    I = MadNLP.create_array(cb, Int32, aug_mat_length)
+    J = MadNLP.create_array(cb, Int32, aug_mat_length)
+    V = VT(undef, aug_mat_length)
+    fill!(V, 0.0)  # Need to initiate V to avoid NaN
+
+    offset = n_tot+n_jac+n_slack+n_hess+m
+
+    # Primal regularization block
+    I[1:n_tot] .= 1:n_tot
+    J[1:n_tot] .= 1:n_tot
+    # Hessian block
+    I[n_tot+1:n_tot+n_hess] .= 1:n_tot # diagonal Hessian!
+    J[n_tot+1:n_tot+n_hess] .= 1:n_tot # diagonal Hessian!
+    # Jacobian block
+    I[n_tot+n_hess+1:n_tot+n_hess+n_jac] .= (jac_sparsity_I.+n_tot)
+    J[n_tot+n_hess+1:n_tot+n_hess+n_jac] .= jac_sparsity_J
+    # Slack block
+    I[n_tot+n_hess+n_jac+1:n_tot+n_hess+n_jac+n_slack] .= ind_ineq .+ n_tot
+    J[n_tot+n_hess+n_jac+1:n_tot+n_hess+n_jac+n_slack] .= (n+1:n+n_slack)
+    # Dual regularization block
+    I[n_tot+n_hess+n_jac+n_slack+1:offset] .= (n_tot+1:n_tot+m)
+    J[n_tot+n_hess+n_jac+n_slack+1:offset] .= (n_tot+1:n_tot+m)
+
+    aug_raw = MadNLP.SparseMatrixCOO(aug_vec_length, aug_vec_length, I, J, V)</code></pre><p><strong>Step 3.</strong> We convert <code>aug_raw</code> from COO to CSC using the following utilities:</p><pre><code class="language-julia hljs">    aug_com, aug_csc_map = MadNLP.coo_to_csc(aug_raw)</code></pre><p><strong>Step 4.</strong> We pass the matrix in CSC format to the linear solver:</p><pre><code class="language-julia hljs">    _linear_solver = linear_solver(
+        aug_com; opt = opt_linear_solver
+    )
+</code></pre><div class="admonition is-info" id="Info-331bd9efc470697e"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-331bd9efc470697e" title="Permalink"></a></header><div class="admonition-body"><p>Storing the Hessian and Jacobian, even in sparse format, is expensive in term of memory. For that reason, MadNLP stores the Hessian and Jacobian only once in the KKT system.</p></div></div><h3 id="Getting-the-sensitivities-2"><a class="docs-heading-anchor" href="#Getting-the-sensitivities-2">Getting the sensitivities</a><a class="docs-heading-anchor-permalink" href="#Getting-the-sensitivities-2" title="Permalink"></a></h3><p>MadNLP requires the following getters to update the sensitivities. As much as we can, we try to update the values inplace in the matrix <code>aug_raw</code>. We use the default implementation of <a href="../../lib/kkt/#MadNLP.compress_jacobian!"><code>compress_jacobian!</code></a> in MadNLP:</p><pre><code class="language-julia hljs">function MadNLP.compress_jacobian!(kkt::DiagonalHessianKKTSystem)
+    ns = length(kkt.ind_ineq)
+    kkt.jac[end-ns+1:end] .= -1.0
+    MadNLP.transfer!(kkt.jac_com, kkt.jac_raw, kkt.jac_csc_map)
+    return
+end</code></pre><p>The term <code>-1.0</code> accounts for the slack variables used to reformulate the inequality constraints as equality constraints.</p><p>For <a href="../../lib/kkt/#MadNLP.compress_hessian!"><code>compress_hessian!</code></a>, we take into account that the diagonal matrix <span>$D_w$</span> is the diagonal of the Hessian:</p><pre><code class="language-julia hljs">function MadNLP.compress_hessian!(kkt::DiagonalHessianKKTSystem)
+    kkt.diag_hess .= 1.0
+    return
+end</code></pre><p>MadNLP also needs the following basic functions to get the different matrices and the dimension of the linear system:</p><pre><code class="nohighlight hljs">MadNLP.num_variables(kkt::DiagonalHessianKKTSystem) = length(kkt.diag_hess)
+MadNLP.get_kkt(kkt::DiagonalHessianKKTSystem) = kkt.aug_com
+MadNLP.get_jacobian(kkt::DiagonalHessianKKTSystem) = kkt.jac_callback
+function MadNLP.jtprod!(y::AbstractVector, kkt::DiagonalHessianKKTSystem, x::AbstractVector)
+    mul!(y, kkt.jac_com&#39;, x)
+end</code></pre><h3 id="Assembling-the-KKT-system-2"><a class="docs-heading-anchor" href="#Assembling-the-KKT-system-2">Assembling the KKT system</a><a class="docs-heading-anchor-permalink" href="#Assembling-the-KKT-system-2" title="Permalink"></a></h3><p>Once the sensitivities are updated, we assemble the new matrix <span>$K_c$</span> first in COO format in <code>kkt.aug_raw</code>, before converting the matrix to CSC format in <code>kkt.jac_com</code> using the utility <code>MadNLP.transfer!</code>:</p><pre><code class="language-julia hljs">function MadNLP.build_kkt!(kkt::DiagonalHessianKKTSystem)
+    MadNLP.transfer!(kkt.aug_com, kkt.aug_raw, kkt.aug_csc_map)
+end</code></pre><h3 id="Solving-the-system-2"><a class="docs-heading-anchor" href="#Solving-the-system-2">Solving the system</a><a class="docs-heading-anchor-permalink" href="#Solving-the-system-2" title="Permalink"></a></h3><p>It remains to implement the backsolve. For the reduced KKT formulation, the RHS <span>$r_1 + X_\ell^{-1} r_3 - X_u^{-1} r_4$</span> is built automatically using the function <code>MadNLP.reduce_rhs!</code>. The backsolve solves for <span>$(\Delta x, \Delta y)$</span>. The dual&#39;s descent direction <span>$\Delta z_\ell$</span> and <span>$\Delta z_u$</span> are recovered afterwards using the function <code>MadNLP.finish_aug_solve!</code>:</p><pre><code class="language-julia hljs">function MadNLP.solve!(kkt::DiagonalHessianKKTSystem, w::MadNLP.AbstractKKTVector)
+    MadNLP.reduce_rhs!(w.xp_lr, dual_lb(w), kkt.l_diag, w.xp_ur, dual_ub(w), kkt.u_diag)
+    MadNLP.solve!(kkt.linear_solver, primal_dual(w))
+    MadNLP.finish_aug_solve!(kkt, w)
+    return w
+end</code></pre><div class="admonition is-info" id="Note-8aaa4dbc5e07c34f"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-8aaa4dbc5e07c34f" title="Permalink"></a></header><div class="admonition-body"><p>The function <code>solve!</code> takes as second argument a vector <code>w</code> being an <a href="../../lib/kkt/#AbstractKKTVector"><code>AbstractKKTVector</code></a>. An <code>AbstractKKTVector</code> is a convenient data structure used in MadNLP to store and access the elements in the primal-dual vector <span>$(\Delta x, \Delta y, \Delta z_\ell, \Delta z_u)$</span>.</p></div></div><div class="admonition is-warning" id="Warning-44462489b6bb925a"><header class="admonition-header">Warning<a class="admonition-anchor" href="#Warning-44462489b6bb925a" title="Permalink"></a></header><div class="admonition-body"><p>When calling <code>solve!</code>, the values in the vector <code>w</code> are updated inplace. The vector <code>w</code> should be initialized with the RHS <span>$(r_1, r_2, r_3, r_4)$</span> before calling the function <code>solve!</code>. The function modifies the values directly in the vector <code>w</code> to return the solution <span>$(\Delta x, \Delta y, \Delta z_\ell, \Delta z_u)$</span>.</p></div></div><p>Last, MadNLP implements an iterative refinement method to get accurate descent directions in the final iterations. The iterative refinement algorithm implements Richardson&#39;s method, which requires multiplying the KKT matrix <span>$K$</span> on the right by any vector <span>$w = (w_x, w_y, w_{z_l}, w_{z_u})$</span>. This is provided in MadNLP by overloading the function <code>LinearAlgebra.mul!</code>:</p><pre><code class="language-julia hljs">function LinearAlgebra.mul!(
+    w::MadNLP.AbstractKKTVector{T},
+    kkt::DiagonalHessianKKTSystem,
+    x::MadNLP.AbstractKKTVector{T},
+    alpha = one(T),
+    beta = zero(T),
+) where {T}
+
+    mul!(primal(w), Diagonal(kkt.diag_hess), primal(x), alpha, beta)
+    mul!(primal(w), kkt.jac_com&#39;, dual(x), alpha, one(T))
+    mul!(dual(w), kkt.jac_com,  primal(x), alpha, beta)
+
+    # Reduce KKT vector
+    MadNLP._kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    return w
+end</code></pre><h3 id="Demonstration"><a class="docs-heading-anchor" href="#Demonstration">Demonstration</a><a id="Demonstration-1"></a><a class="docs-heading-anchor-permalink" href="#Demonstration" title="Permalink"></a></h3><p>We now have all the elements needed to solve the problem with the new KKT linear system <code>DiagonalHessianKKTSystem</code>. We just have to pass the KKT system to MadNLP using the option <code>kkt_system</code>:</p><pre><code class="language-julia hljs">nlp = HS15Model()
+results = madnlp(nlp; kkt_system=DiagonalHessianKKTSystem, linear_solver=LapackCPUSolver)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is MadNLP version v0.8.12, running with Lapack-CPU (BUNCHKAUFMAN)
+
+Number of nonzeros in constraint Jacobian............:        4
+Number of nonzeros in Lagrangian Hessian.............:        3
+
+Total number of variables............................:        2
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        1
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        2
+        inequality constraints with only lower bounds:        2
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.0000000e+00 1.01e+00 1.00e+00 5.00e-01  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  9.9758678e-01 1.00e+00 4.59e+01 3.81e-01  -1.0 1.01e+00    -  4.27e-01 9.80e-03h  1
+   2  1.3281589e+00 1.00e+00 5.00e+02 2.08e-03  -1.0 3.42e+02    -  1.00e+00 1.68e-04h  1
+   3  1.3006439e+00 1.00e+00 5.00e+02 2.35e-03  -1.0 1.64e+02    -  3.71e-03 7.01e-04h  6
+   4  1.0646881e+00 1.00e+00 5.00e+02 3.00e-04  -1.0 4.07e+01    -  8.23e-02 6.76e-04h  2
+   5  9.7015669e-01 1.00e+00 4.74e+02 6.05e-02  -1.0 8.53e+01    -  1.00e+00 3.80e-04h  7
+   6  9.8003254e-01 1.00e+00 4.80e+02 1.83e-02  -1.0 6.56e+01    -  7.39e-01 1.22e-04h  14
+   7  1.0034592e+00 1.00e+00 4.84e+02 2.76e-03  -1.0 6.66e+01    -  4.67e-01 1.22e-04h  14
+   8  1.0405590e+00 1.00e+00 4.83e+02 2.75e-03  -1.0 6.75e+01    -  4.78e-03 1.22e-04h  14
+   9  6.5449345e+00 7.54e-01 4.76e+02 4.24e-04  -1.0 2.55e+01    -  2.10e-03 1.99e-02h  1
+iter    objective    inf_pr   inf_du inf_compl lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  6.1668009e+00 7.53e-01 1.84e+01 1.00e-01  -1.0 3.60e+00    -  1.00e+00 1.33e-03h  1
+  11  3.0904080e+02 9.13e-03 4.63e+02 1.01e-01  -1.0 1.72e+00    -  2.97e-01 1.00e+00H  1
+  12  3.0697414e+02 8.63e-03 2.18e+02 5.63e-02  -1.0 3.12e-01    -  1.00e+00 5.73e-02h  1
+  13  3.0670014e+02 6.87e-07 1.22e-01 1.23e-02  -1.0 5.26e-03    -  1.00e+00 1.00e+00h  1
+  14  3.0650569e+02 2.50e-07 6.70e-02 3.53e-04  -2.5 1.95e-03    -  1.00e+00 1.00e+00h  1
+  15  3.0650563e+02 1.42e-14 1.50e-05 3.46e-04  -2.5 2.08e-07    -  1.00e+00 1.00e+00h  1
+  16  3.0649998e+02 2.11e-10 1.95e-03 2.30e-07  -5.7 5.65e-05    -  1.00e+00 1.00e+00h  1
+  17  3.0649998e+02 1.11e-16 1.77e-08 2.26e-07  -5.7 7.18e-10    -  1.00e+00 1.00e+00h  1
+  18  3.0649998e+02 8.88e-16 1.27e-06 1.11e-10  -9.0 3.69e-08    -  1.00e+00 1.00e+00h  1
+  19  3.0649998e+02 0.00e+00 3.61e-14 1.11e-10  -9.0 3.54e-16    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 19
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.0649997549181882e+02    3.0649997549181882e+02
+Dual infeasibility......:   3.6079608235885943e-14    3.6079608235885943e-14
+Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.1127505952435713e-10    1.1127505952435713e-10
+Overall NLP error.......:   1.1127505952435713e-10    1.1127505952435713e-10
+
+Number of objective function evaluations             = 78
+Number of objective gradient evaluations             = 20
+Number of constraint evaluations                     = 78
+Number of constraint Jacobian evaluations            = 20
+Number of Lagrangian Hessian evaluations             = 19
+Total wall-clock secs in solver (w/o fun. eval./lin. alg.)  =  4.474
+Total wall-clock secs in linear solver                      =  0.056
+Total wall-clock secs in NLP function evaluations           =  0.000
+Total wall-clock secs                                       =  4.530
+
+EXIT: Optimal Solution Found (tol = 1.0e-08).</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../lbfgs/">« LBFGS</a><a class="docs-footer-nextpage" href="../../man/solver/">IPM solver »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 26 February 2026 16:44">Thursday 26 February 2026</span>. Using Julia version 1.10.10.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
