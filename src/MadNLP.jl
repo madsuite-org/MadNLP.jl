@@ -1,5 +1,6 @@
 module MadNLP
 
+using ValSplit
 import Pkg.TOML: parsefile
 import Printf: @sprintf
 import LinearAlgebra: BLAS, LAPACK, Adjoint, Symmetric, Diagonal, mul!, ldiv!, rdiv!, lmul!, rmul!, norm, dot, diagind, normInf, transpose!, issuccess
@@ -29,6 +30,8 @@ using PrecompileTools: @setup_workload, @compile_workload
 version() = string(pkgversion(@__MODULE__))
 introduce() = "\033[34mMad\033[31mN\033[32mL\033[35mP\033[0m version v$(version())"
 
+@valsplit _default_ls_options(Val(ls::Symbol)) = error("unsupported Linear System Solver")
+
 include("enums.jl")
 include("utils.jl")
 include("matrixtools.jl")
@@ -38,7 +41,7 @@ include("quasi_newton.jl")
 include(joinpath("KKT", "KKTsystem.jl"))
 include(joinpath("LinearSolvers", "linearsolvers.jl"))
 include(joinpath("IPM", "IPM.jl"))
-include("precompile.jl")
+#include("precompile.jl")
 
 madsuite(::Val{:madnlp}, args...; kwargs...) = madnlp(args...; kwargs...)
 

@@ -144,4 +144,5 @@ end
 introduce(::Ma86Solver) = "ma86 v$(HSL.HSL_MA86_version())"
 input_type(::Type{Ma86Solver}) = :csc
 default_options(::Type{Ma86Solver}) = Ma86Options()
+MadNLP._default_ls_options(ls::Val{:Ma86Solver}) = Ma86Options()
 is_supported(::Type{Ma86Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:hsl_ma86), T)

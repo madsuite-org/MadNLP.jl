@@ -58,6 +58,7 @@ function inertia(M::LDLSolver)
 end
 input_type(::Type{LDLSolver}) = :csc
 default_options(::Type{LDLSolver}) = LDLFactorizationsOptions()
+_default_ls_options(ls::Val{:LDLSolver}) = LDLFactorizationsOptions()
 
 function improve!(M::LDLSolver)
     return false

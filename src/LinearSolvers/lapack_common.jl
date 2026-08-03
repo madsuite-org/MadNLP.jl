@@ -83,6 +83,7 @@ end
 improve!(M::AbstractLapackSolver) = false
 input_type(::Type{<:AbstractLapackSolver}) = :dense
 default_options(::Type{<:AbstractLapackSolver}) = LapackOptions()
+_default_ls_options(ls::Val{:LapackCPUSolver}) = LapackOptions()
 
 for T in (:Float32, :Float64)
     @eval is_supported(::Type{<:AbstractLapackSolver}, ::Type{$T}) = true

@@ -124,6 +124,7 @@ function inertia(M::CHOLMODSolver)
 end
 input_type(::Type{CHOLMODSolver}) = :csc
 default_options(::Type{CHOLMODSolver}) = CHOLMODOptions()
+_default_ls_options(ls::Val{:CHOLMODSolver}) = CHOLMODOptions()
 
 improve!(M::CHOLMODSolver) = false
 introduce(::CHOLMODSolver) = "cholmod v$(CHOLMOD.BUILD_VERSION)"

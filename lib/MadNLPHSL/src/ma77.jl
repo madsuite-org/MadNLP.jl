@@ -193,4 +193,5 @@ end
 introduce(::Ma77Solver) = "ma77 v$(HSL.HSL_MA77_version())"
 input_type(::Type{Ma77Solver}) = :csc
 default_options(::Type{Ma77Solver}) = Ma77Options()
+MadNLP._default_ls_options(ls::Val{:Ma77Solver}) = Ma77Options()
 is_supported(::Type{Ma77Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:hsl_ma77), T)

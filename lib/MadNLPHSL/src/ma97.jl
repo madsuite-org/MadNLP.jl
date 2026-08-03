@@ -112,4 +112,5 @@ end
 introduce(::Ma97Solver) = "ma97 v$(HSL.HSL_MA97_version())"
 input_type(::Type{Ma97Solver}) = :csc
 default_options(::Type{Ma97Solver}) = Ma97Options()
+MadNLP._default_ls_options(ls::Val{:Ma97Solver}) = Ma97Options()
 is_supported(::Type{Ma97Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:hsl_ma97), T)

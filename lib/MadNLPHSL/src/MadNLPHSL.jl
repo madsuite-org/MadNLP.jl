@@ -29,7 +29,8 @@ import MadNLP:
     input_type,
     _madnlp_unsafe_wrap,
     is_supported,
-    default_options
+    default_options,
+    _default_ls_options
 
 import HSL
 import HSL:

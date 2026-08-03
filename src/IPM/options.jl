@@ -248,7 +248,7 @@ function print_ignored_options(logger,option_dict)
 end
 
 function _get_primary_options(options)
-    primary_opt = Dict{Symbol,Any}()
+    primary_opt = Dict{Symbol,Type}()
     remaining_opt = Dict{Symbol,Any}()
     for (k,v) in options
         if k in [:tol, :linear_solver, :callback, :kkt_system]
@@ -271,7 +271,7 @@ function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
 
     check_option_sanity(opt_ipm)
     # Initiate linear-solver options
-    opt_linear_solver = default_options(nlp, opt_ipm.kkt_system, opt_ipm.linear_solver)
+    opt_linear_solver = default_ls_options(opt_ipm.linear_solver)
     iterator_options = set_options!(opt_linear_solver, linear_solver_options)
     # Initiate iterator options
     opt_iterator = default_options(opt_ipm.iterator, opt_ipm.tol)
@@ -308,4 +308,20 @@ end
 
 default options for `linear_solver` associated to the KKT system `kkt_system` and `nlp`.
 """
-default_options(nlp::AbstractNLPModel, kkt, linear_solver) = default_options(linear_solver)
+default_options(nlp::AbstractNLPModel, kkt, linear_solver) = _default_ls_options(linear_solver)
+
+default_ls_options(linear_solver::Type) = _default_ls_options(nameof(linear_solver))
+
+_kkt_system(::Val{:SparseCondensedKKTSystem}) = SparseCondensedKKTSystem
+_kkt_system(::Val{:SparseKKTSystem}) = SparseKKTSystem
+kkt_system(str::String) = _kkt_system(Val(Symbol(str)))
+kkt_system(sym::Symbol) = _kkt_system(Val(sym))
+
+_barrier_update(::Val{:MonotoneUpdate}; kwargs...) = MonotoneUpdate(;kwargs...)
+_barrier_update(::Val{:QualityFunctionUpdate}; kwargs...) = QualityFunctionUpdate(;kwargs...)
+_barrier_update(::Val{:LOQOUpdate}; kwargs...) = LOQOUpdate(;kwargs...)
+
+barrier_update(str::String; kwargs...) = _barrier_update(Val(Symbol(str)); kwargs...)
+barrier_update(sym::Symbol; kwargs...) = _barrier_update(Val(sym); kwargs)
+
+export kkt_system, barrier_update

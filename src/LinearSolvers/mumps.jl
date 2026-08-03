@@ -268,5 +268,6 @@ end
 introduce(M::MumpsSolver)="MUMPS v$(join(Char(c) for c in M.mumps_struc.version_number if c != 0))"
 input_type(::Type{MumpsSolver}) = :csc
 default_options(::Type{MumpsSolver}) = MumpsOptions()
+_default_ls_options(ls::Val{:MumpsSolver}) = MumpsOptions()
 is_supported(::Type{MumpsSolver},::Type{Float32}) = true
 is_supported(::Type{MumpsSolver},::Type{Float64}) = true

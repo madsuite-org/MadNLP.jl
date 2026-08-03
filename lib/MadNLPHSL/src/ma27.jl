@@ -221,4 +221,5 @@ end
 introduce(::Ma27Solver) = "ma27 v$(HSL.MA27_version())"
 input_type(::Type{Ma27Solver}) = :csc
 default_options(::Type{Ma27Solver}) = Ma27Options()
+MadNLP._default_ls_options(ls::Val{:Ma27Solver}) = Ma27Options()
 is_supported(::Type{Ma27Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:ma27), T)

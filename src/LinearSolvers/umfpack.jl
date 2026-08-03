@@ -58,6 +58,7 @@ is_inertia(::UmfpackSolver) = false
 inertia(M::UmfpackSolver) = throw(InertiaException())
 input_type(::Type{UmfpackSolver}) = :csc
 default_options(::Type{UmfpackSolver}) = UmfpackOptions()
+_default_ls_options(ls::Val{:UmfpackSolver}) = UmfpackOptions()
 
 function improve!(M::UmfpackSolver)
     if M.inner.control[4] == M.opt.umfpack_pivtolmax
