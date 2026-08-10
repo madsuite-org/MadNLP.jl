@@ -1,0 +1,71 @@
+cff-version: 1.2.0
+title: "MadNLP.jl: A nonlinear programming solver in Julia"
+message: >-
+  If you use MadNLP.jl in your research, please cite the software using
+  the metadata in this file. Depending on which parts of MadNLP.jl you
+  use, please also consider citing the references listed below.
+type: software
+authors:
+  - given-names: Sungho
+    family-names: Shin
+    orcid: "https://orcid.org/0000-0002-9889-3278"
+  - given-names: François
+    family-names: Pacaud
+    orcid: "https://orcid.org/0000-0002-9009-6573"
+  - given-names: Alexis
+    family-names: Montoison
+    orcid: "https://orcid.org/0000-0002-3403-5450"
+  - name: "The MadNLP.jl contributors"
+repository-code: "https://github.com/MadNLP/MadNLP.jl"
+url: "https://github.com/MadNLP/MadNLP.jl"
+license: MIT
+doi: 10.5281/zenodo.5825775
+abstract: >-
+  MadNLP.jl is a nonlinear programming solver based on the filter
+  line-search interior-point method that can handle and exploit diverse
+  classes of data structures, either on host or device memories.
+keywords:
+  - Julia
+  - nonlinear programming
+  - optimization
+  - interior-point method
+  - GPU
+references:
+  - type: article
+    title: >-
+      Accelerating optimal power flow with GPUs: SIMD abstraction of
+      nonlinear programs and condensed-space interior-point methods
+    authors:
+      - given-names: Sungho
+        family-names: Shin
+      - given-names: Mihai
+        family-names: Anitescu
+      - given-names: François
+        family-names: Pacaud
+    journal: Electric Power Systems Research
+    volume: 236
+    start: 110651
+    year: 2024
+    publisher:
+      name: Elsevier
+    doi: 10.1016/j.epsr.2024.110651
+  - type: article
+    title: Graph-based modeling and decomposition of energy infrastructures
+    authors:
+      - given-names: Sungho
+        family-names: Shin
+      - given-names: Carleton
+        family-names: Coffrin
+      - given-names: Kaarthik
+        family-names: Sundar
+      - given-names: Victor M.
+        family-names: Zavala
+    journal: IFAC-PapersOnLine
+    volume: 54
+    issue: 3
+    start: 693
+    end: 698
+    year: 2021
+    publisher:
+      name: Elsevier
+    doi: 10.1016/j.ifacol.2021.08.322

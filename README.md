@@ -18,8 +18,8 @@
 [build-gh-url]: https://github.com/MadNLP/MadNLP.jl/actions/workflows/test.yml
 [codecov-img]: https://codecov.io/gh/MadNLP/MadNLP.jl/branch/master/graph/badge.svg?token=MBxH2AAu8Z
 [codecov-url]: https://codecov.io/gh/MadNLP/MadNLP.jl
-[doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.5825776.svg
-[doi-url]: https://doi.org/10.5281/zenodo.5825776
+[doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.5825775.svg
+[doi-url]: https://doi.org/10.5281/zenodo.5825775
 
 
 ## Quickstart
@@ -54,6 +54,19 @@ Furthermore, MadNLP comes with several extensions:
 ## Citing MadNLP.jl
 
 If you use MadNLP.jl in your research, we would greatly appreciate your citing it.
+
+To cite the software itself, use the metadata in [`CITATION.cff`](https://github.com/MadNLP/MadNLP.jl/blob/master/CITATION.cff), which GitHub also renders under *Cite this repository* in the sidebar:
+
+```bibtex
+@software{madnlp,
+  author = {Shin, Sungho and Pacaud, Fran{\c{c}}ois and Montoison, Alexis and {The MadNLP.jl contributors}},
+  title  = {{MadNLP.jl}: A nonlinear programming solver in {J}ulia},
+  url    = {https://github.com/MadNLP/MadNLP.jl},
+  doi    = {10.5281/zenodo.5825775}
+}
+```
+
+Depending on which parts of MadNLP.jl you use, please also consider citing the following references:
 
 ```bibtex
 @article{shin2024accelerating,

@@ -81,6 +81,19 @@ PardisoMKLSolver        | sparse | CPU
 ## Citing MadNLP.jl
 If you use MadNLP.jl in your research, we would greatly appreciate your citing it.
 
+To cite the software itself, use the metadata in [`CITATION.cff`](https://github.com/MadNLP/MadNLP.jl/blob/master/CITATION.cff), which GitHub also renders under *Cite this repository* in the sidebar:
+
+```bibtex
+@software{madnlp,
+  author = {Shin, Sungho and Pacaud, Fran{\c{c}}ois and Montoison, Alexis and {The MadNLP.jl contributors}},
+  title  = {{MadNLP.jl}: A nonlinear programming solver in {J}ulia},
+  url    = {https://github.com/MadNLP/MadNLP.jl},
+  doi    = {10.5281/zenodo.5825775}
+}
+```
+
+Depending on which parts of MadNLP.jl you use, please also consider citing the following references:
+
 ```bibtex
 @article{shin2024accelerating,
   title     = {Accelerating optimal power flow with {GPU}s: {SIMD} abstraction of nonlinear programs and condensed-space interior-point methods},
