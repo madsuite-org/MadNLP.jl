@@ -113,7 +113,7 @@ In general, we recommend keeping the value of `bound_relax_factor` below `tol`.
 ### Solving the problem on the GPU with HyKKT
 
 Some applications require accurate solutions. In that case, we recommend using the
-extension [HybridKKT.jl](https://github.com/MadNLP/HybridKKT.jl), which implements
+extension [HybridKKT.jl](https://github.com/madsuite-org/HybridKKT.jl), which implements
 the Golub & Greif augmented Lagrangian formulation detailed [in this article](https://www.tandfonline.com/doi/abs/10.1080/10556788.2022.2124990). Compared to Lifted-KKT, the Hybrid-KKT
 strategy is more accurate (it doesn't relax the equality constraints in the problem) but
 slightly slower (it computes the descent direction using a conjugate gradient at every IPM iterations).

@@ -10,6 +10,7 @@ on:
     - cron: '0 0 * * 0'
 
 permissions:
+  id-token: write
   actions: write
   contents: read
 
@@ -43,7 +44,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
   test-hsl:
     runs-on:
       labels: hsl
@@ -77,7 +78,7 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
   # Pardiso license currently not available
   #
   # test-pardiso:
@@ -153,5 +154,5 @@ jobs:
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
 
