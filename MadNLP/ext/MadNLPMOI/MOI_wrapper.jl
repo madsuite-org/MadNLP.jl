@@ -1277,7 +1277,12 @@ function MOI.eval_constraint_jacobian_transpose_product(model::Optimizer, Jtv, x
     offset = length(model.qp_data)
     v_qp = view(v, 1:offset)
     # Evaluate jtprod for linear-quadratic part of the model.
-    MOI.eval_constraint_jacobian_transpose_product(model.qp_data, Jtv, x, v_qp)
+    MOI.Nonlinear.add_constraint_jacobian_transpose_product(
+        model.qp_data,
+        Jtv,
+        x,
+        v_qp,
+    )
     # Evaluate jtprod for all VectorNonlinearOracle.
     for (f, s) in model.vector_nonlinear_oracle_constraints
         _eval_constraint_transpose_jacobian_product(Jtv, x, offset, f, s, v)
@@ -1296,7 +1301,7 @@ function MOI.eval_constraint_jacobian_product(model::Optimizer, Jv, x, v)
     Jv_qp = view(Jv, 1:qp_offset)
     Jv_nlp = view(Jv, (qp_offset+1):length(Jv))
     MOI.eval_constraint_jacobian_product(model.nlp_data.evaluator, Jv_nlp, x, v)
-    MOI.eval_constraint_jacobian_product(model.qp_data, Jv_qp, x, v)
+    MOI.Nonlinear.add_constraint_jacobian_product(model.qp_data, Jv_qp, x, v)
     return
 end
 
@@ -1362,7 +1367,7 @@ function MOI.eval_hessian_lagrangian_product(model::Optimizer, Hv, x, v, σ, μ)
     qp_offset = length(model.qp_data)
     μ_nlp = view(μ, (qp_offset+1):length(μ))
     MOI.eval_hessian_lagrangian_product(model.nlp_data.evaluator, Hv, x, v, σ, μ_nlp)
-    MOI.eval_hessian_lagrangian_product(model.qp_data, Hv, x, v, σ, μ)
+    MOI.Nonlinear.add_hessian_lagrangian_product(model.qp_data, Hv, x, v, σ, μ)
     return
 end
 
