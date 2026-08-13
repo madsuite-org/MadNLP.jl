@@ -1275,8 +1275,17 @@ end
 function MOI.eval_constraint_jacobian_transpose_product(model::Optimizer, Jtv, x, v)
     fill!(Jtv, 0.0)
     offset = length(model.qp_data)
-    v_qp = view(v, 1:offset)
+    for (_, s) in model.vector_nonlinear_oracle_constraints
+        offset += s.set.output_dimension
+    end
+    # Evaluate jtprod for the nonlinear expressions FIRST: implementations of
+    # MOI.eval_constraint_jacobian_transpose_product are allowed to overwrite
+    # their output (ReverseAD's does), so it must be called before the
+    # accumulating contributions of the other blocks.
+    v_nlp = view(v, (offset+1):length(v))
+    MOI.eval_constraint_jacobian_transpose_product(model.nlp_data.evaluator, Jtv, x, v_nlp)
     # Evaluate jtprod for linear-quadratic part of the model.
+    v_qp = view(v, 1:length(model.qp_data))
     MOI.Nonlinear.add_constraint_jacobian_transpose_product(
         model.qp_data,
         Jtv,
@@ -1284,13 +1293,11 @@ function MOI.eval_constraint_jacobian_transpose_product(model::Optimizer, Jtv, x
         v_qp,
     )
     # Evaluate jtprod for all VectorNonlinearOracle.
+    offset = length(model.qp_data)
     for (f, s) in model.vector_nonlinear_oracle_constraints
         _eval_constraint_transpose_jacobian_product(Jtv, x, offset, f, s, v)
         offset += s.set.output_dimension
     end
-    # Evaluate jtprod for remaining nonlinear expressions.
-    v_nlp = view(v, (offset+1):length(v))
-    MOI.eval_constraint_jacobian_transpose_product(model.nlp_data.evaluator, Jtv, x, v_nlp)
     return
 end
 
