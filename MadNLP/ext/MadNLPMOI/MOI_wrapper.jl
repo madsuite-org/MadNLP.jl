@@ -1128,7 +1128,7 @@ function MOI.set(
     },
 }
     # This also clears any objective of the inner nonlinear model.
-    MOI.set(model.quad_data, attr, func)
+    MOI.Nonlinear.set_objective(model.quad_data, func)
     model.solver = nothing
     return
 end
