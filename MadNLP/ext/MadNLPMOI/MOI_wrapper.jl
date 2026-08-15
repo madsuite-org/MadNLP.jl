@@ -245,39 +245,6 @@ function MOI.set(
     return
 end
 
-_replace_parameters(model::Optimizer, f) = f
-
-function _replace_parameters(model::Optimizer, f::MOI.VariableIndex)
-    if MOI.Nonlinear._is_parameter(f)
-        return MOI.Nonlinear.ParameterIndex(f.value - MOI.Nonlinear._PARAMETER_OFFSET)
-    end
-    return f
-end
-
-function _replace_parameters(model::Optimizer, f::MOI.ScalarAffineFunction)
-    if any(MOI.Nonlinear._is_parameter, f.terms)
-        g = convert(MOI.ScalarNonlinearFunction, f)
-        return _replace_parameters(model, g)
-    end
-    return f
-end
-
-function _replace_parameters(model::Optimizer, f::MOI.ScalarQuadraticFunction)
-    if any(MOI.Nonlinear._is_parameter, f.affine_terms) ||
-       any(MOI.Nonlinear._is_parameter, f.quadratic_terms)
-        g = convert(MOI.ScalarNonlinearFunction, f)
-        return _replace_parameters(model, g)
-    end
-    return f
-end
-
-function _replace_parameters(model::Optimizer, f::MOI.ScalarNonlinearFunction)
-    for (i, arg) in enumerate(f.args)
-        f.args[i] = _replace_parameters(model, arg)
-    end
-    return f
-end
-
 function MOI.supports_constraint(
     ::Optimizer,
     ::Type{<:Union{MOI.VariableIndex,_FUNCTIONS}},
@@ -578,10 +545,7 @@ function MOI.add_constraint(
     s::_SETS,
 )
     _check_no_nlp_block(model)
-    if !isempty(model.model.qp.parameters)
-        _replace_parameters(model, f)
-    end
-    index = MOI.Nonlinear.add_constraint(model.model.inner, f, s)
+    index = MOI.Nonlinear.add_constraint(model.model, f, s)
     model.solver = nothing
     return MOI.ConstraintIndex{typeof(f),typeof(s)}(index.value)
 end
@@ -619,11 +583,6 @@ function MOI.set(
     func::MOI.ScalarNonlinearFunction,
 )
     _check_no_nlp_block(model)
-    if !isempty(model.model.qp.parameters)
-        _replace_parameters(model, func)
-    end
-    # Set through the layer so that the objective sink is updated and any
-    # affine or quadratic objective is cleared.
     MOI.Nonlinear.set_objective(model.model, func)
     model.solver = nothing
     return
