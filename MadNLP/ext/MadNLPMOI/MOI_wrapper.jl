@@ -1,9 +1,3 @@
-const _PARAMETER_OFFSET = MOI.Nonlinear._PARAMETER_OFFSET
-
-const _is_parameter = MOI.Nonlinear._is_parameter
-_is_parameter(term::MOI.ScalarAffineTerm) = _is_parameter(term.variable)
-_is_parameter(term::MOI.ScalarQuadraticTerm) = _is_parameter(term.variable_1) || _is_parameter(term.variable_2)
-
 mutable struct _VectorNonlinearOracleCache
     set::MOI.VectorNonlinearOracle{Float64}
     x::Vector{Float64}
@@ -254,14 +248,14 @@ end
 _replace_parameters(model::Optimizer, f) = f
 
 function _replace_parameters(model::Optimizer, f::MOI.VariableIndex)
-    if _is_parameter(f)
-        return MOI.Nonlinear.ParameterIndex(f.value - _PARAMETER_OFFSET)
+    if MOI.Nonlinear._is_parameter(f)
+        return MOI.Nonlinear.ParameterIndex(f.value - MOI.Nonlinear._PARAMETER_OFFSET)
     end
     return f
 end
 
 function _replace_parameters(model::Optimizer, f::MOI.ScalarAffineFunction)
-    if any(_is_parameter, f.terms)
+    if any(MOI.Nonlinear._is_parameter, f.terms)
         g = convert(MOI.ScalarNonlinearFunction, f)
         return _replace_parameters(model, g)
     end
@@ -269,8 +263,8 @@ function _replace_parameters(model::Optimizer, f::MOI.ScalarAffineFunction)
 end
 
 function _replace_parameters(model::Optimizer, f::MOI.ScalarQuadraticFunction)
-    if any(_is_parameter, f.affine_terms) ||
-       any(_is_parameter, f.quadratic_terms)
+    if any(MOI.Nonlinear._is_parameter, f.affine_terms) ||
+       any(MOI.Nonlinear._is_parameter, f.quadratic_terms)
         g = convert(MOI.ScalarNonlinearFunction, f)
         return _replace_parameters(model, g)
     end
@@ -859,7 +853,7 @@ function MOI.get(
     attr::MOI.VariablePrimalStart,
     vi::MOI.VariableIndex,
 )
-    if _is_parameter(vi)
+    if MOI.Nonlinear._is_parameter(vi)
         throw(MOI.GetAttributeNotAllowed(attr, "Variable is a Parameter"))
     end
     MOI.throw_if_not_valid(model, vi)
@@ -872,7 +866,7 @@ function MOI.set(
     vi::MOI.VariableIndex,
     value::Union{Real,Nothing},
 )
-    if _is_parameter(vi)
+    if MOI.Nonlinear._is_parameter(vi)
         throw(MOI.SetAttributeNotAllowed(attr, "Variable is a Parameter"))
     end
     MOI.throw_if_not_valid(model, vi)
@@ -1823,8 +1817,8 @@ function MOI.get(
 )
     MOI.check_result_index_bounds(model, attr)
     MOI.throw_if_not_valid(model, vi)
-    if _is_parameter(vi)
-        p = MOI.Nonlinear.ParameterIndex(vi.value - _PARAMETER_OFFSET)
+    if MOI.Nonlinear._is_parameter(vi)
+        p = MOI.Nonlinear.ParameterIndex(vi.value - MOI.Nonlinear._PARAMETER_OFFSET)
         return model.model.inner[p]
     end
     return model.result.solution[vi.value]
