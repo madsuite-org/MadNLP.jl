@@ -41,6 +41,13 @@ jobs:
         # loads the Metal extension of MadCore; the solves need an Apple GPU
         if: matrix.os == 'ubuntu-latest'
         run: julia --project=./mtlMadNLP --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test()'
+      - name: MOI
+        shell: julia --project=./MadNLP --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.add([
+              PackageSpec(name="MathOptInterface", rev="bl/model_with_quad"),
+          ])
       - name: test MadNLP
         shell: julia --project=./MadNLP --color=yes {0}
         run: |
