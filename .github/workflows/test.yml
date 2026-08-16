@@ -110,7 +110,7 @@ jobs:
       fail-fast: false
       matrix:
         julia-version: ['1']
-        gpu: [cuda13, amdgpu]
+        gpu: [cuda, amdgpu]
     runs-on:
       - self-hosted
       - ${{ matrix.gpu }}
@@ -131,7 +131,7 @@ jobs:
               PackageSpec(path="./lib/MadNLPTests"),
           ])
       - name: Add CUDA and CUDSS
-        if: matrix.gpu == 'cuda13'
+        if: matrix.gpu == 'cuda'
         shell: julia --project=./lib/MadNLPGPU/test --color=yes {0}
         run: |
           using Pkg
