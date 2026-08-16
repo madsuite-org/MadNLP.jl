@@ -44,6 +44,9 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+          # The org-wide token cannot imply a repository; the slug says
+          # which repo this upload is for.
+          slug: ${{ github.repository }}
   test-hsl:
     runs-on:
       labels: hsl
@@ -78,6 +81,9 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+          # The org-wide token cannot imply a repository; the slug says
+          # which repo this upload is for.
+          slug: ${{ github.repository }}
   # Pardiso license currently not available
   #
   # test-pardiso:
@@ -154,4 +160,7 @@ jobs:
         with:
           files: lcov.info
           token: ${{ secrets.CODECOV_TOKEN }}
+          # The org-wide token cannot imply a repository; the slug says
+          # which repo this upload is for.
+          slug: ${{ github.repository }}
 
