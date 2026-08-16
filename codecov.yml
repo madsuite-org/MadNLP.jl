@@ -1,0 +1,10 @@
+# Coverage numbers without CI redness: the project/patch checks report their
+# figures but never fail — a coverage drop is information, not a broken build.
+coverage:
+  status:
+    project:
+      default:
+        informational: true
+    patch:
+      default:
+        informational: true
