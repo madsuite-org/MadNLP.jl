@@ -32,7 +32,6 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     sense::MOI.OptimizationSense
 
     model::MOI.Nonlinear.ModelWithQuad{Float64,MOI.Nonlinear.Model}
-    list_of_variable_indices::Vector{MOI.VariableIndex}
     variable_primal_start::Vector{Union{Nothing,Float64}}
     variable_names::Dict{MOI.VariableIndex, String}
     constraint_names::Dict{MOI.ConstraintIndex, String}
@@ -80,7 +79,6 @@ function Optimizer(; kwargs...)
         0,
         MOI.FEASIBILITY_SENSE,
         MOI.Nonlinear.ModelWithQuad(MOI.Nonlinear.Model()),
-        MOI.VariableIndex[],
         Union{Nothing,Float64}[],
         Dict{MOI.VariableIndex, String}(),
         Dict{MOI.ConstraintIndex, String}(),
@@ -145,7 +143,6 @@ function MOI.empty!(model::Optimizer)
     model.solve_iterations = 0
     model.sense = MOI.FEASIBILITY_SENSE
     model.model = MOI.Nonlinear.ModelWithQuad(MOI.Nonlinear.Model())
-    empty!(model.list_of_variable_indices)
     empty!(model.variable_primal_start)
     empty!(model.variable_names)
     empty!(model.constraint_names)
@@ -209,7 +206,6 @@ function MOI.add_constrained_variable(
 )
     _check_no_nlp_block(model)
     p, ci = MOI.add_constrained_variable(model.model, set)
-    push!(model.list_of_variable_indices, p)
     return p, ci
 end
 
@@ -349,7 +345,6 @@ function MOI.add_variable(model::Optimizer)
     push!(model.variable_primal_start, nothing)
     model.solver = nothing
     x = MOI.add_variable(model.model.variables)
-    push!(model.list_of_variable_indices, x)
     return x
 end
 
@@ -357,12 +352,12 @@ function MOI.is_valid(model::Optimizer, x::MOI.VariableIndex)
     return MOI.is_valid(model.model, x)
 end
 
-function MOI.get(model::Optimizer, ::MOI.ListOfVariableIndices)
-    return model.list_of_variable_indices
+function MOI.get(model::Optimizer, attr::MOI.ListOfVariableIndices)
+    return MOI.get(model.model, attr)
 end
 
-function MOI.get(model::Optimizer, ::MOI.NumberOfVariables)
-    return length(model.list_of_variable_indices)
+function MOI.get(model::Optimizer, attr::MOI.NumberOfVariables)
+    return MOI.get(model.model, attr)
 end
 
 function MOI.is_valid(
