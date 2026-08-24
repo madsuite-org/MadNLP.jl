@@ -14,7 +14,7 @@ import SolverCore: getStatus, AbstractOptimizationSolver, AbstractExecutionStats
 import LDLFactorizations
 import MUMPS_seq_jll, OpenBLAS32_jll
 
-export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementKKTSystem
+export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementCondensedKKTSystem
 Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
 
 function __init__()
@@ -43,5 +43,21 @@ include("precompile.jl")
 madsuite(::Val{:madnlp}, args...; kwargs...) = madnlp(args...; kwargs...)
 
 global Optimizer
+
+# Backwards-compatible (DEPRECATED) alias. `SchurComplementKKTSystem` was renamed to
+# `SchurComplementCondensedKKTSystem` when the bordered EnforceEquality saddle was replaced by a
+# condensed (RelaxEquality) SPD Schur complement. The rename tracks a *silent behaviour change* —
+# the option defaults flipped (equality_treatment EnforceEquality→RelaxEquality,
+# fixed_variable_treatment MakeParameter→RelaxBound, a looser `tol`/`bound_relax_factor`) — so
+# warn on use instead of aliasing silently, and point users at the new name.
+Base.@deprecate_binding(
+    SchurComplementKKTSystem,
+    SchurComplementCondensedKKTSystem,
+    true,
+    ": it was renamed to `SchurComplementCondensedKKTSystem` and its defaults changed (now " *
+        "RelaxEquality + RelaxBound with `tol`-relaxed bounds, instead of the old EnforceEquality " *
+        "bordered saddle). Switch to `SchurComplementCondensedKKTSystem` and re-check your " *
+        "convergence tolerances.",
+)
 
 end # end module

@@ -234,6 +234,16 @@ get_jacobian(kkt::AbstractKKTSystem) = kkt.jac
 get_hessian(kkt::AbstractKKTSystem) = kkt.hess
 
 """
+    is_inertia(kkt::AbstractKKTSystem)
+
+Whether `kkt` can report the inertia of the full KKT matrix, and hence whether
+`InertiaAuto` may select the inertia-based regularization. Defaults to the capability of
+the KKT system's linear solver; KKT systems whose matrix is factorized by more than one
+solver (e.g. the Schur path) must override this to require all of them.
+"""
+is_inertia(kkt::AbstractKKTSystem) = is_inertia(kkt.linear_solver)
+
+"""
         is inertia_correct(kkt::AbstractKKTSystem, num_pos, num_zero, num_neg)
 
 Check if the inertia ``(num_pos, num_zero, num_neg)`` returned by the linear solver
