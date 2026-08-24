@@ -132,7 +132,7 @@ nlp_128 = airport_model(Float128)
 
 !!! warning
     On the contrary to `Float32`, a few linear solvers support `Float128` out of the box.
-    Currently, the only solvers suporting quadruple in MadNLP are `LDLSolver`
+    Currently, the only solvers supporting quadruple in MadNLP are `LDLSolver`
     and the HSL solvers (require MadNLPHSL).
     `LDLSolvers` uses [an LDL factorization implemented in pure Julia](https://github.com/JuliaSmoothOptimizers/LDLFactorizations.jl).
     The solver `LDLSolver` is not adapted to solve large-scale nonconvex nonlinear programs,
@@ -152,5 +152,3 @@ as well as the final objective:
 ```@example multiprecision
 results_128.objective
 ```
-
-

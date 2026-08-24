@@ -136,7 +136,7 @@ results = madnlp(
 
 If your optimization problem is not instantiated on the GPU, you can still
 solve it on the GPU by wrapping your model in a `SparseWrapperModel`.
-Oftentimes, this is the most convenient solution if your problem does not formulate easilly with ExaModels.
+Oftentimes, this is the most convenient solution if your problem does not formulate easily with ExaModels.
 In that case, the evaluation of the model runs on the CPU, but all MadNLP's internals
 are instantiated on the GPU (including the sparse linear solver).
 
