@@ -34,7 +34,7 @@ end
 Construct a DenseWrapperModel (a subtype of `NLPModels.AbstractNLPModel{T,typeof(Arr(m.meta.x0))}`)
 from a generic NLP Model.
 
-DenseWrapperModel can be used to interface GPU-accelerated NLP models with solvers runing on CPUs.
+DenseWrapperModel can be used to interface GPU-accelerated NLP models with solvers running on CPUs.
 """
 function DenseWrapperModel(Arr, m::NLPModels.AbstractNLPModel)
     return DenseWrapperModel(
@@ -70,7 +70,7 @@ end
 Construct a SparseWrapperModel (a subtype of `NLPModels.AbstractNLPModel{T,typeof(Arr(m.meta.x0))}`)
 from a generic NLP Model.
 
-SparseWrapperModel can be used to interface GPU-accelerated NLP models with solvers runing on CPUs.
+SparseWrapperModel can be used to interface GPU-accelerated NLP models with solvers running on CPUs.
 """
 function SparseWrapperModel(Arr, m::NLPModels.AbstractNLPModel)
     return SparseWrapperModel(
