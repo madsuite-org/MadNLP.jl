@@ -21,7 +21,7 @@ end
 
 function UmfpackSolver(
     csc::SparseMatrixCSC{T};
-    opt=UmfpackOptions(), logger=MadNLPLogger(),
+    opt=UmfpackOptions(), logger=MadNLPLogger(), pos=nothing,
 ) where T
     p = Vector{Float64}(undef,csc.n)
     d = Vector{Float64}(undef,csc.n)

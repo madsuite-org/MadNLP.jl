@@ -160,7 +160,7 @@ function create_kkt_system(
     hess_com, hess_csc_map = coo_to_csc(hess_raw)
 
     _linear_solver = linear_solver(
-        aug_com; opt = opt_linear_solver
+        aug_com; opt = opt_linear_solver, pos = n_tot
     )
 
     return ScaledSparseKKTSystem(

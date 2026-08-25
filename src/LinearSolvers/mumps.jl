@@ -165,7 +165,7 @@ end
 # ---------------------------------------------------------------------------------------
 
 function MumpsSolver(csc::SparseMatrixCSC{T,Int32};
-    opt=MumpsOptions(), logger=MadNLPLogger(),
+    opt=MumpsOptions(), logger=MadNLPLogger(), pos=nothing,
 ) where T
 
     I,J = findIJ(csc)

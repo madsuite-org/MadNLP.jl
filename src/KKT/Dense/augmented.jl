@@ -81,7 +81,7 @@ function create_kkt_system(
     fill!(diag_hess, zero(T))
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
-    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
+    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver, pos = n + ns)
 
     return DenseKKTSystem(
         hess, jac, quasi_newton,

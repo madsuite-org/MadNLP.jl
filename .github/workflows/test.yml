@@ -104,6 +104,37 @@ jobs:
   #     - uses: codecov/codecov-action@v5
   #       with:
   #         file: lcov.info
+  test-cliquetrees:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        julia-version: ['1']
+        julia-arch: [x64]
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/install-juliaup@v2
+        with:
+          channel: ${{ matrix.julia-version }}
+      - uses: julia-actions/cache@v1
+      - name: test MadNLPCliqueTrees
+        shell: julia --project=./lib/MadNLPCliqueTrees --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.Registry.update()
+          Pkg.develop(path=".")
+          Pkg.instantiate()
+          using MadNLP
+          PATH_MADNLP = dirname(pathof(MadNLP))
+          Pkg.develop(path=joinpath(PATH_MADNLP, "..", "lib", "MadNLPTests"))
+          Pkg.test("MadNLPCliqueTrees", coverage=true)
+      - uses: julia-actions/julia-processcoverage@v1
+        with:
+          directories: lib/MadNLPCliqueTrees/src
+      - uses: codecov/codecov-action@v5
+        with:
+          file: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
   # need to run one on cuda and one on amdgpu
   test-gpu:
     strategy:

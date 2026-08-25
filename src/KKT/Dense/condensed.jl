@@ -94,7 +94,7 @@ function create_kkt_system(
     ind_ineq_shifted = cb.ind_ineq .+ n .+ ns
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
-    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
+    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver, pos = n + m - ns)
 
     return DenseCondensedKKTSystem(
         hess, jac, quasi_newton, jac_ineq,
