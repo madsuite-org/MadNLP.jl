@@ -1,0 +1,26 @@
+name: Breakage
+
+# read-only repo token
+# no access to secrets
+on:
+  pull_request:
+    types: [labeled, synchronize, opened, reopened]
+
+jobs:
+  call:
+    if: contains(github.event.pull_request.labels.*.name, 'run breakage')
+    strategy:
+      fail-fast: false
+      matrix:
+        pkgname: [CTDirect]
+        pkgversion: [latest, stable]
+        include:
+          - pkgpath: control-toolbox
+    uses: control-toolbox/CTActions/.github/workflows/breakage.yml@main
+    with:
+      pkgname: ${{ matrix.pkgname }}
+      pkgpath: ${{ matrix.pkgpath }}
+      pkgversion: ${{ matrix.pkgversion }}
+      use_ct_registry: false
+    secrets:
+      SSH_KEY: ${{ secrets.SSH_KEY }}
