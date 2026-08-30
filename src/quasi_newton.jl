@@ -280,14 +280,14 @@ Base.size(qn::CompactLBFGS) = (size(qn.Sk, 1), qn.current_mem)
 
 function _resize!(qn::CompactLBFGS{T, VT, MT}) where {T, VT, MT}
     n, k = size(qn)
-    qn.Lk    = fill!(MT(undef, k, k), zero(T))
-    qn.Mk    = fill!(MT(undef, k, k), zero(T))
-    qn.Tk    = fill!(MT(undef, 2*k, 2*k), zero(T))
-    qn.DkLk  = fill!(MT(undef, k, k), zero(T))
-    qn.U     = fill!(MT(undef, n, k), zero(T))
-    qn.V     = fill!(MT(undef, n, k), zero(T))
-    qn._w1   = fill!(VT(undef, k), zero(T))
-    qn._w2   = fill!(VT(undef, 2*k), zero(T))
+    qn.Lk   = fill!(reshape(resize!(vec(qn.Lk), k*k), k, k), zero(T))
+    qn.Mk   = fill!(reshape(resize!(vec(qn.Mk), k*k), k, k), zero(T))
+    qn.Tk   = fill!(reshape(resize!(vec(qn.Tk), 4*k*k), 2*k, 2*k), zero(T))
+    qn.DkLk = fill!(reshape(resize!(vec(qn.DkLk), k*k), k, k), zero(T))
+    qn.U    = fill!(reshape(resize!(vec(qn.U), n*k), n, k), zero(T))
+    qn.V    = fill!(reshape(resize!(vec(qn.V), n*k), n, k), zero(T))
+    qn._w1  = fill!(resize!(qn._w1, k), zero(T))
+    qn._w2  = fill!(resize!(qn._w2, 2*k), zero(T))
     return
 end
 
