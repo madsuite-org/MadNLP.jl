@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on:
       - self-hosted
-      - cuda13
+      - cuda
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/install-juliaup@v2

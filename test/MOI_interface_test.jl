@@ -213,6 +213,127 @@ function test_Parameter_basic()
     return
 end
 
+    function test_VariableName_supports_get_set()
+        model = MadNLP.Optimizer()
+        @test MOI.supports(model, MOI.VariableName(), MOI.VariableIndex)
+        x = MOI.add_variable(model)
+        @test MOI.get(model, MOI.VariableName(), x) == ""
+        MOI.set(model, MOI.VariableName(), x, "x1")
+        @test MOI.get(model, MOI.VariableName(), x) == "x1"
+        # Setting an empty name hits the `delete!` branch in `set`, dropping the
+        # dict entry; `get` then falls back to the default "".
+        MOI.set(model, MOI.VariableName(), x, "")
+        @test MOI.get(model, MOI.VariableName(), x) == ""
+        return
+    end
+
+    function test_ConstraintName_linear()
+        model = MadNLP.Optimizer()
+        x = MOI.add_variable(model)
+        f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
+        ci = MOI.add_constraint(model, f, MOI.LessThan(1.0))
+        @test MOI.supports(model, MOI.ConstraintName(), typeof(ci))
+        @test MOI.get(model, MOI.ConstraintName(), ci) == ""
+        MOI.set(model, MOI.ConstraintName(), ci, "c1")
+        @test MOI.get(model, MOI.ConstraintName(), ci) == "c1"
+        return
+    end
+
+    function test_ConstraintName_quadratic()
+        model = MadNLP.Optimizer()
+        x = MOI.add_variable(model)
+        f = MOI.ScalarQuadraticFunction(
+            [MOI.ScalarQuadraticTerm(1.0, x, x)],
+            MOI.ScalarAffineTerm{Float64}[],
+            0.0,
+        )
+        ci = MOI.add_constraint(model, f, MOI.EqualTo(1.0))
+        @test MOI.supports(model, MOI.ConstraintName(), typeof(ci))
+        @test MOI.get(model, MOI.ConstraintName(), ci) == ""
+        MOI.set(model, MOI.ConstraintName(), ci, "q1")
+        @test MOI.get(model, MOI.ConstraintName(), ci) == "q1"
+        return
+    end
+
+    function test_ConstraintName_scalar_nonlinear()
+        model = MadNLP.Optimizer()
+        x = MOI.add_variable(model)
+        f = MOI.ScalarNonlinearFunction(:sin, Any[x])
+        ci = MOI.add_constraint(model, f, MOI.EqualTo(0.0))
+        @test MOI.supports(model, MOI.ConstraintName(), typeof(ci))
+        @test MOI.get(model, MOI.ConstraintName(), ci) == ""
+        MOI.set(model, MOI.ConstraintName(), ci, "nl1")
+        @test MOI.get(model, MOI.ConstraintName(), ci) == "nl1"
+        return
+    end
+
+    function test_ConstraintName_not_supported_for_bounds()
+        model = MadNLP.Optimizer()
+        x = MOI.add_variable(model)
+        ci = MOI.add_constraint(model, x, MOI.GreaterThan(0.0))
+        # MOI guarantees ConstraintName is rejected for VariableIndex (bound)
+        # constraints: both `supports` and `set` throw VariableIndexConstraintNameError.
+        @test_throws MOI.UnsupportedAttribute MOI.supports(model, MOI.ConstraintName(), typeof(ci))
+        @test_throws MOI.UnsupportedAttribute MOI.set(model, MOI.ConstraintName(), ci, "b")
+        return
+    end
+
+    function test_name_get_by_name()
+        model = MadNLP.Optimizer()
+        x = MOI.add_variable(model)
+        y = MOI.add_variable(model)
+        MOI.set(model, MOI.VariableName(), x, "x1")
+        f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
+        ci = MOI.add_constraint(model, f, MOI.LessThan(1.0))
+        MOI.set(model, MOI.ConstraintName(), ci, "c1")
+        @test MOI.get(model, MOI.VariableIndex, "x1") == x
+        @test MOI.get(model, MOI.ConstraintIndex, "c1") == ci
+        # Unknown names return nothing.
+        @test MOI.get(model, MOI.VariableIndex, "missing") === nothing
+        @test MOI.get(model, MOI.ConstraintIndex, "missing") === nothing
+        # Duplicate names error on lookup.
+        MOI.set(model, MOI.VariableName(), y, "x1")
+        @test_throws ErrorException MOI.get(model, MOI.VariableIndex, "x1")
+        return
+    end
+
+    function test_names_empty!()
+        model = MadNLP.Optimizer()
+        x = MOI.add_variable(model)
+        MOI.set(model, MOI.VariableName(), x, "x1")
+        f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
+        ci = MOI.add_constraint(model, f, MOI.LessThan(1.0))
+        MOI.set(model, MOI.ConstraintName(), ci, "c1")
+        MOI.empty!(model)
+        @test MOI.is_empty(model)
+        @test isempty(model.variable_names)
+        @test isempty(model.constraint_names)
+        # Reverse caches are invalidated.
+        @test model.name_to_variable === nothing
+        @test model.name_to_constraint_index === nothing
+        # A re-added variable starts with the default empty name.
+        x2 = MOI.add_variable(model)
+        @test MOI.get(model, MOI.VariableName(), x2) == ""
+        return
+    end
+
+    function test_name_copy_to_propagation()
+        src = MOI.Utilities.UniversalFallback(MOI.Utilities.Model{Float64}())
+        x = MOI.add_variable(src)
+        MOI.set(src, MOI.VariableName(), x, "myvar")
+        f = MOI.ScalarAffineFunction([MOI.ScalarAffineTerm(1.0, x)], 0.0)
+        ci = MOI.add_constraint(src, f, MOI.LessThan(1.0))
+        MOI.set(src, MOI.ConstraintName(), ci, "mycon")
+        dest = MadNLP.Optimizer()
+        index_map = MOI.copy_to(dest, src)
+        # Names survive copy_to into the bare optimizer.
+        @test MOI.get(dest, MOI.VariableName(), index_map[x]) == "myvar"
+        @test MOI.get(dest, MOI.ConstraintName(), index_map[ci]) == "mycon"
+        @test dest.variable_names[index_map[x]] == "myvar"
+        @test dest.constraint_names[index_map[ci]] == "mycon"
+        return
+    end
+
 end
 
 TestMOIWrapper.runtests()

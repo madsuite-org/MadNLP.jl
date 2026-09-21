@@ -41,6 +41,10 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     variables::MOI.Utilities.VariablesContainer{Float64}
     list_of_variable_indices::Vector{MOI.VariableIndex}
     variable_primal_start::Vector{Union{Nothing,Float64}}
+    variable_names::Dict{MOI.VariableIndex, String}
+    constraint_names::Dict{MOI.ConstraintIndex, String}
+    name_to_variable::Union{Nothing, Dict{String, Union{Nothing, MOI.VariableIndex}}}
+    name_to_constraint_index::Union{Nothing, Dict{String, Union{Nothing, MOI.ConstraintIndex}}}
 
     nlp_data::MOI.NLPBlockData
     nlp_dual_start::Union{Nothing,Vector{Float64}}
@@ -83,6 +87,10 @@ function Optimizer(; kwargs...)
         MOI.Utilities.VariablesContainer{Float64}(),
         MOI.VariableIndex[],
         Union{Nothing,Float64}[],
+        Dict{MOI.VariableIndex, String}(),
+        Dict{MOI.ConstraintIndex, String}(),
+        nothing,
+        nothing,
         MOI.NLPBlockData([], _EmptyNLPEvaluator(), false),
         nothing,
         Dict{MOI.Nonlinear.ConstraintIndex,Float64}(),
@@ -145,6 +153,10 @@ function MOI.empty!(model::Optimizer)
     MOI.empty!(model.variables)
     empty!(model.list_of_variable_indices)
     empty!(model.variable_primal_start)
+    empty!(model.variable_names)
+    empty!(model.constraint_names)
+    model.name_to_variable = nothing
+    model.name_to_constraint_index = nothing
     model.nlp_data = MOI.NLPBlockData([], _EmptyNLPEvaluator(), false)
     model.nlp_dual_start = nothing
     empty!(model.mult_g_nlp)
@@ -885,6 +897,118 @@ function MOI.set(
     MOI.throw_if_not_valid(model, vi)
     model.variable_primal_start[column(vi)] = value
     model.needs_new_nlp = true
+    return
+end
+
+### MOI.VariableName
+
+MOI.supports(::Optimizer, ::MOI.VariableName, ::Type{MOI.VariableIndex}) = true
+
+function MOI.set(
+        model::Optimizer,
+        ::MOI.VariableName,
+        vi::MOI.VariableIndex,
+        name::String,
+    )
+    MOI.throw_if_not_valid(model, vi)
+    if isempty(name)
+        delete!(model.variable_names, vi)
+    else
+        model.variable_names[vi] = name
+    end
+    # Names are non-numeric metadata: do not invalidate the NLP, only the
+    # lazily-built reverse lookup.
+    model.name_to_variable = nothing
+    return
+end
+
+function MOI.get(model::Optimizer, ::MOI.VariableName, vi::MOI.VariableIndex)
+    MOI.throw_if_not_valid(model, vi)
+    return get(model.variable_names, vi, "")
+end
+
+function MOI.get(model::Optimizer, ::Type{MOI.VariableIndex}, name::String)
+    if model.name_to_variable === nothing
+        _rebuild_name_to_variable(model)
+    end
+    if haskey(model.name_to_variable, name)
+        vi = model.name_to_variable[name]
+        if vi === nothing
+            error("Duplicate variable name detected: $(name)")
+        end
+        return vi
+    end
+    return nothing
+end
+
+function _rebuild_name_to_variable(model::Optimizer)
+    model.name_to_variable = Dict{String, Union{Nothing, MOI.VariableIndex}}()
+    for (vi, name) in model.variable_names
+        if haskey(model.name_to_variable, name)
+            model.name_to_variable[name] = nothing
+        else
+            model.name_to_variable[name] = vi
+        end
+    end
+    return
+end
+
+### MOI.ConstraintName
+
+# The constraint types that may carry a name: the scalar function/set blocks,
+# which map one ConstraintIndex to exactly one KKT row. `VariableIndex`-in-set
+# (bound) constraints are excluded so that MOI's fallback throws
+# `VariableIndexConstraintNameError`, mirroring Gurobi.jl/Xpress.jl. Vector
+# constraints (VectorNonlinearOracle) are excluded on purpose: a single name
+# would label a whole block of `output_dimension` rows.
+const _NAMED_CONSTRAINT = MOI.ConstraintIndex{<:_FUNCTIONS, <:_SETS}
+
+MOI.supports(::Optimizer, ::MOI.ConstraintName, ::Type{<:_NAMED_CONSTRAINT}) = true
+
+function MOI.set(
+        model::Optimizer,
+        ::MOI.ConstraintName,
+        ci::_NAMED_CONSTRAINT,
+        name::String,
+    )
+    MOI.throw_if_not_valid(model, ci)
+    if isempty(name)
+        delete!(model.constraint_names, ci)
+    else
+        model.constraint_names[ci] = name
+    end
+    model.name_to_constraint_index = nothing
+    return
+end
+
+function MOI.get(model::Optimizer, ::MOI.ConstraintName, ci::_NAMED_CONSTRAINT)
+    MOI.throw_if_not_valid(model, ci)
+    return get(model.constraint_names, ci, "")
+end
+
+function MOI.get(model::Optimizer, ::Type{MOI.ConstraintIndex}, name::String)
+    if model.name_to_constraint_index === nothing
+        _rebuild_name_to_constraint_index(model)
+    end
+    if haskey(model.name_to_constraint_index, name)
+        ci = model.name_to_constraint_index[name]
+        if ci === nothing
+            error("Duplicate constraint name detected: $(name)")
+        end
+        return ci
+    end
+    return nothing
+end
+
+function _rebuild_name_to_constraint_index(model::Optimizer)
+    model.name_to_constraint_index = Dict{String, Union{Nothing, MOI.ConstraintIndex}}()
+    for (ci, name) in model.constraint_names
+        if haskey(model.name_to_constraint_index, name)
+            model.name_to_constraint_index[name] = nothing
+        else
+            model.name_to_constraint_index[name] = ci
+        end
+    end
     return
 end
 

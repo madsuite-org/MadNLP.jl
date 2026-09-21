@@ -1,12 +1,11 @@
 name = "MadNLPHSL"
 uuid = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
-version = "0.7.2"
+version = "0.7.3"
 
 [deps]
 HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
-MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
 
 [compat]
 HSL = "0.5.3"

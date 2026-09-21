@@ -40,7 +40,7 @@ pkg> add MadNLPHSL
 To use Pardiso, the user needs to obtain the Pardiso shared libraries from
 <https://panua.ch/>, provide the absolute path to the shared library:
 ```
-julia> ENV["MADNLP_PARDISO_LIBRARY_PATH"] = "/usr/lib/libpardiso600-GNU800-X86-64.so"
+julia> ENV["JULIA_PARDISO"] = "/path/to/pardiso/lib/"
 ```
 and place the license file in the home directory.
 After obtaining the library and the license file, run

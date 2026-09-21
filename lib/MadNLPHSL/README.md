@@ -2,7 +2,7 @@
 ```julia
 pkg> add MadNLPHSL
 ```
-Obtain a license and download HSL_jll.jl from https://licences.stfc.ac.uk/products/Software/HSL/LibHSL.
+Obtain a license and download HSL_jll.jl from [HSL](https://licences.stfc.ac.uk/products/Software/HSL/LibHSL).
 
 Install this download into your current environment using:
 
