@@ -22,6 +22,7 @@ mutable struct LapackCPUSolver{T, MT, Alg} <: AbstractLapackSolver{T, Alg}
         A::MT;
         opt=LapackOptions(),
         logger=MadNLPLogger(),
+        pos=nothing,
     ) where {MT <: AbstractMatrix}
         T = eltype(A)
         m,n = size(A)
