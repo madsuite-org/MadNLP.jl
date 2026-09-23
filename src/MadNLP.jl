@@ -10,11 +10,12 @@ import Base: string, show, print, size, getindex, copyto!, @kwdef
 Base.USE_GPL_LIBS && import SuiteSparse: UMFPACK, CHOLMOD
 import NLPModels
 import NLPModels: finalize, AbstractNLPModel, obj, grad!, cons!, jac_coord!, hess_coord!, hess_structure!, jac_structure!, hess_dense!, jac_dense!, NLPModelMeta, get_nvar, get_ncon, get_minimize, get_x0, get_y0, get_nnzj, get_nnzh, get_lvar, get_uvar, get_lcon, get_ucon
+import ParametricNLPModels: get_npar, jac_par_dense!, hess_par_dense!, jprod_par, hprod_par
 import SolverCore: getStatus, AbstractOptimizationSolver, AbstractExecutionStats, solve!
 import LDLFactorizations
 import MUMPS_seq_jll, OpenBLAS32_jll
 
-export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementKKTSystem
+export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementKKTSystem, sensitivity
 Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
 
 function __init__()

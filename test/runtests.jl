@@ -19,6 +19,7 @@ import SparseArrays: sparse
 
     @testset "MadNLP test" begin
         include("madnlp_test.jl")
+        include("sensitivity_test.jl")
         include("madnlp_dense.jl")
         include("madnlp_quasi_newton.jl")
     end

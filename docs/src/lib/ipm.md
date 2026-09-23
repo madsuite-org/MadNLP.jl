@@ -23,5 +23,12 @@ solve!
 
 ```
 
+Once `solve!` has converged, the sensitivity of the solution to the parameters
+of a model implementing the [ParametricNLPModels.jl](https://github.com/madsuite-org/ParametricNLPModels.jl) interface is available:
+
+```@docs
+sensitivity
+```
+
 Users can also define a termination criteria by using the `intermediate_callback` solver option.
 Besides termination, this is also useful for accessing the internal state of the solver and custom logging.
