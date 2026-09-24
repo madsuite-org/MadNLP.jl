@@ -13,7 +13,7 @@ import JuMP: Model, @variable, @constraint, @objective, optimize!, set_attribute
     MOI, termination_status, LowerBoundRef, UpperBoundRef, value, dual, fix
 import NLPModelsJuMP
 
-export test_madnlp, solcmp, TwoStageQP, build_twostage_qp, schur_opts
+export test_madnlp, solcmp, TwoStageQP, build_twostage_qp, build_twostage_qp_general, schur_opts
 
 function solcmp(x,sol;atol=1e-4,rtol=1e-4)
     aerr = norm(x-sol,Inf)

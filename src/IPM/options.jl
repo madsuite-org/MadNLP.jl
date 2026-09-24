@@ -4,6 +4,8 @@ parse_option(::Type{Module},str::String) = eval(Symbol(str))
 parse_option(::Type{<:AbstractUserCallback}, f::Any) = f
 parse_option(type::Type{T},i::Int64) where {T<:Enum} = type(i)
 
+const CondensedKKTSystems = Union{SparseCondensedKKTSystem, SchurComplementCondensedKKTSystem}
+
 function set_options!(opt::AbstractOptions, options)
     other_options = Dict{Symbol, Any}()
     for (key, val) in options
@@ -143,8 +145,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
 
     # NLP options
     kappa_d::T = 1e-5
-    fixed_variable_treatment::Type = kkt_system <: MadNLP.SparseCondensedKKTSystem ? MadNLP.RelaxBound : MadNLP.MakeParameter
-    equality_treatment::Type = kkt_system <: MadNLP.SparseCondensedKKTSystem ? MadNLP.RelaxEquality : MadNLP.EnforceEquality
+    fixed_variable_treatment::Type = kkt_system <: CondensedKKTSystems ? MadNLP.RelaxBound : MadNLP.MakeParameter
+    equality_treatment::Type = kkt_system <: CondensedKKTSystems ? MadNLP.RelaxEquality : MadNLP.EnforceEquality
     bound_relax_factor::T = 1e-8
     jacobian_constant::Bool = false
     hessian_constant::Bool = false
@@ -157,7 +159,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
 
     # initialization options
     dual_initialized::Bool = false
-    dual_initialization_method::Type = kkt_system <: MadNLP.SparseCondensedKKTSystem ? DualInitializeSetZero : DualInitializeLeastSquares
+    dual_initialization_method::Type = kkt_system <: CondensedKKTSystems ? DualInitializeSetZero : DualInitializeLeastSquares
     constr_mult_init_max::T = 1e3
     bound_push::T = 1e-2
     bound_fac::T = 1e-2
@@ -212,25 +214,41 @@ function MadNLPOptions{T}(
     callback = dense_callback ? DenseCallback : SparseCallback,
     kkt_system = dense_callback ? DenseCondensedKKTSystem : SparseKKTSystem,
     linear_solver = dense_callback ? LapackCPUSolver : default_sparse_solver(nlp),
-    tol = get_tolerance(T,kkt_system)
+    tol = get_tolerance(T,kkt_system),
+    # Condensed KKT systems (Sparse + Schur) relax equalities into the barrier — the SAME
+    # systems selected for RelaxEquality below. Flooring those slacks at a tiny 1e-8 box blows up
+    # the condensation weights z/s and ruins the conditioning of the (SPD) factorization, so relax
+    # by `tol` there (feasible to ~tol, but well-conditioned). Non-condensed systems keep equalities
+    # exact and use the tight 1e-8. Must match the CUDA / ROCm extension constructors so a problem
+    # behaves identically on CPU and GPU.
+    bound_relax_factor = (kkt_system <: CondensedKKTSystems) ? tol : T(1.0e-8),
 ) where {T}
     return MadNLPOptions{T}(
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,
         linear_solver = linear_solver,
+        bound_relax_factor = bound_relax_factor,
     )
 end
 
 get_tolerance(::Type{T},::Type{KKT}) where {T, KKT} = 10^round(log10(eps(T))/2)
 get_tolerance(::Type{T},::Type{SparseCondensedKKTSystem}) where T = 10^(round(log10(eps(T))/4))
+get_tolerance(::Type{T},::Type{SchurComplementCondensedKKTSystem}) where T = 10^(round(log10(eps(T))/4))
 
 default_sparse_solver(nlp::AbstractNLPModel) = MumpsSolver
 
 function check_option_sanity(options)
-    is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem || options.kkt_system <: SchurComplementKKTSystem
+    is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem
     is_hess_approx_dense = options.hessian_approximation <: Union{BFGS, DampedBFGS}
-    if input_type(options.linear_solver) == :csc && is_kkt_dense
+    # `SchurComplementCondensedKKTSystem` is a *sparse-callback* KKT system: on both CPU and
+    # GPU it factorizes a sparse lower-triangular first-stage Schur complement (MumpsSolver /
+    # any `:csc` solver on CPU, cuDSS on GPU), so a `:csc` linear solver is valid for it — only
+    # the genuinely dense KKT systems require a dense linear solver here. It also has no dense
+    # quasi-Newton wiring, so it is NOT classified as dense above: a dense BFGS/DampedBFGS
+    # approximation is rejected below with a clear options error instead of failing later with
+    # an obscure constructor/dispatch error.
+    if input_type(options.linear_solver) == :csc && options.kkt_system <: AbstractDenseKKTSystem
         error("[options] Sparse Linear solver is not supported in dense mode.\n"*
               "Please use a dense linear solver or change `kkt_system` ")
     end

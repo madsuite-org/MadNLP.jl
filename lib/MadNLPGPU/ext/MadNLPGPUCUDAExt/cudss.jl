@@ -4,7 +4,7 @@ MadNLP.@kwdef mutable struct CudssSolverOptions <: MadNLP.AbstractOptions
     cudss_ordering::ORDERING = DEFAULT_ORDERING
     cudss_perm::Vector{Cint} = Cint[]
     cudss_ir::Int = 0
-    cudss_ir_tol::Float64 = 1.0e-8  # currently ignored by cuDSS
+    cudss_ir_tol::Float64 = 1e-8
     cudss_pivot_threshold::Float64 = 0.0
     cudss_pivot_epsilon::Float64 = 0.0
     cudss_matching_alg::String = "default"
@@ -47,7 +47,12 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
         CUDSS.cudss_set(solver, "pivot_threshold", opt.cudss_pivot_threshold)
     end
     if opt.cudss_matching
-        if pkgversion(CUDSS) < v"0.8"
+        if solver.matrix.nbatch > 1
+            # cuDSS matching (`matching_alg`) fails the *analysis* phase with
+            # CUDSS_STATUS_NOT_SUPPORTED on a uniform-batch solver (through cuDSS 0.8),
+            # so never enable it there (e.g. the two-stage per-scenario batch solver).
+            Base.@warn "cuDSS matching is not supported on uniform-batch (ubatch) solvers; ignoring `cudss_matching = true` for this batched solver." maxlog = 1
+        elseif pkgversion(CUDSS) < v"0.8"
             CUDSS.cudss_set(solver, "use_matching", 1)
             if opt.cudss_matching_alg != "default"
                 CUDSS.cudss_set(solver, "matching_alg", opt.cudss_matching_alg)
@@ -90,6 +95,7 @@ mutable struct CUDSSSolver{T, V} <: MadNLP.AbstractLinearSolver{T}
     x_gpu::CUDSS.CudssMatrix{T}
     b_gpu::CUDSS.CudssMatrix{T}
     buffer::V
+    diag::V
 
     opt::CudssSolverOptions
     logger::MadNLP.MadNLPLogger
@@ -151,19 +157,41 @@ function CUDSSSolver(
     # Always allocate it to support dynamic updates to opt.cudss_ir
     buffer = CuVector{T}(undef, n * nbatch)
 
+    # Scratch for the factor diagonal, used to recover the inertia when matching is on
+    # (cuDSS misreports it as (0, 0)); only the nbatch == 1 path ever queries inertia.
+    diag = CuVector{T}(undef, n)
+
     return CUDSSSolver(
         solver, csc,
-        x_gpu, b_gpu, buffer,
+        x_gpu, b_gpu, buffer, diag,
         opt, logger,
     )
 end
 
 function MadNLP.factorize!(M::CUDSSSolver)
     CUDSS.cudss_update(M.inner.matrix, nonzeros(M.tril))
-    if M.inner.fresh_factorization
-        CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
-    else
-        CUDSS.cudss("refactorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    # A cuDSS error during (re)factorization is translated into a FactorizationException
+    # (→ ERROR_IN_STEP_COMPUTATION) rather than crashing with a raw CUDSSError. This does
+    # not interfere with the inertia→regularization recovery, which only runs when
+    # factorize! returns normally and reports indefiniteness via `inertia` (info != 0
+    # yields a dummy inertia).
+    try
+        if M.inner.fresh_factorization
+            CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+        else
+            CUDSS.cudss("refactorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+        end
+    catch e
+        # Log the cuDSS status before erasing it: FactorizationException is field-less, so an OOM
+        # (CUDSS_STATUS_ALLOC_FAILED), a not-initialized handle, or an internal error would
+        # otherwise be indistinguishable from numerical breakdown once the IPM maps this to
+        # ERROR_IN_STEP_COMPUTATION.
+        if e isa CUDSS.CUDSSError
+            @warn(M.logger, "cuDSS (re)factorization failed with status $(e.code); reporting a FactorizationException (-> ERROR_IN_STEP_COMPUTATION).")
+            throw(FactorizationException())
+        else
+            rethrow(e)
+        end
     end
     return M
 end
@@ -176,7 +204,22 @@ function MadNLP.solve_linear_system!(M::CUDSSSolver{T, V}, xb::V) where {T, V}
         CUDSS.cudss_update(M.b_gpu, xb)
     end
     CUDSS.cudss_update(M.x_gpu, xb)
-    CUDSS.cudss("solve", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    # A cuDSS failure here — e.g. iterative refinement on a numerically singular system
+    # reporting CUDSS_STATUS_EXECUTION_FAILED — is a step-computation failure, not a bug.
+    # Translate it into a MadNLP SolveException so the IPM maps it to
+    # ERROR_IN_STEP_COMPUTATION (-3) instead of crashing with a raw CUDSSError.
+    try
+        CUDSS.cudss("solve", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    catch e
+        # As in factorize!: attach the cuDSS status before converting to the field-less
+        # SolveException, so OOM vs numerical breakdown is diagnosable.
+        if e isa CUDSS.CUDSSError
+            @warn(M.logger, "cuDSS solve failed with status $(e.code); reporting a SolveException (-> ERROR_IN_STEP_COMPUTATION).")
+            throw(SolveException())
+        else
+            rethrow(e)
+        end
+    end
     return xb
 end
 
@@ -202,6 +245,21 @@ function MadNLP.inertia(M::CUDSSSolver)
     elseif M.opt.cudss_algorithm == MadNLP.LDL
         # N.B.: cuDSS does not always return the correct inertia.
         if info == 0
+            if M.opt.cudss_matching
+                # cuDSS (through 0.8) reports inertia (0, 0) whenever matching is enabled,
+                # even though the factorization is correct — trusting it sends
+                # InertiaBased/InertiaAuto into an endless regularization bump and then
+                # restoration. Recover the inertia from the sign counts of the factor
+                # diagonal instead. Caveat: exact only for 1×1 pivots, which holds for the
+                # (quasi-definite) condensed KKT family this solver targets.
+                CUDSS.cudss_set(M.inner, "diag", M.diag)
+                CUDSS.cudss_get(M.inner, "diag")
+                d = Array(M.diag)
+                z = zero(eltype(d))
+                npos = count(>(z), d)
+                nneg = count(<(z), d)
+                return (npos, n - npos - nneg, nneg)
+            end
             (k, l) = CUDSS.cudss_get(M.inner, "inertia")
             @assert 0 ≤ k + l ≤ n
             return (k, n - k - l, l)

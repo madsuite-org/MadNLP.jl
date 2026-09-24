@@ -201,7 +201,7 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
     dx_ur = view(d.xp, cb.ind_ub) # TODO
 
     inertia_correction_method = if ipm_opt.inertia_correction_method == InertiaAuto
-        is_inertia(kkt.linear_solver)::Bool ? InertiaBased : InertiaFree
+        is_inertia(kkt)::Bool ? InertiaBased : InertiaFree
     else
         ipm_opt.inertia_correction_method
     end

@@ -9,7 +9,7 @@ function MadNLP.MadNLPOptions{T}(
     kkt_system = dense_callback ? MadNLP.DenseCondensedKKTSystem : MadNLP.SparseCondensedKKTSystem,
     linear_solver = MadNLPGPU.LapackROCmSolver,
     tol = MadNLP.get_tolerance(T,kkt_system),
-    bound_relax_factor = tol,
+    bound_relax_factor = (kkt_system <: MadNLP.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
 ) where {T, VT <: ROCVector{T}}
     return MadNLP.MadNLPOptions{T}(
         tol = tol,
@@ -17,6 +17,20 @@ function MadNLP.MadNLPOptions{T}(
         kkt_system = kkt_system,
         linear_solver = linear_solver,
         bound_relax_factor = bound_relax_factor,
+    )
+end
+
+function MadNLP.create_kkt_system(
+        ::Type{MadNLP.SchurComplementCondensedKKTSystem},
+        cb::MadNLP.SparseCallback{T, VT},
+        linear_solver::Type;
+        kwargs...,
+    ) where {T, VT <: ROCVector{T}}
+    return error(
+        "SchurComplementCondensedKKTSystem is not supported on ROCm/AMDGPU: there is no ROCm " *
+        "Schur implementation (the batched per-scenario factorization and Schur reduction are " *
+        "cuDSS / CUBLAS-specific). Use a CUDA device for the GPU Schur path, or solve the Schur " *
+        "system on CPU."
     )
 end
 

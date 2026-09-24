@@ -15,15 +15,6 @@ struct ScenarioBlockMap
     hess_Cdk_row::Vector{Int}
     hess_Cdk_col::Vector{Int}
 
-    # Equality Jacobian, scenario vars → A_kk lower triangle only
-    jeq_Akk_coo::Vector{Int}
-    jeq_Akk_nzpos::Vector{Int}
-
-    # Equality Jacobian, design vars → C_dk
-    jeq_Cdk_coo::Vector{Int}
-    jeq_Cdk_row::Vector{Int}   # design var index (1:nd)
-    jeq_Cdk_col::Vector{Int}   # nv + eq_local_idx
-
     # Inequality condensation → A_kk (lower triangle)
     ineq_Akk_nzpos::Vector{Int}
     ineq_Akk_jcoo1::Vector{Int}
@@ -47,14 +38,10 @@ struct ScenarioBlockMap
     # Diagonal positions in A_kk nzval for pr_diag (nv entries)
     pr_diag_global::Vector{Int}
     pr_diag_nzpos::Vector{Int}
-
-    # Diagonal positions in A_kk nzval for du_diag (nc_eq entries)
-    du_diag_global::Vector{Int}
-    du_diag_nzpos::Vector{Int}
 end
 
 """
-    SchurComplementKKTSystem{T, VT, MT, QN, LS, LS2, VI} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
+    SchurComplementCondensedKKTSystem{T, VT, MT, QN, LS, LS2, VI} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
 
 KKT system exploiting block-arrowhead structure from two-stage stochastic programs
 via Schur complement decomposition, using sparse COO/CSC storage for the global
@@ -63,13 +50,18 @@ Hessian and Jacobian and sparse per-scenario block solvers.
 Variable layout: `[v_1, ..., v_ns, d]` where `v_k ∈ R^nv`, `d ∈ R^nd`.
 Constraint layout: `[c_1, ..., c_ns]` where `c_k ∈ R^nc`.
 
-The augmented per-scenario block `A_k` (size `blk_size × blk_size`) is stored
-as a sparse lower-triangular `SparseMatrixCSC` and factored by a configurable
-sparse solver (default `MumpsSolver` — each `A_k` is symmetric indefinite, not
-SQD in general). The coupling blocks `C_dk` remain dense. The Schur complement
-`S = aug_com` (size `nd × nd`) is dense.
+All equality constraints are relaxed to inequalities (`RelaxEquality`) and
+condensed, so the per-scenario block `A_k` (size `nv × nv`) and the first-stage
+Schur complement `schur_csc` (size `nd × nd`) are both symmetric *positive
+definite* — there is no bordered equality saddle. `A_k` is a sparse
+lower-triangular `SparseMatrixCSC` (`= H_k + pr_diag + Σ_i J_i' D_i J_i`) factored
+by a configurable sparse solver (default `MumpsSolver`). The coupling blocks
+`C_dk` remain dense. The reduction `Σ_k C_dk A_kk⁻¹ C_dk'` fills only the `m×m`
+coupled-design block of `schur_csc`, factored by a sparse symmetric solver
+(`MumpsSolver` by default; any `:csc` symmetric solver that reports inertia,
+e.g. `Ma57Solver`/`LDLSolver`, works).
 """
-struct SchurComplementKKTSystem{
+struct SchurComplementCondensedKKTSystem{
     T,
     VT <: AbstractVector{T},
     MT <: AbstractMatrix{T},
@@ -109,37 +101,56 @@ struct SchurComplementKKTSystem{
     nv::Int
     nd::Int
     nc::Int
-    nc_eq_per_s::Int
     nc_ineq_per_s::Int
-    blk_size::Int                   # = nv + nc_eq_per_s
+    blk_size::Int                   # = nv (per-scenario condensed block size)
 
     # Per-scenario sparse augmented blocks (lower triangle only)
     A_kk::Vector{SparseMatrixCSC{T, Int32}}
-    C_dk::Vector{MT}                # ns × (nd × blk_size) — dense
+    C_dk::Vector{MT}                # ns × (m × blk_size) — dense, reduced to the m COUPLED
+                                    # design rows (design vars that never couple are exactly zero)
 
-    # Schur complement (what the dense linear solver sees)
-    aug_com::MT                     # nd × nd
+    # Sparse first-stage Schur complement (lower-triangular CSC, size nd × nd): the
+    # design block S_dd plus the condensed design inequalities. SPD. Only `m` design
+    # vars couple to a scenario, so the reduction `Σ_k C_dk A_kk⁻¹ C_dk'` fills only
+    # the `m×m` coupled-design block.
+    schur_csc::SparseMatrixCSC{T, Int32}
+    m::Int                                # coupled design vars (Schur fill width)
+    coupled_design_local::Vector{Int}     # length m — design-local indices that couple
+    schur_fill_nzpos::Matrix{Int}         # (m, m) — nzval positions of the Schur-fill block
+    schur_block::MT                       # (m, m) buffer — per-scenario C_dk_red' A_kk⁻¹ C_dk_red'
 
     # Buffers
     diag_buffer::VT                 # n_ineq — condensing diagonal
     buffer::VT                      # m_total — general
-    wy_eq_buf::VT                   # ns*nc_eq_per_s — preserves eq duals across J*Δx round-trip
-    rhs_d::VT                       # nd — design RHS
+    rhs_d::VT                       # nd — design vars
+    rhs_d_red::VT                   # m — reduced (coupled) design RHS accumulator
     rhs_k::Vector{VT}              # ns × blk_size — scenario RHS buffers
-    tmp_blk_nd::Vector{MT}         # ns × (blk_size × nd)
+    tmp_blk_nd::Vector{MT}         # ns × (blk_size × m) — A_kk⁻¹ C_dk_red' (reduced coupled cols)
     solve_buffers::Vector{VT}      # ns × blk_size — per-scenario column-by-column solve buffers
 
-    # Precomputed index maps
     block_maps::Vector{ScenarioBlockMap}
-    hess_S_coo::Vector{Int}         # COO indices for design-design Hessian
-    hess_S_row::Vector{Int}         # S row (1:nd)
-    hess_S_col::Vector{Int}         # S col (1:nd)
 
-    # Flat per-scenario equality indices (length ns * nc_eq_per_s).
-    # Scenario k's indices live at (k-1)*nc_eq_per_s+1 : k*nc_eq_per_s.
-    eq_global_indices::Vector{Int}
+    # Sparse-Schur scatter maps: scatter into `schur_csc.nzval` at precomputed nzval
+    # positions (lower-triangle; the symmetric solver reads the lower triangle). Lists
+    # are lower-only so each slot is hit once.
+    schur_hess_coo::Vector{Int}           # design Hessian: COO index into `hess`
+    schur_hess_nzpos::Vector{Int}         # → nzval slot
+    schur_diag_nzpos::Vector{Int}         # pr_diag design diagonal (paired with design_var_global)
+    schur_ineq_S_nzpos::Vector{Int}       # scenario ineq → S (flat over all scenarios)
+    schur_ineq_S_jcoo1::Vector{Int}
+    schur_ineq_S_jcoo2::Vector{Int}
+    schur_ineq_S_bufidx::Vector{Int}
+    schur_design_ineq_S_nzpos::Vector{Int}    # design ineq → S
+    schur_design_ineq_S_jcoo1::Vector{Int}
+    schur_design_ineq_S_jcoo2::Vector{Int}
+    schur_design_ineq_S_bufidx::Vector{Int}
 
-    # Inequality/equality/bound index info
+    # Tag-driven global index lists (design/scenario vars need not be contiguous).
+    design_var_global::Vector{Int}        # length nd — global index of each design var
+    scen_var_global::Vector{Vector{Int}}  # ns × nv — global index of each scenario var
+
+    # Inequality/equality/bound index info (n_eq == 0 / ind_eq empty under RelaxEquality,
+    # kept for the generic KKT interface).
     n_eq::Int
     ind_eq::VI
     n_ineq::Int
@@ -147,91 +158,143 @@ struct SchurComplementKKTSystem{
     ind_lb::VI
     ind_ub::VI
 
+    # Aggregated inertia of the per-scenario blocks A_k, refreshed by `build_kkt!`.
+    # Haynsworth additivity gives In(K) = Σ_k In(A_k) + In(S), but the IPM only ever
+    # queries the linear solver for In(S) (`solver.jl`: `inertia(kkt.linear_solver)`).
+    # `is_inertia_correct` reads these so the test covers all of In(K).
+    block_num_neg::Base.RefValue{Int}     # Σ_k #negative eigenvalues of A_k
+    block_num_zero::Base.RefValue{Int}    # Σ_k #zero eigenvalues of A_k
+    block_num_indef::Base.RefValue{Int}   # #{k : A_k not positive definite} — diagnostics
+
     # Solvers
     scenario_solvers::Vector{LS2}
     linear_solver::LS               # for Schur complement S (dense)
 end
 
 """
-    _resolve_schur_dims(cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc)
-    -> (ns, nv, nd, nc)
+    _schur_tags_from_callback(cb) -> (ns, var_scen, con_scen) | nothing
 
-Resolve two-stage stochastic dimensions for a SchurComplementKKTSystem.
+Read per-variable/per-constraint scenario-assignment vectors from the NLP model
+behind `cb`, if it exposes a two-stage tag. Supports the ExaModels convention
+(`cb.nlp.tag::TwoStageExaModelTag` with fields `nscen`, `var_scen`, `con_scen`)
+and a legacy/test interface (`cb.nlp.tags` with `ns`, `var_scenario`,
+`con_scenario`). Returns `nothing` when no recognizable tag is present.
 
-If `schur_ns == 0`, attempt to auto-detect from `cb.nlp.tags::TwoStageTags`
-(an ExaModel convention): `tags.var_scenario[i] == 0` flags design variables,
-`== 1` flags scenario variables; same encoding for `con_scenario`.
-
-Asserts that the resolved dimensions are consistent with `n` and `m`.
+In both conventions `var_scen[i] == 0` flags a design variable and `== k` flags
+scenario `k`; same encoding for constraints.
 """
-function _resolve_schur_dims(cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc)
-    if schur_ns == 0 && hasproperty(cb.nlp, :tags)
-        tags = cb.nlp.tags
+function _schur_tags_from_callback(cb)
+    nlp = cb.nlp
+    if hasproperty(nlp, :tag)
+        tag = nlp.tag
+        if hasproperty(tag, :nscen) && hasproperty(tag, :var_scen) && hasproperty(tag, :con_scen)
+            return Int(tag.nscen), Vector{Int}(Array(tag.var_scen)), Vector{Int}(Array(tag.con_scen))
+        end
+    end
+    if hasproperty(nlp, :tags)
+        tags = nlp.tags
         if hasproperty(tags, :ns) && hasproperty(tags, :var_scenario) && hasproperty(tags, :con_scenario)
-            schur_ns = tags.ns
-            var_scen = Array(tags.var_scenario)
-            con_scen = Array(tags.con_scenario)
+            return Int(tags.ns), Vector{Int}(Array(tags.var_scenario)), Vector{Int}(Array(tags.con_scenario))
+        end
+    end
+    return nothing
+end
 
-            # Single-pass histograms over the scenario tags. Index 1 is the design
-            # bucket (tag 0); 1+k is scenario k. Cheaper than the previous three
-            # `count(==(·))` passes and lets us validate per-scenario uniformity
-            # in the same pass — important because a malformed model whose global
-            # aggregates happen to satisfy n == ns*nv + nd would otherwise drive
-            # downstream symbolic build into garbage territory.
-            var_hist = zeros(Int, schur_ns + 1)
-            for tag in var_scen
-                t = Int(tag)
-                (0 <= t <= schur_ns) || error(
-                    "var_scenario tag $t out of range [0, $schur_ns]; " *
-                    "0 = design, 1..$schur_ns = scenario index."
-                )
-                @inbounds var_hist[t + 1] += 1
-            end
-            con_hist = zeros(Int, schur_ns + 1)
-            for tag in con_scen
-                t = Int(tag)
-                (0 <= t <= schur_ns) || error(
-                    "con_scenario tag $t out of range [0, $schur_ns]; " *
-                    "1..$schur_ns = scenario index."
-                )
-                @inbounds con_hist[t + 1] += 1
-            end
+"""
+    _resolve_schur_dims(cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc,
+                        schur_var_scen=nothing, schur_con_scen=nothing)
+    -> (; ns, nv, nd, nc, nc_design, var_scen, con_scen)
 
-            schur_nd = var_hist[1]
-            schur_nv = var_hist[2]
-            schur_nc = con_hist[2]
+Resolve two-stage stochastic dimensions AND the per-variable/per-constraint
+scenario-assignment vectors for a `SchurComplementCondensedKKTSystem`. The vectors encode
+`var_scen[i] ∈ {0..ns}` (0 = design) and `con_scen[j] ∈ {0..ns}`; the symbolic
+build partitions the Hessian/Jacobian by these tags rather than by index
+arithmetic, so design variables and a scenario's variables need NOT be contiguous
+in the global ordering.
 
-            # Reject design-only constraints — the Schur reduction has no slot
-            # for them.
-            con_hist[1] == 0 || error(
-                "$(con_hist[1]) constraints have con_scenario tag 0; " *
-                "design-only constraints are not supported by SchurComplementKKTSystem."
-            )
+Resolution priority:
+1. explicit `schur_var_scen` / `schur_con_scen` (passed via `kkt_options`);
+2. else a two-stage tag on the model (see [`_schur_tags_from_callback`](@ref));
+3. else synthesize the contiguous layout `[v_1..v_ns, d]` / `[c_1..c_ns]` from
+   `schur_ns/nv/nd/nc` (backward-compatible with hand-built two-stage models).
 
-            # Per-scenario uniformity. Cheap loop, fires before any symbolic
-            # work and points at the offending scenario.
-            for k in 2:schur_ns
-                @inbounds nv_k = var_hist[k + 1]
-                @inbounds nc_k = con_hist[k + 1]
-                nv_k == schur_nv || error(
-                    "Scenario $k has $nv_k variables; scenario 1 has $schur_nv. " *
-                    "SchurComplementKKTSystem requires uniform per-scenario sizes."
-                )
-                nc_k == schur_nc || error(
-                    "Scenario $k has $nc_k constraints; scenario 1 has $schur_nc. " *
-                    "SchurComplementKKTSystem requires uniform per-scenario sizes."
-                )
-            end
+Design-only constraints (`con_scen == 0`) are supported; `nc_design` counts them.
+Asserts consistency with `n` and `m`, and per-scenario uniformity.
+"""
+function _resolve_schur_dims(
+        cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc,
+        schur_var_scen = nothing, schur_con_scen = nothing,
+    )
+    var_scen = nothing
+    con_scen = nothing
+    ns = schur_ns
+
+    if schur_var_scen !== nothing && schur_con_scen !== nothing
+        var_scen = Vector{Int}(Array(schur_var_scen))
+        con_scen = Vector{Int}(Array(schur_con_scen))
+        ns = schur_ns > 0 ? schur_ns : maximum(var_scen)
+    elseif schur_ns == 0
+        tag_info = _schur_tags_from_callback(cb)
+        if tag_info !== nothing
+            ns, var_scen, con_scen = tag_info
         end
     end
 
-    @assert schur_ns > 0 "schur_ns must be specified and positive (or use TwoStageTags for auto-detection)"
-    @assert schur_nv > 0 "schur_nv must be specified and positive"
-    @assert schur_nd > 0 "schur_nd must be specified and positive"
-    @assert n == schur_ns * schur_nv + schur_nd "Variable count mismatch: n=$n != ns*nv+nd=$(schur_ns*schur_nv+schur_nd)"
-    @assert m == schur_ns * schur_nc "Constraint count mismatch: m=$m != ns*nc=$(schur_ns*schur_nc)"
+    if var_scen === nothing
+        # No tags/vectors available: synthesize the contiguous layout from the
+        # explicit per-stage dimensions. Reproduces the legacy index-arithmetic
+        # behaviour exactly (design variables last, scenario stripes contiguous).
+        @assert schur_ns > 0 "schur_ns must be specified and positive (or pass schur_var_scen/schur_con_scen, or use a two-stage tag for auto-detection)"
+        @assert schur_nv > 0 "schur_nv must be specified and positive"
+        @assert schur_nd > 0 "schur_nd must be specified and positive"
+        ns = schur_ns
+        var_scen = vcat((fill(k, schur_nv) for k in 1:ns)..., fill(0, schur_nd))
+        con_scen = vcat((fill(k, schur_nc) for k in 1:ns)...)
+    end
 
-    return schur_ns, schur_nv, schur_nd, schur_nc
+    @assert ns > 0 "resolved scenario count must be positive"
+    length(var_scen) == n || error("var_scen has length $(length(var_scen)); expected n=$n")
+    length(con_scen) == m || error("con_scen has length $(length(con_scen)); expected m=$m")
+
+    # Single-pass histograms over the scenario tags. Index 1 is the design bucket
+    # (tag 0); 1+k is scenario k. Validates per-scenario uniformity in the same
+    # pass — a malformed model whose global aggregates happen to satisfy
+    # n == ns*nv + nd would otherwise drive the symbolic build into garbage.
+    var_hist = zeros(Int, ns + 1)
+    for t in var_scen
+        (0 <= t <= ns) || error("var_scen tag $t out of range [0, $ns]; 0 = design, 1..$ns = scenario index.")
+        @inbounds var_hist[t + 1] += 1
+    end
+    con_hist = zeros(Int, ns + 1)
+    for t in con_scen
+        (0 <= t <= ns) || error("con_scen tag $t out of range [0, $ns]; 0 = design, 1..$ns = scenario index.")
+        @inbounds con_hist[t + 1] += 1
+    end
+
+    nd = var_hist[1]
+    nv = var_hist[2]
+    nc = con_hist[2]
+    nc_design = con_hist[1]
+
+    for k in 2:ns
+        @inbounds nv_k = var_hist[k + 1]
+        @inbounds nc_k = con_hist[k + 1]
+        nv_k == nv || error(
+            "Scenario $k has $nv_k variables; scenario 1 has $nv. " *
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario sizes."
+        )
+        nc_k == nc || error(
+            "Scenario $k has $nc_k constraints; scenario 1 has $nc. " *
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario sizes."
+        )
+    end
+
+    @assert nv > 0 "resolved per-scenario variable count nv must be positive"
+    @assert nd > 0 "resolved design variable count nd must be positive"
+    @assert n == ns * nv + nd "Variable count mismatch: n=$n != ns*nv+nd=$(ns * nv + nd)"
+    @assert m == ns * nc + nc_design "Constraint count mismatch: m=$m != ns*nc+nc_design=$(ns * nc + nc_design)"
+
+    return (; ns, nv, nd, nc, nc_design, var_scen, con_scen)
 end
 
 # --- Index-driven scatter helpers used by build_kkt! ---
@@ -266,22 +329,25 @@ end
                           hess_I, hess_J, jac_I, jac_J,
                           ind_eq, ind_ineq) -> NamedTuple
 
-Pure-CPU symbolic construction shared by the CPU `SchurComplementKKTSystem`
-and GPU `GPUSchurComplementKKTSystem` constructors. Inputs are CPU-resident
+Pure-CPU symbolic construction shared by the CPU `SchurComplementCondensedKKTSystem`
+and GPU `GPUSchurComplementCondensedKKTSystem` constructors. Inputs are CPU-resident
 sparsity arrays (the GPU side downloads its sparsity before calling).
 
 **Assumes uniform per-scenario structure** (same A_kk pattern for every k).
 This matches typical two-stage stochastic models and is what the GPU batched
 cuDSS path requires; CPU follows the same assumption.
 
+RelaxEquality-only: `ind_eq` must be empty (all constraints are inequalities),
+so the per-scenario blocks and the first-stage Schur complement are condensed/SPD.
+
 Returns a NamedTuple with:
-- `eq_per_scenario`, `ineq_per_scenario` — `Vector{Vector{Int}}` of global indices
-- `nc_eq_per_s`, `nc_ineq_per_s`, `blk_size` — per-scenario sizes
+- `ineq_per_scenario` — `Vector{Vector{Int}}` of global inequality indices
+- `nc_ineq_per_s`, `blk_size` — per-scenario sizes (`blk_size == nv`)
 - `block_maps::Vector{ScenarioBlockMap}` — per-scenario index maps
 - `hess_S_coo`, `hess_S_row`, `hess_S_col` — design-design Hessian COO maps
 - `akk_csc_template::SparseMatrixCSC{T, Int32}` — shared A_kk sparsity (zero values)
 - `nnz_per_scenario::Int`
-- `eq_global_flat::Vector{Int}` — flattened eq indices in scenario order (for GPU)
+- the sparse-Schur pattern (`schur_csc_*`, `schur_*_nzpos`, `coupled_design_local`, …)
 """
 function _build_schur_symbolic(
         ::Type{T},
@@ -290,50 +356,89 @@ function _build_schur_symbolic(
         jac_I::AbstractVector{<:Integer}, jac_J::AbstractVector{<:Integer},
         ind_eq::AbstractVector{<:Integer},
         ind_ineq::AbstractVector{<:Integer},
+        var_scen = nothing,
+        con_scen = nothing,
     ) where {T}
 
     n_hess = length(hess_I)
     n_jac = length(jac_I)
 
-    # --- Classify constraints per scenario ---
-    ind_eq_set = Set(ind_eq)
-    ind_ineq_set = Set(ind_ineq)
+    # Synthesize the contiguous tag layout (`[v_1..v_ns, d]`, `[c_1..c_ns]`) when
+    # no tags are supplied. This reproduces the legacy index-arithmetic behaviour
+    # exactly, so hand-built two-stage models and the symbolic unit tests keep
+    # working unchanged.
+    if var_scen === nothing
+        var_scen = vcat((fill(k, nv) for k in 1:ns)..., fill(0, nd))
+    end
+    if con_scen === nothing
+        con_scen = vcat((fill(k, nc) for k in 1:ns)...)
+    end
+    var_scen = Vector{Int}(Array(var_scen))
+    con_scen = Vector{Int}(Array(con_scen))
 
-    eq_per_scenario = Vector{Vector{Int}}(undef, ns)
-    ineq_per_scenario = Vector{Vector{Int}}(undef, ns)
+    # --- Tag-driven global index lists & local maps ---
+    # Partition variables/constraints by their scenario tag (0 = design) instead
+    # of by contiguous index arithmetic, so design variables and a scenario's
+    # variables need NOT be contiguous in the global ordering. `var_local[i]` is
+    # the position of variable `i` within its own block (1:nd for design,
+    # 1:nv for its scenario), assigned in increasing global-index order so it is
+    # monotone within a block — which keeps the lower-triangular A_kk layout valid.
+    design_var_global = Int[]                       # length nd
+    scen_var_global = [Int[] for _ in 1:ns]         # each length nv
+    var_local = zeros(Int, n)
+    for i in 1:n
+        o = var_scen[i]
+        if o == 0
+            push!(design_var_global, i)
+            var_local[i] = length(design_var_global)
+        else
+            push!(scen_var_global[o], i)
+            var_local[i] = length(scen_var_global[o])
+        end
+    end
 
-    for k in 1:ns
-        cr = (k-1)*nc+1 : k*nc
-        eq_per_scenario[k] = Int[]
-        ineq_per_scenario[k] = Int[]
-        for gi in cr
-            if gi in ind_eq_set
-                push!(eq_per_scenario[k], gi)
-            end
-            if gi in ind_ineq_set
-                push!(ineq_per_scenario[k], gi)
-            end
+    # --- Classify constraints per scenario / design (tag-driven) ---
+    # RelaxEquality-only: every constraint is an inequality (ind_eq must be empty),
+    # so the per-scenario blocks and the first-stage Schur complement are condensed
+    # and SPD — there is no equality saddle / bordered block.
+    isempty(ind_eq) || error(
+        "SchurComplementCondensedKKTSystem is RelaxEquality-only, but got $(length(ind_eq)) " *
+        "constraint(s) kept as equalities. The bordered EnforceEquality saddle that the old " *
+        "`SchurComplementKKTSystem` used was removed: the first-stage Schur complement is now SPD " *
+        "and requires every constraint to be relaxed into the barrier. Pass " *
+        "`equality_treatment=MadNLP.RelaxEquality` (the default when " *
+        "`kkt_system=SchurComplementCondensedKKTSystem`) — do not override it with `EnforceEquality`."
+    )
+    ind_ineq_set = Set(Int.(ind_ineq))
+
+    ineq_per_scenario = [Int[] for _ in 1:ns]
+    design_ineq = Int[]     # design-only inequality constraint global rows
+
+    for gi in 1:m
+        (gi in ind_ineq_set) || continue
+        o = con_scen[gi]
+        if o == 0
+            push!(design_ineq, gi)
+        else
+            push!(ineq_per_scenario[o], gi)
         end
     end
 
     # Scenario 1 sets the canonical per-scenario constraint count; reject any
     # scenario that disagrees, since downstream code (and the GPU batched layout)
     # assumes uniform per-scenario shape.
-    nc_eq_per_s = length(eq_per_scenario[1])
     nc_ineq_per_s = length(ineq_per_scenario[1])
     for k in 2:ns
-        n_eq_k = length(eq_per_scenario[k])
         n_in_k = length(ineq_per_scenario[k])
-        if n_eq_k != nc_eq_per_s || n_in_k != nc_ineq_per_s
+        if n_in_k != nc_ineq_per_s
             error(
-                "SchurComplementKKTSystem requires uniform per-scenario constraint counts. " *
-                "Scenario 1 has (eq=$nc_eq_per_s, ineq=$nc_ineq_per_s); " *
-                "scenario $k has (eq=$n_eq_k, ineq=$n_in_k)."
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario constraint counts. " *
+                "Scenario 1 has ineq=$nc_ineq_per_s; scenario $k has ineq=$n_in_k."
             )
         end
     end
 
-    blk_size = nv + nc_eq_per_s
+    blk_size = nv
 
     # Lookup: global ineq index → diag_buffer index
     ineq_to_bufidx = Dict{Int,Int}()
@@ -350,10 +455,7 @@ function _build_schur_symbolic(
         push!(entries, (ci, col))
     end
 
-    d_start = ns * nv + 1
-    d_end = ns * nv + nd
-
-    # --- Classify Hessian COO entries ---
+    # --- Classify Hessian COO entries (tag-driven) ---
     hess_S_coo = Int[]
     hess_S_row = Int[]
     hess_S_col = Int[]
@@ -364,43 +466,44 @@ function _build_schur_symbolic(
 
     for ci in 1:n_hess
         ri = Int(hess_I[ci])
-        rj = Int(hess_J[ci])  # lower triangle: ri >= rj
+        rj = Int(hess_J[ci])  # global lower triangle: ri >= rj
+        oi = var_scen[ri]
+        oj = var_scen[rj]
 
-        # Both design vars → S entry (write both triangles for dense S)
-        if ri >= d_start && ri <= d_end && rj >= d_start && rj <= d_end
-            di = ri - d_start + 1
-            dj = rj - d_start + 1
+        if oi == 0 && oj == 0
+            # Both design vars → S entry (write both triangles for dense S).
+            di = var_local[ri]
+            dj = var_local[rj]
             push!(hess_S_coo, ci); push!(hess_S_row, di); push!(hess_S_col, dj)
             if di != dj
                 push!(hess_S_coo, ci); push!(hess_S_row, dj); push!(hess_S_col, di)
             end
             hess_classified[ci] = true
-            continue
-        end
-
-        # One design + one scenario var → coupling block
-        if ri >= d_start && ri <= d_end && rj < d_start
-            di = ri - d_start + 1
-            k = div(rj - 1, nv) + 1
-            if k >= 1 && k <= ns
-                vj = rj - (k-1)*nv
-                push!(hess_per_scenario_coupling[k], (ci, di, vj))
-                hess_classified[ci] = true
+        elseif (oi == 0) != (oj == 0)
+            # One design + one scenario var → coupling block. Either global index
+            # may be the design one now (design vars are not necessarily last).
+            if oi == 0
+                di = var_local[ri]; k = oj; vj = var_local[rj]
+            else
+                di = var_local[rj]; k = oi; vj = var_local[ri]
             end
-            continue
-        end
-
-        # Both within the same scenario → A_kk diagonal block
-        if ri < d_start && rj < d_start
-            ki = div(ri - 1, nv) + 1
-            kj = div(rj - 1, nv) + 1
-            if ki == kj && ki >= 1 && ki <= ns
-                li = ri - (ki-1)*nv
-                lj = rj - (ki-1)*nv
-                push!(hess_per_scenario_diag[ki], (ci, li, lj))
-                hess_classified[ci] = true
+            push!(hess_per_scenario_coupling[k], (ci, di, vj))
+            hess_classified[ci] = true
+        elseif oi == oj
+            # Both within the same scenario → A_kk diagonal block. `var_local` is
+            # monotone in the global index within a scenario, so li >= lj here;
+            # normalize defensively to keep the lower-triangular layout.
+            k = oi
+            li = var_local[ri]
+            lj = var_local[rj]
+            if li < lj
+                li, lj = lj, li
             end
+            push!(hess_per_scenario_diag[k], (ci, li, lj))
+            hess_classified[ci] = true
         end
+        # else: both scenario but oi != oj → cross-scenario coupling, left
+        # unclassified and reported below.
     end
 
     # Anything left unclassified is a Hessian entry that doesn't fit the
@@ -412,19 +515,14 @@ function _build_schur_symbolic(
         sample = first(bad, min(5, length(bad)))
         details = join(("(row=$(Int(hess_I[ci])), col=$(Int(hess_J[ci])))" for ci in sample), ", ")
         error(
-            "$n_bad_hess Hessian COO entries do not fit the SchurComplementKKTSystem " *
+            "$n_bad_hess Hessian COO entries do not fit the SchurComplementCondensedKKTSystem " *
             "block-arrowhead pattern (likely cross-scenario coupling). First few: " *
             details
         )
     end
 
     # --- Build shared A_kk template from scenario 1 ---
-    eq_cons_1 = eq_per_scenario[1]
     ineq_cons_1 = ineq_per_scenario[1]
-    eq_local_1 = Dict{Int,Int}()
-    for (ci, gi) in enumerate(eq_cons_1)
-        eq_local_1[gi] = ci
-    end
 
     akk_entries = Dict{Tuple{Int,Int}, Nothing}()
 
@@ -436,24 +534,12 @@ function _build_schur_symbolic(
     for i in 1:nv
         akk_entries[(i, i)] = nothing
     end
-    # Equality Jacobian: row = nv + eq_local, col = local_var
-    for gi in eq_cons_1
-        for (_, col) in get(jac_by_constraint, gi, Tuple{Int,Int}[])
-            if col >= 1 && col <= nv
-                akk_entries[(nv + eq_local_1[gi], col)] = nothing
-            end
-        end
-    end
-    # du_diag for eq constraints
-    for ci in 1:length(eq_cons_1)
-        akk_entries[(nv + ci, nv + ci)] = nothing
-    end
     # Inequality condensation fill-in (lower triangle pairs of scenario vars)
     for gi in ineq_cons_1
         local_vars = Int[]
         for (_, col) in get(jac_by_constraint, gi, Tuple{Int,Int}[])
-            if col >= 1 && col <= nv
-                push!(local_vars, col)
+            if var_scen[col] == 1
+                push!(local_vars, var_local[col])
             end
         end
         for a in local_vars, b in local_vars
@@ -487,7 +573,7 @@ function _build_schur_symbolic(
     # scenario 1's template) surfaces as a meaningful error instead of KeyError.
     @inline akk_pos(key, k) = let p = get(akk_lookup, key, 0)
         p == 0 && error(
-            "SchurComplementKKTSystem: scenario $k has an A_kk entry at local " *
+            "SchurComplementCondensedKKTSystem: scenario $k has an A_kk entry at local " *
             "(row=$(key[1]), col=$(key[2])) absent from scenario 1's template. " *
             "Per-scenario Hessian/Jacobian sparsity must be uniform."
         )
@@ -498,18 +584,10 @@ function _build_schur_symbolic(
 
     # --- Build per-scenario ScenarioBlockMaps ---
     block_maps = Vector{ScenarioBlockMap}(undef, ns)
-    eq_global_flat = Int[]
     jac_classified = falses(n_jac)
 
     for k in 1:ns
-        vr_start = (k-1)*nv + 1
-        eq_cons = eq_per_scenario[k]
         ineq_cons = ineq_per_scenario[k]
-
-        eq_local = Dict{Int,Int}()
-        for (ci, gi) in enumerate(eq_cons)
-            eq_local[gi] = ci
-        end
 
         # Hessian diagonal → A_kk
         hess_Akk_coo_vec = Int[]
@@ -529,45 +607,12 @@ function _build_schur_symbolic(
             push!(hess_Cdk_col_vec, vj)
         end
 
-        # Equality Jacobian → A_kk and C_dk
-        jeq_Akk_coo_vec = Int[]
-        jeq_Akk_nzpos_vec = Int[]
-        jeq_Cdk_coo_vec = Int[]
-        jeq_Cdk_row_vec = Int[]
-        jeq_Cdk_col_vec = Int[]
-
-        for gi in eq_cons
-            local_eq = eq_local[gi]
-            for (coo_idx, col) in get(jac_by_constraint, gi, Tuple{Int,Int}[])
-                if col >= vr_start && col < vr_start + nv
-                    local_var = col - vr_start + 1
-                    push!(jeq_Akk_coo_vec, coo_idx)
-                    push!(jeq_Akk_nzpos_vec, akk_pos((nv + local_eq, local_var), k))
-                    jac_classified[coo_idx] = true
-                elseif col >= d_start && col <= d_end
-                    di = col - d_start + 1
-                    push!(jeq_Cdk_coo_vec, coo_idx)
-                    push!(jeq_Cdk_row_vec, di)
-                    push!(jeq_Cdk_col_vec, nv + local_eq)
-                    jac_classified[coo_idx] = true
-                end
-            end
-        end
-
         # pr_diag → A_kk diagonal
         pr_diag_global_vec = Int[]
         pr_diag_nzpos_vec = Int[]
         for i in 1:nv
-            push!(pr_diag_global_vec, vr_start + i - 1)
+            push!(pr_diag_global_vec, scen_var_global[k][i])
             push!(pr_diag_nzpos_vec, akk_pos((i, i), k))
-        end
-
-        # du_diag → A_kk diagonal
-        du_diag_global_vec = Int[]
-        du_diag_nzpos_vec = Int[]
-        for (ci, gi) in enumerate(eq_cons)
-            push!(du_diag_global_vec, gi)
-            push!(du_diag_nzpos_vec, akk_pos((nv + ci, nv + ci), k))
         end
 
         # Inequality condensation
@@ -594,13 +639,15 @@ function _build_schur_symbolic(
             d_entries = Tuple{Int,Int}[]
 
             for (coo_idx, col) in get(jac_by_constraint, gi, Tuple{Int,Int}[])
-                if col >= vr_start && col < vr_start + nv
-                    push!(v_entries, (coo_idx, col - vr_start + 1))
+                oc = var_scen[col]
+                if oc == k
+                    push!(v_entries, (coo_idx, var_local[col]))
                     jac_classified[coo_idx] = true
-                elseif col >= d_start && col <= d_end
-                    push!(d_entries, (coo_idx, col - d_start + 1))
+                elseif oc == 0
+                    push!(d_entries, (coo_idx, var_local[col]))
                     jac_classified[coo_idx] = true
                 end
+                # else: cross-scenario column, left unclassified and reported below.
             end
 
             # A_kk: lower-triangle pairs of scenario vars
@@ -635,16 +682,42 @@ function _build_schur_symbolic(
         block_maps[k] = ScenarioBlockMap(
             hess_Akk_coo_vec, hess_Akk_nzpos_vec,
             hess_Cdk_coo_vec, hess_Cdk_row_vec, hess_Cdk_col_vec,
-            jeq_Akk_coo_vec, jeq_Akk_nzpos_vec,
-            jeq_Cdk_coo_vec, jeq_Cdk_row_vec, jeq_Cdk_col_vec,
             ineq_Akk_nzpos_vec, ineq_Akk_jcoo1_vec, ineq_Akk_jcoo2_vec, ineq_Akk_bufidx_vec,
             ineq_Cdk_row_vec, ineq_Cdk_col_vec, ineq_Cdk_jcoo_d_vec, ineq_Cdk_jcoo_v_vec, ineq_Cdk_bufidx_vec,
             ineq_S_row_vec, ineq_S_col_vec, ineq_S_jcoo1_vec, ineq_S_jcoo2_vec, ineq_S_bufidx_vec,
             pr_diag_global_vec, pr_diag_nzpos_vec,
-            du_diag_global_vec, du_diag_nzpos_vec,
         )
+    end
 
-        append!(eq_global_flat, eq_cons)
+    # --- Design-only constraint maps ---
+    # Design-only constraints touch ONLY design variables; they are condensed into
+    # S_dd just like scenario inequalities. Referencing a scenario variable is
+    # unrepresentable.
+    nc_design_ineq = length(design_ineq)
+
+    # Design inequality condensation → S_dd (design × design, full — both triangles).
+    design_ineq_S_row = Int[]
+    design_ineq_S_col = Int[]
+    design_ineq_S_jcoo1 = Int[]
+    design_ineq_S_jcoo2 = Int[]
+    design_ineq_S_bufidx = Int[]
+    for gi in design_ineq
+        bidx = ineq_to_bufidx[gi]
+        d_entries = Tuple{Int, Int}[]
+        for (coo_idx, col) in get(jac_by_constraint, gi, Tuple{Int, Int}[])
+            var_scen[col] == 0 || error(
+                "Design-only inequality (row $gi) references scenario variable (col $col)."
+            )
+            push!(d_entries, (coo_idx, var_local[col]))
+            jac_classified[coo_idx] = true
+        end
+        for (coo_a, da) in d_entries, (coo_b, db) in d_entries
+            push!(design_ineq_S_row, da)
+            push!(design_ineq_S_col, db)
+            push!(design_ineq_S_jcoo1, coo_a)
+            push!(design_ineq_S_jcoo2, coo_b)
+            push!(design_ineq_S_bufidx, bidx)
+        end
     end
 
     # Catch Jacobian entries whose column doesn't match the constraint's own
@@ -655,7 +728,7 @@ function _build_schur_symbolic(
         sample = first(bad, min(5, length(bad)))
         details = join(("(row=$(Int(jac_I[ci])), col=$(Int(jac_J[ci])))" for ci in sample), ", ")
         error(
-            "$n_bad_jac Jacobian COO entries do not fit the SchurComplementKKTSystem " *
+            "$n_bad_jac Jacobian COO entries do not fit the SchurComplementCondensedKKTSystem " *
             "block-arrowhead pattern (column belongs to a different scenario). First few: " *
             details
         )
@@ -668,25 +741,140 @@ function _build_schur_symbolic(
     bm1 = block_maps[1]
     fields_to_check = (
         :hess_Akk_coo, :hess_Cdk_coo,
-        :jeq_Akk_coo, :jeq_Cdk_coo,
         :ineq_Akk_nzpos, :ineq_Cdk_row, :ineq_S_row,
-        :pr_diag_global, :du_diag_global,
+        :pr_diag_global,
     )
     for k in 2:ns, f in fields_to_check
         n1 = length(getfield(bm1, f))
         nk = length(getfield(block_maps[k], f))
         if nk != n1
             error(
-                "SchurComplementKKTSystem requires uniform per-scenario sparsity. " *
+                "SchurComplementCondensedKKTSystem requires uniform per-scenario sparsity. " *
                 "Scenario 1 has $n1 entries in $f; scenario $k has $nk."
             )
         end
     end
 
+    # ===== Static sparse-Schur pattern (shared CPU/GPU) =============================
+    # The first-stage Schur complement `schur_csc` (size nd × nd) is sparse: the
+    # reduction Σ_k C_dk A_kk⁻¹ C_dk' only fills the coupled-design × coupled-design
+    # block (design vars that actually couple to a scenario). Compute, once: the set of
+    # coupled design vars (uniform across scenarios), the lower-triangular sparsity
+    # pattern, and per-contribution nzval-position maps used to assemble and factorize
+    # `schur_csc` (the GPU additionally uploads them to build a CuSparseMatrixCSC).
+
+    # (1) Coupled design vars per scenario (design-local indices appearing in C_dk).
+    coupled_per_s = [Set{Int}() for _ in 1:ns]
+    for k in 1:ns
+        for (_, di, _) in hess_per_scenario_coupling[k]
+            push!(coupled_per_s[k], di)
+        end
+        for di in block_maps[k].ineq_Cdk_row
+            push!(coupled_per_s[k], di)
+        end
+    end
+    for k in 2:ns
+        coupled_per_s[k] == coupled_per_s[1] || error(
+            "SchurComplementCondensedKKTSystem (sparse): scenario $k couples a different set of design " *
+                "variables than scenario 1; the sparse Schur path requires uniform coupling."
+        )
+    end
+    coupled_design_local = sort!(collect(coupled_per_s[1]))   # length m
+    m_coupled = length(coupled_design_local)
+    coupled_inv = zeros(Int, nd)                              # design-local → compact col (1:m) or 0
+    for (c, di) in enumerate(coupled_design_local)
+        coupled_inv[di] = c
+    end
+
+    # (2) Lower-triangular sparsity pattern: union of every contribution, folded to (max,min).
+    _lo(r, c) = r >= c ? (r, c) : (c, r)
+    schur_set = Dict{Tuple{Int, Int}, Nothing}()
+    for t in eachindex(hess_S_row)                                  # design Hessian
+        schur_set[_lo(hess_S_row[t], hess_S_col[t])] = nothing
+    end
+    for i in 1:nd                                                  # design pr_diag diagonal
+        schur_set[(i, i)] = nothing
+    end
+    for k in 1:ns                                                  # scenario ineq → S (positions uniform)
+        bm = block_maps[k]
+        for t in eachindex(bm.ineq_S_row)
+            schur_set[_lo(bm.ineq_S_row[t], bm.ineq_S_col[t])] = nothing
+        end
+    end
+    for t in eachindex(design_ineq_S_row)                          # design ineq → S
+        schur_set[_lo(design_ineq_S_row[t], design_ineq_S_col[t])] = nothing
+    end
+    for a in coupled_design_local, b in coupled_design_local       # Schur fill block
+        schur_set[_lo(a, b)] = nothing
+    end
+
+    schur_nnz = length(schur_set)
+    schur_I = Vector{Int32}(undef, schur_nnz)
+    schur_J = Vector{Int32}(undef, schur_nnz)
+    let t = 0
+        for ((r, c), _) in schur_set
+            @assert r >= c "sparse Schur pattern entry ($r,$c) is not lower-triangular"
+            t += 1
+            schur_I[t] = Int32(r)
+            schur_J[t] = Int32(c)
+        end
+    end
+    schur_csc_template, schur_coo_map = coo_to_csc(
+        SparseMatrixCOO(nd, nd, schur_I, schur_J, zeros(T, schur_nnz))
+    )
+    # (row,col) → nzval position, from the canonical (column-major) CSC ordering.
+    schur_pos = Dict{Tuple{Int, Int}, Int}()
+    for t in 1:schur_nnz
+        schur_pos[(Int(schur_I[t]), Int(schur_J[t]))] = Int(schur_coo_map[t])
+    end
+    _nzpos(r, c) = schur_pos[_lo(r, c)]
+
+    # (3) Per-contribution nzpos maps, lower-triangle only (each lower slot hit once;
+    #     cuDSS reads the lower triangle and symmetrizes).
+    schur_hess_coo = Int[]                                         # design Hessian
+    schur_hess_nzpos = Int[]
+    for t in eachindex(hess_S_row)
+        hess_S_row[t] >= hess_S_col[t] || continue                 # keep lower only
+        push!(schur_hess_coo, hess_S_coo[t])
+        push!(schur_hess_nzpos, _nzpos(hess_S_row[t], hess_S_col[t]))
+    end
+    schur_diag_nzpos = Int[_nzpos(i, i) for i in 1:nd]             # pr_diag (with design_var_global)
+
+    schur_ineq_S_nzpos = Int[]                                     # scenario ineq → S (flat, lower only)
+    schur_ineq_S_jcoo1 = Int[]
+    schur_ineq_S_jcoo2 = Int[]
+    schur_ineq_S_bufidx = Int[]
+    for k in 1:ns
+        bm = block_maps[k]
+        for t in eachindex(bm.ineq_S_row)
+            bm.ineq_S_row[t] >= bm.ineq_S_col[t] || continue
+            push!(schur_ineq_S_nzpos, _nzpos(bm.ineq_S_row[t], bm.ineq_S_col[t]))
+            push!(schur_ineq_S_jcoo1, bm.ineq_S_jcoo1[t])
+            push!(schur_ineq_S_jcoo2, bm.ineq_S_jcoo2[t])
+            push!(schur_ineq_S_bufidx, bm.ineq_S_bufidx[t])
+        end
+    end
+
+    schur_design_ineq_S_nzpos = Int[]                             # design ineq → S (lower only)
+    schur_design_ineq_S_jcoo1 = Int[]
+    schur_design_ineq_S_jcoo2 = Int[]
+    schur_design_ineq_S_bufidx = Int[]
+    for t in eachindex(design_ineq_S_row)
+        design_ineq_S_row[t] >= design_ineq_S_col[t] || continue
+        push!(schur_design_ineq_S_nzpos, _nzpos(design_ineq_S_row[t], design_ineq_S_col[t]))
+        push!(schur_design_ineq_S_jcoo1, design_ineq_S_jcoo1[t])
+        push!(schur_design_ineq_S_jcoo2, design_ineq_S_jcoo2[t])
+        push!(schur_design_ineq_S_bufidx, design_ineq_S_bufidx[t])
+    end
+
+    # (4) Schur-fill nzpos (m×m); column-major flat, lower-or-diagonal entries valid.
+    schur_fill_nzpos = zeros(Int, m_coupled, m_coupled)
+    for a in 1:m_coupled, b in 1:m_coupled
+        schur_fill_nzpos[a, b] = _nzpos(coupled_design_local[a], coupled_design_local[b])
+    end
+
     return (
-        eq_per_scenario = eq_per_scenario,
         ineq_per_scenario = ineq_per_scenario,
-        nc_eq_per_s = nc_eq_per_s,
         nc_ineq_per_s = nc_ineq_per_s,
         blk_size = blk_size,
         block_maps = block_maps,
@@ -695,7 +883,37 @@ function _build_schur_symbolic(
         hess_S_col = hess_S_col,
         akk_csc_template = akk_csc_template,
         nnz_per_scenario = nnz_per_scenario,
-        eq_global_flat = eq_global_flat,
+        # Tag-driven global index lists (replace the old contiguous arithmetic).
+        var_scen = var_scen,
+        con_scen = con_scen,
+        design_var_global = design_var_global,
+        scen_var_global = scen_var_global,
+        # Design-only constraint block.
+        nc_design_ineq = nc_design_ineq,
+        design_ineq_S_row = design_ineq_S_row,
+        design_ineq_S_col = design_ineq_S_col,
+        design_ineq_S_jcoo1 = design_ineq_S_jcoo1,
+        design_ineq_S_jcoo2 = design_ineq_S_jcoo2,
+        design_ineq_S_bufidx = design_ineq_S_bufidx,
+        # Sparse-Schur (GPU cuDSS) pattern + nzpos maps.
+        m_coupled = m_coupled,
+        coupled_design_local = coupled_design_local,
+        coupled_inv = coupled_inv,
+        schur_csc_colptr = schur_csc_template.colptr,
+        schur_csc_rowval = schur_csc_template.rowval,
+        schur_nnz = length(schur_csc_template.nzval),
+        schur_hess_coo = schur_hess_coo,
+        schur_hess_nzpos = schur_hess_nzpos,
+        schur_diag_nzpos = schur_diag_nzpos,
+        schur_ineq_S_nzpos = schur_ineq_S_nzpos,
+        schur_ineq_S_jcoo1 = schur_ineq_S_jcoo1,
+        schur_ineq_S_jcoo2 = schur_ineq_S_jcoo2,
+        schur_ineq_S_bufidx = schur_ineq_S_bufidx,
+        schur_design_ineq_S_nzpos = schur_design_ineq_S_nzpos,
+        schur_design_ineq_S_jcoo1 = schur_design_ineq_S_jcoo1,
+        schur_design_ineq_S_jcoo2 = schur_design_ineq_S_jcoo2,
+        schur_design_ineq_S_bufidx = schur_design_ineq_S_bufidx,
+        schur_fill_nzpos = schur_fill_nzpos,
     )
 end
 
@@ -712,9 +930,6 @@ function _flatten_block_maps(block_maps::Vector{ScenarioBlockMap})
     n_per_s_hess_Akk = length(bm1.hess_Akk_coo)
     n_per_s_hess_Cdk = length(bm1.hess_Cdk_coo)
     n_per_s_pr_diag  = length(bm1.pr_diag_global)
-    n_per_s_du_diag  = length(bm1.du_diag_global)
-    n_per_s_jeq_Akk  = length(bm1.jeq_Akk_coo)
-    n_per_s_jeq_Cdk  = length(bm1.jeq_Cdk_coo)
     n_per_s_ineq_Akk = length(bm1.ineq_Akk_nzpos)
     n_per_s_ineq_Cdk = length(bm1.ineq_Cdk_row)
     n_per_s_ineq_S   = length(bm1.ineq_S_row)
@@ -734,19 +949,6 @@ function _flatten_block_maps(block_maps::Vector{ScenarioBlockMap})
         n_per_s_pr_diag    = n_per_s_pr_diag,
         all_pr_diag_global = cat_int(bm -> bm.pr_diag_global),
         all_pr_diag_nzpos  = cat_int(bm -> bm.pr_diag_nzpos),
-
-        n_per_s_du_diag    = n_per_s_du_diag,
-        all_du_diag_global = cat_int(bm -> bm.du_diag_global),
-        all_du_diag_nzpos  = cat_int(bm -> bm.du_diag_nzpos),
-
-        n_per_s_jeq_Akk   = n_per_s_jeq_Akk,
-        all_jeq_Akk_coo   = cat_int(bm -> bm.jeq_Akk_coo),
-        all_jeq_Akk_nzpos = cat_int(bm -> bm.jeq_Akk_nzpos),
-
-        n_per_s_jeq_Cdk = n_per_s_jeq_Cdk,
-        all_jeq_Cdk_coo = cat_int(bm -> bm.jeq_Cdk_coo),
-        all_jeq_Cdk_row = cat_int(bm -> bm.jeq_Cdk_row),
-        all_jeq_Cdk_col = cat_int(bm -> bm.jeq_Cdk_col),
 
         n_per_s_ineq_Akk    = n_per_s_ineq_Akk,
         all_ineq_Akk_nzpos  = cat_int(bm -> bm.ineq_Akk_nzpos),
@@ -771,7 +973,7 @@ function _flatten_block_maps(block_maps::Vector{ScenarioBlockMap})
 end
 
 function create_kkt_system(
-    ::Type{SchurComplementKKTSystem},
+    ::Type{SchurComplementCondensedKKTSystem},
     cb::SparseCallback{T,VT},
     linear_solver::Type;
     opt_linear_solver=default_options(linear_solver),
@@ -781,8 +983,23 @@ function create_kkt_system(
     schur_nv::Int=0,
     schur_nd::Int=0,
     schur_nc::Int=0,
+        schur_var_scen = nothing,
+        schur_con_scen = nothing,
     schur_scenario_linear_solver::Type=MumpsSolver,
+    schur_scenario_opt_linear_solver=default_options(schur_scenario_linear_solver),
+    schur_opt_linear_solver=nothing,
+    kwargs...,
 ) where {T, VT}
+
+    isempty(kwargs) || Base.@warn(
+        "SchurComplementCondensedKKTSystem (CPU) ignores unsupported kkt_options: " *
+            join(string.(keys(kwargs)), ", ")
+    )
+    schur_opt_linear_solver === nothing || Base.@warn(
+        "SchurComplementCondensedKKTSystem (CPU): `schur_opt_linear_solver` is a GPU-only option " *
+            "(first-stage cuDSS options) and is ignored on CPU; the first-stage Schur complement " *
+            "is solved by `linear_solver` with `opt_linear_solver`."
+    )
 
     n = cb.nvar
     m = cb.ncon
@@ -791,7 +1008,8 @@ function create_kkt_system(
     nlb = length(cb.ind_lb)
     nub = length(cb.ind_ub)
 
-    ns, nv, nd, nc = _resolve_schur_dims(cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc)
+    dims = _resolve_schur_dims(cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc, schur_var_scen, schur_con_scen)
+    ns, nv, nd, nc = dims.ns, dims.nv, dims.nd, dims.nc
 
     # --- Get sparsity patterns ---
     jac_sparsity_I = Vector{Int32}(undef, cb.nnzj)
@@ -822,20 +1040,45 @@ function create_kkt_system(
         T, n, m, ns, nv, nd, nc,
         hess_sparsity_I, hess_sparsity_J,
         jac_sparsity_I, jac_sparsity_J,
-        cb.ind_eq, cb.ind_ineq,
+        Array(cb.ind_eq), Array(cb.ind_ineq),
+        dims.var_scen, dims.con_scen,
     )
-    nc_eq_per_s = sym.nc_eq_per_s
     nc_ineq_per_s = sym.nc_ineq_per_s
     blk_size = sym.blk_size
-    block_maps = sym.block_maps
+    m_coupled = sym.m_coupled
+    coupled_inv = sym.coupled_inv               # design-local → compact coupled col (1:m) or 0
+
+    # Reduce the per-scenario coupling maps to the m COUPLED design rows: remap each C_dk row
+    # (a design-local index in 1:nd) to its compact column in 1:m. Every C_dk row is coupled by
+    # construction, so `coupled_inv` is nonzero there. Mirrors the GPU reduction — the coupling
+    # blocks and their solves are width m, not nd, which is what makes SCOPF-shaped problems
+    # (nd ≫ m) tractable on CPU.
+    block_maps = [
+        let bm = sym.block_maps[k]
+            ScenarioBlockMap(
+                bm.hess_Akk_coo, bm.hess_Akk_nzpos,
+                bm.hess_Cdk_coo, coupled_inv[bm.hess_Cdk_row], bm.hess_Cdk_col,
+                bm.ineq_Akk_nzpos, bm.ineq_Akk_jcoo1, bm.ineq_Akk_jcoo2, bm.ineq_Akk_bufidx,
+                coupled_inv[bm.ineq_Cdk_row], bm.ineq_Cdk_col, bm.ineq_Cdk_jcoo_d, bm.ineq_Cdk_jcoo_v, bm.ineq_Cdk_bufidx,
+                bm.ineq_S_row, bm.ineq_S_col, bm.ineq_S_jcoo1, bm.ineq_S_jcoo2, bm.ineq_S_bufidx,
+                bm.pr_diag_global, bm.pr_diag_nzpos,
+            )
+        end for k in 1:ns
+    ]
 
     # Per-scenario A_kk: independent copies of the shared template (same sparsity, fresh nzval).
     A_kk_vec = [copy(sym.akk_csc_template) for _ in 1:ns]
 
-    # --- Dense matrices ---
-    aug_com = Matrix{T}(undef, nd, nd)
-    C_dk = [Matrix{T}(undef, nd, blk_size) for _ in 1:ns]
-    tmp_blk_nd = [Matrix{T}(undef, blk_size, nd) for _ in 1:ns]
+    # --- Sparse Schur complement + reduced dense coupling blocks ---
+    # schur_csc is the first-stage block (lower-triangular, size nd). The reduction
+    # `Σ_k C_dk A_kk⁻¹ C_dk'` fills only the m×m coupled block, so C_dk is stored reduced to its
+    # m coupled design rows (m × blk_size) and tmp_blk_nd = A_kk⁻¹ C_dk_red' is (blk_size × m).
+    schur_csc = SparseMatrixCSC{T, Int32}(
+        nd, nd, sym.schur_csc_colptr, sym.schur_csc_rowval, zeros(T, sym.schur_nnz),
+    )
+    schur_block = Matrix{T}(undef, m_coupled, m_coupled)
+    C_dk = [Matrix{T}(undef, m_coupled, blk_size) for _ in 1:ns]
+    tmp_blk_nd = [Matrix{T}(undef, blk_size, m_coupled) for _ in 1:ns]
 
     # --- Diagonal vectors ---
     reg     = VT(undef, n + ns_ineq)
@@ -849,62 +1092,115 @@ function create_kkt_system(
     # --- Buffers ---
     diag_buffer = VT(undef, ns_ineq)
     buffer      = VT(undef, m)
-    # Size from the per-scenario invariant rather than the global eq count: the
-    # uniform-scenario validation in `_build_schur_symbolic` guarantees these
-    # are equal, but tying the buffer to `ns * nc_eq_per_s` keeps the
-    # round-trip in `solve_kkt!` (gather/scatter via the eq index list) shape-
-    # consistent by construction.
-    wy_eq_buf   = VT(undef, ns * nc_eq_per_s)
-    rhs_d       = VT(undef, nd)
+    rhs_d = VT(undef, nd)
+    rhs_d_red = VT(undef, m_coupled)
     rhs_k       = [VT(undef, blk_size) for _ in 1:ns]
     solve_buffers = [VT(undef, blk_size) for _ in 1:ns]
 
     # --- Init ---
-    fill!(aug_com, zero(T))
     fill!(pr_diag, zero(T))
     fill!(du_diag, zero(T))
 
     # --- Create solvers ---
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
-    scenario_solvers = [schur_scenario_linear_solver(A_kk_vec[k]) for k in 1:ns]
-    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
+    scenario_solvers = [schur_scenario_linear_solver(A_kk_vec[k]; opt = schur_scenario_opt_linear_solver) for k in 1:ns]
+    _linear_solver = linear_solver(schur_csc; opt = opt_linear_solver)
 
-    return SchurComplementKKTSystem(
+    return SchurComplementCondensedKKTSystem(
         hess, jac,
         hess_raw, jt_coo,
         hess_csc, hess_csc_map, jt_csc, jt_csc_map,
         quasi_newton,
         reg, pr_diag, du_diag, l_diag, u_diag, l_lower, u_lower,
         ns, nv, nd, nc,
-        nc_eq_per_s, nc_ineq_per_s, blk_size,
+        nc_ineq_per_s, blk_size,
         A_kk_vec, C_dk,
-        aug_com,
-        diag_buffer, buffer, wy_eq_buf, rhs_d, rhs_k, tmp_blk_nd, solve_buffers,
+        schur_csc, m_coupled, sym.coupled_design_local, sym.schur_fill_nzpos, schur_block,
+        diag_buffer, buffer, rhs_d, rhs_d_red, rhs_k, tmp_blk_nd, solve_buffers,
         block_maps,
-        sym.hess_S_coo, sym.hess_S_row, sym.hess_S_col,
-        sym.eq_global_flat,
+        sym.schur_hess_coo, sym.schur_hess_nzpos,
+        sym.schur_diag_nzpos,
+        sym.schur_ineq_S_nzpos, sym.schur_ineq_S_jcoo1, sym.schur_ineq_S_jcoo2, sym.schur_ineq_S_bufidx,
+        sym.schur_design_ineq_S_nzpos, sym.schur_design_ineq_S_jcoo1, sym.schur_design_ineq_S_jcoo2, sym.schur_design_ineq_S_bufidx,
+        sym.design_var_global, sym.scen_var_global,
         n_eq, cb.ind_eq,
         ns_ineq, cb.ind_ineq, cb.ind_lb, cb.ind_ub,
+        Ref(0), Ref(0), Ref(0),
         scenario_solvers,
         _linear_solver,
     )
 end
 
-num_variables(kkt::SchurComplementKKTSystem) = size(kkt.hess_csc, 1)
+num_variables(kkt::SchurComplementCondensedKKTSystem) = size(kkt.hess_csc, 1)
 
-function get_slack_regularization(kkt::SchurComplementKKTSystem)
+function get_slack_regularization(kkt::SchurComplementCondensedKKTSystem)
     n = num_variables(kkt)
     ns_ineq = kkt.n_ineq
     return view(kkt.pr_diag, n+1:n+ns_ineq)
 end
 
-function is_inertia_correct(kkt::SchurComplementKKTSystem, num_pos, num_zero, num_neg)
-    return (num_zero == 0) && (num_pos == size(kkt.aug_com, 1))
+"""
+    is_inertia(kkt::SchurComplementCondensedKKTSystem)
+
+The Schur path can only certify In(K) if *every* factorization contributing to the
+Haynsworth sum reports inertia — the complement solver and all `ns` block solvers.
+"""
+is_inertia(kkt::SchurComplementCondensedKKTSystem) =
+    is_inertia(kkt.linear_solver) && all(is_inertia, kkt.scenario_solvers)
+
+function is_inertia_correct(kkt::SchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg)
+    # `(num_pos, num_zero, num_neg)` is In(S) alone — the IPM reads it off
+    # `kkt.linear_solver`, which factorizes only the nd×nd first-stage complement. By
+    # Haynsworth additivity In(K) = Σ_k In(A_k) + In(S), so In(S) == (nd, 0, 0) certifies
+    # the whole condensed KKT matrix ONLY if every block A_k is positive definite too.
+    #
+    # This is not a conservative omission: an indefinite A_k makes its contribution
+    # −C_k A_k⁻¹ C_kᵀ to S a *positive* shift, which can leave S positive definite. S then
+    # passes, δ_w is never raised, and the IPM accepts a direction with wrong curvature.
+    # The counts below are refreshed by `build_kkt!`, which factorizes the blocks; the IPM
+    # calls `factorize_wrapper!` (→ `build_kkt!`) before every inertia query, so they are
+    # always in sync with the In(S) passed in.
+    is_inertia(kkt) || throw(InertiaException())
+    return (num_zero == 0) && (num_pos == kkt.nd) && (num_neg == 0) &&
+           (kkt.block_num_neg[] == 0) && (kkt.block_num_zero[] == 0)
 end
 
-should_regularize_dual(kkt::SchurComplementKKTSystem, num_pos, num_zero, num_neg) = true
+"""
+    _accumulate_block_inertia!(kkt::SchurComplementCondensedKKTSystem)
 
-function jtprod!(y::AbstractVector, kkt::SchurComplementKKTSystem, x::AbstractVector)
+Sum the per-scenario block inertias into `kkt.block_num_neg` / `block_num_zero` /
+`block_num_indef`. Called by `build_kkt!` right after the blocks are factorized; the
+counts are a by-product of that factorization (MUMPS stores them in INFOG(12)), so this
+only reads them back. Solvers that do not report inertia are skipped — `is_inertia(kkt)`
+is then false and `is_inertia_correct` refuses to certify anything.
+
+Set `MADNLP_SCHUR_BLOCK_INERTIA` in the environment to log the counts per factorization.
+"""
+function _accumulate_block_inertia!(kkt::SchurComplementCondensedKKTSystem)
+    num_neg = 0
+    num_zero = 0
+    num_indef = 0
+    worst = 0
+    for s in kkt.scenario_solvers
+        is_inertia(s) || continue
+        (_, z, neg) = inertia(s)
+        num_neg += neg
+        num_zero += z
+        (neg > 0 || z > 0) && (num_indef += 1)
+        worst = max(worst, neg)
+    end
+    kkt.block_num_neg[] = num_neg
+    kkt.block_num_zero[] = num_zero
+    kkt.block_num_indef[] = num_indef
+    if haskey(ENV, "MADNLP_SCHUR_BLOCK_INERTIA")
+        Base.@info "schur block inertia" blocks_indefinite = num_indef total_neg_pivots = num_neg total_zero_pivots = num_zero max_neg_pivots = worst ns = kkt.ns
+    end
+    return
+end
+
+should_regularize_dual(kkt::SchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg) = true
+
+function jtprod!(y::AbstractVector, kkt::SchurComplementCondensedKKTSystem, x::AbstractVector)
     nx = num_variables(kkt)
     ns_ineq = kkt.n_ineq
     yx = view(y, 1:nx)
@@ -914,20 +1210,21 @@ function jtprod!(y::AbstractVector, kkt::SchurComplementKKTSystem, x::AbstractVe
     return
 end
 
-function compress_jacobian!(kkt::SchurComplementKKTSystem)
+function compress_jacobian!(kkt::SchurComplementCondensedKKTSystem)
     transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
-function compress_hessian!(kkt::SchurComplementKKTSystem)
+function compress_hessian!(kkt::SchurComplementCondensedKKTSystem)
     transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
 end
 
-nnz_jacobian(kkt::SchurComplementKKTSystem) = nnz(kkt.jt_coo)
+nnz_jacobian(kkt::SchurComplementCondensedKKTSystem) = nnz(kkt.jt_coo)
 
-function build_kkt!(kkt::SchurComplementKKTSystem{T, VT, MT}) where {T, VT, MT}
+function build_kkt!(kkt::SchurComplementCondensedKKTSystem{T, VT, MT}) where {T, VT, MT}
     ns = kkt.ns
     nv = kkt.nv
     nd = kkt.nd
+    m = kkt.m
     n = num_variables(kkt)
     blk = kkt.blk_size
 
@@ -938,34 +1235,33 @@ function build_kkt!(kkt::SchurComplementKKTSystem{T, VT, MT}) where {T, VT, MT}
         kkt.diag_buffer .= Sigma_s ./ (one(T) .- Sigma_d .* Sigma_s)
     end
 
-    # Initialize Schur complement S = H_dd + diag(pr_diag_dd)
-    S = kkt.aug_com
-    fill!(S, zero(T))
-    _scatter_add!(S, kkt.hess, kkt.hess_S_coo, kkt.hess_S_row, kkt.hess_S_col)
-    @inbounds for i in 1:nd
-        S[i, i] += kkt.pr_diag[ns*nv+i]
-    end
+    # Initialize the sparse first-stage bordered block: scatter the design Hessian and
+    # the design pr_diag diagonal into the lower-triangular CSC `nz` by precomputed
+    # position (design variables need not be the last nd global indices).
+    nz = kkt.schur_csc.nzval
+    fill!(nz, zero(T))
+    _scatter_add!(nz, kkt.hess, kkt.schur_hess_coo, kkt.schur_hess_nzpos)
+    _scatter_add!(nz, kkt.pr_diag, kkt.design_var_global, kkt.schur_diag_nzpos)
 
     # Phase 1 (parallel): assemble per-scenario blocks, factorize, compute A_kk^{-1} * C_dk'.
     # `@blas_safe_threads` runs `Threads.@threads` over scenarios while pinning
     # BLAS to a single thread per task to avoid oversubscription with the
-    # per-scenario `mul!` / `factorize!` calls inside the loop.
+    # per-scenario `mul!` / `factorize!` calls inside the loop. Only A_kk[k]/C_dk[k]/
+    # tmp[k] are written here — the shared sparse `nz` is touched sequentially below.
     @blas_safe_threads for k in 1:ns
         bm = kkt.block_maps[k]
         A_kk = kkt.A_kk[k]
         C_dk = kkt.C_dk[k]
-        nz = A_kk.nzval
+        aknz = A_kk.nzval
 
-        fill!(nz, zero(T))
+        fill!(aknz, zero(T))
         fill!(C_dk, zero(T))
 
-        _scatter_add!(nz,   kkt.hess,    bm.hess_Akk_coo,    bm.hess_Akk_nzpos)
+        _scatter_add!(aknz, kkt.hess, bm.hess_Akk_coo, bm.hess_Akk_nzpos)
         _scatter_add!(C_dk, kkt.hess,    bm.hess_Cdk_coo,    bm.hess_Cdk_row, bm.hess_Cdk_col)
-        _scatter_add!(nz,   kkt.pr_diag, bm.pr_diag_global,  bm.pr_diag_nzpos)
-        _scatter_add!(nz,   kkt.du_diag, bm.du_diag_global,  bm.du_diag_nzpos)
-        _scatter_add!(nz,   kkt.jac,     bm.jeq_Akk_coo,     bm.jeq_Akk_nzpos)
-        _scatter_add!(C_dk, kkt.jac,     bm.jeq_Cdk_coo,     bm.jeq_Cdk_row, bm.jeq_Cdk_col)
-        _scatter_quad_add!(nz,   kkt.jac, kkt.diag_buffer,
+        _scatter_add!(aknz, kkt.pr_diag, bm.pr_diag_global, bm.pr_diag_nzpos)
+        _scatter_quad_add!(
+            aknz, kkt.jac, kkt.diag_buffer,
                            bm.ineq_Akk_nzpos, bm.ineq_Akk_jcoo1, bm.ineq_Akk_jcoo2, bm.ineq_Akk_bufidx)
         _scatter_quad_add!(C_dk, kkt.jac, kkt.diag_buffer,
                            bm.ineq_Cdk_row, bm.ineq_Cdk_col,
@@ -974,38 +1270,63 @@ function build_kkt!(kkt::SchurComplementKKTSystem{T, VT, MT}) where {T, VT, MT}
         # Factor A_kk
         factorize!(kkt.scenario_solvers[k])
 
-        # Compute tmp = A_kk^{-1} * C_dk'  (blk × nd)
+        # Compute tmp_red = A_kk^{-1} * C_dk_red'  (blk × m): only the m coupled columns —
+        # the other nd-m design columns of C_dk are exactly zero, so we never solve them.
         buf = kkt.solve_buffers[k]
-        for j in 1:nd
+        tmp = kkt.tmp_blk_nd[k]
+        for j in 1:m
             @inbounds for i in 1:blk
-                buf[i] = C_dk[j, i]  # C_dk' column j
+                buf[i] = C_dk[j, i]  # C_dk_red' column j = row j of the reduced C_dk
             end
             solve_linear_system!(kkt.scenario_solvers[k], buf)
             @inbounds for i in 1:blk
-                kkt.tmp_blk_nd[k][i, j] = buf[i]
+                tmp[i, j] = buf[i]
             end
         end
     end
 
-    # Phase 2 (sequential): accumulate into shared Schur complement S
-    for k in 1:ns
-        bm = kkt.block_maps[k]
-        _scatter_quad_add!(S, kkt.jac, kkt.diag_buffer,
-                           bm.ineq_S_row, bm.ineq_S_col,
-                           bm.ineq_S_jcoo1, bm.ineq_S_jcoo2, bm.ineq_S_bufidx)
-        # S -= C_dk * A_kk^{-1} * C_dk'
-        mul!(S, kkt.C_dk[k], kkt.tmp_blk_nd[k], -one(T), one(T))
+    # Aggregate the block inertias for `is_inertia_correct`. Each solver computed this as a
+    # by-product of the `factorize!` above (MUMPS: INFOG(12)), so this is a read, not work.
+    _accumulate_block_inertia!(kkt)
+
+    # Phase 2 (sequential): scatter the scenario inequality condensation into `nz`
+    # (flattened over scenarios), then the Schur reduction. The reduction
+    # `Σ_k C_dk A_kk⁻¹ C_dk'` is nonzero only on the m coupled design vars, so it is
+    # formed from the coupled rows/cols of the dense C_dk/tmp as an `m×m` symmetric
+    # block and the lower half scattered as `-D` into `nz`.
+    _scatter_quad_add!(
+        nz, kkt.jac, kkt.diag_buffer,
+        kkt.schur_ineq_S_nzpos, kkt.schur_ineq_S_jcoo1,
+        kkt.schur_ineq_S_jcoo2, kkt.schur_ineq_S_bufidx
+    )
+    if m > 0
+        for k in 1:ns
+            # C_dk_red (m×blk) and tmp_red (blk×m) are already reduced to the coupled block, so
+            # this is a plain contiguous GEMM (BLAS) — no Vector{Int}-indexed views, unlike the
+            # old full-width nd path which fell back to the generic (non-BLAS) mul!.
+            mul!(kkt.schur_block, kkt.C_dk[k], kkt.tmp_blk_nd[k])
+            @inbounds for b in 1:m, a in b:m
+                nz[kkt.schur_fill_nzpos[a, b]] -= kkt.schur_block[a, b]
+            end
+        end
     end
 
+    # Design-only inequalities: condense into S_dd at their precomputed
+    # (lower-triangle) positions.
+    _scatter_quad_add!(
+        nz, kkt.jac, kkt.diag_buffer,
+        kkt.schur_design_ineq_S_nzpos, kkt.schur_design_ineq_S_jcoo1,
+        kkt.schur_design_ineq_S_jcoo2, kkt.schur_design_ineq_S_bufidx
+    )
     return
 end
 
-function factorize_kkt!(kkt::SchurComplementKKTSystem)
+function factorize_kkt!(kkt::SchurComplementCondensedKKTSystem)
     return factorize!(kkt.linear_solver)
 end
 
 function solve_kkt!(
-    kkt::SchurComplementKKTSystem,
+    kkt::SchurComplementCondensedKKTSystem,
     w::AbstractKKTVector{T},
 ) where T
 
@@ -1013,6 +1334,7 @@ function solve_kkt!(
     nv = kkt.nv
     nd = kkt.nd
     nc = kkt.nc
+    m = kkt.m
     n = num_variables(kkt)
     blk = kkt.blk_size
 
@@ -1032,23 +1354,16 @@ function solve_kkt!(
         mul!(wx, kkt.jt_csc, kkt.buffer, one(T), one(T))
     end
 
-    # Step 2: Extract per-scenario RHS blocks
-    # NOTE: writes to disjoint slices of wx/wy → safe to @blas_safe_threads,
-    # but per-iteration work is just a few scalar copies; profile before threading.
-    nc_eq = kkt.nc_eq_per_s
+    # Step 2: Extract per-scenario RHS blocks via the tag-driven global index lists.
     @inbounds for k in 1:ns
-        vr_start = (k-1)*nv
+        sv = kkt.scen_var_global[k]
         rhs = kkt.rhs_k[k]
         for i in 1:nv
-            rhs[i] = wx[vr_start + i]
-        end
-        eq_base = (k-1)*nc_eq
-        for ci in 1:nc_eq
-            rhs[nv+ci] = wy[kkt.eq_global_indices[eq_base + ci]]
+            rhs[i] = wx[sv[i]]
         end
     end
     @inbounds for i in 1:nd
-        kkt.rhs_d[i] = wx[ns*nv+i]
+        kkt.rhs_d[i] = wx[kkt.design_var_global[i]]
     end
 
     # Step 3: Forward elimination
@@ -1056,45 +1371,46 @@ function solve_kkt!(
     @blas_safe_threads for k in 1:ns
         solve_linear_system!(kkt.scenario_solvers[k], kkt.rhs_k[k])
     end
-    # Phase 2 (sequential): accumulate into shared rhs_d
-    for k in 1:ns
-        mul!(kkt.rhs_d, kkt.C_dk[k], kkt.rhs_k[k], -one(T), one(T))
+    # Phase 2 (sequential): rhs_d[coupled] -= Σ_k C_dk_red[k] * rhs_k[k]. Only the m coupled
+    # design rows receive a contribution (the reduced C_dk holds exactly those rows). Accumulate
+    # into the contiguous reduced buffer (BLAS GEMV), then scatter-subtract into rhs_d.
+    if m > 0
+        fill!(kkt.rhs_d_red, zero(T))
+        for k in 1:ns
+            mul!(kkt.rhs_d_red, kkt.C_dk[k], kkt.rhs_k[k], one(T), one(T))
+        end
+        @views kkt.rhs_d[kkt.coupled_design_local] .-= kkt.rhs_d_red
     end
 
-    # Step 4: Solve Schur complement
+    # Step 4: Solve the first-stage Schur complement system (size nd, SPD)
     solve_linear_system!(kkt.linear_solver, kkt.rhs_d)
 
-    # Step 5: Back-substitution (parallel — reads shared rhs_d, writes per-scenario rhs_k)
-    @blas_safe_threads for k in 1:ns
-        mul!(kkt.rhs_k[k], kkt.tmp_blk_nd[k], kkt.rhs_d, -one(T), one(T))
+    # Step 5: Back-substitution. rhs_k[k] -= tmp_red[k] * rhs_d[coupled] per scenario (only the
+    # coupled design entries feed back; tmp_red is the reduced blk×m block).
+    if m > 0
+        @views kkt.rhs_d_red .= kkt.rhs_d[kkt.coupled_design_local]
+        @blas_safe_threads for k in 1:ns
+            mul!(kkt.rhs_k[k], kkt.tmp_blk_nd[k], kkt.rhs_d_red, -one(T), one(T))
+        end
     end
 
-    # Step 6: Write back to w (same threading note as Step 2 above)
+    # Step 6: Write back to w
     @inbounds for k in 1:ns
-        vr_start = (k-1)*nv
+        sv = kkt.scen_var_global[k]
         rhs = kkt.rhs_k[k]
         for i in 1:nv
-            wx[vr_start + i] = rhs[i]
-        end
-        eq_base = (k-1)*nc_eq
-        for ci in 1:nc_eq
-            wy[kkt.eq_global_indices[eq_base + ci]] = rhs[nv+ci]
+            wx[sv[i]] = rhs[i]
         end
     end
     @inbounds for i in 1:nd
-        wx[ns*nv+i] = kkt.rhs_d[i]
+        wx[kkt.design_var_global[i]] = kkt.rhs_d[i]
     end
 
-    # Step 7: Recover inequality duals and slacks
+    # Step 7: Recover inequality duals and slacks (all constraints are inequalities
+    # under RelaxEquality, so there are no equality duals to preserve).
     if kkt.n_ineq > 0
-        # Stash eq duals; mul! below overwrites all of wy
-        copyto!(kkt.wy_eq_buf, view(wy, kkt.ind_eq))
-
-        # J * Δx via sparse: (jt_csc)' * wx
+        # J * Δx via sparse: (jt_csc)' * wx  (overwrites all of wy)
         mul!(wy, kkt.jt_csc', wx)
-
-        # Restore equality duals
-        view(wy, kkt.ind_eq) .= kkt.wy_eq_buf
 
         # Inequality dual recovery
         @inbounds for idx in 1:length(kkt.ind_ineq)
@@ -1109,7 +1425,7 @@ function solve_kkt!(
 end
 
 # KKT matrix-vector product for iterative refinement
-function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementKKTSystem{T}, x::AbstractKKTVector, alpha = one(T), beta = zero(T)) where T
+function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementCondensedKKTSystem{T}, x::AbstractKKTVector, alpha = one(T), beta = zero(T)) where T
     n = num_variables(kkt)
     ns_ineq = kkt.n_ineq
     wx = @view(primal(w)[1:n])
@@ -1138,7 +1454,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementKKTSystem{T}, x::Abst
     return w
 end
 
-function mul_hess_blk!(wx, kkt::SchurComplementKKTSystem, t)
+function mul_hess_blk!(wx, kkt::SchurComplementCondensedKKTSystem, t)
     n = num_variables(kkt)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess_csc, :L), @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
