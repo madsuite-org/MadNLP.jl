@@ -27,6 +27,13 @@ jobs:
         with:
           channel: ${{ matrix.julia-version }}
       - uses: julia-actions/cache@v1
+      - name: MOI
+        shell: julia --project=@. {0}
+        run: |
+          using Pkg
+          Pkg.add([
+              PackageSpec(name="MathOptInterface", rev="bl/linearity"),
+          ])
       - name: test MadNLP
         shell: julia --project=. --color=yes {0}
         run: |
