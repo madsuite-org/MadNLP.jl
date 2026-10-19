@@ -53,19 +53,8 @@ jobs:
           channel: '1'
       - uses: julia-actions/cache@v1
       - name: test MadNLP (MOI and MINLP)
-        shell: julia --project=. --color=yes {0}
-        run: |
-          using Pkg
-          Pkg.Registry.update()
-          Pkg.instantiate()
-          include("test/MOI_wrapper.jl")
-      - uses: julia-actions/julia-processcoverage@v1
-        with:
-          directories: src,ext
-      - uses: codecov/codecov-action@v5
-        with:
-          files: lcov.info
-          token: ${{ secrets.CODECOV_TOKEN }}
+        shell: julia --project=./test "using Pkg; Pkg.instantiate()"
+        shell: julia --project=./test ./test/MOI_wrapper.jl --color=yes {0}
   test-hsl:
     runs-on:
       labels: hsl
