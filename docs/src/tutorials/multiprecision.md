@@ -42,13 +42,13 @@ function airport_model(T)
     IJ = [(i, j) for i in 1:N-1 for j in i+1:N]
     # Write model using ExaModels
     core = ExaModels.ExaCore(T)
-    x = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
-    y = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
-    ExaModels.objective(
+    ExaModels.@add_var(core, x, 1:N; lvar = -10.0, uvar = 10.0)
+    ExaModels.@add_var(core, y, 1:N; lvar = -10.0, uvar = 10.0)
+    ExaModels.@add_obj(
         core,
         ((x[i] - x[j])^2 + (y[i] - y[j])^2) for (i, j) in IJ
     )
-    ExaModels.constraint(core, (x[i]-dcx)^2 + (y[i] - dcy)^2 - dr for (i, dcx, dcy, dr) in data; lcon=-Inf)
+    ExaModels.@add_con(core, (x[i]-dcx)^2 + (y[i] - dcy)^2 - dr for (i, dcx, dcy, dr) in data; lcon=-Inf)
     return ExaModels.ExaModel(core)
 end
 ```
@@ -132,7 +132,7 @@ nlp_128 = airport_model(Float128)
 
 !!! warning
     On the contrary to `Float32`, a few linear solvers support `Float128` out of the box.
-    Currently, the only solvers suporting quadruple in MadNLP are `LDLSolver`
+    Currently, the only solvers supporting quadruple in MadNLP are `LDLSolver`
     and the HSL solvers (require MadNLPHSL).
     `LDLSolvers` uses [an LDL factorization implemented in pure Julia](https://github.com/JuliaSmoothOptimizers/LDLFactorizations.jl).
     The solver `LDLSolver` is not adapted to solve large-scale nonconvex nonlinear programs,
@@ -152,5 +152,3 @@ as well as the final objective:
 ```@example multiprecision
 results_128.objective
 ```
-
-
