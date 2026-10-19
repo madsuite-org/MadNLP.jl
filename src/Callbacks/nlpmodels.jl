@@ -15,11 +15,11 @@
 
     Case #1. The problem doesn't have any fixed variable
         MadNLP sets `fixed_variable_treatment=NoFixedVariables()`
-        and fallbacks to the default callbacks (that just apply the scaling).
+        and falls back to the default callbacks (that just apply the scaling).
 
     Case #2. `fixed_variable_treatment=RelaxBound`
-        MadNLP relax slightly the bounds of the fixed variables during
-        the initialization. The wrapper fallbacks to the default callbacks, similarly as with Case #1.
+        MadNLP slightly relaxes the bounds of the fixed variables during
+        the initialization. The wrapper falls back to the default callbacks, similarly as with Case #1.
 
     Case #3. `callback=DenseCallback` and `fixed_variable_treatment=MakeParameter`
         Reformulate the fixed variables as dummy variables that are kept
@@ -48,7 +48,7 @@ Do nothing if the problem has no fixed variables.
 struct NoFixedVariables <: AbstractFixedVariableTreatment end
 
 """
-    MakeParameter{VT, VI} <: AbstractFixedVariableTreatment
+    MakeParameter{T, VT, VI} <: AbstractFixedVariableTreatment
 
 Remove the fixed variables from the optimization variables and
 define them as problem's parameters.
@@ -105,7 +105,7 @@ constraints only up to a tolerance ``ϵ``.
 struct RelaxEquality <: AbstractEqualityTreatment end
 
 """
-    AbstractCallback{T, VT}
+    AbstractCallback{T, VT, FH}
 
 Wrap the `AbstractNLPModel` passed by the user in a form amenable to MadNLP.
 
@@ -127,14 +127,14 @@ Wrap the nonlinear program `nlp` using the callback wrapper
 with type `Callback`. The option `fixed_variable_treatment`
 decides if the fixed variables are relaxed (`RelaxBound`)
 or removed (`MakeParameter`). The option `equality_treatment`
-decides if the the equality constraints are keep as is
+decides if the equality constraints are kept as is
 (`EnforceEquality`) or relaxed (`RelaxEquality`).
 
 """
 function create_callback end
 
 """
-    SparseCallback{T, VT} < AbstractCallback{T, VT}
+    SparseCallback{T, VT} <: AbstractCallback{T, VT}
 
 Wrap an `AbstractNLPModel` using sparse structures.
 
@@ -181,7 +181,7 @@ struct SparseCallback{
 end
 
 """
-    DenseCallback{T, VT} < AbstractCallback{T, VT}
+    DenseCallback{T, VT} <: AbstractCallback{T, VT}
 
 Wrap an `AbstractNLPModel` using dense structures.
 
@@ -744,7 +744,7 @@ function set_scaling!(
     con_scale = cb.con_scale
     con_buffer = cb.con_buffer
     grad_buffer = cb.grad_buffer
-    # N.B.: Allocate jac_buffer here as it is use only once.
+    # N.B.: Allocate jac_buffer here as it is used only once.
     #       GC should take care of it once the scaling has been initialized.
     jac_buffer = similar(grad_buffer, cb.ncon, cb.nvar)
 
@@ -868,7 +868,8 @@ function _eval_lag_hess_wrapper!(
     obj_weight = one(T),
 ) where {T}
     hess_buffer = view(cb.hess_buffer, 1:cb.nnzh)
-    _eval_lag_hess_wrapper!(cb, x, y, hess_buffer; obj_weight = obj_weight * cb.obj_scale[])
+    # N.B.: the objective scaling is applied inside the vector callback
+    _eval_lag_hess_wrapper!(cb, x, y, hess_buffer; obj_weight = obj_weight)
     fill!(hess, zero(T))
     @inbounds @simd for k in 1:length(cb.hess_I)
         i, j = cb.hess_I[k], cb.hess_J[k]

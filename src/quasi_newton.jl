@@ -68,7 +68,7 @@ end
     sigma_max::T = 1e+8
 end
 
-"""
+@doc raw"""
     BFGS{T, VT} <: AbstractQuasiNewton{T, VT}
 
 BFGS quasi-Newton method. Update the direct Hessian approximation using
@@ -207,7 +207,7 @@ end
 
 
 """
-    CompactLBFGS{T, VT} <: AbstractQuasiNewton
+    CompactLBFGS{T, VT, MT, B} <: AbstractQuasiNewton{T, VT}
 """
 mutable struct CompactLBFGS{T, VT <: AbstractVector{T}, MT <: AbstractMatrix{T}, B} <: AbstractQuasiNewton{T, VT}
     init_strategy::BFGSInitStrategy

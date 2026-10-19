@@ -4,7 +4,7 @@
 Scaled version of the [`AbstractReducedKKTSystem`](@ref) (using the K2.5 formulation introduced in [GOS]).
 
 The K2.5 formulation of the augmented KKT system has a better conditioning
-than the original (K2) formulation. It is recommend switching to a `ScaledSparseKKTSystem`
+than the original (K2) formulation. It is recommended to switch to a `ScaledSparseKKTSystem`
 if you encounter numerical difficulties in MadNLP.
 
 At a primal-dual iterate ``(x, s, y, z)``, the matrix writes

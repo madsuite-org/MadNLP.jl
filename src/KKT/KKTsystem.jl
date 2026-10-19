@@ -1,6 +1,6 @@
 
 """
-    AbstractKKTSystem{T, VT<:AbstractVector{T}, MT<:AbstractMatrix{T}, QN<:AbstractHessian{T}}
+    AbstractKKTSystem{T, VT<:AbstractVector{T}, MT<:AbstractMatrix{T}, QN<:AbstractHessian{T, VT}}
 
 Abstract type for KKT system.
 """
@@ -38,7 +38,7 @@ abstract type AbstractUnreducedKKTSystem{T, VT, MT, QN} <: AbstractKKTSystem{T, 
     AbstractReducedKKTSystem{T, VT, MT, QN} <: AbstractKKTSystem{T, VT, MT, QN}
 
 The reduced KKT system is a simplification of the original Augmented KKT system.
-Comparing to [`AbstractUnreducedKKTSystem`](@ref)), `AbstractReducedKKTSystem` removes
+Compared to [`AbstractUnreducedKKTSystem`](@ref), `AbstractReducedKKTSystem` removes
 the two last rows associated to the bounds' duals ``(ν, w)``.
 
 At a primal-dual iterate ``(x, s, y, z)``, the matrix writes
@@ -87,16 +87,16 @@ abstract type AbstractCondensedKKTSystem{T, VT, MT, QN} <: AbstractKKTSystem{T, 
     create_kkt_system(
         ::Type{KKT},
         cb::AbstractCallback,
-        ind_cons::NamedTuple,
         linear_solver::Type{LinSol};
         opt_linear_solver=default_options(linear_solver),
         hessian_approximation=ExactHessian,
+        qn_options=QuasiNewtonOptions(),
     ) where {KKT<:AbstractKKTSystem, LinSol<:AbstractLinearSolver}
 
-Instantiate a new KKT system with type `KKT`, associated to the
-the nonlinear program encoded inside the callback `cb`. The
-`NamedTuple` `ind_cons` stores the indexes of all the variables and
-constraints in the callback `cb`. In addition, the user should pass
+Instantiate a new KKT system with type `KKT`, associated to
+the nonlinear program encoded inside the callback `cb`. The callback
+also stores the indexes of the equality and inequality constraints
+and of the variables' bounds. In addition, the user should pass
 the linear solver `linear_solver` that will be used to solve the KKT system
 after it has been assembled.
 
@@ -150,7 +150,7 @@ function factorize_kkt! end
 Compress the Hessian inside `kkt`'s internals.
 This function is called every time a new Hessian is evaluated.
 
-Default implementation do nothing.
+Default implementation does nothing.
 
 """
 function compress_hessian! end
@@ -234,7 +234,7 @@ get_jacobian(kkt::AbstractKKTSystem) = kkt.jac
 get_hessian(kkt::AbstractKKTSystem) = kkt.hess
 
 """
-        is inertia_correct(kkt::AbstractKKTSystem, num_pos, num_zero, num_neg)
+        is_inertia_correct(kkt::AbstractKKTSystem, num_pos, num_zero, num_neg)
 
 Check if the inertia ``(num_pos, num_zero, num_neg)`` returned by the linear solver
 ensures the desired conditions

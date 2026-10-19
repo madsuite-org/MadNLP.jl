@@ -24,9 +24,10 @@ function _update_monotone!(
             barrier.mu_superlinear_decrease_power,
             get_opt(solver).tol,
         )
-        set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
-        set_tau!(solver, get_tau(get_mu(solver), get_opt(solver).tau_min))
         set_mu!(solver, mu_new)
+        set_tau!(solver, get_tau(mu_new, get_opt(solver).tau_min))
+        # Re-evaluate the barrier error with the new barrier parameter
+        set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
         empty!(get_filter(solver))
         push!(get_filter(solver), (get_theta_max(solver), -Inf))
     end
@@ -34,7 +35,7 @@ function _update_monotone!(
 end
 
 # Implement monotone update for feasibility restoration.
-# N.B: we always fallack to monotone update for restoration, no matter
+# N.B: we always fall back to monotone update for restoration, no matter
 # the barrier update being used in the regular phase.
 function _update_monotone_RR!(
     barrier::AbstractBarrierUpdate{T},
@@ -139,7 +140,7 @@ function update_barrier!(barrier::AbstractAdaptiveUpdate{T}, solver::AbstractMad
     if barrier.free_mode
         set_mu!(solver, get_adaptive_mu(solver, barrier))
     end
-    # Update tau and reset filter is barrier has been updated
+    # Update tau and reset filter if barrier has been updated
     if get_mu(solver) != old_mu
         set_tau!(solver, get_tau(get_mu(solver), get_opt(solver).tau_min))
         empty!(get_filter(solver))
@@ -149,7 +150,7 @@ function update_barrier!(barrier::AbstractAdaptiveUpdate{T}, solver::AbstractMad
 end
 
 # Evaluate the linear quality function described in [Nocedal2009, Eq. (4.2)]
-function _evaluate_quality_function(solver, sigma, step_aff, step_cen, res_dual, res_primal)
+function _evaluate_quality_function(solver, sigma, step_aff, step_cen, res_primal, res_dual)
     n, m = get_n(solver), get_m(solver)
     nlb, nub = get_nlb(solver), get_nub(solver)
     tau = get_tau(solver)
@@ -200,8 +201,8 @@ function _evaluate_quality_function(solver, sigma, step_aff, step_cen, res_dual,
     return inf_du + inf_pr + inf_compl
 end
 
-# Golden search algorithm to find a minimum of the linear quality function.
-# The algorithm assumes the quality function is unimodular.
+# Golden-section search algorithm to find a minimum of the linear quality function.
+# The algorithm assumes the quality function is unimodal.
 function _run_golden_search!(solver, barrier, sigma_lb, sigma_ub, step_aff, step_cen, res_primal, res_dual)
     gfac = 0.5 * (3.0 - sqrt(5.0))
     sigma_1, sigma_2 = sigma_lb, sigma_ub
@@ -227,8 +228,8 @@ function _run_golden_search!(solver, barrier, sigma_lb, sigma_ub, step_aff, step
             phi_2 = phi_mid2
             sigma_mid2 = sigma_mid1
             sigma_mid1 = sigma_1 + gfac * (sigma_2 - sigma_1)
-            phi_mid1 = _evaluate_quality_function(solver, sigma_mid1, step_aff, step_cen, res_primal, res_dual)
             phi_mid2 = phi_mid1
+            phi_mid1 = _evaluate_quality_function(solver, sigma_mid1, step_aff, step_cen, res_primal, res_dual)
         end
         if (sigma_2 - sigma_1 < barrier.sigma_tol * sigma_2)
             break

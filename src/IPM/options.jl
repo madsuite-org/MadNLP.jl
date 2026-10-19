@@ -33,8 +33,10 @@ __General options__||
 ||
 rethrow\\_error                | true                 | rethrow any error encountered during the algorithm
 disable\\_garbage\\_collector  | false                | disable garbage collector in MadNLP
-blas\\_num\\_thread            | 1                    | number of threads to use in the BLAS backend
-intermediate_callback          | AbstractUserCallback | Intermediate callback called at each IPM iteration
+blas\\_num\\_threads           | 1                    | number of threads to use in the BLAS backend
+iterator                       | [`RichardsonIterator`](@ref) | iterative refinement method used to solve the KKT system
+intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
+kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path
@@ -44,10 +46,10 @@ file\\_print\\_level           | INFO                 | verbosity level in file 
 __Termination options__||
 ||
 max\\_iter                     | 3000                 | maximum number of interior-point iterations
-max\\_wall_time                | 1e6                  | maximum wall time in seconds
+max\\_wall\\_time               | 1e6                  | maximum wall time in seconds
 acceptable\\_tol               | 1e-6                 | acceptable tolerance on KKT residual
 acceptable\\_iter              | 15                   | number of acceptable iterates before stopping algorithm
-diverging\\_iter               | 1e20                 | threshold on KKT residual to declare algorithm as diverging
+diverging\\_iterates\\_tol     | 1e20                | threshold on KKT residual to declare algorithm as diverging
 s\\_max                        | 100.0                | scaling threshold for KKT residual
 ||
 __NLP options__||
@@ -83,8 +85,8 @@ max\\_hessian\\_perturbation       | 1e20                 | largest perturbation
 perturb\\_inc\\_fact\\_first       | 1e2                  | increase factor for primal perturbation for very first perturbation
 perturb\\_inc\\_fact               | 8.                   | increase factor for primal perturbation
 perturb\\_dec\\_fact               | 1/3                  | decrease factor for primal perturbation
-jacobian\\_regularization\\_exponent | 1/4                | exponent for mu in the regularization of rank-defficient Jacobian
-jacobian\\_regularization\\_value  | 1e-8                 | size of regularization for rank-defficient Jacobian
+jacobian\\_regularization\\_exponent | 1/4                | exponent for mu in the regularization of rank-deficient Jacobian
+jacobian\\_regularization\\_value  | 1e-8                 | size of regularization for rank-deficient Jacobian
 ||
 __Feasible restoration__||
 ||
@@ -94,7 +96,6 @@ required\\_infeasibility\\_reduction        | 0.9             | required reducti
 __Line search__||
 ||
 obj\\_max\\_inc                | 5.                   | upper bound on the acceptable increase of barrier objective function
-kappha\\_soc                   | 0.99                 | factor in the sufficient reduction rule for second order correction
 max\\_soc                      | 4                    | maximum number of second order correction trial steps at each iteration
 alpha\\_min\\_frac             | 0.05                 | safety factor for the minimal step size
 s\\_theta                      | 1.1                  | exponent for current constraint violation in the switching rule
@@ -180,7 +181,6 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
 
     # Line search
     obj_max_inc::T = 5.
-    kappha_soc::T = 0.99
     max_soc::Int = 4
     alpha_min_frac::T = 0.05
     s_theta::T = 1.1
@@ -235,8 +235,8 @@ function check_option_sanity(options)
               "Please use a dense linear solver or change `kkt_system` ")
     end
     if is_hess_approx_dense && !is_kkt_dense
-        error("[options] DENSE_BFGS and DENSE_DAMPED_BFGS quasi-Newton approximations\n"*
-              "require a dense KKT system (DENSE_KKT_SYSTEM or DENSE_CONDENSED_KKT_SYSTEM).")
+        error("[options] BFGS and DampedBFGS quasi-Newton approximations\n"*
+              "require a dense KKT system (DenseKKTSystem or DenseCondensedKKTSystem).")
     end
 end
 
@@ -285,7 +285,7 @@ function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
     )
     @trace(logger,"Logger is initialized.")
 
-    # Print remaning options (unsupported)
+    # Print remaining options (unsupported)
     if !isempty(remaining_options)
         print_ignored_options(logger, remaining_options)
     end
@@ -299,13 +299,12 @@ function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
 end
 
 """
-        default_options(
-                nlp::AbstractNLPModel,
-                kkt::Type,
-                linear_solver::Type;
-                iterator_options=Dict{Symbol,Any}(),
-        )
+    default_options(
+        nlp::AbstractNLPModel,
+        kkt::Type,
+        linear_solver::Type,
+    )
 
-default options for `linear_solver` associated to the KKT system `kkt_system` and `nlp`.
+Return the default options for `linear_solver` associated to the KKT system `kkt` and `nlp`.
 """
 default_options(nlp::AbstractNLPModel, kkt, linear_solver) = default_options(linear_solver)

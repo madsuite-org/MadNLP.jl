@@ -212,7 +212,7 @@ function _mul_expanded!(y::AbstractVector, kkt::DenseCondensedKKTSystem{T}, x::A
 
     # / x (variable)
     yx .= Σx .* xx
-    _symv!('L', one(T), kkt.hess, xx, zero(T), yx)
+    _symv!('L', one(T), kkt.hess, xx, one(T), yx)
     mul!(yx, kkt.jac', xy, one(T), one(T))
 
     # / s (slack)

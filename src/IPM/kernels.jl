@@ -603,7 +603,7 @@ function get_F(
 
     F4 = zero(T)
     for ii in eachindex(xu_r)
-        F4 += (xu_r[ii] >= x_ur[ii] && zu_r[ii] >= 0) ? abs((xu_r[ii]-xu_r[ii])*zu_r[ii]-mu) : T(Inf)
+        F4 += (xu_r[ii] >= x_ur[ii] && zu_r[ii] >= 0) ? abs((xu_r[ii]-x_ur[ii])*zu_r[ii]-mu) : T(Inf)
     end
 
     return F1 + F2 + F3 + F4

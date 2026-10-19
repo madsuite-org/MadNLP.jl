@@ -96,7 +96,7 @@ function initialize_dual(solver::AbstractMadNLPSolver{T}, ::Type{DualInitializeL
     end
 end
 
-function reinitialize!(solver::AbstractMadNLPSolver)
+function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     variable(get_x(solver)) .= get_x0(get_nlp(solver))
 
     set_obj_val!(solver, eval_f_wrapper(solver, get_x(solver)))
@@ -106,12 +106,12 @@ function reinitialize!(solver::AbstractMadNLPSolver)
     eval_lag_hess_wrapper!(solver, get_kkt(solver), get_x(solver), get_y(solver))
 
     theta = get_theta(get_c(solver))
-    set_theta_max!(solver, 1e4*max(1,theta))
-    set_theta_min!(solver, 1e-4*max(1,theta))
+    set_theta_max!(solver, T(1e4)*max(one(T),theta))
+    set_theta_min!(solver, T(1e-4)*max(one(T),theta))
     set_mu!(solver, get_opt(solver).barrier.mu_init)
-    set_tau!(solver, max(get_opt(solver).tau_min,1-get_opt(solver).barrier.mu_init))
+    set_tau!(solver, max(get_opt(solver).tau_min,one(T)-get_opt(solver).barrier.mu_init))
     empty!(get_filter(solver))
-    push!(get_filter(solver), (get_theta_max(solver),-Inf))
+    push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
 
     return REGULAR
 end
@@ -182,7 +182,7 @@ function solve!(
         elseif e isa NotEnoughDegreesOfFreedomException
             set_status!(solver, NOT_ENOUGH_DEGREES_OF_FREEDOM)
         elseif e isa LinearSolverException
-            set_status!(solver, ERROR_IN_STEP_COMPUTATION;)
+            set_status!(solver, ERROR_IN_STEP_COMPUTATION)
             get_opt(solver).rethrow_error && rethrow(e)
         elseif e isa InterruptException
             set_status!(solver, USER_REQUESTED_STOP)
@@ -362,7 +362,7 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
         if F_trial > get_opt(solver).soft_resto_pderror_reduction_factor*F
             copyto!(primal(get_x(solver)), primal(get__w1(solver)))
             copyto!(get_y(solver), dual(get__w1(solver)))
-            copyto!(get_c(solver), dual(get__w2(solver))) # backup the previous primal iterate
+            copyto!(get_c(solver), dual(get__w2(solver))) # restore the previous primal iterate
             return ROBUST
         end
 
@@ -455,7 +455,7 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
             eval_lag_hess_wrapper!(solver, get_kkt(solver), get_x(solver), get_y(solver); is_resto=true)
         end
 
-        # without inertia correction,
+        # solve the restoration phase primal-dual system with inertia correction
         @trace(get_logger(solver),"Solving restoration phase primal-dual system.")
         set_aug_RR!(get_kkt(solver), solver, RR)
         set_aug_rhs_RR!(solver, get_kkt(solver), RR, get_opt(solver).rho)

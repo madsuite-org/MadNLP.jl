@@ -51,7 +51,7 @@ for (name,level,color) in [(:trace,TRACE,7),(:debug,DEBUG,6),(:info,INFO,256),(:
     end
 end
 
-# Two-arguments BLAS.scal! is not supported in Julia 1.6.
+# Wrapper around BLAS.scal! using an explicit length and stride.
 function _scal!(a::T, x::AbstractVector{T}) where T
     return BLAS.scal!(length(x), a, x, 1)
 end
@@ -151,7 +151,7 @@ const SubVector{Tv,VT, VI} = SubArray{Tv, 1, VT, Tuple{VI}, false}
 end
 
 """
-    timing_callbacks(ips::InteriorPointSolver; ntrials=10)
+    timing_callbacks(ips::MadNLPSolver; ntrials=10)
 
 Return the average timings spent in each callback for `ntrials` different trials.
 Results are returned inside a named-tuple.
@@ -176,7 +176,7 @@ function timing_callbacks(ips; ntrials=10)
 end
 
 """
-    timing_linear_solver(ips::InteriorPointSolver; ntrials=10)
+    timing_linear_solver(ips::MadNLPSolver; ntrials=10)
 
 Return the average timings spent in the linear solver for `ntrials` different trials.
 Results are returned inside a named-tuple.
@@ -197,7 +197,7 @@ function timing_linear_solver(ips; ntrials=10)
 end
 
 """
-    timing_madnlp(ips::InteriorPointSolver; ntrials=10)
+    timing_madnlp(ips::MadNLPSolver; ntrials=10)
 
 Return the average time spent in the callbacks and in the linear solver,
 for `ntrials` different trials.

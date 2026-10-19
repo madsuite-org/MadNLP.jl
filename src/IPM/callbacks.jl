@@ -70,7 +70,7 @@ function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem,
     if cnt.con_jac_cnt == 1 && !is_valid(jac)
         throw(InvalidNumberException(:jac))
     end
-    @trace(get_logger(solver),"Constraint jacobian evaluation started.")
+    @trace(get_logger(solver),"Constraint Jacobian evaluation finished.")
     return jac
 end
 
@@ -111,7 +111,7 @@ function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractDenseKKTSy
     if cnt.con_jac_cnt == 1 && !is_valid(jac)
         throw(InvalidNumberException(:jac))
     end
-    @trace(get_logger(solver),"Constraint jacobian evaluation started.")
+    @trace(get_logger(solver),"Constraint Jacobian evaluation finished.")
     return jac
 end
 

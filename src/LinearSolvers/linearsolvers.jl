@@ -49,8 +49,8 @@ number type `T`.
 julia> is_supported(UmfpackSolver,Float64)
 true
 
-julia> is_supported(UmfpackSolver,Float32)
-false
+julia> is_supported(LDLSolver,Float32)
+true
 ```
 """
 function is_supported(::Type{LS},::Type{T}) where {LS <: AbstractLinearSolver, T <: AbstractFloat}
@@ -61,7 +61,7 @@ end
     is_async(::AbstractLinearSolver)
 
 Return `true` if the linear solver runs asynchronously
-i.e., the `factorize!` and `solve!` functions return before
+i.e., the `factorize!` and `solve_linear_system!` functions return before
 the factorization and solve operations are completed.
 """
 function is_async(::AbstractLinearSolver)
@@ -79,15 +79,15 @@ function is_inertia end
 """
     inertia(::AbstractLinearSolver)
 
-Return the inertia `(n, m, p)` of the linear system
+Return the inertia `(num_pos, num_zero, num_neg)` of the linear system
 as a tuple.
 
 ### Note
-The inertia is defined as a tuple ``(n, m, p)``,
+The inertia is defined as a tuple ``(num_pos, num_zero, num_neg)``,
 with
-- ``n``: number of positive eigenvalues
-- ``m``: number of negative eigenvalues
-- ``p``: number of zero eigenvalues
+- ``num_pos``: number of positive eigenvalues
+- ``num_zero``: number of zero eigenvalues
+- ``num_neg``: number of negative eigenvalues
 """
 function inertia end
 

@@ -90,9 +90,9 @@ abstract type AbstractAdaptiveUpdate{T} <: AbstractBarrierUpdate{T} end
     QualityFunctionUpdate{T} <: AbstractAdaptiveUpdate{T}
 
 Find the barrier parameter using a quality function encoding the ℓ1-norm of the KKT violations.
-At each IPM iteration, the minimum of the quality function is found using a Golden search algorithm.
+At each IPM iteration, the minimum of the quality function is found using a golden-section search algorithm.
 
-If no sufficient progress is made, the barrier fallbacks to a monotone rule.
+If no sufficient progress is made, the barrier falls back to a monotone rule.
 
 ## References
 The algorithm is described in [Nocedal2009, Section 4].
@@ -124,7 +124,7 @@ end
 Find the barrier parameter using the rule used in the LOQO solver.
 The rule is explicit in [Nocedal2009, Eq (3.6)].
 
-If no sufficient progress is made, the barrier fallbacks to a monotone rule.
+If no sufficient progress is made, the barrier falls back to a monotone rule.
 
 ## References
 The algorithm is described in [Nocedal2009, Section 3].

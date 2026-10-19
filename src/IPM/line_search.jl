@@ -30,7 +30,7 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
     varphi_trial= zero(T)
     theta_trial = zero(T)
     small_search_norm = get_rel_search_norm(primal(get_x(solver)), primal(get_d(solver))) < 10*eps(T)
-    switching_condition = is_switching(varphi_d,get_alpha(solver),get_opt(solver).s_phi,get_opt(solver).delta,2.,get_opt(solver).s_theta)
+    switching_condition = is_switching(varphi_d,get_alpha(solver),get_opt(solver).s_phi,get_opt(solver).delta,theta,get_opt(solver).s_theta)
     armijo_condition = false
     unsuccessful_iterate = false
 

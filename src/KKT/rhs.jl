@@ -9,7 +9,7 @@ abstract type AbstractKKTVector{T, VT} end
 """
     full(X::AbstractKKTVector)
 
-Return the all the values stored inside the KKT vector `X`.
+Return all the values stored inside the KKT vector `X`.
 """
 function full end
 
