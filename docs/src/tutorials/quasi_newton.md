@@ -10,7 +10,7 @@ using NLPModels
 
 Sometimes, the second-order derivatives are just too expensive to evaluate.
 In that case, it is often a good idea to approximate the Hessian matrix using a Quasi-Newton algorithm.
-The BFGS algorithm uses the first-order derivatives (gradient and tranposed-Jacobian
+The BFGS algorithm uses the first-order derivatives (gradient and transposed-Jacobian
 vector product) to approximate the Hessian of the Lagrangian. LBFGS is a variant of BFGS
 that computes a low-rank approximation of the Hessian matrix.
 By doing so, LBFGS does not have to store a large dense matrix in memory, rendering
@@ -69,10 +69,10 @@ results_hess = madnlp(
 nothing
 
 ```
-We observe that MadNLP converges in 21 iterations.
+We observe that MadNLP converges in about twenty iterations.
 
 To replace the second-order derivatives by an LBFGS approximation,
-you should pass the option `hessian_approximation=CompactLBFGS` to MadNLP.
+you should pass the option `hessian_approximation=MadNLP.CompactLBFGS` to MadNLP.
 
 ```@example lbfgs
 results_qn = madnlp(
@@ -84,7 +84,7 @@ nothing
 
 ```
 
-We observe that MadNLP converges in 93 iterations, but the solution time has
+We observe that MadNLP requires significantly more iterations, but the solution time has
 decreased by an order of magnitude. As expected, the number of Hessian evaluations is 0.
 
 ### How to tune the options in LBFGS?
@@ -113,7 +113,7 @@ nothing
 
 ```
 
-We observe that the total number of iterations has been reduced from 93 to 60.
+We observe that the total number of iterations has decreased compared to the default history.
 
 
 ### How is LBFGS implemented in MadNLP?
@@ -182,8 +182,8 @@ results_qn = madnlp(
 )
 nothing
 ```
-Observe that MadNLP here converges in 62 iterations.
-Indeed, BFGS computes a positive definite approximation of the Hessian matrix.
+Observe that BFGS converges in fewer iterations than LBFGS with the default history.
+Note that BFGS computes a positive definite approximation of the Hessian matrix.
 
 If the problem is non-convex, it is usually recommended to use the damped version of the BFGS algorithm, which
 can be activated by replacing `MadNLP.BFGS` by `MadNLP.DampedBFGS` in the precedent call:

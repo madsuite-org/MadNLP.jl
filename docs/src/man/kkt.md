@@ -1,3 +1,5 @@
+# KKT systems
+
 ```@meta
 CurrentModule = MadNLP
 ```
@@ -10,8 +12,6 @@ using MadNLPTests
 nlp = MadNLPTests.HS15Model()
 
 ```
-
-# KKT systems
 
 KKT systems are linear system with a special KKT structure.
 MadNLP uses a special structure [`AbstractKKTSystem`](@ref) to represent internally
@@ -76,7 +76,7 @@ J_k & -\delta_y & 0 \\
 Z_k^{1/2} & 0 & -W_k
 \end{bmatrix}
 \begin{bmatrix}
-\Delta x \\ \Delta y \\ -Z_k^{-1/2} \Delta z
+\Delta w \\ \Delta y \\ -Z_k^{-1/2} \Delta z
 \end{bmatrix}
 =
 \begin{bmatrix}
@@ -157,7 +157,7 @@ The user can query the KKT matrix inside `kkt`, simply as
 ```@example kkt_example
 kkt_matrix = MadNLP.get_kkt(kkt)
 ```
-This returns a reference to the KKT matrix stores internally
+This returns a reference to the KKT matrix stored internally
 inside `kkt`. Each time the matrix is assembled inside `kkt`,
 `kkt_matrix` is updated automatically.
 
@@ -179,9 +179,9 @@ Then, one can update the vector `hess_values` by using NLPModels.jl:
 n = NLPModels.get_nvar(nlp)
 m = NLPModels.get_ncon(nlp)
 x = NLPModels.get_x0(nlp) # primal variables
-l = zeros(m) # dual variables
+y = zeros(m) # dual variables
 
-NLPModels.hess_coord!(nlp, x, l, hess_values)
+NLPModels.hess_coord!(nlp, x, y, hess_values)
 
 ```
 Eventually, a post-processing step is applied to refresh all the values internally:
@@ -196,7 +196,7 @@ MadNLP.compress_hessian!(kkt)
 
 
 #### Updating the values of the Jacobian
-We proceed exaclty the same way to update the values in the Jacobian.
+We proceed exactly the same way to update the values in the Jacobian.
 One queries the Jacobian values in the KKT system as
 ```@example kkt_example
 jac_values = MadNLP.get_jacobian(kkt)
@@ -259,8 +259,8 @@ We start by factorizing the KKT matrix ``K``:
 MadNLP.factorize!(kkt.linear_solver)
 
 ```
-By default, MadNLP uses a LBL factorization to decompose the symmetric
-indefinite KKT matrix.
+By default, MadNLP uses an ``LBL^\top`` factorization (with ``L`` lower triangular
+and ``B`` block-diagonal) to decompose the symmetric indefinite KKT matrix.
 
 Once the KKT matrix has been factorized, we can compute the solution of the linear
 system with a backsolve. The function takes as input a [`AbstractKKTVector`](@ref),

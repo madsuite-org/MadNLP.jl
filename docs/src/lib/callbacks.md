@@ -8,7 +8,7 @@ In MadNLP, a nonlinear program is implemented with a given `AbstractNLPModel`.
 The model may have a form unsuitable for the interior-point algorithm.
 For that reason, MadNLP wraps the `AbstractNLPModel` internally
 using custom data structures, encoded as a `AbstractCallback`.
-Depending on the setting, choose to wrap the `AbstractNLPModel`
+Depending on the setting, MadNLP chooses to wrap the `AbstractNLPModel`
 as a [`DenseCallback`](@ref) or alternatively, as a [`SparseCallback`](@ref).
 
 ```@docs
@@ -29,8 +29,8 @@ Internally, a [`AbstractCallback`](@ref) reformulates the inequality
 constraints as equality constraints by introducing additional slack variables.
 The fixed variables are reformulated as parameters (using [`MakeParameter`](@ref))
 or are relaxed (using [`RelaxBound`](@ref)). The equality constraints can
-be keep as is with [`EnforceEquality`](@ref) (default option) or relaxed
-as inequality constraints with [`RelaxEquality`](@ref). In that later case,
+be kept as is with [`EnforceEquality`](@ref) (default option) or relaxed
+as inequality constraints with [`RelaxEquality`](@ref). In that latter case,
 MadNLP solves a relaxation of the original problem.
 
 ```@docs

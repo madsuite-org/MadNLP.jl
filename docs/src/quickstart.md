@@ -199,7 +199,7 @@ results = MadNLP.solve!(solver)
 nothing
 ```
 
-MadNLP converges in 19 iterations to a (local) optimal solution.
+MadNLP converges in about 20 iterations to a (local) optimal solution.
 MadNLP returns a [`MadNLPExecutionStats`](@ref) storing all the
 results. We can query the primal and the dual solutions respectively by
 ```@example quickstart
