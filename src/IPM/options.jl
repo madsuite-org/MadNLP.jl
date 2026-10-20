@@ -34,7 +34,7 @@ __General options__||
 rethrow\\_error                | true                 | rethrow any error encountered during the algorithm
 disable\\_garbage\\_collector  | false                | disable garbage collector in MadNLP
 blas\\_num\\_threads           | 1                    | number of threads to use in the BLAS backend
-iterator                       | [`RichardsonIterator`](@ref) | iterative refinement method used to solve the KKT system
+iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
 __Output options__||
