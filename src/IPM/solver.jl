@@ -8,7 +8,11 @@ as a [`MadNLPExecutionStats`](@ref).
 """
 function madnlp(model::AbstractNLPModel; kwargs...)
     solver = MadNLPSolver(model; kwargs...)
-    return solve!(solver)
+    # The solver type depends on runtime options, so it is not inferred here. A direct
+    # call would make inference compile solve! for the abstract MadNLPSolver type, and
+    # loading any package that adds methods reached from it would invalidate madnlp.
+    # invokelatest is opaque to inference; solve! is compiled for the concrete type.
+    return Base.invokelatest(solve!, solver)
 end
 
 function initialize!(solver::AbstractMadNLPSolver{T}) where T

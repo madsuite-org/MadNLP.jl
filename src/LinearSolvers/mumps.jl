@@ -1,4 +1,6 @@
-setindex(tup,a,n) = (tup[1:n-1]...,a,tup[n+1:end]...)
+# Replace entry n of a tuple. ntuple over Val(N) keeps the result inferred as
+# NTuple{N,T}, so assigning it to a Struc field needs no runtime tuple conversion.
+setindex(tup::NTuple{N,T},a,n) where {N,T} = ntuple(i -> i == n ? convert(T,a) : tup[i], Val(N))
 tzeros(n) = tuple((0 for i=1:n)...)
 
 @kwdef mutable struct MumpsOptions <: AbstractOptions
@@ -136,7 +138,7 @@ mutable struct MumpsSolver{T} <: AbstractLinearSolver{T}
     J::Vector{Int32}
     sym_perm::Vector{Int32}
     pivnul_list::Vector{Int32}
-    mumps_struc::Struc
+    mumps_struc::Struc{T}
     is_singular::Bool
     opt::MumpsOptions
     logger::MadNLPLogger

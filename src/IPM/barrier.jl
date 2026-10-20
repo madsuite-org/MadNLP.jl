@@ -15,13 +15,13 @@ function _update_monotone!(
     sc::T
 ) where T
     set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
-    while (get_mu(solver) > max(barrier.mu_min, get_opt(solver).tol/10)) &&
+    while (get_mu(solver) > max((barrier.mu_min::T), get_opt(solver).tol/10)) &&
         (get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor*get_mu(solver))
         mu_new = get_mu(
             get_mu(solver),
-            barrier.mu_min,
-            barrier.mu_linear_decrease_factor,
-            barrier.mu_superlinear_decrease_power,
+            (barrier.mu_min::T),
+            (barrier.mu_linear_decrease_factor::T),
+            (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
         )
         set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
@@ -56,13 +56,13 @@ function _update_monotone_RR!(
         RR.mu_R,
         sc,
     )
-    while RR.mu_R >= barrier.mu_min &&
+    while RR.mu_R >= (barrier.mu_min::T) &&
         max(RR.inf_pr_R,RR.inf_du_R,inf_compl_mu_R) <= get_opt(solver).barrier_tol_factor*RR.mu_R
         RR.mu_R = get_mu(
             RR.mu_R,
-            barrier.mu_min,
-            barrier.mu_linear_decrease_factor,
-            barrier.mu_superlinear_decrease_power,
+            (barrier.mu_min::T),
+            (barrier.mu_linear_decrease_factor::T),
+            (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
         )
         inf_compl_mu_R = get_inf_compl_R(
@@ -98,7 +98,7 @@ end
 # Initial barrier parameter used when we fallback to the monotone barrier update.
 function get_fixed_mu(solver::AbstractMadNLPSolver{T}, barrier::AbstractAdaptiveUpdate{T}) where T
     mu = T(0.8) * get_average_complementarity(solver)
-    return clamp(mu, barrier.mu_min, barrier.mu_max)
+    return clamp(mu, (barrier.mu_min::T), (barrier.mu_max::T))
 end
 
 function _check_progress(barrier::AbstractAdaptiveUpdate{T}, solver::AbstractMadNLPSolver{T}) where T
