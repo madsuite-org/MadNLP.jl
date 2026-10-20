@@ -572,9 +572,16 @@ end
     Callback's initialization
 =#
 
-function _treat_equality_initialize!(equality_handler::EnforceEquality, lcon, ucon, tol) end
-function _treat_equality_initialize!(equality_handler::RelaxEquality, lcon, ucon, tol)
-    return set_initial_bounds!(lcon, ucon, tol)
+# Constant subtracted from each constraint. Under `RelaxEquality` every row is a
+# slack row whose bounds carry the right-hand side, so the constant is zero and the
+# relaxation is applied once, to the slack bounds.
+function _treat_equality_initialize!(::EnforceEquality, rhs, lcon, ucon)
+    rhs .= (lcon .== ucon) .* lcon
+    return
+end
+function _treat_equality_initialize!(::RelaxEquality, rhs, lcon, ucon)
+    fill!(rhs, zero(eltype(rhs)))
+    return
 end
 # Initiate fixed variables. By default, do nothing.
 function _treat_fixed_variable_initialize!(cb::AbstractCallback, x0, lvar, uvar) end
@@ -614,10 +621,9 @@ function initialize!(
     y0 .= get_y0(cb)
     lvar .= get_lvar(cb)
     uvar .= get_uvar(cb)
-    lcon = copy(get_lcon(nlp))
-    ucon = copy(get_ucon(nlp))
+    lcon = get_lcon(nlp)
+    ucon = get_ucon(nlp)
 
-    _treat_equality_initialize!(cb.equality_handler, lcon, ucon, tol)
     _treat_fixed_variable_initialize!(cb, x0, lvar, uvar)
 
     set_initial_bounds!(lvar, uvar, tol)
@@ -627,7 +633,7 @@ function initialize!(
 
     slack(xl) .= view(lcon, ind_ineq)
     slack(xu) .= view(ucon, ind_ineq)
-    rhs .= (lcon .== ucon) .* lcon
+    _treat_equality_initialize!(cb.equality_handler, rhs, lcon, ucon)
     copyto!(slack(x), @view(con_buffer[ind_ineq]))
 
     set_initial_bounds!(slack(xl), slack(xu), tol)

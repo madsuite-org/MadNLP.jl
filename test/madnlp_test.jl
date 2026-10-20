@@ -143,6 +143,48 @@ for (name,optimizer_constructor,exclude) in testset
     test_madnlp(name,optimizer_constructor,exclude)
 end
 
+# min x1 + x2  s.t.  x1 + 2 x2 = 3,  0 <= x <= 10.
+# The equality multiplier is nonzero, so a relaxed equality ends at its relaxed bound.
+struct ActiveEqualityLP <: NLPModels.AbstractNLPModel{Float64, Vector{Float64}}
+    meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
+    counters::NLPModels.Counters
+end
+ActiveEqualityLP() = ActiveEqualityLP(
+    NLPModels.NLPModelMeta(
+        2; ncon = 1, nnzj = 2, nnzh = 0,
+        x0 = [1.0, 1.0], lvar = [0.0, 0.0], uvar = [10.0, 10.0],
+        lcon = [3.0], ucon = [3.0],
+    ),
+    NLPModels.Counters(),
+)
+NLPModels.obj(::ActiveEqualityLP, x::AbstractVector) = x[1] + x[2]
+NLPModels.grad!(::ActiveEqualityLP, x::AbstractVector, g::AbstractVector) = (g .= 1.0; g)
+NLPModels.cons!(::ActiveEqualityLP, x::AbstractVector, c::AbstractVector) = (c[1] = x[1] + 2x[2]; c)
+NLPModels.jac_structure!(::ActiveEqualityLP, I::AbstractVector, J::AbstractVector) = (I .= 1; J .= [1, 2]; (I, J))
+NLPModels.jac_coord!(::ActiveEqualityLP, x::AbstractVector, J::AbstractVector) = (J .= [1.0, 2.0]; J)
+NLPModels.hess_structure!(::ActiveEqualityLP, I::AbstractVector, J::AbstractVector) = (I, J)
+NLPModels.hess_coord!(::ActiveEqualityLP, x::AbstractVector, y::AbstractVector, H::AbstractVector; obj_weight = 1.0) = H
+
+@testset "RelaxEquality relaxes equalities once" begin
+    brf = 1e-4
+    width = brf * 3.0   # bound_relax_factor * max(1, |b|)
+    for kkt in (MadNLP.SparseKKTSystem, MadNLP.SparseCondensedKKTSystem)
+        res = madnlp(
+            ActiveEqualityLP();
+            kkt_system = kkt,
+            equality_treatment = MadNLP.RelaxEquality,
+            fixed_variable_treatment = MadNLP.RelaxBound,
+            bound_relax_factor = brf,
+            tol = 1e-10,
+            print_level = MadNLP.ERROR,
+        )
+        @test res.status == MadNLP.SOLVE_SUCCEEDED
+        viol = abs(res.constraints[1] - 3.0)
+        @test viol > 0.5 * width
+        @test viol <= width * (1 + 1e-4)
+    end
+end
+
 @testset "HS15 problem" begin
     nlp = MadNLPTests.HS15Model()
     n, m = NLPModels.get_nvar(nlp), NLPModels.get_ncon(nlp)
