@@ -15,7 +15,7 @@ end
 mutable struct Ma77Solver{T,INT} <: AbstractLinearSolver{T}
     tril::SparseMatrixCSC{T,INT}
     full::SparseMatrixCSC{T,INT}
-    tril_to_full_view::SubVector{T}
+    tril_to_full_view::SubVector{T,Vector{T},Vector{Int}}
 
     control::Ma77Control{T,INT}
     info::Ma77Info{T,INT}

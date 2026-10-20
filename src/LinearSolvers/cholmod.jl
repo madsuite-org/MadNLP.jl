@@ -6,7 +6,7 @@ mutable struct CHOLMODSolver{T} <: AbstractLinearSolver{T}
     inner::CHOLMOD.Factor{Float64}
     tril::SparseMatrixCSC{T,Int32}
     full::SparseMatrixCSC{Float64,Int}
-    tril_to_full_view::SubVector{T}
+    tril_to_full_view::SubVector{T,Vector{T},Vector{Int}}
 
     p::Vector{Float64}
     d::Vector{Float64}

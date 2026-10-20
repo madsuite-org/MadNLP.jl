@@ -6,7 +6,7 @@ mutable struct LDLSolver{T} <: AbstractLinearSolver{T}
     inner::LDLF.LDLFactorization{T, Int32}
     tril::SparseMatrixCSC{T,Int32}
     full::SparseMatrixCSC{T,Int32}
-    tril_to_full_view::SubVector{T}
+    tril_to_full_view::SubVector{T,Vector{T},Vector{Int}}
     opt::LDLFactorizationsOptions
     logger::MadNLPLogger
 end

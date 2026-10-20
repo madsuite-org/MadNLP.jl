@@ -10,7 +10,7 @@ mutable struct UmfpackSolver{T} <: AbstractLinearSolver{T}
     inner::UMFPACK.UmfpackLU{Float64, Int32}
     tril::SparseMatrixCSC{T,Int32}
     full::SparseMatrixCSC{Float64,Int32}
-    tril_to_full_view::SubVector{T}
+    tril_to_full_view::SubVector{T,Vector{T},Vector{Int}}
 
     p::Vector{Float64}
     d::Vector{Float64}
