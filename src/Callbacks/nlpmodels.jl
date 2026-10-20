@@ -852,7 +852,7 @@ function _eval_lag_hess_wrapper!(
     x::AbstractVector,
     y::AbstractVector,
     hess::AbstractVector;
-    obj_weight = 1.0,
+    obj_weight = one(T),
 ) where {T, VT, VI, NLP, FH}
     cb.con_buffer .= y .* cb.con_scale
     nnzh_orig = get_nnzh(cb.nlp.meta)
@@ -1000,7 +1000,7 @@ function _eval_lag_hess_wrapper!(
     x::AbstractVector,
     y::AbstractVector,
     hess::AbstractVector;
-    obj_weight = 1.0,
+    obj_weight = one(T),
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
     _update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full

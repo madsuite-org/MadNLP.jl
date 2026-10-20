@@ -62,12 +62,12 @@ function coo_to_csc(coo::SparseMatrixCOO)
     )
     nzval = similar(coo.V, nnz(cscind))
     fill!(nzval, 0)
-    
+
     csc = SparseMatrixCSC(
         coo.m,coo.n,cscind.colptr,cscind.rowval,nzval,
     )
     map = get_mapping(csc, coo)
-    
+
     return csc, map
 end
 
@@ -77,7 +77,8 @@ function _get_coo_to_csc(I,J,cscind,map)
     end
 end
 function _transfer!(vec1, vec2, map)
-    fill!(vec1, 0.0)
+    T = eltype(vec1)
+    fill!(vec1, zero(T))
     for i=1:length(map)
         @inbounds vec1[map[i]] += vec2[i]
     end

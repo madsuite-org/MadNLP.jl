@@ -33,15 +33,15 @@ get_jacobian(kkt::AbstractSparseKKTSystem) = kkt.jac_callback
 
 nnz_jacobian(kkt::AbstractSparseKKTSystem) = nnz(kkt.jac_raw)
 
-function compress_jacobian!(kkt::AbstractSparseKKTSystem)
+function compress_jacobian!(kkt::AbstractSparseKKTSystem{T}) where T
     ns = length(kkt.ind_ineq)
-    kkt.jac[end-ns+1:end] .= -1.0
+    kkt.jac[end-ns+1:end] .= -one(T)
     transfer!(kkt.jac_com, kkt.jac_raw, kkt.jac_csc_map)
 end
 
 function compress_jacobian!(kkt::AbstractSparseKKTSystem{T, VT, MT}) where {T, VT, MT<:Matrix{T}}
     ns = length(kkt.ind_ineq)
-    kkt.jac[end-ns+1:end] .= -1.0
+    kkt.jac[end-ns+1:end] .= -one(T)
     copyto!(kkt.jac_com, kkt.jac_raw)
 end
 

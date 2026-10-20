@@ -207,11 +207,11 @@ function nnz_jacobian end
 #=
     Generic functions
 =#
-function initialize!(kkt::AbstractKKTSystem)
-    fill!(kkt.reg, 1.0)
-    fill!(kkt.pr_diag, 1.0)
-    fill!(kkt.du_diag, 0.0)
-    fill!(kkt.hess, 0.0)
+function initialize!(kkt::AbstractKKTSystem{T}) where T
+    fill!(kkt.reg, one(T))
+    fill!(kkt.pr_diag, one(T))
+    fill!(kkt.du_diag, zero(T))
+    fill!(kkt.hess, zero(T))
     return
 end
 

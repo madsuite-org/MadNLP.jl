@@ -87,7 +87,8 @@ function create_kkt_system(
 
     I = create_array(cb, Int32, aug_mat_length)
     J = create_array(cb, Int32, aug_mat_length)
-    V = zeros(aug_mat_length)
+    V = VT(undef, aug_mat_length)
+    fill!(V, zero(T))
 
     offset = n_tot + n_jac + n_slack + n_hess + m
 

@@ -150,7 +150,7 @@ function update_barrier!(barrier::AbstractAdaptiveUpdate{T}, solver::AbstractMad
 end
 
 # Evaluate the linear quality function described in [Nocedal2009, Eq. (4.2)]
-function _evaluate_quality_function(solver, sigma, step_aff, step_cen, res_primal, res_dual)
+function _evaluate_quality_function(solver::AbstractMadNLPSolver{T}, sigma, step_aff, step_cen, res_primal, res_dual) where T
     n, m = get_n(solver), get_m(solver)
     nlb, nub = get_nlb(solver), get_nub(solver)
     tau = get_tau(solver)
@@ -178,7 +178,7 @@ function _evaluate_quality_function(solver, sigma, step_aff, step_cen, res_prima
         (x, xl, dx, z, dz) -> ((x + alpha_pr * dx - xl) * (z + alpha_du * dz))^2,
         +,
         get_x_lr(solver), get_xl_r(solver), get_dx_lr(solver), get_zl_r(solver), dual_lb(d);
-        init=0.0,
+        init=zero(T),
     )
 
     # ||(Xu - X - αp ΔX) (Zu + αd ΔZu)||^2
@@ -186,12 +186,12 @@ function _evaluate_quality_function(solver, sigma, step_aff, step_cen, res_prima
         (x, xu, dx, z, dz) -> ((xu - x - alpha_pr * dx) * (z + alpha_du * dz))^2,
         +,
         get_x_ur(solver), get_xu_r(solver), get_dx_ur(solver), get_zu_r(solver), dual_ub(d);
-        init=0.0,
+        init=zero(T),
     )
     # Primal infeasibility
-    inf_pr = (m > 0) ? (1.0 - alpha_pr)^2 * res_primal^2 / m : 0.0
+    inf_pr = (m > 0) ? (one(T) - alpha_pr)^2 * res_primal^2 / m : zero(T)
     # Dual infeasibility
-    inf_du = (1.0 - alpha_du)^2 * res_dual^2 / n
+    inf_du = (one(T) - alpha_du)^2 * res_dual^2 / n
     # Complementarity infeasibility
     inf_compl = (inf_compl_lb + inf_compl_ub ) / (nlb + nub)
 
@@ -203,15 +203,15 @@ end
 
 # Golden-section search algorithm to find a minimum of the linear quality function.
 # The algorithm assumes the quality function is unimodal.
-function _run_golden_search!(solver, barrier, sigma_lb, sigma_ub, step_aff, step_cen, res_primal, res_dual)
-    gfac = 0.5 * (3.0 - sqrt(5.0))
+function _run_golden_search!(solver::AbstractMadNLPSolver{T}, barrier, sigma_lb, sigma_ub, step_aff, step_cen, res_primal, res_dual) where T
+    gfac = (3 - sqrt(T(5))) / 2
     sigma_1, sigma_2 = sigma_lb, sigma_ub
     # Initiate Golden search
     phi_1 = _evaluate_quality_function(solver, sigma_1, step_aff, step_cen, res_primal, res_dual)
     phi_2 = _evaluate_quality_function(solver, sigma_2, step_aff, step_cen, res_primal, res_dual)
     sigma_1_in, sigma_2_in, phi_1_in, phi_2_in = sigma_1, sigma_2, phi_1, phi_2
     sigma_mid1 = sigma_lb + gfac * (sigma_ub - sigma_lb)
-    sigma_mid2 = sigma_lb + (1.0 - gfac) * (sigma_ub - sigma_lb)
+    sigma_mid2 = sigma_lb + (one(T) - gfac) * (sigma_ub - sigma_lb)
     phi_mid1 = _evaluate_quality_function(solver, sigma_mid1, step_aff, step_cen, res_primal, res_dual)
     phi_mid2 = _evaluate_quality_function(solver, sigma_mid2, step_aff, step_cen, res_primal, res_dual)
     # Run Golden search
@@ -220,7 +220,7 @@ function _run_golden_search!(solver, barrier, sigma_lb, sigma_ub, step_aff, step
             sigma_1 = sigma_mid1
             phi_1 = phi_mid1
             sigma_mid1 = sigma_mid2
-            sigma_mid2 = sigma_1 + (1.0 - gfac) * (sigma_2 - sigma_1)
+            sigma_mid2 = sigma_1 + (one(T) - gfac) * (sigma_2 - sigma_1)
             phi_mid1 = phi_mid2
             phi_mid2 = _evaluate_quality_function(solver, sigma_mid2, step_aff, step_cen, res_primal, res_dual)
         else

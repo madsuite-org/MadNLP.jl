@@ -302,11 +302,12 @@ function get_inf_compl(x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, mu, sc)
     return inf_compl / sc
 end
 
-function get_average_complementarity(x_lr, xl_r, zl_r, x_ur, xu_r, zu_r)
+function get_average_complementarity(x_lr::AbstractVector{T}, xl_r::AbstractVector{T}, zl_r::AbstractVector{T},
+                                     x_ur::AbstractVector{T}, xu_r::AbstractVector{T}, zu_r::AbstractVector{T}) where T
     n_lb, n_ub = length(x_lr), length(x_ur)
     # If the problem is unconstrained, average complementarity is 0
     if n_lb + n_ub == 0
-        return 0.0
+        return zero(T)
     end
     cc_lb = dot(x_lr, zl_r) - dot(xl_r, zl_r)
     cc_ub = dot(xu_r, zu_r) - dot(x_ur, zu_r)

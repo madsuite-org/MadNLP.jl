@@ -107,7 +107,7 @@ function create_kkt_system(
     I = create_array(cb, Int32, aug_mat_length)
     J = create_array(cb, Int32, aug_mat_length)
     V = VT(undef, aug_mat_length)
-    fill!(V, 0.0)  # Need to initiate V to avoid NaN
+    fill!(V, zero(T))  # Need to initiate V to avoid NaN
 
     offset = n_tot+n_jac+n_slack+n_hess+m
 
@@ -195,9 +195,9 @@ function jtprod!(y::AbstractVector, kkt::ScaledSparseKKTSystem, x::AbstractVecto
     mul!(y, kkt.jac_com', x)
 end
 
-function compress_jacobian!(kkt::ScaledSparseKKTSystem)
+function compress_jacobian!(kkt::ScaledSparseKKTSystem{T}) where T
     ns = length(kkt.ind_ineq)
-    kkt.jac[end-ns+1:end] .= -1.0
+    kkt.jac[end-ns+1:end] .= -one(T)
     transfer!(kkt.jac_com, kkt.jac_raw, kkt.jac_csc_map)
 end
 

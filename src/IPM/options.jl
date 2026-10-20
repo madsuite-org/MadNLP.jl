@@ -3,6 +3,18 @@
 parse_option(::Type{Module},str::String) = eval(Symbol(str))
 parse_option(::Type{<:AbstractUserCallback}, f::Any) = f
 parse_option(type::Type{T},i::Int64) where {T<:Enum} = type(i)
+# Convert a barrier update built with another float type (e.g. `MonotoneUpdate()`,
+# which defaults to Float64) to the precision of the solver.
+function parse_option(::Type{AbstractBarrierUpdate{T}}, barrier::AbstractBarrierUpdate) where T
+    B = Base.typename(typeof(barrier)).wrapper
+    fields = (getfield(barrier, k) for k in fieldnames(typeof(barrier)))
+    return try
+        B{T}(fields...)
+    catch
+        error("[options] The barrier update $(typeof(barrier)) cannot be converted to precision $T.\n"*
+              "Please instantiate it with the precision of the model, e.g. $(nameof(B)){$T}().")
+    end
+end
 
 function set_options!(opt::AbstractOptions, options)
     other_options = Dict{Symbol, Any}()
