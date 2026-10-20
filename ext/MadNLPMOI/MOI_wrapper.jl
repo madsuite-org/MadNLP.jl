@@ -1,9 +1,3 @@
-const _PARAMETER_OFFSET = 0x00f0000000000000
-
-_is_parameter(x::MOI.VariableIndex) = x.value >= _PARAMETER_OFFSET
-_is_parameter(term::MOI.ScalarAffineTerm) = _is_parameter(term.variable)
-_is_parameter(term::MOI.ScalarQuadraticTerm) = _is_parameter(term.variable_1) || _is_parameter(term.variable_2)
-
 mutable struct _VectorNonlinearOracleCache
     set::MOI.VectorNonlinearOracle{Float64}
     x::Vector{Float64}
@@ -37,9 +31,7 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     solve_iterations::Int
     sense::MOI.OptimizationSense
 
-    parameters::Dict{MOI.VariableIndex,MOI.Nonlinear.ParameterIndex}
-    variables::MOI.Utilities.VariablesContainer{Float64}
-    list_of_variable_indices::Vector{MOI.VariableIndex}
+    model::MOI.Nonlinear.ModelWithQuad{Float64,MOI.Nonlinear.Model}
     variable_primal_start::Vector{Union{Nothing,Float64}}
     variable_names::Dict{MOI.VariableIndex, String}
     constraint_names::Dict{MOI.ConstraintIndex, String}
@@ -47,11 +39,14 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     name_to_constraint_index::Union{Nothing, Dict{String, Union{Nothing, MOI.ConstraintIndex}}}
 
     nlp_data::MOI.NLPBlockData
+    # Whether `nlp_data` was set through the legacy `MOI.NLPBlock` API, in
+    # which case it must not be rebuilt from the inner nonlinear model.
+    uses_nlp_block::Bool
     nlp_dual_start::Union{Nothing,Vector{Float64}}
     mult_g_nlp::Dict{MOI.Nonlinear.ConstraintIndex,Float64}
 
-    qp_data::QPBlockData{Float64}
-    nlp_model::Union{Nothing,MOI.Nonlinear.Model}
+    # The evaluator of `model`, rebuilt in `_setup_model`.
+    evaluator::Union{Nothing,MOI.Nonlinear.EvaluatorWithQuad{Float64}}
     ad_backend::MOI.Nonlinear.AbstractAutomaticDifferentiation
     vector_nonlinear_oracle_constraints::Vector{Tuple{MOI.VectorOfVariables,_VectorNonlinearOracleCache}}
 
@@ -83,18 +78,16 @@ function Optimizer(; kwargs...)
         NaN,
         0,
         MOI.FEASIBILITY_SENSE,
-        Dict{MOI.VariableIndex,Float64}(),
-        MOI.Utilities.VariablesContainer{Float64}(),
-        MOI.VariableIndex[],
+        MOI.Nonlinear.ModelWithQuad(MOI.Nonlinear.Model()),
         Union{Nothing,Float64}[],
         Dict{MOI.VariableIndex, String}(),
         Dict{MOI.ConstraintIndex, String}(),
         nothing,
         nothing,
         MOI.NLPBlockData([], _EmptyNLPEvaluator(), false),
+        false,
         nothing,
         Dict{MOI.Nonlinear.ConstraintIndex,Float64}(),
-        QPBlockData{Float64}(),
         nothing,
         MOI.Nonlinear.SparseReverseMode(),
         Tuple{MOI.VectorOfVariables,_VectorNonlinearOracleCache}[],
@@ -149,19 +142,17 @@ function MOI.empty!(model::Optimizer)
     model.solve_time = NaN
     model.solve_iterations = 0
     model.sense = MOI.FEASIBILITY_SENSE
-    empty!(model.parameters)
-    MOI.empty!(model.variables)
-    empty!(model.list_of_variable_indices)
+    model.model = MOI.Nonlinear.ModelWithQuad(MOI.Nonlinear.Model())
     empty!(model.variable_primal_start)
     empty!(model.variable_names)
     empty!(model.constraint_names)
     model.name_to_variable = nothing
     model.name_to_constraint_index = nothing
     model.nlp_data = MOI.NLPBlockData([], _EmptyNLPEvaluator(), false)
+    model.uses_nlp_block = false
     model.nlp_dual_start = nothing
     empty!(model.mult_g_nlp)
-    model.qp_data = QPBlockData{Float64}()
-    model.nlp_model = nothing
+    model.evaluator = nothing
     # SKIP: model.ad_backend
     empty!(model.vector_nonlinear_oracle_constraints)
     empty!(model.jrows)
@@ -178,7 +169,7 @@ function MOI.empty!(model::Optimizer)
 end
 
 function MOI.is_empty(model::Optimizer)
-    return MOI.is_empty(model.variables) &&
+    return MOI.is_empty(model.model.variables) &&
            isempty(model.variable_primal_start) &&
            model.nlp_data.evaluator isa _EmptyNLPEvaluator &&
            model.sense == MOI.FEASIBILITY_SENSE &&
@@ -193,12 +184,11 @@ end
 
 MOI.get(::Optimizer, ::MOI.SolverName) = "MadNLP"
 
-function _init_nlp_model(model)
-    if model.nlp_model === nothing
-        if !(model.nlp_data.evaluator isa _EmptyNLPEvaluator)
-            error("Cannot mix the new and legacy nonlinear APIs")
-        end
-        model.nlp_model = MOI.Nonlinear.Model()
+# The nonlinear model is `model.model.inner` and always exists; this guard
+# only rejects mixing it with the legacy `MOI.NLPBlock` API.
+function _check_no_nlp_block(model)
+    if model.uses_nlp_block
+        error("Cannot mix the new and legacy nonlinear APIs")
     end
     return
 end
@@ -214,12 +204,8 @@ function MOI.add_constrained_variable(
     model::Optimizer,
     set::MOI.Parameter{Float64},
 )
-    _init_nlp_model(model)
-    p = MOI.VariableIndex(_PARAMETER_OFFSET + length(model.parameters))
-    push!(model.list_of_variable_indices, p)
-    model.parameters[p] =
-        MOI.Nonlinear.add_parameter(model.nlp_model, set.value)
-    ci = MOI.ConstraintIndex{MOI.VariableIndex,typeof(set)}(p.value)
+    _check_no_nlp_block(model)
+    p, ci = MOI.add_constrained_variable(model.model, set)
     return p, ci
 end
 
@@ -228,67 +214,31 @@ function MOI.is_valid(
     ci::MOI.ConstraintIndex{MOI.VariableIndex, MOI.Parameter{Float64}}
 )
     p = MOI.VariableIndex(ci.value)
-    return haskey(model.parameters, MOI.VariableIndex(ci.value))
+    return MOI.is_valid(model.model, ci)
 end
 
 function MOI.get(
     model::Optimizer,
-    ::MOI.ListOfConstraintIndices{F,S},
+    attr::MOI.ListOfConstraintIndices{F,S},
 ) where {F<:MOI.VariableIndex,S<:MOI.Parameter{Float64}}
-    ret = [MOI.ConstraintIndex{F,S}(p.value) for p in keys(model.parameters)]
-    sort!(ret; by = x -> x.value)
-    return ret
+    return MOI.get(model.model, attr)
 end
 
 function MOI.get(
     model::Optimizer,
-    ::MOI.NumberOfConstraints{MOI.VariableIndex,MOI.Parameter{Float64}},
+    attr::MOI.NumberOfConstraints{MOI.VariableIndex,MOI.Parameter{Float64}},
 )
-    return length(model.parameters)
+    return MOI.get(model.model, attr)
 end
 
 function MOI.set(
     model::Optimizer,
-    ::MOI.ConstraintSet,
+    attr::MOI.ConstraintSet,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,MOI.Parameter{Float64}},
     set::MOI.Parameter{Float64},
 )
-    p = model.parameters[MOI.VariableIndex(ci.value)]
-    model.nlp_model[p] = set.value
+    MOI.set(model.model, attr, ci, set)
     return
-end
-
-_replace_parameters(model::Optimizer, f) = f
-
-function _replace_parameters(model::Optimizer, f::MOI.VariableIndex)
-    if _is_parameter(f)
-        return model.parameters[f]
-    end
-    return f
-end
-
-function _replace_parameters(model::Optimizer, f::MOI.ScalarAffineFunction)
-    if any(_is_parameter, f.terms)
-        g = convert(MOI.ScalarNonlinearFunction, f)
-        return _replace_parameters(model, g)
-    end
-    return f
-end
-
-function _replace_parameters(model::Optimizer, f::MOI.ScalarQuadraticFunction)
-    if any(_is_parameter, f.affine_terms) ||
-       any(_is_parameter, f.quadratic_terms)
-        g = convert(MOI.ScalarNonlinearFunction, f)
-        return _replace_parameters(model, g)
-    end
-    return f
-end
-
-function _replace_parameters(model::Optimizer, f::MOI.ScalarNonlinearFunction)
-    for (i, arg) in enumerate(f.args)
-        f.args[i] = _replace_parameters(model, arg)
-    end
-    return f
 end
 
 function MOI.supports_constraint(
@@ -301,8 +251,6 @@ end
 
 ### MOI.ListOfConstraintTypesPresent
 
-_add_scalar_nonlinear_constraints(ret, ::Nothing) = nothing
-
 function _add_scalar_nonlinear_constraints(ret, nlp_model::MOI.Nonlinear.Model)
     for v in values(nlp_model.constraints)
         F, S = MOI.ScalarNonlinearFunction, typeof(v.set)
@@ -314,13 +262,13 @@ function _add_scalar_nonlinear_constraints(ret, nlp_model::MOI.Nonlinear.Model)
 end
 
 function MOI.get(model::Optimizer, attr::MOI.ListOfConstraintTypesPresent)
-    ret = MOI.get(model.variables, attr)
-    append!(ret, MOI.get(model.qp_data, attr))
-    _add_scalar_nonlinear_constraints(ret, model.nlp_model)
+    ret = MOI.get(model.model.variables, attr)
+    append!(ret, MOI.get(model.model, attr))
+    _add_scalar_nonlinear_constraints(ret, model.model.inner)
     if !isempty(model.vector_nonlinear_oracle_constraints)
         push!(ret, (MOI.VectorOfVariables, MOI.VectorNonlinearOracle{Float64}))
     end
-    if !isempty(model.parameters)
+    if !isempty(model.model.qp.parameters)
         push!(ret, (MOI.VariableIndex, MOI.Parameter{Float64}))
     end
     return ret
@@ -396,31 +344,27 @@ column(x::MOI.VariableIndex) = x.value
 function MOI.add_variable(model::Optimizer)
     push!(model.variable_primal_start, nothing)
     model.solver = nothing
-    x = MOI.add_variable(model.variables)
-    push!(model.list_of_variable_indices, x)
+    x = MOI.add_variable(model.model.variables)
     return x
 end
 
 function MOI.is_valid(model::Optimizer, x::MOI.VariableIndex)
-    if _is_parameter(x)
-        return haskey(model.parameters, x)
-    end
-    return MOI.is_valid(model.variables, x)
+    return MOI.is_valid(model.model, x)
 end
 
-function MOI.get(model::Optimizer, ::MOI.ListOfVariableIndices)
-    return model.list_of_variable_indices
+function MOI.get(model::Optimizer, attr::MOI.ListOfVariableIndices)
+    return MOI.get(model.model, attr)
 end
 
-function MOI.get(model::Optimizer, ::MOI.NumberOfVariables)
-    return length(model.list_of_variable_indices)
+function MOI.get(model::Optimizer, attr::MOI.NumberOfVariables)
+    return MOI.get(model.model, attr)
 end
 
 function MOI.is_valid(
     model::Optimizer,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,<:_SETS},
 )
-    return MOI.is_valid(model.variables, ci)
+    return MOI.is_valid(model.model.variables, ci)
 end
 
 function MOI.get(
@@ -430,7 +374,7 @@ function MOI.get(
         MOI.ListOfConstraintIndices{MOI.VariableIndex,<:_SETS},
     },
 )
-    return MOI.get(model.variables, attr)
+    return MOI.get(model.model.variables, attr)
 end
 
 function MOI.get(
@@ -438,11 +382,11 @@ function MOI.get(
     attr::Union{MOI.ConstraintFunction,MOI.ConstraintSet},
     c::MOI.ConstraintIndex{MOI.VariableIndex,<:_SETS},
 )
-    return MOI.get(model.variables, attr, c)
+    return MOI.get(model.model.variables, attr, c)
 end
 
 function MOI.add_constraint(model::Optimizer, x::MOI.VariableIndex, set::_SETS)
-    index = MOI.add_constraint(model.variables, x, set)
+    index = MOI.add_constraint(model.model.variables, x, set)
     model.solver = nothing
     return index
 end
@@ -453,7 +397,7 @@ function MOI.set(
     ci::MOI.ConstraintIndex{MOI.VariableIndex,S},
     set::S,
 ) where {S<:_SETS}
-    MOI.set(model.variables, MOI.ConstraintSet(), ci, set)
+    MOI.set(model.model.variables, MOI.ConstraintSet(), ci, set)
     model.needs_new_nlp = true
     return
 end
@@ -462,7 +406,7 @@ function MOI.delete(
     model::Optimizer,
     ci::MOI.ConstraintIndex{MOI.VariableIndex,<:_SETS},
 )
-    MOI.delete(model.variables, ci)
+    MOI.delete(model.model.variables, ci)
     model.solver = nothing
     return
 end
@@ -478,7 +422,7 @@ function MOI.is_valid(
         MOI.ScalarQuadraticFunction{Float64},
     },
 }
-    return MOI.is_valid(model.qp_data, ci)
+    return MOI.is_valid(model.model, ci)
 end
 
 function MOI.add_constraint(
@@ -489,7 +433,7 @@ function MOI.add_constraint(
     },
     set::_SETS,
 )
-    index = MOI.add_constraint(model.qp_data, func, set)
+    index = MOI.add_constraint(model.model, func, set)
     model.solver = nothing
     return index
 end
@@ -504,7 +448,7 @@ function MOI.get(
     },
     S<:_SETS,
 }
-    return MOI.get(model.qp_data, attr)
+    return MOI.get(model.model, attr)
 end
 
 function MOI.get(
@@ -517,7 +461,7 @@ function MOI.get(
         MOI.ScalarQuadraticFunction{Float64},
     },
 }
-    return MOI.get(model.qp_data, attr, c)
+    return MOI.get(model.model, attr, c)
 end
 
 function MOI.set(
@@ -532,7 +476,7 @@ function MOI.set(
     },
     S<:_SETS,
 }
-    MOI.set(model.qp_data, MOI.ConstraintSet(), ci, set)
+    MOI.set(model.model, MOI.ConstraintSet(), ci, set)
     model.needs_new_nlp = true
     return
 end
@@ -560,7 +504,7 @@ function MOI.get(
         MOI.ScalarQuadraticFunction{Float64},
     },
 }
-    return MOI.get(model.qp_data, attr, c)
+    return MOI.get(model.model, attr, c)
 end
 
 function MOI.set(
@@ -575,7 +519,7 @@ function MOI.set(
     },
 }
     MOI.throw_if_not_valid(model, ci)
-    MOI.set(model.qp_data, attr, ci, value)
+    MOI.set(model.model, attr, ci, value)
     model.needs_new_nlp = true
     return
 end
@@ -586,11 +530,8 @@ function MOI.is_valid(
     model::Optimizer,
     ci::MOI.ConstraintIndex{MOI.ScalarNonlinearFunction,<:_SETS},
 )
-    if model.nlp_model === nothing
-        return false
-    end
     index = MOI.Nonlinear.ConstraintIndex(ci.value)
-    return MOI.is_valid(model.nlp_model, index)
+    return MOI.is_valid(model.model.inner, index)
 end
 
 function MOI.add_constraint(
@@ -598,11 +539,8 @@ function MOI.add_constraint(
     f::MOI.ScalarNonlinearFunction,
     s::_SETS,
 )
-    _init_nlp_model(model)
-    if !isempty(model.parameters)
-        _replace_parameters(model, f)
-    end
-    index = MOI.Nonlinear.add_constraint(model.nlp_model, f, s)
+    _check_no_nlp_block(model)
+    index = MOI.Nonlinear.add_constraint(model.model, f, s)
     model.solver = nothing
     return MOI.ConstraintIndex{typeof(f),typeof(s)}(index.value)
 end
@@ -612,10 +550,7 @@ function MOI.get(
     attr::MOI.ListOfConstraintIndices{F,S},
 ) where {F<:MOI.ScalarNonlinearFunction,S<:_SETS}
     ret = MOI.ConstraintIndex{F,S}[]
-    if model.nlp_model === nothing
-        return ret
-    end
-    for (k, v) in model.nlp_model.constraints
+    for (k, v) in model.model.inner.constraints
         if v.set isa S
             push!(ret, MOI.ConstraintIndex{F,S}(k.value))
         end
@@ -627,10 +562,7 @@ function MOI.get(
     model::Optimizer,
     attr::MOI.NumberOfConstraints{F,S},
 ) where {F<:MOI.ScalarNonlinearFunction,S<:_SETS}
-    if model.nlp_model === nothing
-        return 0
-    end
-    return count(v.set isa S for v in values(model.nlp_model.constraints))
+    return count(v.set isa S for v in values(model.model.inner.constraints))
 end
 
 function MOI.supports(
@@ -645,11 +577,8 @@ function MOI.set(
     attr::MOI.ObjectiveFunction{MOI.ScalarNonlinearFunction},
     func::MOI.ScalarNonlinearFunction,
 )
-    _init_nlp_model(model)
-    if !isempty(model.parameters)
-        _replace_parameters(model, func)
-    end
-    MOI.Nonlinear.set_objective(model.nlp_model, func)
+    _check_no_nlp_block(model)
+    MOI.Nonlinear.set_objective(model.model, func)
     model.solver = nothing
     return
 end
@@ -661,7 +590,7 @@ function MOI.get(
 )
     MOI.throw_if_not_valid(model, ci)
     index = MOI.Nonlinear.ConstraintIndex(ci.value)
-    return model.nlp_model[index].set
+    return model.model.inner[index].set
 end
 
 function MOI.set(
@@ -672,8 +601,8 @@ function MOI.set(
 ) where {S<:_SETS}
     MOI.throw_if_not_valid(model, ci)
     index = MOI.Nonlinear.ConstraintIndex(ci.value)
-    func = model.nlp_model[index].expression
-    model.nlp_model.constraints[index] = MOI.Nonlinear.Constraint(func, set)
+    func = model.model.inner[index].expression
+    model.model.inner.constraints[index] = MOI.Nonlinear.Constraint(func, set)
     model.needs_new_nlp = true
     return
 end
@@ -764,7 +693,7 @@ function row(
     model::Optimizer,
     ci::MOI.ConstraintIndex{F,S},
 ) where {F<:MOI.VectorOfVariables,S<:MOI.VectorNonlinearOracle{Float64}}
-    offset = length(model.qp_data)
+    offset = length(model.model)
     for i in 1:(ci.value-1)
         _, s = model.vector_nonlinear_oracle_constraints[i]
         offset += s.set.output_dimension
@@ -846,9 +775,9 @@ end
 MOI.supports(model::Optimizer, ::MOI.UserDefinedFunction) = true
 
 function MOI.set(model::Optimizer, attr::MOI.UserDefinedFunction, args)
-    _init_nlp_model(model)
+    _check_no_nlp_block(model)
     MOI.Nonlinear.register_operator(
-        model.nlp_model,
+        model.model.inner,
         attr.name,
         attr.arity,
         args...,
@@ -859,8 +788,8 @@ end
 ### ListOfSupportedNonlinearOperators
 
 function MOI.get(model::Optimizer, attr::MOI.ListOfSupportedNonlinearOperators)
-    _init_nlp_model(model)
-    return MOI.get(model.nlp_model, attr)
+    _check_no_nlp_block(model)
+    return MOI.get(model.model.inner, attr)
 end
 
 ### MOI.VariablePrimalStart
@@ -878,7 +807,7 @@ function MOI.get(
     attr::MOI.VariablePrimalStart,
     vi::MOI.VariableIndex,
 )
-    if _is_parameter(vi)
+    if MOI.Nonlinear._is_parameter(vi)
         throw(MOI.GetAttributeNotAllowed(attr, "Variable is a Parameter"))
     end
     MOI.throw_if_not_valid(model, vi)
@@ -891,7 +820,7 @@ function MOI.set(
     vi::MOI.VariableIndex,
     value::Union{Real,Nothing},
 )
-    if _is_parameter(vi)
+    if MOI.Nonlinear._is_parameter(vi)
         throw(MOI.SetAttributeNotAllowed(attr, "Variable is a Parameter"))
     end
     MOI.throw_if_not_valid(model, vi)
@@ -1045,10 +974,11 @@ MOI.supports(::Optimizer, ::MOI.NLPBlock) = true
 MOI.get(model::Optimizer, ::MOI.NLPBlock) = model.nlp_data
 
 function MOI.set(model::Optimizer, ::MOI.NLPBlock, nlp_data::MOI.NLPBlockData)
-    if model.nlp_model !== nothing
+    if !MOI.is_empty(model.model.inner)
         error("Cannot mix the new and legacy nonlinear APIs")
     end
     model.nlp_data = nlp_data
+    model.uses_nlp_block = !(nlp_data.evaluator isa _EmptyNLPEvaluator)
     model.solver = nothing
     return
 end
@@ -1072,10 +1002,10 @@ MOI.get(model::Optimizer, ::MOI.ObjectiveSense) = model.sense
 ### ObjectiveFunction
 
 function MOI.get(model::Optimizer, attr::MOI.ObjectiveFunctionType)
-    if model.nlp_model !== nothing && model.nlp_model.objective !== nothing
+    if model.model.inner.objective !== nothing
         return MOI.ScalarNonlinearFunction
     end
-    return MOI.get(model.qp_data, attr)
+    return MOI.get(model.model, attr)
 end
 
 function MOI.supports(
@@ -1101,7 +1031,7 @@ function MOI.get(
         MOI.ScalarQuadraticFunction{Float64},
     },
 }
-    return convert(F, MOI.get(model.qp_data, attr))
+    return convert(F, MOI.get(model.model, attr))
 end
 
 function MOI.set(
@@ -1115,10 +1045,8 @@ function MOI.set(
         MOI.ScalarQuadraticFunction{Float64},
     },
 }
-    MOI.set(model.qp_data, attr, func)
-    if model.nlp_model !== nothing
-        MOI.Nonlinear.set_objective(model.nlp_model, nothing)
-    end
+    # This also clears any objective of the inner nonlinear model.
+    MOI.Nonlinear.set_objective(model.model, func)
     model.solver = nothing
     return
 end
@@ -1131,7 +1059,7 @@ function MOI.eval_objective(model::Optimizer, x)
     elseif model.nlp_data.has_objective
         return MOI.eval_objective(model.nlp_data.evaluator, x)
     end
-    return MOI.eval_objective(model.qp_data, x)
+    return MOI.eval_objective(model.evaluator, x)
 end
 
 ### Eval_Grad_F_CB
@@ -1142,10 +1070,72 @@ function MOI.eval_objective_gradient(model::Optimizer, grad, x)
     elseif model.nlp_data.has_objective
         MOI.eval_objective_gradient(model.nlp_data.evaluator, grad, x)
     else
-        MOI.eval_objective_gradient(model.qp_data, grad, x)
+        MOI.eval_objective_gradient(model.evaluator, grad, x)
     end
     return
 end
+
+### _OracleNLPEvaluator
+
+"""
+    _OracleNLPEvaluator(model::Optimizer)
+
+The inner evaluator of the `MOI.Nonlinear.EvaluatorWithQuad` of `model`: the
+rows of the `MOI.VectorNonlinearOracle` constraints followed by the rows of
+the `MOI.NLPBlock` evaluator.
+"""
+struct _OracleNLPEvaluator{E<:MOI.AbstractNLPEvaluator} <:
+       MOI.AbstractNLPEvaluator
+    oracles::Vector{Tuple{MOI.VectorOfVariables,_VectorNonlinearOracleCache}}
+    nlp::E
+    nlp_bounds::Vector{MOI.NLPBoundsPair}
+    has_objective::Bool
+end
+
+function _OracleNLPEvaluator(model::Optimizer)
+    return _OracleNLPEvaluator(
+        model.vector_nonlinear_oracle_constraints,
+        model.nlp_data.evaluator,
+        model.nlp_data.constraint_bounds,
+        model.nlp_data.has_objective,
+    )
+end
+
+_ncon_oracle(d::_OracleNLPEvaluator) = sum(s.set.output_dimension for (_, s) in d.oracles; init = 0)
+
+function MOI.features_available(d::_OracleNLPEvaluator)
+    features = MOI.features_available(d.nlp)
+    if any(s.set.eval_hessian_lagrangian === nothing for (_, s) in d.oracles)
+        features = setdiff(features, [:Hess, :HessVec])
+    end
+    if !isempty(d.oracles)
+        # The oracles do not implement the Jacobian and Hessian products.
+        features = setdiff(features, [:JacVec, :HessVec])
+    end
+    return features
+end
+
+function MOI.initialize(d::_OracleNLPEvaluator, features::Vector{Symbol})
+    return MOI.initialize(d.nlp, features)
+end
+
+MOI.eval_objective(d::_OracleNLPEvaluator, x) = MOI.eval_objective(d.nlp, x)
+
+function MOI.eval_objective_gradient(d::_OracleNLPEvaluator, grad, x)
+    return MOI.eval_objective_gradient(d.nlp, grad, x)
+end
+
+function MOI.Nonlinear._constraint_bounds(d::_OracleNLPEvaluator)
+    bounds = MOI.NLPBoundsPair[]
+    for (_, s) in d.oracles
+        for i in 1:s.set.output_dimension
+            push!(bounds, MOI.NLPBoundsPair(s.set.l[i], s.set.u[i]))
+        end
+    end
+    return append!(bounds, d.nlp_bounds)
+end
+
+MOI.Nonlinear._has_objective(d::_OracleNLPEvaluator) = d.has_objective
 
 ### Eval_G_CB
 
@@ -1164,15 +1154,17 @@ function _eval_constraint(
     return offset + s.set.output_dimension
 end
 
-function MOI.eval_constraint(model::Optimizer, g, x)
-    MOI.eval_constraint(model.qp_data, g, x)
-    offset = length(model.qp_data)
-    for (f, s) in model.vector_nonlinear_oracle_constraints
+function MOI.eval_constraint(d::_OracleNLPEvaluator, g, x)
+    offset = 0
+    for (f, s) in d.oracles
         offset = _eval_constraint(g, offset, x, f, s)
     end
-    g_nlp = view(g, (offset+1):length(g))
-    MOI.eval_constraint(model.nlp_data.evaluator, g_nlp, x)
+    MOI.eval_constraint(d.nlp, view(g, (offset+1):length(g)), x)
     return
+end
+
+function MOI.eval_constraint(model::Optimizer, g, x)
+    return MOI.eval_constraint(model.evaluator, g, x)
 end
 
 ### Eval_Jac_G_CB
@@ -1189,22 +1181,22 @@ function _jacobian_structure(
     return row_offset + s.set.output_dimension
 end
 
-function MOI.jacobian_structure(model::Optimizer)
-    J = MOI.jacobian_structure(model.qp_data)
-    offset = length(model.qp_data)
-    for (f, s) in model.vector_nonlinear_oracle_constraints
+function MOI.jacobian_structure(d::_OracleNLPEvaluator)
+    J = Tuple{Int,Int}[]
+    offset = 0
+    for (f, s) in d.oracles
         offset = _jacobian_structure(J, offset, f, s)
     end
-    if length(model.nlp_data.constraint_bounds) > 0
-        J_nlp = MOI.jacobian_structure(
-            model.nlp_data.evaluator,
-        )::Vector{Tuple{Int64,Int64}}
+    if length(d.nlp_bounds) > 0
+        J_nlp = MOI.jacobian_structure(d.nlp)::Vector{Tuple{Int64,Int64}}
         for (row, col) in J_nlp
             push!(J, (row + offset, col))
         end
     end
     return J
 end
+
+MOI.jacobian_structure(model::Optimizer) = MOI.jacobian_structure(model.evaluator)
 
 function _eval_constraint_jacobian(
     values::AbstractVector,
@@ -1222,15 +1214,18 @@ function _eval_constraint_jacobian(
     return offset + nnz
 end
 
-function MOI.eval_constraint_jacobian(model::Optimizer, values, x)
-    offset = MOI.eval_constraint_jacobian(model.qp_data, values, x)
-    offset -= 1  # .qp_data returns one-indexed offset
-    for (f, s) in model.vector_nonlinear_oracle_constraints
+function MOI.eval_constraint_jacobian(d::_OracleNLPEvaluator, values, x)
+    offset = 0
+    for (f, s) in d.oracles
         offset = _eval_constraint_jacobian(values, offset, x, f, s)
     end
     nlp_values = view(values, (offset+1):length(values))
-    MOI.eval_constraint_jacobian(model.nlp_data.evaluator, nlp_values, x)
+    MOI.eval_constraint_jacobian(d.nlp, nlp_values, x)
     return
+end
+
+function MOI.eval_constraint_jacobian(model::Optimizer, values, x)
+    return MOI.eval_constraint_jacobian(model.evaluator, values, x)
 end
 
 # N.B.: VectorNonlinearOracle does not support transposed-Jacobian vector-product by default.
@@ -1258,32 +1253,39 @@ function _eval_constraint_transpose_jacobian_product(
     return
 end
 
-function MOI.eval_constraint_jacobian_transpose_product(model::Optimizer, Jtv, x, v)
-    fill!(Jtv, 0.0)
-    offset = length(model.qp_data)
-    v_qp = view(v, 1:offset)
-    # Evaluate jtprod for linear-quadratic part of the model.
-    MOI.eval_constraint_jacobian_transpose_product(model.qp_data, Jtv, x, v_qp)
+function MOI.eval_constraint_jacobian_transpose_product(
+    d::_OracleNLPEvaluator,
+    Jtv,
+    x,
+    v,
+)
+    # Evaluate jtprod for the nonlinear expressions FIRST: implementations of
+    # MOI.eval_constraint_jacobian_transpose_product are allowed to overwrite
+    # their output (ReverseAD's does), so it must be called before the
+    # accumulating contributions of the oracles.
+    offset = _ncon_oracle(d)
+    v_nlp = view(v, (offset+1):length(v))
+    MOI.eval_constraint_jacobian_transpose_product(d.nlp, Jtv, x, v_nlp)
     # Evaluate jtprod for all VectorNonlinearOracle.
-    for (f, s) in model.vector_nonlinear_oracle_constraints
+    offset = 0
+    for (f, s) in d.oracles
         _eval_constraint_transpose_jacobian_product(Jtv, x, offset, f, s, v)
         offset += s.set.output_dimension
     end
-    # Evaluate jtprod for remaining nonlinear expressions.
-    v_nlp = view(v, (offset+1):length(v))
-    MOI.eval_constraint_jacobian_transpose_product(model.nlp_data.evaluator, Jtv, x, v_nlp)
     return
 end
 
+function MOI.eval_constraint_jacobian_transpose_product(model::Optimizer, Jtv, x, v)
+    return MOI.eval_constraint_jacobian_transpose_product(model.evaluator, Jtv, x, v)
+end
+
+function MOI.eval_constraint_jacobian_product(d::_OracleNLPEvaluator, Jv, x, v)
+    @assert isempty(d.oracles)
+    return MOI.eval_constraint_jacobian_product(d.nlp, Jv, x, v)
+end
+
 function MOI.eval_constraint_jacobian_product(model::Optimizer, Jv, x, v)
-    @assert isempty(model.vector_nonlinear_oracle_constraints)
-    fill!(Jv, 0.0)
-    qp_offset = length(model.qp_data)
-    Jv_qp = view(Jv, 1:qp_offset)
-    Jv_nlp = view(Jv, (qp_offset+1):length(Jv))
-    MOI.eval_constraint_jacobian_product(model.nlp_data.evaluator, Jv_nlp, x, v)
-    MOI.eval_constraint_jacobian_product(model.qp_data, Jv_qp, x, v)
-    return
+    return MOI.eval_constraint_jacobian_product(model.evaluator, Jv, x, v)
 end
 
 ### Eval_H_CB
@@ -1299,13 +1301,17 @@ function _hessian_lagrangian_structure(
     return
 end
 
-function MOI.hessian_lagrangian_structure(model::Optimizer)
-    H = MOI.hessian_lagrangian_structure(model.qp_data)
-    for (f, s) in model.vector_nonlinear_oracle_constraints
+function MOI.hessian_lagrangian_structure(d::_OracleNLPEvaluator)
+    H = Tuple{Int,Int}[]
+    for (f, s) in d.oracles
         _hessian_lagrangian_structure(H, f, s)
     end
-    append!(H, MOI.hessian_lagrangian_structure(model.nlp_data.evaluator))
+    append!(H, MOI.hessian_lagrangian_structure(d.nlp))
     return H
+end
+
+function MOI.hessian_lagrangian_structure(model::Optimizer)
+    return MOI.hessian_lagrangian_structure(model.evaluator)
 end
 
 function _eval_hessian_lagrangian(
@@ -1328,28 +1334,29 @@ function _eval_hessian_lagrangian(
     return H_offset + H_nnz, μ_offset + s.set.output_dimension
 end
 
-function MOI.eval_hessian_lagrangian(model::Optimizer, H, x, σ, μ)
-    offset = MOI.eval_hessian_lagrangian(model.qp_data, H, x, σ, μ)
-    offset -= 1  # model.qp_data returns one-indexed offset
-    μ_offset = length(model.qp_data)
-    for (f, s) in model.vector_nonlinear_oracle_constraints
+function MOI.eval_hessian_lagrangian(d::_OracleNLPEvaluator, H, x, σ, μ)
+    offset, μ_offset = 0, 0
+    for (f, s) in d.oracles
         offset, μ_offset =
             _eval_hessian_lagrangian(H, offset, x, μ, μ_offset, f, s)
     end
     H_nlp = view(H, (offset+1):length(H))
     μ_nlp = view(μ, (μ_offset+1):length(μ))
-    MOI.eval_hessian_lagrangian(model.nlp_data.evaluator, H_nlp, x, σ, μ_nlp)
+    MOI.eval_hessian_lagrangian(d.nlp, H_nlp, x, σ, μ_nlp)
     return
 end
 
+function MOI.eval_hessian_lagrangian(model::Optimizer, H, x, σ, μ)
+    return MOI.eval_hessian_lagrangian(model.evaluator, H, x, σ, μ)
+end
+
+function MOI.eval_hessian_lagrangian_product(d::_OracleNLPEvaluator, Hv, x, v, σ, μ)
+    @assert isempty(d.oracles)
+    return MOI.eval_hessian_lagrangian_product(d.nlp, Hv, x, v, σ, μ)
+end
+
 function MOI.eval_hessian_lagrangian_product(model::Optimizer, Hv, x, v, σ, μ)
-    @assert isempty(model.vector_nonlinear_oracle_constraints)
-    fill!(Hv, 0.0)
-    qp_offset = length(model.qp_data)
-    μ_nlp = view(μ, (qp_offset+1):length(μ))
-    MOI.eval_hessian_lagrangian_product(model.nlp_data.evaluator, Hv, x, v, σ, μ_nlp)
-    MOI.eval_hessian_lagrangian_product(model.qp_data, Hv, x, v, σ, μ)
-    return
+    return MOI.eval_hessian_lagrangian_product(model.evaluator, Hv, x, v, σ, μ)
 end
 
 ### MOI.AutomaticDifferentiationBackend
@@ -1427,36 +1434,40 @@ end
 ### MOI.optimize!
 
 function _setup_model(model::Optimizer)
-    vars = MOI.get(model.variables, MOI.ListOfVariableIndices())
+    vars = MOI.get(model.model.variables, MOI.ListOfVariableIndices())
     if isempty(vars)
         model.invalid_model = true
         return
     end
     # Create NLP backend.
-    if model.nlp_model !== nothing
-        evaluator = MOI.Nonlinear.Evaluator(model.nlp_model, model.ad_backend, vars)
+    # Rebuild even when the inner model is empty: a previous solve may have
+    # left a stale `nlp_data` (for example, a nonlinear objective replaced by
+    # a quadratic one).
+    if !model.uses_nlp_block
+        evaluator = MOI.Nonlinear.Evaluator(model.model.inner, model.ad_backend, vars)
         model.nlp_data = MOI.NLPBlockData(evaluator)
     end
     # Check model's structure.
     has_oracle = !isempty(model.vector_nonlinear_oracle_constraints)
-    has_quadratic_constraints =
-        any(isequal(_kFunctionTypeScalarQuadratic), model.qp_data.function_type)
+    model.evaluator = MOI.Nonlinear.EvaluatorWithQuad(
+        model.model,
+        _OracleNLPEvaluator(model),
+    )
+    has_quadratic_constraints = any(
+        isequal(MOI.Nonlinear._kFunctionTypeScalarQuadratic),
+        model.model.qp.function_type,
+    )
     has_nlp_constraints = !isempty(model.nlp_data.constraint_bounds) || has_oracle
     has_nlp_objective = model.nlp_data.has_objective
-    has_hessian = :Hess in MOI.features_available(model.nlp_data.evaluator)
-    has_jacobian_operator = :JacVec in MOI.features_available(model.nlp_data.evaluator)
-    has_hessian_operator = :HessVec in MOI.features_available(model.nlp_data.evaluator)
-    for (_, s) in model.vector_nonlinear_oracle_constraints
-        if s.set.eval_hessian_lagrangian === nothing
-            has_hessian = false
-            break
-        end
-    end
+    features = MOI.features_available(model.evaluator)
+    has_hessian = :Hess in features
+    has_jacobian_operator = :JacVec in features
+    has_hessian_operator = :HessVec in features
 
     model.has_only_linear_constraints = !has_quadratic_constraints && !has_nlp_constraints
     model.islp = model.has_only_linear_constraints && !has_nlp_objective
-    model.jprod_available = has_jacobian_operator && !has_oracle
-    model.hprod_available = has_hessian_operator && !has_oracle
+    model.jprod_available = has_jacobian_operator
+    model.hprod_available = has_hessian_operator
     model.hess_available = has_hessian
 
     # Initialize evaluator using model's structure.
@@ -1473,7 +1484,7 @@ function _setup_model(model::Optimizer)
     if has_jacobian_operator
         push!(init_feat, :JacVec)
     end
-    MOI.initialize(model.nlp_data.evaluator, init_feat)
+    MOI.initialize(model.evaluator, init_feat)
 
     # Sparsity
     jacobian_sparsity = MOI.jacobian_structure(model)
@@ -1510,34 +1521,28 @@ function _setup_nlp(model::Optimizer; array_type = nothing)
     nnzh = length(model.hrows)
 
     # Initial variable
-    nvar = length(model.variables.lower)
+    nvar = length(model.model.variables.lower)
     x0 = zeros(Float64, nvar)
     for i in 1:length(model.variable_primal_start)
         x0[i] = if model.variable_primal_start[i] !== nothing
             model.variable_primal_start[i]
         else
-            clamp(0.0, model.variables.lower[i], model.variables.upper[i])
+            clamp(0.0, model.model.variables.lower[i], model.model.variables.upper[i])
         end
     end
 
     # Constraints bounds
-    g_L, g_U = copy(model.qp_data.g_L), copy(model.qp_data.g_U)
-    for (_, s) in model.vector_nonlinear_oracle_constraints
-        append!(g_L, s.set.l)
-        append!(g_U, s.set.u)
-    end
-    for bound in model.nlp_data.constraint_bounds
-        push!(g_L, bound.lower)
-        push!(g_U, bound.upper)
-    end
+    bounds = MOI.Nonlinear._constraint_bounds(model.evaluator)
+    g_L = Float64[b.lower for b in bounds]
+    g_U = Float64[b.upper for b in bounds]
     ncon = length(g_L)
 
     # Dual multipliers
     y0 = zeros(Float64, ncon)
-    for (i, start) in enumerate(model.qp_data.mult_g)
+    for (i, start) in enumerate(model.model.qp.mult_g)
         y0[i] = _dual_start(model, start, -1)
     end
-    offset = length(model.qp_data.mult_g)
+    offset = length(model.model.qp.mult_g)
     if model.nlp_dual_start === nothing
         # First there is VectorNonlinearOracle...
         for (_, cache) in model.vector_nonlinear_oracle_constraints
@@ -1562,8 +1567,8 @@ function _setup_nlp(model::Optimizer; array_type = nothing)
         NLPModels.NLPModelMeta(
             nvar,
             x0 = x0,
-            lvar = model.variables.lower,
-            uvar = model.variables.upper,
+            lvar = model.model.variables.lower,
+            uvar = model.model.variables.upper,
             ncon = ncon,
             y0 = y0,
             lcon = g_L,
@@ -1599,13 +1604,6 @@ function MOI.optimize!(model::Optimizer)
     end
     if model.invalid_model
         return
-    end
-
-    if model.nlp_model !== nothing
-        empty!(model.qp_data.parameters)
-        for (p, index) in model.parameters
-            model.qp_data.parameters[p.value] = model.nlp_model[index]
-        end
     end
 
     array_type = pop!(model.options, :array_type, nothing)
@@ -1773,9 +1771,9 @@ function MOI.get(
 )
     MOI.check_result_index_bounds(model, attr)
     MOI.throw_if_not_valid(model, vi)
-    if _is_parameter(vi)
-        p = model.parameters[vi]
-        return model.nlp_model[p]
+    if MOI.Nonlinear._is_parameter(vi)
+        p = MOI.Nonlinear.ParameterIndex(vi.value - MOI.Nonlinear._PARAMETER_OFFSET)
+        return model.model.inner[p]
     end
     return model.result.solution[vi.value]
 end
@@ -1798,7 +1796,7 @@ function row(
     model::Optimizer,
     ci::MOI.ConstraintIndex{MOI.ScalarNonlinearFunction},
 )
-    offset = length(model.qp_data)
+    offset = length(model.model)
     for (_, s) in model.vector_nonlinear_oracle_constraints
         offset += s.set.output_dimension
     end
@@ -1885,6 +1883,6 @@ end
 function MOI.get(model::Optimizer, attr::MOI.NLPBlockDual)
     MOI.check_result_index_bounds(model, attr)
     s = -_dual_multiplier(model)
-    offset = length(model.qp_data)
+    offset = length(model.model)
     return s .* model.result.multipliers[(offset+1):end]
 end
