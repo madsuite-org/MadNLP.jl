@@ -1,4 +1,4 @@
-![logo](https://github.com/MadNLP/MadNLP.jl/blob/master/logo-full.svg)
+![logo](https://github.com/madsuite-org/MadNLP.jl/blob/master/logo-full.svg)
 
 *A [nonlinear programming](https://en.wikipedia.org/wiki/Nonlinear_programming) solver based on the filter line-search [interior point method](https://en.wikipedia.org/wiki/Interior-point_method) (as in [Ipopt](https://github.com/coin-or/Ipopt)) that can handle/exploit diverse classes of data structures, either on [host](https://en.wikipedia.org/wiki/Central_processing_unit) or [device](https://en.wikipedia.org/wiki/Graphics_processing_unit) memories.*
 
@@ -9,15 +9,15 @@
 | [![License: MIT][license-img]][license-url] | [![docs-stable][docs-stable-img]][docs-stable-url] [![docs-dev][docs-dev-img]][docs-dev-url] | [![build-gh][build-gh-img]][build-gh-url] | [![codecov][codecov-img]][codecov-url] | [![doi][doi-img]][doi-url] |
 
 [license-img]: https://img.shields.io/badge/License-MIT-yellow.svg
-[license-url]: https://github.com/MadNLP/MadNLP.jl/blob/master/LICENSE
+[license-url]: https://github.com/madsuite-org/MadNLP.jl/blob/master/LICENSE
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
-[docs-stable-url]: https://madnlp.github.io/MadNLP.jl/stable
+[docs-stable-url]: https://madsuite-org.github.io/MadNLP.jl/stable
 [docs-dev-img]: https://img.shields.io/badge/docs-dev-purple.svg
-[docs-dev-url]: https://madnlp.github.io/MadNLP.jl/dev
-[build-gh-img]: https://github.com/MadNLP/MadNLP.jl/actions/workflows/test.yml/badge.svg
-[build-gh-url]: https://github.com/MadNLP/MadNLP.jl/actions/workflows/test.yml
-[codecov-img]: https://codecov.io/gh/MadNLP/MadNLP.jl/branch/master/graph/badge.svg?token=MBxH2AAu8Z
-[codecov-url]: https://codecov.io/gh/MadNLP/MadNLP.jl
+[docs-dev-url]: https://madsuite-org.github.io/MadNLP.jl/dev
+[build-gh-img]: https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml/badge.svg
+[build-gh-url]: https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml
+[codecov-img]: https://codecov.io/gh/madsuite-org/MadNLP.jl/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/madsuite-org/MadNLP.jl
 [doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.5825776.svg
 [doi-url]: https://doi.org/10.5281/zenodo.5825776
 
@@ -79,5 +79,5 @@ If you use MadNLP.jl in your research, we would greatly appreciate your citing i
 ```
 
 ## Supporting MadNLP.jl
-- Please report issues and feature requests via the [GitHub issue tracker](https://github.com/MadNLP/MadNLP.jl/issues).
-- Questions are welcome at [GitHub discussion forum](https://github.com/MadNLP/MadNLP.jl/discussions).
+- Please report issues and feature requests via the [GitHub issue tracker](https://github.com/madsuite-org/MadNLP.jl/issues).
+- Questions are welcome at [GitHub discussion forum](https://github.com/madsuite-org/MadNLP.jl/discussions).

@@ -11,7 +11,7 @@ Notably, MadNLP is part of [MadSuite](https://madsuite.org/), a suite of GPU-acc
 ## Design
 
 ### MadNLP's problem structure
-MadNLP targets the solution of constrained nonlinear problems, formulating as
+MadNLP targets the solution of constrained nonlinear problems, formulated as
 ```math
   \begin{aligned}
     \min_{x} \; & f(x) \\

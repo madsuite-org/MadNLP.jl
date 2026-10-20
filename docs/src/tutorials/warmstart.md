@@ -29,7 +29,7 @@ after a small update in the problem's parameters.
     support of warmstarting, on the contrary to active-set methods.
     However, if the new parameters remain close enough and do not lead
     to significant changes in the active set, warmstarting the
-    interior-point algorithm can significantly reduces the total number of barrier iterations
+    interior-point algorithm can significantly reduce the total number of barrier iterations
     in the second solve.
 
 !!! warning
@@ -79,7 +79,7 @@ results_new = madnlp(nlp)
 nothing
 
 ```
-By decreasing the initial barrier parameter , we can reduce the total number
+By decreasing the initial barrier parameter, we can reduce the total number
 of iterations to 5:
 ```@example warmstart
 results_new = madnlp(nlp; barrier=MadNLP.MonotoneUpdate(; mu_init=1e-7))
@@ -158,12 +158,12 @@ the total number of iterations. We solve the problem again using:
 MadNLP.solve!(solver; barrier=MadNLP.MonotoneUpdate(; mu_init=1e-7))
 nothing
 ```
-Three observations are in order:
+Four observations are in order:
 - The iteration count starts directly from the previous count (as stored in `solver.cnt.k`).
 - MadNLP converges in only 4 iterations.
 - The symbolic factorization of the KKT system stored in `solver` is directly re-used, leading to significant savings.
 - The warm-start does not work if the structure of the problem changes between
-  two consecutive solves (e.g, if variables or constraints are added to the constraints).
+  two consecutive solves (e.g, if variables or constraints are added to the problem).
 
 !!! warning
     If we call the function [`solve!`](@ref) a second-time,

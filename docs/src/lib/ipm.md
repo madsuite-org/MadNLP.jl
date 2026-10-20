@@ -5,7 +5,7 @@ CurrentModule = MadNLP
 # MadNLP solver
 
 MadNLP takes as input a nonlinear program encoded as
-a `AbstractNLPModel` and solve it using interior-point.
+a `AbstractNLPModel` and solves it using an interior-point method.
 The main entry point is the function `madnlp`:
 ```@docs
 madnlp

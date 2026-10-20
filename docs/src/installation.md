@@ -1,5 +1,5 @@
 # Installation
-To install MadNLP, simply proceed to
+To install MadNLP, run
 ```julia
 pkg> add MadNLP
 ```

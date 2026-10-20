@@ -42,13 +42,13 @@ function airport_model(T)
     IJ = [(i, j) for i in 1:N-1 for j in i+1:N]
     # Write model using ExaModels
     core = ExaModels.ExaCore(T)
-    x = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
-    y = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
-    ExaModels.objective(
+    ExaModels.@add_var(core, x, 1:N; lvar = -10.0, uvar = 10.0)
+    ExaModels.@add_var(core, y, 1:N; lvar = -10.0, uvar = 10.0)
+    ExaModels.@add_obj(
         core,
         ((x[i] - x[j])^2 + (y[i] - y[j])^2) for (i, j) in IJ
     )
-    ExaModels.constraint(core, (x[i]-dcx)^2 + (y[i] - dcy)^2 - dr for (i, dcx, dcy, dr) in data; lcon=-Inf)
+    ExaModels.@add_con(core, (x[i]-dcx)^2 + (y[i] - dcy)^2 - dr for (i, dcx, dcy, dr) in data; lcon=-Inf)
     return ExaModels.ExaModel(core)
 end
 ```
@@ -71,10 +71,11 @@ println(typeof(x0))
 Now that we have instantiated our model in `Float32`, we solve
 it using MadNLP. As `nlp` is using `Float32`, MadNLP will automatically adjust
 its internal types to `Float32` during the instantiation.
-By default, the convergence tolerance is also adjusted to the input type, such that `tol = sqrt(eps(T))`.
+By default, the convergence tolerance is also adjusted to the input type, such that
+`tol = 10^round(log10(eps(T)) / 2)` (i.e. `1e-8` in `Float64`).
 Hence, in our case the tolerance is set automatically to
 ```@example multiprecision
-tol = sqrt(eps(Float32))
+tol = 10^round(log10(eps(Float32)) / 2)
 ```
 We solve the problem using Lapack as linear solver:
 ```@example multiprecision
@@ -86,7 +87,7 @@ nothing
     Note that the distribution of Lapack shipped with Julia supports
     `Float32`, so here we do not have to worry whether the
     type is supported by the linear solver. Almost all linear solvers shipped
-    with MadNLP supports `Float32`.
+    with MadNLP support `Float32`.
 
 The final solution is
 ```@example multiprecision
@@ -131,10 +132,10 @@ nlp_128 = airport_model(Float128)
 
 
 !!! warning
-    On the contrary to `Float32`, a few linear solvers support `Float128` out of the box.
-    Currently, the only solvers suporting quadruple in MadNLP are `LDLSolver`
+    Unlike `Float32`, only a few linear solvers support `Float128` out of the box.
+    Currently, the only solvers supporting quadruple in MadNLP are `LDLSolver`
     and the HSL solvers (require MadNLPHSL).
-    `LDLSolvers` uses [an LDL factorization implemented in pure Julia](https://github.com/JuliaSmoothOptimizers/LDLFactorizations.jl).
+    `LDLSolver` uses [an LDL factorization implemented in pure Julia](https://github.com/JuliaSmoothOptimizers/LDLFactorizations.jl).
     The solver `LDLSolver` is not adapted to solve large-scale nonconvex nonlinear programs,
     but works if the problem is small enough (as it is the case here).
 
@@ -152,5 +153,3 @@ as well as the final objective:
 ```@example multiprecision
 results_128.objective
 ```
-
-

@@ -125,7 +125,7 @@ I & J_0^\top \\
 J_0 & 0
 \end{bmatrix}
 \begin{bmatrix}
-w \\ y_0
+d \\ y_0
 \end{bmatrix}
 =
 -
@@ -156,8 +156,8 @@ for a positive barrier parameter $$\mu > 0$$:
 The algorithm stops as soon as `max(inf_pr, inf_du, inf_compl) < tol`, with
 ```math
 \begin{aligned}
-& \texttt{inf\_pr} = \| \nabla f(w) + \nabla c(w)^\top y - z \|_\infty \; , \\
-& \texttt{inf\_du} = \| c(w) \|_\infty \; , \\
+& \texttt{inf\_pr} = \| c(w) \|_\infty \; , \\
+& \texttt{inf\_du} = \| \nabla f(w) + \nabla c(w)^\top y - z \|_\infty \; , \\
 & \texttt{inf\_compl} = \| WZe \|_\infty \; .
 \end{aligned}
 ```
@@ -252,7 +252,7 @@ the blocks associated to the inequality constraints. This system
 is useful if the problem has many inequality constraints, or more importantly,
 [to run MadNLP on the GPU](tutorials/gpu.md). The user can switch the KKT system by using the option
 ```julia
-kkt_system=SparseUnreducedKKTSystem
+kkt_system=SparseCondensedKKTSystem
 ```
 For certain highly structured problem, it may be beneficial to implement
 a [custom KKT system](tutorials/kktsystem.md) to exploit the problem's structure.
@@ -263,12 +263,12 @@ The vector $$(\Delta w, \Delta y, \Delta z)$$ is a descent direction
 if the reduced Hessian (the Hessian $$H_k$$ projected on the null-space of the Jacobian
 $$J_k$$) of the primal-dual KKT system is **positive definite**.
 The reduced Hessian is positive definite if and only if the inertia of the reduced primal-dual KKT system (the number of positive,
-zero and negative eigenvalues) should exactly be equal to ``(n, 0, m)``.
+zero and negative eigenvalues) is exactly equal to ``(n, 0, m)``.
 
 MadNLP uses an inertia correction mechanism that increases the values of the
 primal and dual regularizations $$(\delta_x, \delta_y)$$ in the KKT system until the inertia
 of the system is exactly ``(n, 0, m)``. This procedure requires using
-an *inertia-revealing* inertia solver that returns explicitly the inertia of the system
+an *inertia-revealing* linear solver that returns explicitly the inertia of the system
 as an output of the factorization. This procedure can be costly, as it involves
 re-factorizing the linear system each time a new regularization is tried.
 
@@ -307,7 +307,7 @@ function $$\phi_\mu(w) = f(w) - \mu \sum_{i=1}^n \log(w_i)$$ or it reduces
 the constraint violation $$\|c(w)\|_1$$, by comparing these two values with those of a list of past iterates.
 
 
-#### Feasility restoration phase
+#### Feasibility restoration phase
 
 If no acceptable step is found by the line search, MadNLP switches to a restoration
 phase that attempts at projecting the current iterate onto the feasible set.

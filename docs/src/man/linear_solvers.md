@@ -1,3 +1,5 @@
+# Linear solvers
+
 ```@meta
 CurrentModule = MadNLP
 ```
@@ -23,9 +25,9 @@ kkt = MadNLP.create_kkt_system(
 n = NLPModels.get_nvar(nlp)
 m = NLPModels.get_ncon(nlp)
 x = NLPModels.get_x0(nlp)
-l = zeros(m)
+y = zeros(m)
 hess_values = MadNLP.get_hessian(kkt)
-NLPModels.hess_coord!(nlp, x, l, hess_values)
+NLPModels.hess_coord!(nlp, x, y, hess_values)
 
 jac_values = MadNLP.get_jacobian(kkt)
 NLPModels.jac_coord!(nlp, x, jac_values)
@@ -34,7 +36,6 @@ MadNLP.compress_jacobian!(kkt)
 MadNLP.build_kkt!(kkt)
 
 ```
-# Linear solvers
 
 We suppose that the KKT system has been assembled previously
 into a given [`AbstractKKTSystem`](@ref). Then, it remains to compute
@@ -63,14 +64,15 @@ a multiple of the identity to it: $$K_r = K + \alpha I$$.
 
 !!! note
     We recall that the inertia of a matrix $$K$$ is given as
-    a triplet $$(n,m,p)$$, with $$n$$ the number of positive eigenvalues,
-    $$m$$ the number of negative eigenvalues and $$p$$ the number of
+    a triplet ``(n_+, n_-, n_0)``, with ``n_+`` the number of positive eigenvalues,
+    ``n_-`` the number of negative eigenvalues and ``n_0`` the number of
     zero eigenvalues.
 
 
 ## Factorization algorithm
 In nonlinear programming, it is common
-to employ a LBL factorization to decompose the symmetric indefinite
+to employ an ``LBL^\top`` factorization (with ``L`` lower triangular
+and ``B`` block-diagonal) to decompose the symmetric indefinite
 matrix $$K$$, as this algorithm returns the inertia
 of the matrix directly as a result of the factorization.
 
@@ -105,7 +107,7 @@ That way every time we re-assemble the matrix $$K$$ in `kkt`,
 the values are directly updated inside `linear_solver`.
 
 To compute the factorization inside `linear_solver`,
-one simply as to call:
+one simply has to call:
 ```@example linear_solver_example
 MadNLP.factorize!(linear_solver)
 

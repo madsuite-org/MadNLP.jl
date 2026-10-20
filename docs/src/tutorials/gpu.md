@@ -51,13 +51,13 @@ function airport_model(T, backend)
     IJ = [(i, j) for i in 1:N-1 for j in i+1:N]
     # Write model using ExaModels
     core = ExaModels.ExaCore(T; backend=backend)
-    x = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
-    y = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
-    ExaModels.objective(
+    ExaModels.@add_var(core, x, 1:N; lvar = -10.0, uvar = 10.0)
+    ExaModels.@add_var(core, y, 1:N; lvar = -10.0, uvar = 10.0)
+    ExaModels.@add_obj(
         core,
         ((x[i] - x[j])^2 + (y[i] - y[j])^2) for (i, j) in IJ
     )
-    ExaModels.constraint(core, (x[i]-dcx)^2 + (y[i] - dcy)^2 - dr for (i, dcx, dcy, dr) in data; lcon=-Inf)
+    ExaModels.@add_con(core, (x[i]-dcx)^2 + (y[i] - dcy)^2 - dr for (i, dcx, dcy, dr) in data; lcon=-Inf)
     return ExaModels.ExaModel(core)
 end
 ```
@@ -113,7 +113,7 @@ In general, we recommend keeping the value of `bound_relax_factor` below `tol`.
 ### Solving the problem on the GPU with HyKKT
 
 Some applications require accurate solutions. In that case, we recommend using the
-extension [HybridKKT.jl](https://github.com/MadNLP/HybridKKT.jl), which implements
+extension [HybridKKT.jl](https://github.com/madsuite-org/HybridKKT.jl), which implements
 the Golub & Greif augmented Lagrangian formulation detailed [in this article](https://www.tandfonline.com/doi/abs/10.1080/10556788.2022.2124990). Compared to Lifted-KKT, the Hybrid-KKT
 strategy is more accurate (it doesn't relax the equality constraints in the problem) but
 slightly slower (it computes the descent direction using a conjugate gradient at every IPM iterations).
@@ -136,7 +136,7 @@ results = madnlp(
 
 If your optimization problem is not instantiated on the GPU, you can still
 solve it on the GPU by wrapping your model in a `SparseWrapperModel`.
-Oftentimes, this is the most convenient solution if your problem does not formulate easilly with ExaModels.
+Oftentimes, this is the most convenient solution if your problem does not formulate easily with ExaModels.
 In that case, the evaluation of the model runs on the CPU, but all MadNLP's internals
 are instantiated on the GPU (including the sparse linear solver).
 

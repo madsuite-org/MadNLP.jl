@@ -39,7 +39,7 @@ struct InertiaFree{
     T,
     VT <: AbstractVector{T},
     KKTVec <: AbstractKKTVector{T, VT}
-} <: AbstractInertiaCorrector 
+} <: AbstractInertiaCorrector
     p0::KKTVec
     d0::KKTVec
     t::VT
@@ -122,7 +122,7 @@ end
     LOQOUpdate{T} <: AbstractAdaptiveUpdate{T}
 
 Find the barrier parameter using the rule used in the LOQO solver.
-The rule is explicited in [Nocedal2009, Eq (3.6)].
+The rule is explicit in [Nocedal2009, Eq (3.6)].
 
 If no sufficient progress is made, the barrier fallbacks to a monotone rule.
 

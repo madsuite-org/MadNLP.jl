@@ -105,7 +105,7 @@ the getters [`get_hessian`](@ref) and [`get_jacobian`](@ref).
 
 Every time MadNLP queries the Hessian and the Jacobian, it updates the
 nonzero values in `kkt.hess` and `kkt.jac`.
-Rightafter, MadNLP calls
+Right after, MadNLP calls
 the functions [`compress_hessian!`](@ref) and [`compress_jacobian!`](@ref) respectively, to propagate these updates to all internal structures of the KKT system `kkt` associated with the Hessian and the Jacobian.
 
 To recap, every time we evaluate the Hessian and the Jacobian, MadNLP
@@ -163,7 +163,7 @@ MadNLP.solve_kkt!(kkt, w)
 
 As an example, we detail how to implement a custom KKT system in MadNLP.
 Note that we consider this usage as an advanced use of MadNLP.
-After this work of caution, let's dive into the details!
+After this word of caution, let's dive into the details!
 
 In this example, we want to approximate the Hessian of the Lagrangian ``H`` as a diagonal matrix ``D_H``
 and solve the following KKT system at each IPM iteration:
@@ -186,7 +186,7 @@ and solve the following KKT system at each IPM iteration:
 \end{pmatrix}
 ```
 This new system is not equivalent to the original system ``K``, but it's much easier to solve
-at it does not involve the full Hessian ``H``.
+as it does not involve the full Hessian ``H``.
 If the diagonal values of ``D_H`` are constant and are equal to ``\alpha``, the algorithm becomes equivalent to a gradient descent with step ``\alpha^{-1}``.
 
 Using the relations
@@ -316,7 +316,7 @@ n_jac = length(jac_sparsity_I)
 aug_vec_length = n_tot+m
 aug_mat_length = n_tot+m+n_hess+n_jac+n_slack
 
-# Build vectors to store COO coortinates
+# Build vectors to store COO coordinates
 I = MadNLP.create_array(cb, Int32, aug_mat_length)
 J = MadNLP.create_array(cb, Int32, aug_mat_length)
 V = VT(undef, aug_mat_length)
