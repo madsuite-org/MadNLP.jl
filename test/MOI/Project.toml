@@ -1,0 +1,9 @@
+[deps]
+MINLPTests = "ee0a3090-8ee9-5cdb-b8cb-8eeba3165522"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+MINLPTests = "~0.5"
+MathOptInterface = "1.48"

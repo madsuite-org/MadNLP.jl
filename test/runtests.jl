@@ -1,7 +1,6 @@
-using Test, MadNLP, MadNLPTests, MINLPTests
+using Test, MadNLP, MadNLPTests
 using NLPModels
 using Quadmath
-import MathOptInterface
 import SparseArrays: sparse
 
 @testset "MadNLP test" begin
@@ -13,19 +12,11 @@ import SparseArrays: sparse
         include("kkt_test.jl")
     end
 
-    @testset "MOI interface" begin
-        include("MOI_interface_test.jl")
-    end
-
     @testset "MadNLP test" begin
         include("madnlp_test.jl")
         include("madnlp_dense.jl")
         include("madnlp_quasi_newton.jl")
         include("regression_test.jl")
-    end
-
-    @testset "MINLP test" begin
-        include("minlp_test.jl")
     end
 
     @testset "Schur complement" begin

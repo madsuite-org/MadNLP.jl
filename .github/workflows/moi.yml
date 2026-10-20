@@ -1,0 +1,49 @@
+name: MOI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-moi:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        julia-version: ['1']
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/install-juliaup@v2
+        with:
+          channel: ${{ matrix.julia-version }}
+      - uses: julia-actions/cache@v2
+      - name: Setup test environment
+        shell: julia --project=./test/MOI --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.Registry.update()
+          Pkg.develop(path=".")
+          Pkg.instantiate()
+      - name: test MOI wrapper and MINLPTests
+        run: julia --project=./test/MOI --code-coverage=user --color=yes test/MOI/runtests.jl
+      - uses: julia-actions/julia-processcoverage@v1
+        with:
+          directories: src,ext
+      - uses: codecov/codecov-action@v5
+        with:
+          files: lcov.info
+          flags: moi
+          token: ${{ secrets.CODECOV_TOKEN }}
+          # The org-wide token cannot imply a repository; the slug says
+          # which repo this upload is for.
+          slug: ${{ github.repository }}
