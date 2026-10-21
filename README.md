@@ -56,25 +56,13 @@ Furthermore, MadNLP comes with several extensions:
 If you use MadNLP.jl in your research, we would greatly appreciate your citing it.
 
 ```bibtex
-@article{shin2024accelerating,
-  title     = {Accelerating optimal power flow with {GPU}s: {SIMD} abstraction of nonlinear programs and condensed-space interior-point methods},
-  author    = {Shin, Sungho and Anitescu, Mihai and Pacaud, Fran{\c{c}}ois},
-  journal   = {Electric Power Systems Research},
-  volume    = {236},
-  pages     = {110651},
-  year      = {2024},
-  publisher = {Elsevier}
-}
-
-@article{shin2021graph,
-  title     = {Graph-based modeling and decomposition of energy infrastructures},
-  author    = {Shin, Sungho and Coffrin, Carleton and Sundar, Kaarthik and Zavala, Victor M},
-  journal   = {IFAC-PapersOnLine},
-  volume    = {54},
-  number    = {3},
-  pages     = {693--698},
-  year      = {2021},
-  publisher = {Elsevier}
+@article{pacaud2026condensed,
+  title       = {Condensed interior-point methods for scalable nonlinear programming on GPUs},
+  author      = {Pacaud, Fran{\c{c}}ois and Shin, Sungho and Montoison, Alexis and Schanen, Michel and Anitescu, Mihai},
+  journal     = {Mathematical Programming Computation},
+  pages       = {1--39},
+  year        = {2026},
+  publisher   = {Springer}
 }
 ```
 

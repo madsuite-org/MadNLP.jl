@@ -1,6 +1,6 @@
 name = "MadNLPTests"
 uuid = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
-version = "0.6.2"
+version = "0.6.3"
 
 [deps]
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
