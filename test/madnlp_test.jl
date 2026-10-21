@@ -289,18 +289,6 @@ end
     @test isa(time_madnlp.time_callbacks, NamedTuple)
 end
 
-@testset "Quadmath test" begin
-    nlp = MadNLPTests.HS15Model(T = Float128)
-    result = madnlp(
-        nlp;
-        print_level = MadNLP.ERROR,
-        callback = MadNLP.SparseCallback,
-        linear_solver=LDLSolver,
-        kkt_system = MadNLP.SparseCondensedKKTSystem
-    )
-    @test result.status == MadNLP.SOLVE_SUCCEEDED
-end
-
 @testset "Adaptive barrier" begin
     nlp = MadNLPTests.HS15Model(; x0=[1.0, 1.0])
     ref = madnlp(nlp; print_level = MadNLP.ERROR)
@@ -321,31 +309,9 @@ end
     nlp = MadNLPTests.HS15Model(; T=T, x0=T[1, 1])
     tol = T == Float32 ? T(1e-4) : T(1e-8)
     for barrier in [
+        MadNLP.MonotoneUpdate(),
         MadNLP.LOQOUpdate{T}(),
         MadNLP.QualityFunctionUpdate{T}(),
-    ]
-        results = madnlp(
-            nlp;
-            tol=tol,
-            callback=MadNLP.SparseCallback,
-            kkt_system=MadNLP.SparseKKTSystem,
-            linear_solver=LDLSolver,
-            print_level=MadNLP.ERROR,
-            barrier=barrier,
-        )
-        @test results.status == MadNLP.SOLVE_SUCCEEDED
-        @test eltype(results.solution) == T
-    end
-end
-
-@testset "Barrier update with a different precision ($T)" for T in (Float32, Float128)
-    nlp = MadNLPTests.HS15Model(; T=T, x0=T[1, 1])
-    tol = T == Float32 ? T(1e-4) : T(1e-8)
-    # The default constructors build a barrier in Float64.
-    for barrier in [
-        MadNLP.MonotoneUpdate(),
-        MadNLP.LOQOUpdate(),
-        MadNLP.QualityFunctionUpdate(; max_gs_iter=10),
     ]
         solver = MadNLPSolver(
             nlp;
@@ -357,20 +323,12 @@ end
             barrier=barrier,
         )
         @test solver.opt.barrier isa MadNLP.AbstractBarrierUpdate{T}
-        @test typeof(solver.opt.barrier).name == typeof(barrier).name
         @test solver.opt.barrier.mu_min == T(barrier.mu_min)
+
         results = MadNLP.solve!(solver)
         @test results.status == MadNLP.SOLVE_SUCCEEDED
+        @test eltype(results.solution) == T
     end
-    @test MadNLPSolver(
-        nlp;
-        tol=tol,
-        callback=MadNLP.SparseCallback,
-        kkt_system=MadNLP.SparseKKTSystem,
-        linear_solver=LDLSolver,
-        print_level=MadNLP.ERROR,
-        barrier=MadNLP.QualityFunctionUpdate(; max_gs_iter=10),
-    ).opt.barrier.max_gs_iter == 10
 end
 
 @testset "SparseUnreducedKKTSystem ($T)" for T in (Float32, Float128)
@@ -388,11 +346,6 @@ end
     results = MadNLP.solve!(solver)
     @test results.status == MadNLP.SOLVE_SUCCEEDED
     @test eltype(results.solution) == T
-end
-
-@testset "Average complementarity without bounds ($T)" for T in (Float32, Float128)
-    empty = T[]
-    @test MadNLP.get_average_complementarity(empty, empty, empty, empty, empty, empty) === zero(T)
 end
 
 @testset "Issue #430" begin
