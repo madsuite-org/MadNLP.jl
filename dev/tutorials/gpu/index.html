@@ -94,10 +94,10 @@ Number of Iterations....: 14
 
                                    (scaled)                 (unscaled)
 Objective...............:   4.7950001182430082e+04    4.7950001182430082e+04
-Dual infeasibility......:   2.6074650691376366e-09    2.6074650691376366e-09
+Dual infeasibility......:   2.6074717016979512e-09    2.6074717016979512e-09
 Constraint violation....:   7.3995456300896684e-12    7.3995456300896684e-12
-Complementarity.........:   7.0730004931624303e-06    7.0730004931624303e-06
-Overall NLP error.......:   7.0730004931624303e-06    7.0730004931624303e-06
+Complementarity.........:   7.0730004931624269e-06    7.0730004931624269e-06
+Overall NLP error.......:   7.0730004931624269e-06    7.0730004931624269e-06
 
 Number of objective function evaluations              = 15
 Number of objective gradient evaluations              = 15
@@ -107,11 +107,11 @@ Number of Lagrangian Hessian evaluations              = 14
 Number of KKT factorizations                          = 14
 Number of KKT backsolves                              = 14
 
-Total wall secs in initialization                     = 62.361 s
+Total wall secs in initialization                     = 63.920 s
 Total wall secs in linear solver                      =  unavailable
-Total wall secs in NLP function evaluations           =  1.451 s
+Total wall secs in NLP function evaluations           =  1.482 s
 Total wall secs in solver (w/o init./fun./lin. alg.)  =  unavailable
-Total wall secs                                       = 209.869 s
+Total wall secs                                       = 212.872 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-04).</span></code></pre><p>Note that we are using the sparse linear solver <a href="https://docs.nvidia.com/cuda/cudss/getting_started.html">NVIDIA cuDSS</a> to solve the primal-dual KKT system entirely on the GPU.</p><p>When solving an optimization problem on the GPU, MadNLP proceeds to some automatic modifications. In order:</p><ol><li>It increases the parameter <code>bound_relax_factor</code> to <code>1e-4</code>.</li><li>It relaxes all the equality constraints <span>$g(x) = 0$</span> as a pair of inequality constraints <span>$-\tau \leq g(x) \leq \tau$</span>, with <span>$\tau$</span> being equal to <code>bound_relax_factor</code>;</li><li>It reduces the KKT system down to sparse condensed system, exploiting the fact that the relaxed problem has only (potentially tight) inequality constraints. Up to a given primal regularization, the resulting KKT system is positive definite and can be factorized using a pivoting-free factorization routines (e.g. a Cholesky or an LDL&#39; decompositions). This is the so-called <em>Lifted-KKT</em> formulation documented in <a href="https://arxiv.org/html/2405.14236v2">this article</a>.</li><li>The new condensed KKT system increases the ill-conditioning inherent to the interior-point method, amplifying the loss of accuracy when the iterates get close to a local solution. As a result, the termination tolerance <code>tol</code> is also increased to <code>1e-4</code> to recover convergence.</li></ol><p>As a result, the convergence observed can be significantly different than what we observe on the CPU. In particular, relaxing the parameter <code>bound_relax_factor</code> has a non-marginal impact on the feasible set&#39;s geometry. You can limit the loss of accuracy by specifying explicitly the relaxation and tolerance parameters to MadNLP:</p><pre><code class="language-julia hljs">results = madnlp(
     nlp;
@@ -151,16 +151,16 @@ iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
   12  4.7952821e+04 3.39e-06 1.21e-03 2.85e-03  -2.5     -   1.00e+00  1  1f
   13  4.7952705e+04 3.84e-09 1.12e-06 1.18e-04  -3.8     -   1.00e+00  1  1f
   14  4.7952699e+04 8.17e-12 2.88e-09 1.44e-06  -5.7     -   1.00e+00  1  1f
-  15  4.7952699e+04 1.26e-15 6.63e-13 7.07e-09  -8.0     -   1.00e+00  2  1f
+  15  4.7952699e+04 1.26e-15 6.36e-13 7.07e-09  -8.0     -   1.00e+00  2  1f
 
 Number of Iterations....: 15
 
                                    (scaled)                 (unscaled)
 Objective...............:   4.7952698978117201e+04    4.7952698978117201e+04
-Dual infeasibility......:   6.6265903206694533e-13    6.6265903206694533e-13
-Constraint violation....:   1.2551947120160900e-15    1.2551947120160900e-15
-Complementarity.........:   7.0654614393884488e-09    7.0654614393884488e-09
-Overall NLP error.......:   7.0654614393884488e-09    7.0654614393884488e-09
+Dual infeasibility......:   6.3615267078426755e-13    6.3615267078426755e-13
+Constraint violation....:   1.2551947252509798e-15    1.2551947252509798e-15
+Complementarity.........:   7.0654614393892958e-09    7.0654614393892958e-09
+Overall NLP error.......:   7.0654614393892958e-09    7.0654614393892958e-09
 
 Number of objective function evaluations              = 16
 Number of objective gradient evaluations              = 16
@@ -174,7 +174,7 @@ Total wall secs in initialization                     =  0.023 s
 Total wall secs in linear solver                      =  unavailable
 Total wall secs in NLP function evaluations           =  0.004 s
 Total wall secs in solver (w/o init./fun./lin. alg.)  =  unavailable
-Total wall secs                                       =  0.077 s
+Total wall secs                                       =  0.079 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-07).</span></code></pre><p>Decreasing the tolerance <code>tol</code> too much is likely to cause numerical issues inside the algorithm. In general, we recommend keeping the value of <code>bound_relax_factor</code> below <code>tol</code>.</p><h3 id="Solving-the-problem-on-the-GPU-with-HyKKT"><a class="docs-heading-anchor" href="#Solving-the-problem-on-the-GPU-with-HyKKT">Solving the problem on the GPU with HyKKT</a><a id="Solving-the-problem-on-the-GPU-with-HyKKT-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem-on-the-GPU-with-HyKKT" title="Permalink"></a></h3><p>Some applications require accurate solutions. In that case, we recommend using the extension <a href="https://github.com/madsuite-org/HybridKKT.jl">HybridKKT.jl</a>, which implements the Golub &amp; Greif augmented Lagrangian formulation detailed <a href="https://www.tandfonline.com/doi/abs/10.1080/10556788.2022.2124990">in this article</a>. Compared to Lifted-KKT, the Hybrid-KKT strategy is more accurate (it doesn&#39;t relax the equality constraints in the problem) but slightly slower (it computes the descent direction using a conjugate gradient at every IPM iterations).</p><p>Once the package <code>HybridKKT</code> installed, the solution proceeds as</p><pre><code class="nohighlight hljs">using HybridKKT
 
@@ -261,10 +261,10 @@ Number of Iterations....: 14
 
                                    (scaled)                 (unscaled)
 Objective...............:   4.7950001182430162e+04    4.7950001182430162e+04
-Dual infeasibility......:   2.6074650691376374e-09    2.6074650691376374e-09
+Dual infeasibility......:   2.6074518040170069e-09    2.6074518040170069e-09
 Constraint violation....:   7.3995456300896684e-12    7.3995456300896684e-12
-Complementarity.........:   7.0730004931624362e-06    7.0730004931624362e-06
-Overall NLP error.......:   7.0730004931624362e-06    7.0730004931624362e-06
+Complementarity.........:   7.0730004931624337e-06    7.0730004931624337e-06
+Overall NLP error.......:   7.0730004931624337e-06    7.0730004931624337e-06
 
 Number of objective function evaluations              = 15
 Number of objective gradient evaluations              = 15
@@ -274,11 +274,11 @@ Number of Lagrangian Hessian evaluations              = 14
 Number of KKT factorizations                          = 14
 Number of KKT backsolves                              = 14
 
-Total wall secs in initialization                     =  1.940 s
+Total wall secs in initialization                     =  1.977 s
 Total wall secs in linear solver                      =  unavailable
 Total wall secs in NLP function evaluations           =  0.003 s
 Total wall secs in solver (w/o init./fun./lin. alg.)  =  unavailable
-Total wall secs                                       =  9.502 s
+Total wall secs                                       =  9.866 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-04).</span></code></pre><h2 id="How-to-solve-on-the-GPU-a-JuMP-model?"><a class="docs-heading-anchor" href="#How-to-solve-on-the-GPU-a-JuMP-model?">How to solve on the GPU a JuMP model?</a><a id="How-to-solve-on-the-GPU-a-JuMP-model?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-solve-on-the-GPU-a-JuMP-model?" title="Permalink"></a></h2><p>If your model is implemented with JuMP, you can solve it on the GPU using the same trick as in the previous paragraph just by passing a new option <code>array_type</code> specifying which array type to use to instantiate the <code>SparseWrapperModel</code>.</p><p>This is demonstrated in the following example:</p><pre><code class="language-julia hljs">using CUDA
 using JuMP
@@ -294,4 +294,4 @@ model = Model(MadNLP.Optimizer)
 
 JuMP.set_optimizer_attribute(model, &quot;array_type&quot;, CuArray)
 JuMP.set_optimizer_attribute(model, &quot;linear_solver&quot;, CUDSSSolver)
-JuMP.optimize!(model) # Solve the model on the GPU!</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../options/">« Options</a><a class="docs-footer-nextpage" href="../multiprecision/">Multi-precision »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 22 October 2026 12:17">Thursday 22 October 2026</span>. Using Julia version 1.13.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+JuMP.optimize!(model) # Solve the model on the GPU!</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../options/">« Options</a><a class="docs-footer-nextpage" href="../multiprecision/">Multi-precision »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Thursday 22 October 2026 14:44">Thursday 22 October 2026</span>. Using Julia version 1.13.2.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
