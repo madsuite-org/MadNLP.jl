@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Quasi-Newton · MadNLP.jl</title><meta name="title" content="Quasi-Newton · MadNLP.jl"/><meta property="og:title" content="Quasi-Newton · MadNLP.jl"/><meta property="twitter:title" content="Quasi-Newton · MadNLP.jl"/><meta name="description" content="Documentation for MadNLP.jl."/><meta property="og:description" content="Documentation for MadNLP.jl."/><meta property="twitter:description" content="Documentation for MadNLP.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="MadNLP.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">MadNLP.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li><li><a class="tocitem" href="../../algorithm/">Algorithm</a></li><li><a class="tocitem" href="../../options/">Options</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../gpu/">GPU acceleration</a></li><li><a class="tocitem" href="../multiprecision/">Multi-precision</a></li><li><a class="tocitem" href="../warmstart/">Warm-start</a></li><li class="is-active"><a class="tocitem" href>Quasi-Newton</a><ul class="internal"><li><a class="tocitem" href="#How-to-use-LBFGS-in-MadNLP?"><span>How to use LBFGS in MadNLP?</span></a></li><li><a class="tocitem" href="#How-to-use-BFGS-in-MadNLP?"><span>How to use BFGS in MadNLP?</span></a></li></ul></li><li><a class="tocitem" href="../kktsystem/">Custom KKT system</a></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../man/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../man/linear_solvers/">Linear Solvers</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../lib/ipm/">IPM solver</a></li><li><a class="tocitem" href="../../lib/barrier/">Barrier strategies</a></li><li><a class="tocitem" href="../../lib/callbacks/">Callback wrappers</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/linear_solvers/">Linear Solvers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Quasi-Newton</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Quasi-Newton</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MadNLP/MadNLP.jl/blob/master/docs/src/tutorials/quasi_newton.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Quasi-Newton-methods"><a class="docs-heading-anchor" href="#Quasi-Newton-methods">Quasi-Newton methods</a><a id="Quasi-Newton-methods-1"></a><a class="docs-heading-anchor-permalink" href="#Quasi-Newton-methods" title="Permalink"></a></h1><p>Sometimes, the second-order derivatives are just too expensive to evaluate. In that case, it is often a good idea to approximate the Hessian matrix using a Quasi-Newton algorithm. The BFGS algorithm uses the first-order derivatives (gradient and tranposed-Jacobian vector product) to approximate the Hessian of the Lagrangian. LBFGS is a variant of BFGS that computes a low-rank approximation of the Hessian matrix. By doing so, LBFGS does not have to store a large dense matrix in memory, rendering the algorithm appropriate in the large-scale regime.</p><p>MadNLP implements several quasi-Newton approximation for the Hessian matrix.</p><h2 id="How-to-use-LBFGS-in-MadNLP?"><a class="docs-heading-anchor" href="#How-to-use-LBFGS-in-MadNLP?">How to use LBFGS in MadNLP?</a><a id="How-to-use-LBFGS-in-MadNLP?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-use-LBFGS-in-MadNLP?" title="Permalink"></a></h2><p>First, we focus on the limited-memory version of the BFGS algorithm, commonly known as LBFGS. We refer to <a href="https://epubs.siam.org/doi/abs/10.1137/0916069">this article</a> for a detailed description of the method.</p><p>We look at the <code>elec</code> optimization problem from the <a href="https://www.mcs.anl.gov/~more/cops/">COPS benchmark</a>:</p><pre><code class="language-julia hljs">using Random
+using ExaModels
+
+function elec_model(np)
+    Random.seed!(1)
+    # Set the starting point to a quasi-uniform distribution of electrons on a unit sphere
+    theta = (2pi) .* rand(np)
+    phi = pi .* rand(np)
+
+    core = ExaModels.ExaCore(Float64)
+    x = ExaModels.variable(core, 1:np; start = [cos(theta[i])*sin(phi[i]) for i=1:np])
+    y = ExaModels.variable(core, 1:np; start = [sin(theta[i])*sin(phi[i]) for i=1:np])
+    z = ExaModels.variable(core, 1:np; start = [cos(phi[i]) for i=1:np])
+    # Coulomb potential
+    itr = [(i,j) for i in 1:np-1 for j in i+1:np]
+    ExaModels.objective(core, 1.0 / sqrt((x[i] - x[j])^2 + (y[i] - y[j])^2 + (z[i] - z[j])^2) for (i,j) in itr)
+    # Unit-ball
+    ExaModels.constraint(core, x[i]^2 + y[i]^2 + z[i]^2 - 1 for i=1:np)
+
+    return ExaModels.ExaModel(core)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">elec_model (generic function with 1 method)</code></pre><p>The problem computes the positions of the electrons in an atom. The potential of each electron depends on the positions of all the other electrons, coupling together all the variables in the problem and resulting in a dense Hessian matrix. Hence, the problem is good candidate for a quasi-Newton algorithm.</p><p>We start by solving the problem with the default options in MadNLP, using a dense linear solver from LAPACK:</p><pre><code class="language-julia hljs">using MadNLP
+nh = 10
+nlp = elec_model(nh)
+results_hess = madnlp(
+    nlp;
+    linear_solver=LapackCPUSolver,
+)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with Lapack-CPU (BUNCHKAUFMAN)
+
+Number of nonzeros in constraint Jacobian............:       30
+Number of nonzeros in Lagrangian Hessian.............:      975
+
+Total number of variables............................:       30
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:       10
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  4.8810842e+01 2.22e-16 1.71e+01 0.00e+00  -1.0     -   0.00e+00  1  0
+   1  4.8681505e+01 3.65e-06 1.69e+01 0.00e+00  -1.0    4.0  1.00e+00  1  1h
+   2  4.8316232e+01 3.04e-05 1.62e+01 0.00e+00  -1.0    3.5  1.00e+00  1  1h
+   3  4.7384770e+01 2.21e-04 1.47e+01 0.00e+00  -1.0    3.0  1.00e+00  1  1h
+   4  4.5463791e+01 1.23e-03 1.18e+01 0.00e+00  -1.0    2.6  1.00e+00  1  1h
+   5  4.2506911e+01 4.51e-03 7.99e+00 0.00e+00  -1.0    2.1  1.00e+00  1  1h
+   6  3.7327650e+01 3.00e-01 4.13e+00 0.00e+00  -1.0    1.6  1.00e+00  1  1h
+   7  3.4989135e+01 4.08e-02 2.26e+00 0.00e+00  -1.0    1.1  1.00e+00  1  1h
+   8  3.3060619e+01 5.97e-02 8.75e-01 0.00e+00  -1.0    0.7  1.00e+00  1  1h
+   9  2.2921585e+01 7.16e+00 6.98e+00 0.00e+00  -1.7    0.2  1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  2.6930940e+01 1.70e+00 1.43e+00 0.00e+00  -1.7     -   1.00e+00  1  1h
+  11  3.1634652e+01 2.92e-01 9.84e-01 0.00e+00  -1.7    0.6  1.00e+00  1  1h
+  12  3.1839081e+01 2.77e-01 5.39e-01 0.00e+00  -1.7    0.1  1.00e+00  1  1h
+  13  3.2320194e+01 7.37e-02 2.82e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  14  3.2674733e+01 9.98e-03 5.99e-02 0.00e+00  -1.7   -0.3  1.00e+00  1  1h
+  15  3.2684884e+01 5.24e-03 1.60e-02 0.00e+00  -2.5   -0.8  1.00e+00  1  1h
+  16  3.2560406e+01 1.69e-02 6.92e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  17  3.2706375e+01 1.35e-03 4.25e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  18  3.2707572e+01 9.96e-04 3.60e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  19  3.2716885e+01 6.41e-06 2.13e-05 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  20  3.2716949e+01 1.19e-08 4.30e-08 0.00e+00  -5.7     -   1.00e+00  1  1h
+  21  3.2716949e+01 6.66e-16 1.78e-15 0.00e+00  -8.6     -   1.00e+00  1  1h
+
+Number of Iterations....: 21
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.2716949460147582e+01    3.2716949460147582e+01
+Dual infeasibility......:   1.7763568394002505e-15    1.7763568394002505e-15
+Constraint violation....:   6.6613381477509392e-16    6.6613381477509392e-16
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   1.7763568394002505e-15    1.7763568394002505e-15
+
+Number of objective function evaluations              = 22
+Number of objective gradient evaluations              = 22
+Number of constraint evaluations                      = 22
+Number of constraint Jacobian evaluations             = 22
+Number of Lagrangian Hessian evaluations              = 21
+Number of KKT factorizations                          = 40
+Number of KKT backsolves                              = 22
+
+Total wall secs in initialization                     =  2.658 s
+Total wall secs in linear solver                      =  0.002 s
+Total wall secs in NLP function evaluations           =  0.000 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  9.141 s
+Total wall secs                                       = 11.801 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>We observe that MadNLP converges in 21 iterations.</p><p>To replace the second-order derivatives by an LBFGS approximation, you should pass the option <code>hessian_approximation=CompactLBFGS</code> to MadNLP.</p><pre><code class="language-julia hljs">results_qn = madnlp(
+    nlp;
+    linear_solver=LapackCPUSolver,
+    hessian_approximation=MadNLP.CompactLBFGS,
+)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with Lapack-CPU (BUNCHKAUFMAN)
+
+Number of nonzeros in constraint Jacobian............:       30
+Number of nonzeros in Lagrangian Hessian.............:      975
+
+Total number of variables............................:       30
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:       10
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  4.8810842e+01 2.22e-16 1.71e+01 0.00e+00  -1.0     -   0.00e+00  1  0
+   1  2.2956342e+00 1.50e+03 2.04e+02 0.00e+00  -1.0     -   1.25e-01  1  4f
+   2  4.4967927e+00 3.76e+02 5.48e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   3  8.7093834e+00 9.38e+01 1.37e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   4  1.4770500e+01 2.32e+01 3.20e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   5  1.8176499e+01 9.94e+00 1.50e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   6  2.5109575e+01 2.32e+00 1.92e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   7  2.8512602e+01 2.52e+00 2.52e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   8  1.2760325e+01 3.54e+01 1.13e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   9  1.5623867e+01 1.58e+01 2.83e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  2.1982619e+01 5.68e+00 1.87e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  11  2.2550708e+01 4.14e+00 1.15e+00 0.00e+00  -1.0     -   5.00e-01  1  2h
+  12  2.6617499e+01 1.76e+00 1.64e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  13  2.8301250e+01 1.78e+00 2.36e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  14  2.9440900e+01 8.43e-01 1.73e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  15  3.0789962e+01 4.26e-01 1.73e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  16  3.2172088e+01 1.77e-01 1.13e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  17  3.2605615e+01 3.60e-02 3.88e-01 0.00e+00  -1.0     -   1.00e+00  1  1h
+  18  3.2790290e+01 9.45e-03 2.48e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  19  3.2777796e+01 6.22e-03 1.87e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  20  3.2204263e+01 1.44e-01 3.75e-01 0.00e+00  -2.5     -   1.00e+00  1  1h
+  21  3.2584660e+01 3.57e-02 2.45e-01 0.00e+00  -2.5     -   1.00e+00  1  1h
+  22  3.2700371e+01 5.30e-03 9.80e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  23  3.2715038e+01 8.46e-04 4.00e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  24  3.2717788e+01 4.35e-04 3.50e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  25  3.2720180e+01 1.32e-04 2.08e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  26  3.2720685e+01 3.56e-05 4.95e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  27  3.2720835e+01 3.10e-06 2.66e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  28  3.2720457e+01 4.49e-05 5.46e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  29  3.2714888e+01 6.03e-04 2.59e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  30  3.1599309e+01 1.26e-01 5.67e-01 0.00e+00  -3.8     -   1.00e+00  1  1h
+  31  3.1274890e+01 1.40e-01 3.39e-01 0.00e+00  -3.8     -   1.00e+00  1  1h
+  32  3.2666066e+01 1.48e-02 5.14e-01 0.00e+00  -3.8     -   1.00e+00  1  1h
+  33  3.2638320e+01 1.65e-02 1.35e-01 0.00e+00  -3.8     -   1.00e+00  1  1h
+  34  3.2704002e+01 5.69e-03 1.34e-01 0.00e+00  -3.8     -   1.00e+00  1  1h
+  35  3.2714347e+01 1.20e-03 1.56e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  36  3.2719760e+01 7.06e-05 6.75e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  37  3.2713492e+01 1.02e-03 3.18e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  38  3.2700419e+01 2.46e-03 6.71e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  39  3.2704367e+01 1.58e-03 4.67e-02 0.00e+00  -3.8     -   5.00e-01  1  2h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  40  3.2710343e+01 9.34e-04 2.87e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  41  3.2708148e+01 1.46e-03 3.30e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  42  3.2661678e+01 5.95e-03 5.50e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  43  3.2678493e+01 5.20e-03 2.38e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  44  3.2696745e+01 2.70e-03 3.89e-02 0.00e+00  -3.8     -   5.00e-01  1  2h
+  45  3.2715793e+01 1.98e-04 6.86e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  46  3.2716827e+01 1.19e-05 2.56e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  47  3.2711738e+01 6.09e-04 1.98e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  48  3.2716512e+01 1.02e-04 1.95e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  49  3.2715191e+01 3.29e-04 4.43e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  3.2716812e+01 3.78e-05 1.33e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  51  3.2716764e+01 3.58e-05 9.62e-04 0.00e+00  -3.8     -   1.00e+00  1  1h
+  52  3.2716948e+01 7.95e-07 1.63e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  53  3.2716950e+01 1.15e-07 3.10e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  54  3.2716951e+01 9.76e-09 2.13e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  55  3.2716936e+01 1.60e-06 7.83e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  56  3.2716869e+01 1.23e-05 5.09e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  57  3.2716912e+01 6.32e-06 1.35e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  58  3.2716927e+01 3.76e-06 4.73e-04 0.00e+00  -5.7     -   5.00e-01  1  2h
+  59  3.2716949e+01 1.53e-07 5.53e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  60  3.2716949e+01 3.55e-08 6.97e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  61  3.2716949e+01 1.64e-09 7.05e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  62  3.2716949e+01 7.95e-10 4.53e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  63  3.2716949e+01 5.08e-08 2.33e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  64  3.2716948e+01 1.89e-07 5.26e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  65  3.2716949e+01 1.58e-07 1.74e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  66  3.2716949e+01 8.10e-08 2.11e-04 0.00e+00  -5.7     -   5.00e-01  1  2h
+  67  3.2716949e+01 8.24e-09 1.56e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  68  3.2716949e+01 2.11e-10 2.76e-05 0.00e+00  -8.6     -   1.00e+00  1  1h
+  69  3.2716949e+01 8.34e-11 3.36e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  70  3.2716949e+01 2.09e-12 2.47e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  71  3.2716949e+01 2.47e-10 1.04e-05 0.00e+00  -8.6     -   1.00e+00  1  1h
+  72  3.2716949e+01 7.76e-10 2.84e-05 0.00e+00  -8.6     -   1.00e+00  1  1h
+  73  3.2716949e+01 3.25e-10 2.58e-05 0.00e+00  -8.6     -   1.00e+00  1  1h
+  74  3.2716949e+01 3.48e-10 9.13e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  75  3.2716949e+01 4.79e-11 1.09e-05 0.00e+00  -8.6     -   1.00e+00  1  1h
+  76  3.2716949e+01 1.21e-11 1.31e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  77  3.2716949e+01 5.24e-13 4.86e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  78  3.2716949e+01 1.01e-13 3.66e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  79  3.2716949e+01 1.06e-13 4.60e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  80  3.2716949e+01 2.89e-14 2.56e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  81  3.2716949e+01 1.98e-14 1.24e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  82  3.2716949e+01 2.32e-13 2.21e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  83  3.2716949e+01 2.96e-12 1.12e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  84  3.2716949e+01 1.54e-12 1.84e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  85  3.2716949e+01 2.68e-12 6.56e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  86  3.2716949e+01 9.10e-13 1.45e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  87  3.2716949e+01 3.16e-13 2.78e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  88  3.2716949e+01 8.02e-14 6.78e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+  89  3.2716949e+01 4.26e-14 4.25e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  90  3.2716949e+01 3.24e-14 2.05e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+  91  3.2716949e+01 4.44e-16 3.22e-08 0.00e+00  -9.0     -   1.00e+00  1  1h
+  92  3.2716949e+01 6.66e-16 5.88e-08 0.00e+00  -9.0     -   1.00e+00  1  1h
+  93  3.2716949e+01 4.44e-16 9.16e-09 0.00e+00  -9.0     -   1.00e+00  1  1h
+
+Number of Iterations....: 93
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.2716949460147582e+01    3.2716949460147582e+01
+Dual infeasibility......:   9.1553183922954418e-09    9.1553183922954418e-09
+Constraint violation....:   4.4408920985006262e-16    4.4408920985006262e-16
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   9.1553183922954418e-09    9.1553183922954418e-09
+
+Number of objective function evaluations              = 105
+Number of objective gradient evaluations              = 94
+Number of constraint evaluations                      = 105
+Number of constraint Jacobian evaluations             = 94
+Number of Lagrangian Hessian evaluations              = 0
+Number of KKT factorizations                          = 94
+Number of KKT backsolves                              = 97
+
+Total wall secs in initialization                     =  0.277 s
+Total wall secs in linear solver                      =  0.016 s
+Total wall secs in NLP function evaluations           =  0.000 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  = 11.369 s
+Total wall secs                                       = 11.662 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>We observe that MadNLP converges in 93 iterations, but the solution time has decreased by an order of magnitude. As expected, the number of Hessian evaluations is 0.</p><h3 id="How-to-tune-the-options-in-LBFGS?"><a class="docs-heading-anchor" href="#How-to-tune-the-options-in-LBFGS?">How to tune the options in LBFGS?</a><a id="How-to-tune-the-options-in-LBFGS?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-tune-the-options-in-LBFGS?" title="Permalink"></a></h3><p>You can tune the LBFGS options by using the option <code>quasi_newton_options</code>. The option takes as input a <code>QuasiNewtonOptions</code> structure, with the following attributes (we put on the right their default values):</p><ul><li><code>init_strategy::BFGSInitStrategy = SCALAR1</code></li><li><code>max_history::Int = 6</code></li><li><code>init_value::Float64 = 1.0</code></li><li><code>sigma_min::Float64 = 1e-8</code></li><li><code>sigma_max::Float64 = 1e+8</code></li></ul><p>The most important parameter is <code>max_history</code>, which encodes the number of vectors used in the low-rank approximation. For instance, we can increase the history to use the 20 past iterates using:</p><pre><code class="language-julia hljs">qn_options = MadNLP.QuasiNewtonOptions(; max_history=20)
+results_qn = madnlp(
+    nlp;
+    linear_solver=LapackCPUSolver,
+    hessian_approximation=MadNLP.CompactLBFGS,
+    quasi_newton_options=qn_options,
+)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with Lapack-CPU (BUNCHKAUFMAN)
+
+Number of nonzeros in constraint Jacobian............:       30
+Number of nonzeros in Lagrangian Hessian.............:      975
+
+Total number of variables............................:       30
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:       10
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  4.8810842e+01 2.22e-16 1.71e+01 0.00e+00  -1.0     -   0.00e+00  1  0
+   1  2.2956342e+00 1.50e+03 2.04e+02 0.00e+00  -1.0     -   1.25e-01  1  4f
+   2  4.4967927e+00 3.76e+02 5.48e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   3  8.7093834e+00 9.38e+01 1.37e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   4  1.4770500e+01 2.32e+01 3.20e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   5  1.8176499e+01 9.94e+00 1.50e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   6  2.5109575e+01 2.32e+00 1.92e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   7  2.8512602e+01 2.52e+00 2.52e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   8  1.2759872e+01 3.54e+01 1.13e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   9  1.5624022e+01 1.58e+01 2.83e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  2.1982310e+01 5.68e+00 1.86e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  11  2.2542843e+01 4.22e+00 1.14e+00 0.00e+00  -1.0     -   5.00e-01  1  2h
+  12  2.7255011e+01 1.47e+00 2.96e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  13  2.9232894e+01 1.25e+00 2.66e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  14  2.9261067e+01 9.81e-01 3.03e+00 0.00e+00  -1.0     -   5.00e-01  1  2h
+  15  2.7142323e+01 2.39e+00 3.27e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  16  2.7776481e+01 1.35e+00 1.98e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  17  3.0166747e+01 7.86e-01 1.80e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+  18  3.0609464e+01 3.09e-01 8.42e-01 0.00e+00  -1.0     -   1.00e+00  1  1h
+  19  3.2450081e+01 6.00e-02 5.04e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  20  3.2636130e+01 3.88e-02 3.94e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  21  3.2706987e+01 9.35e-03 1.66e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  22  3.2699721e+01 6.51e-03 9.41e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  23  3.2682575e+01 5.11e-03 1.14e-01 0.00e+00  -2.5     -   1.00e+00  1  1h
+  24  3.2701207e+01 4.15e-03 1.48e-01 0.00e+00  -2.5     -   1.00e+00  1  1h
+  25  3.2712954e+01 1.75e-03 4.88e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  26  3.2719381e+01 2.29e-04 2.32e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  27  3.2720051e+01 3.26e-05 6.65e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  28  3.2720061e+01 2.64e-05 7.96e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  29  3.2715805e+01 6.76e-04 2.85e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  30  3.2702239e+01 2.73e-03 5.82e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  31  3.2697960e+01 2.28e-03 7.47e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  32  3.2707411e+01 2.46e-03 1.24e-01 0.00e+00  -3.8     -   1.00e+00  1  1h
+  33  3.2709995e+01 9.33e-04 1.60e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  34  3.2712746e+01 6.45e-04 2.11e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  35  3.2704283e+01 3.24e-03 5.49e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  36  3.2709923e+01 1.48e-03 2.22e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  37  3.2715749e+01 4.96e-04 5.36e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  38  3.2714941e+01 4.33e-04 2.54e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  39  3.2716951e+01 2.19e-06 1.15e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  40  3.2716838e+01 3.01e-05 4.88e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  41  3.2716805e+01 2.19e-05 3.16e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  42  3.2716579e+01 5.15e-05 1.04e-02 0.00e+00  -5.7     -   1.00e+00  1  1h
+  43  3.2716654e+01 3.23e-05 1.67e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  44  3.2716894e+01 1.17e-05 3.18e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  45  3.2716900e+01 7.34e-06 1.19e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  46  3.2716935e+01 2.79e-06 2.69e-03 0.00e+00  -5.7     -   1.00e+00  1  1h
+  47  3.2716941e+01 1.70e-06 1.41e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  48  3.2716949e+01 4.56e-08 2.20e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  49  3.2716949e+01 6.08e-08 1.21e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  3.2716949e+01 1.17e-07 4.18e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  51  3.2716949e+01 8.97e-08 1.03e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  52  3.2716949e+01 3.50e-08 1.97e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  53  3.2716949e+01 1.82e-08 4.78e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  54  3.2716949e+01 2.88e-09 6.40e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  55  3.2716949e+01 9.33e-10 8.16e-06 0.00e+00  -5.7     -   1.00e+00  1  1h
+  56  3.2716949e+01 5.70e-11 1.28e-05 0.00e+00  -8.6     -   1.00e+00  1  1h
+  57  3.2716949e+01 2.92e-11 5.40e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  58  3.2716949e+01 8.10e-14 3.94e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  59  3.2716949e+01 1.82e-14 1.96e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  60  3.2716949e+01 2.22e-16 7.68e-09 0.00e+00  -9.0     -   1.00e+00  1  1h
+
+Number of Iterations....: 60
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.2716949460147589e+01    3.2716949460147589e+01
+Dual infeasibility......:   7.6805100057697473e-09    7.6805100057697473e-09
+Constraint violation....:   2.2204460492503131e-16    2.2204460492503131e-16
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   7.6805100057697473e-09    7.6805100057697473e-09
+
+Number of objective function evaluations              = 69
+Number of objective gradient evaluations              = 61
+Number of constraint evaluations                      = 69
+Number of constraint Jacobian evaluations             = 61
+Number of Lagrangian Hessian evaluations              = 0
+Number of KKT factorizations                          = 61
+Number of KKT backsolves                              = 64
+
+Total wall secs in initialization                     =  0.000 s
+Total wall secs in linear solver                      =  0.027 s
+Total wall secs in NLP function evaluations           =  0.000 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.006 s
+Total wall secs                                       =  0.033 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>We observe that the total number of iterations has been reduced from 93 to 60.</p><h3 id="How-is-LBFGS-implemented-in-MadNLP?"><a class="docs-heading-anchor" href="#How-is-LBFGS-implemented-in-MadNLP?">How is LBFGS implemented in MadNLP?</a><a id="How-is-LBFGS-implemented-in-MadNLP?-1"></a><a class="docs-heading-anchor-permalink" href="#How-is-LBFGS-implemented-in-MadNLP?" title="Permalink"></a></h3><p>MadNLP implements the compact LBFGS algorithm described <a href="https://link.springer.com/article/10.1007/bf01582063">in this article</a>. At each iteration, the Hessian <span>$W_k$</span> is approximated by a low rank positive definite matrix <span>$B_k$</span>, defined as</p><p class="math-container">\[B_k = \xi_k I + U_k V_k^\top
+\]</p><p>with <span>$\xi &gt; 0$</span> a scaling factor, <span>$U_k$</span> and <span>$V_k$</span> two <span>$n \times 2p$</span> matrices. The number <span>$p$</span> denotes the number of vectors used when computing the limited memory updates (the parameter <code>max_history</code> in MadNLP): the larger, the more accurate is the low-rank approximation.</p><p>Replacing the Hessian of the Lagrangian <span>$W_k$</span> by the low-rank matrix <span>$B_k$</span>, the KKT system solved in MadNLP rewrites as</p><p class="math-container">\[\begin{bmatrix}
+\xi I + U V^\top + \Sigma_x &amp; 0 &amp; A^\top \\
+0 &amp; \Sigma_s &amp; -I \\
+A &amp; -I &amp; 0
+\end{bmatrix}
+\begin{bmatrix}
+\Delta x \\ \Delta s \\ \Delta y
+\end{bmatrix}
+=
+\begin{bmatrix}
+r_1 \\ r_2 \\ r_3
+\end{bmatrix}
+\]</p><p>The resulting KKT system has a low-rank structure  we can leverage using the Sherman-Morrison formula. The method is detailed e.g. in Section 3.8 of <a href="https://link.springer.com/article/10.1007/s10107-004-0560-5">that paper</a>.</p><div class="admonition is-info" id="Info-83b6a0b5c07e0a26"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-83b6a0b5c07e0a26" title="Permalink"></a></header><div class="admonition-body"><p>As MadNLP is designed to solve generic constrained optimization problems, it does not approximate directly the inverse of the Hessian matrix, as done in classical LBFGS implementations specialized on solving nonlinear problems with bound constraints. If your problem has no generic nonlinear constraints, we recommend for optimal performance using <a href="https://dl.acm.org/doi/pdf/10.1145/279232.279236">LBFGSB</a> or the LBFGS implemented in <a href="https://github.com/JuliaSmoothOptimizers/JSOSolvers.jl/blob/main/src/lbfgs.jl">JSOSolvers.jl</a>.</p></div></div><h2 id="How-to-use-BFGS-in-MadNLP?"><a class="docs-heading-anchor" href="#How-to-use-BFGS-in-MadNLP?">How to use BFGS in MadNLP?</a><a id="How-to-use-BFGS-in-MadNLP?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-use-BFGS-in-MadNLP?" title="Permalink"></a></h2><p>On the contrary to LBFGS, the algorithm BFGS stores the matrix approximating the Hessian in a dense matrix with size <span>$(n, n)$</span>, where <span>$n$</span> is the number of variables in the problem. Hence, we recommend using LBFGS whenever <span>$n$</span> becomes greater than 1,000.</p><p>That being said, BFGS can be practical to solve medium-scaled instances, as it provides a better approximation than the LBFGS method. In particular, this is the case for the <code>elec</code> optimization problem. As all the matrices involved are dense, BFGS works only if MadNLP is storing its KKT system in dense format. We have to specify that explicitly by passing to MadNLP the option <code>kkt_system=MadNLP.DenseKKTSystem</code>. Apart of that detail, solving the problem with BFGS just amounts to</p><pre><code class="language-julia hljs">results_qn = madnlp(
+    nlp;
+    linear_solver=LapackCPUSolver,
+    kkt_system=MadNLP.DenseKKTSystem,
+    hessian_approximation=MadNLP.BFGS,
+)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with Lapack-CPU (BUNCHKAUFMAN)
+
+Number of nonzeros in constraint Jacobian............:       30
+Number of nonzeros in Lagrangian Hessian.............:      975
+
+Total number of variables............................:       30
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:       10
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  4.8810842e+01 2.22e-16 1.71e+01 0.00e+00  -1.0     -   0.00e+00  1  0
+   1  2.2956342e+00 1.50e+03 2.04e+02 0.00e+00  -1.0     -   1.25e-01  1  4f
+   2  4.4967927e+00 3.76e+02 5.48e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   3  8.6335874e+00 9.38e+01 1.36e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   4  1.5080633e+01 2.32e+01 3.19e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   5  2.1409412e+01 5.58e+00 2.01e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   6  2.9774289e+01 1.20e+00 2.59e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   7  3.1975154e+01 2.39e-01 1.67e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   8  3.3135726e+01 2.71e-02 3.64e-01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   9  3.3184402e+01 9.35e-03 2.85e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  3.2731611e+01 6.28e-02 5.13e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  11  3.2945122e+01 6.18e-03 3.44e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  12  3.2778309e+01 1.33e-02 2.45e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  13  3.2764249e+01 1.44e-02 2.85e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  14  3.2762733e+01 4.22e-03 2.06e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  15  3.2584560e+01 4.21e-02 1.70e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  16  3.2714346e+01 2.03e-03 9.20e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  17  3.2714284e+01 1.22e-03 3.99e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  18  3.2717628e+01 4.06e-04 1.73e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  19  3.2720597e+01 1.55e-05 8.51e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  20  3.2720453e+01 1.72e-05 8.97e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  21  3.2720434e+01 9.97e-06 8.63e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  22  3.2720270e+01 1.99e-05 6.76e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  23  3.2720232e+01 1.92e-05 6.28e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  24  3.2719693e+01 7.56e-05 9.66e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  25  3.2715327e+01 5.60e-04 2.42e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  26  3.2639746e+01 9.08e-03 8.12e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  27  3.2704028e+01 1.91e-03 3.57e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  28  3.2715746e+01 2.74e-04 3.01e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  29  3.2618296e+01 1.08e-02 5.06e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  30  3.2669619e+01 4.85e-03 1.58e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  31  3.2716326e+01 8.08e-05 6.72e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  32  3.2716878e+01 8.23e-06 2.39e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  33  3.2716945e+01 1.06e-06 5.25e-04 0.00e+00  -3.8     -   1.00e+00  1  1h
+  34  3.2716950e+01 3.15e-07 3.45e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  35  3.2716945e+01 8.72e-07 4.55e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  36  3.2716949e+01 1.85e-07 5.09e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  37  3.2716949e+01 2.15e-07 4.71e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  38  3.2716950e+01 1.44e-07 3.42e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  39  3.2716948e+01 2.65e-07 4.18e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  40  3.2716946e+01 4.77e-07 5.47e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  41  3.2716946e+01 4.42e-07 4.31e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  42  3.2716948e+01 1.75e-07 2.62e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  43  3.2716949e+01 3.49e-08 1.31e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  44  3.2716949e+01 4.75e-09 5.30e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  45  3.2716949e+01 1.26e-09 1.79e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  46  3.2716949e+01 8.93e-11 7.03e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  47  3.2716949e+01 9.46e-12 3.13e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  48  3.2716949e+01 1.17e-12 1.57e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  49  3.2716949e+01 2.14e-13 8.78e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  3.2716949e+01 5.35e-14 5.60e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  51  3.2716949e+01 1.60e-14 3.88e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  52  3.2716949e+01 5.77e-15 2.67e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  53  3.2716949e+01 3.11e-15 1.83e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  54  3.2716949e+01 1.33e-15 1.25e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  55  3.2716949e+01 6.66e-16 8.58e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+  56  3.2716949e+01 4.44e-16 5.87e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+  57  3.2716949e+01 2.22e-16 4.01e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+  58  3.2716949e+01 2.22e-16 2.74e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+  59  3.2716949e+01 2.22e-16 1.87e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  60  3.2716949e+01 1.11e-16 1.28e-08 0.00e+00  -9.0     -   1.00e+00  1  1h
+  61  3.2716949e+01 2.22e-16 8.72e-09 0.00e+00  -9.0     -   1.00e+00  1  1h
+
+Number of Iterations....: 61
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.2716949460147582e+01    3.2716949460147582e+01
+Dual infeasibility......:   8.7229911904795898e-09    8.7229911904795898e-09
+Constraint violation....:   2.2204460492503131e-16    2.2204460492503131e-16
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   8.7229911904795898e-09    8.7229911904795898e-09
+
+Number of objective function evaluations              = 66
+Number of objective gradient evaluations              = 62
+Number of constraint evaluations                      = 66
+Number of constraint Jacobian evaluations             = 62
+Number of Lagrangian Hessian evaluations              = 0
+Number of KKT factorizations                          = 62
+Number of KKT backsolves                              = 63
+
+Total wall secs in initialization                     =  0.369 s
+Total wall secs in linear solver                      =  0.003 s
+Total wall secs in NLP function evaluations           =  0.000 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  9.443 s
+Total wall secs                                       =  9.815 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>Observe that MadNLP here converges in 62 iterations. Indeed, BFGS computes a positive definite approximation of the Hessian matrix.</p><p>If the problem is non-convex, it is usually recommended to use the damped version of the BFGS algorithm, which can be activated by replacing <code>MadNLP.BFGS</code> by <code>MadNLP.DampedBFGS</code> in the precedent call:</p><pre><code class="language-julia hljs">results_qn = madnlp(
+    nlp;
+    linear_solver=LapackCPUSolver,
+    kkt_system=MadNLP.DenseKKTSystem,
+    hessian_approximation=MadNLP.DampedBFGS,
+)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with Lapack-CPU (BUNCHKAUFMAN)
+
+Number of nonzeros in constraint Jacobian............:       30
+Number of nonzeros in Lagrangian Hessian.............:      975
+
+Total number of variables............................:       30
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:       10
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  4.8810842e+01 2.22e-16 1.71e+01 0.00e+00  -1.0     -   0.00e+00  1  0
+   1  2.2956342e+00 1.50e+03 2.04e+02 0.00e+00  -1.0     -   1.25e-01  1  4f
+   2  4.4967927e+00 3.76e+02 5.48e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   3  8.6335874e+00 9.38e+01 1.36e+01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   4  1.5080633e+01 2.32e+01 3.19e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   5  2.1409412e+01 5.58e+00 2.01e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   6  2.9774289e+01 1.20e+00 2.59e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   7  3.1975154e+01 2.39e-01 1.67e+00 0.00e+00  -1.0     -   1.00e+00  1  1h
+   8  3.3135726e+01 2.71e-02 3.64e-01 0.00e+00  -1.0     -   1.00e+00  1  1h
+   9  3.3184402e+01 9.35e-03 2.85e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  3.2731611e+01 6.28e-02 5.13e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  11  3.2945122e+01 6.18e-03 3.44e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  12  3.2778309e+01 1.33e-02 2.45e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  13  3.2764249e+01 1.44e-02 2.85e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  14  3.2762733e+01 4.22e-03 2.06e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  15  3.2584560e+01 4.21e-02 1.70e-01 0.00e+00  -1.7     -   1.00e+00  1  1h
+  16  3.2714346e+01 2.03e-03 9.20e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  17  3.2714284e+01 1.22e-03 3.99e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  18  3.2717628e+01 4.06e-04 1.73e-02 0.00e+00  -2.5     -   1.00e+00  1  1h
+  19  3.2720597e+01 1.55e-05 8.51e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  20  3.2720453e+01 1.72e-05 8.97e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  21  3.2720434e+01 9.97e-06 8.63e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  22  3.2720270e+01 1.99e-05 6.76e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  23  3.2720232e+01 1.92e-05 6.28e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  24  3.2719693e+01 7.56e-05 9.66e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  25  3.2715327e+01 5.60e-04 2.42e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  26  3.2639746e+01 9.08e-03 8.12e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  27  3.2704028e+01 1.91e-03 3.57e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  28  3.2715746e+01 2.74e-04 3.01e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  29  3.2658703e+01 6.32e-03 3.15e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  30  3.2697507e+01 1.99e-03 1.06e-02 0.00e+00  -3.8     -   1.00e+00  1  1h
+  31  3.2716428e+01 5.75e-05 4.59e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  32  3.2716868e+01 8.70e-06 1.59e-03 0.00e+00  -3.8     -   1.00e+00  1  1h
+  33  3.2716950e+01 4.40e-07 5.89e-04 0.00e+00  -3.8     -   1.00e+00  1  1h
+  34  3.2716935e+01 2.15e-06 5.27e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  35  3.2716949e+01 2.39e-07 4.79e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  36  3.2716948e+01 2.93e-07 4.64e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  37  3.2716951e+01 6.85e-08 3.83e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  38  3.2716949e+01 1.62e-07 3.37e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  39  3.2716948e+01 3.16e-07 5.61e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  40  3.2716946e+01 5.09e-07 5.74e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  41  3.2716947e+01 2.96e-07 3.79e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  42  3.2716949e+01 1.24e-07 2.30e-04 0.00e+00  -5.7     -   1.00e+00  1  1h
+  43  3.2716949e+01 1.37e-08 9.34e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  44  3.2716949e+01 2.62e-09 3.13e-05 0.00e+00  -5.7     -   1.00e+00  1  1h
+  45  3.2716949e+01 3.95e-10 9.02e-06 0.00e+00  -5.7     -   1.00e+00  1  1h
+  46  3.2716949e+01 3.19e-11 2.92e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  47  3.2716949e+01 3.45e-12 2.04e-06 0.00e+00  -8.6     -   1.00e+00  1  1h
+  48  3.2716949e+01 9.61e-13 6.76e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+  49  3.2716949e+01 2.28e-13 1.32e-07 0.00e+00  -8.6     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  50  3.2716949e+01 4.20e-14 2.52e-08 0.00e+00  -8.6     -   1.00e+00  1  1h
+  51  3.2716949e+01 6.66e-16 8.86e-09 0.00e+00  -8.6     -   1.00e+00  1  1h
+
+Number of Iterations....: 51
+
+                                   (scaled)                 (unscaled)
+Objective...............:   3.2716949460147582e+01    3.2716949460147582e+01
+Dual infeasibility......:   8.8621754379403228e-09    8.8621754379403228e-09
+Constraint violation....:   6.6613381477509392e-16    6.6613381477509392e-16
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   8.8621754379403228e-09    8.8621754379403228e-09
+
+Number of objective function evaluations              = 56
+Number of objective gradient evaluations              = 52
+Number of constraint evaluations                      = 56
+Number of constraint Jacobian evaluations             = 52
+Number of Lagrangian Hessian evaluations              = 0
+Number of KKT factorizations                          = 52
+Number of KKT backsolves                              = 53
+
+Total wall secs in initialization                     =  0.096 s
+Total wall secs in linear solver                      =  0.003 s
+Total wall secs in NLP function evaluations           =  0.000 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  7.921 s
+Total wall secs                                       =  8.020 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../warmstart/">« Warm-start</a><a class="docs-footer-nextpage" href="../kktsystem/">Custom KKT system »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 26 February 2026 00:15">Thursday 26 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
