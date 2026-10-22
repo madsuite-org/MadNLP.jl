@@ -136,8 +136,12 @@ jobs:
               PackageSpec(path="./lib/MadNLPGPU"),
               PackageSpec(path="./lib/MadNLPTests"),
           ])
+      # Julia 1.13's Pkg auto-precompile looks up changed indirect deps by name
+      # and fails with "Unknown package"; the test step precompiles on load.
       - name: Add CUDA and CUDSS
         if: matrix.gpu == 'cuda'
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
         shell: julia --project=./lib/MadNLPGPU/test --color=yes {0}
         run: |
           using Pkg
@@ -145,6 +149,8 @@ jobs:
           Pkg.add("CUDSS")
       - name: Add AMDGPU
         if: matrix.gpu == 'amdgpu'
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
         shell: julia --project=./lib/MadNLPGPU/test --color=yes {0}
         run: |
           using Pkg
