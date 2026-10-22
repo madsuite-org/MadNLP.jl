@@ -31,7 +31,7 @@ NLPModels = "0.21.9"
 OpenBLAS32_jll = "0.3"
 PrecompileTools = "1.2"
 SolverCore = "~0.3"
-julia = "1.9"
+julia = "1.10"
 
 [extras]
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
