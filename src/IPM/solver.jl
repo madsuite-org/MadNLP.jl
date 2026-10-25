@@ -5,9 +5,23 @@ Build a [`MadNLPSolver`](@ref) and solve it using
 the interior-point method. Return the solution
 as a [`MadNLPExecutionStats`](@ref).
 
+The model is wrapped in a `MadNLP.ModelBarrier`, so the solver code compiled for one
+model is reused for any other model with the same element and vector types. Pass
+`specialize_model = true` to compile the solver for the concrete model type instead
+(needed for `juliac --trim`, which requires static dispatch).
+
 """
-function madnlp(model::AbstractNLPModel; kwargs...)
-    solver = MadNLPSolver(model; kwargs...)
+function madnlp(model::AbstractNLPModel; specialize_model::Bool = false, kwargs...)
+    # By default the model is wrapped in a ModelBarrier, so the solver's type does not
+    # depend on the model type and its compiled code is shared across models. The
+    # specialized path goes through invokelatest so that the default path never compiles
+    # a solver for the concrete model type.
+    specialize_model && return Base.invokelatest(_madnlp, model; kwargs...)
+    return _madnlp(ModelBarrier(model); kwargs...)
+end
+
+function _madnlp(nlp::AbstractNLPModel; kwargs...)
+    solver = MadNLPSolver(nlp; kwargs...)
     # The solver type depends on runtime options, so it is not inferred here. A direct
     # call would make inference compile solve! for the abstract MadNLPSolver type, and
     # loading any package that adds methods reached from it would invalidate madnlp.

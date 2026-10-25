@@ -193,6 +193,24 @@ end
     @test solver.status == MadNLP.SOLVE_SUCCEEDED
 end
 
+@testset "ModelBarrier" begin
+    nlp = MadNLPTests.HS15Model()
+    r1 = madnlp(nlp; print_level = MadNLP.ERROR)
+    r2 = madnlp(nlp; print_level = MadNLP.ERROR, specialize_model = true)
+    @test r1.status == r2.status == MadNLP.SOLVE_SUCCEEDED
+    @test r1.iter == r2.iter
+    @test r1.objective ≈ r2.objective
+    @test r1.solution ≈ r2.solution
+    @test r1.multipliers ≈ r2.multipliers
+    # the solver type does not depend on the model type (two sparse models of different types)
+    a = MadNLP.SparseWrapperModel(Array, nlp)
+    b = MadNLP.SparseWrapperModel(Array, a)
+    @test typeof(a) != typeof(b)
+    @test typeof(MadNLPSolver(MadNLP.ModelBarrier(a))) ==
+          typeof(MadNLPSolver(MadNLP.ModelBarrier(b)))
+    @test MadNLP.ModelBarrier(MadNLP.ModelBarrier(nlp)) isa MadNLP.ModelBarrier{Float64, Vector{Float64}}
+end
+
 @testset "MadNLP scaling" begin
     MadNLPTests.test_scaling()
 end
