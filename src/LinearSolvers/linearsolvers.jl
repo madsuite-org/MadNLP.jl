@@ -109,6 +109,35 @@ function solve_linear_system!(s::AbstractLinearSolver{T}, X::AbstractMatrix) whe
     end
 end
 
+"""
+    LinearSolverBarrier{T} <: AbstractLinearSolver{T}
+
+Wraps a linear solver behind an abstractly typed field, so a KKT system that stores it
+has the same type for every linear solver. The interior-point code, which is specialized
+on the KKT system type, is then compiled once and shared by all linear solvers; only the
+calls forwarded below dispatch dynamically, a few times per iteration. Fields of the
+wrapped solver are reachable as fields of the barrier; the solver itself is `wrapped`.
+"""
+struct LinearSolverBarrier{T} <: AbstractLinearSolver{T}
+    wrapped::AbstractLinearSolver{T}
+end
+LinearSolverBarrier(s::LinearSolverBarrier) = s
+
+Base.getproperty(s::LinearSolverBarrier, name::Symbol) =
+    name === :wrapped ? getfield(s, :wrapped) : getproperty(getfield(s, :wrapped), name)
+Base.hasproperty(s::LinearSolverBarrier, name::Symbol) =
+    name === :wrapped || hasproperty(getfield(s, :wrapped), name)
+
+introduce(s::LinearSolverBarrier) = introduce(s.wrapped)
+factorize!(s::LinearSolverBarrier) = (factorize!(s.wrapped); s)
+solve_linear_system!(s::LinearSolverBarrier, x::AbstractVector) = solve_linear_system!(s.wrapped, x)
+solve_linear_system!(s::LinearSolverBarrier, x::AbstractKKTVector) = solve_linear_system!(s.wrapped, x)
+solve_linear_system!(s::LinearSolverBarrier, X::AbstractMatrix) = solve_linear_system!(s.wrapped, X)
+is_inertia(s::LinearSolverBarrier) = is_inertia(s.wrapped)
+inertia(s::LinearSolverBarrier) = inertia(s.wrapped)
+improve!(s::LinearSolverBarrier) = improve!(s.wrapped)
+is_async(s::LinearSolverBarrier) = is_async(s.wrapped)
+
 #=
     Iterator's interface
 =#

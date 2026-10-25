@@ -211,6 +211,23 @@ end
     @test MadNLP.ModelBarrier(MadNLP.ModelBarrier(nlp)) isa MadNLP.ModelBarrier{Float64, Vector{Float64}}
 end
 
+@testset "LinearSolverBarrier" begin
+    nlp = MadNLPTests.HS15Model()
+    a = MadNLPSolver(nlp; print_level = MadNLP.ERROR, linear_solver = MumpsSolver)
+    b = MadNLPSolver(nlp; print_level = MadNLP.ERROR, linear_solver = LDLSolver)
+    # the KKT system type does not depend on the linear solver
+    @test typeof(a.kkt) == typeof(b.kkt)
+    @test a.kkt.linear_solver isa MadNLP.LinearSolverBarrier{Float64}
+    @test a.kkt.linear_solver.wrapped isa MumpsSolver{Float64}
+    # fields of the wrapped solver are forwarded, including one named `inner`
+    @test a.kkt.linear_solver.csc === a.kkt.linear_solver.wrapped.csc
+    @test b.kkt.linear_solver.inner === getfield(b.kkt.linear_solver.wrapped, :inner)
+    @test hasproperty(a.kkt.linear_solver, :csc) && !hasproperty(a.kkt.linear_solver, :tril)
+    @test MadNLP.LinearSolverBarrier(a.kkt.linear_solver) === a.kkt.linear_solver
+    @test MadNLP.solve!(a).status == MadNLP.solve!(b).status == MadNLP.SOLVE_SUCCEEDED
+    @test a.obj_val ≈ b.obj_val
+end
+
 @testset "MadNLP scaling" begin
     MadNLPTests.test_scaling()
 end

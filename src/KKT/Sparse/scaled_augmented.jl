@@ -159,9 +159,9 @@ function create_kkt_system(
     jac_com, jac_csc_map = coo_to_csc(jac_raw)
     hess_com, hess_csc_map = coo_to_csc(hess_raw)
 
-    _linear_solver = linear_solver(
+    _linear_solver = LinearSolverBarrier(linear_solver(
         aug_com; opt = opt_linear_solver
-    )
+    ))
 
     return ScaledSparseKKTSystem(
         hess, jac_callback, jac, quasi_newton, reg, pr_diag, du_diag,
