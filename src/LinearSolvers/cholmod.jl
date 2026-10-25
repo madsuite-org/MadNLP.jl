@@ -17,7 +17,7 @@ end
 
 function CHOLMODSolver(
     csc::SparseMatrixCSC{T};
-    opt=CHOLMODOptions(), logger=MadNLPLogger(),
+    opt=CHOLMODOptions(), logger=MadNLPLogger(), pos=nothing,
 ) where T
     p = Vector{Float64}(undef,csc.n)
     d = Vector{Float64}(undef,csc.n)
