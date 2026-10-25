@@ -27,6 +27,7 @@ using cuSPARSE, cuBLAS, cuSOLVER
 import CUDSS
 
 import AMD, Metis
+import PrecompileTools
 
 import .cuSOLVER: cusolverStatus_t, CuPtr, cudaDataType, cublasFillMode_t, cusolverDnHandle_t,
     dense_handle, CuSolverParameters, CUSOLVER_EIG_MODE_VECTOR
@@ -46,5 +47,6 @@ include("cudss.jl")
 include("cuda.jl")
 include("kernels_schur.jl")
 include("cuda_schur.jl")
+include("precompile.jl")
 
 end
