@@ -95,6 +95,23 @@ function _precompile_solves(like::AbstractVector; sizes = (100, 20000), options.
     return nothing
 end
 
+"""
+    _precompile_linear_solver(like, linear_solver; fixed = (false, true))
+
+Solve a small `PrecompileChainModel` stored in arrays like `like` with `linear_solver`,
+with and without a fixed variable (as listed in `fixed`), since a fixed variable changes
+the callback type the KKT system is built with.
+The KKT system holds its linear solver in a [`LinearSolverBarrier`](@ref), so the
+interior-point code compiled by [`_precompile_solves`](@ref) is shared by all linear
+solvers; this compiles only what is specific to `linear_solver`.
+"""
+function _precompile_linear_solver(like::AbstractVector, linear_solver; fixed = (false, true))
+    for f in fixed
+        madnlp(PrecompileChainModel(100, like; fixed = f); print_level = MadNLP.ERROR, linear_solver)
+    end
+    return nothing
+end
+
 @setup_workload begin
     # Putting some things in `@setup_workload` instead of `@compile_workload` can reduce the size of the
     # precompile file and potentially make loading faster.
@@ -187,5 +204,12 @@ end
     @compile_workload begin
         madnlp(nlp; print_level=MadNLP.ERROR)
         _precompile_solves(Float64[])
+        # a solver without inertia uses another inertia corrector, so another IPM type
+        _precompile_solves(Float64[]; sizes = (100,), linear_solver = UmfpackSolver)
+        for solver in (CHOLMODSolver, LapackCPUSolver)
+            _precompile_linear_solver(Float64[], solver)
+        end
+        # LDLFactorizations throws `SQDException` on the fixed-variable problem
+        _precompile_linear_solver(Float64[], LDLSolver; fixed = (false,))
     end
 end

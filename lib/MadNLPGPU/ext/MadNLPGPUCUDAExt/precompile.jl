@@ -12,6 +12,7 @@ PrecompileTools.@setup_workload begin
             wrapped = MadNLP.SparseWrapperModel(CuVector, MadNLP.HS15Model())
             MadNLP.madnlp(wrapped; print_level = MadNLP.ERROR)
             MadNLP._precompile_solves(CuVector{Float64}(undef, 0))
+            MadNLP._precompile_linear_solver(CuVector{Float64}(undef, 0), LapackCUDASolver)
         end
     end
 end
