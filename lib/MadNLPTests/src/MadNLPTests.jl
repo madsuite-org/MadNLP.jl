@@ -372,9 +372,10 @@ function test_max_problem()
     @test results.status == MadNLP.SOLVE_SUCCEEDED
     @test results.objective ≈ 3.0
     @test results.solution ≈ [0.0, 0.0, 1.0] rtol=1e-7
+    # The multipliers satisfy ∇f + ∇cᵀ y - zl + zu = 0, with zl <= 0 for a max problem
     @test results.multipliers[1] ≈ -3.0 rtol=1e-7
-    @test results.multipliers_L[1] ≈ 2.0 rtol=1e-7
-    @test results.multipliers_L[2] ≈ 1.0 rtol=1e-7
+    @test results.multipliers_L[1] ≈ -2.0 rtol=1e-7
+    @test results.multipliers_L[2] ≈ -1.0 rtol=1e-7
     @test results.multipliers_L[3] ≈ 0.0 atol=1e-7
     return
 end
