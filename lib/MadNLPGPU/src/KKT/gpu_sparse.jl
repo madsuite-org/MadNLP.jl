@@ -143,19 +143,26 @@ function get_diagonal_mapping(colptr, rowval)
     if nnz == 0
         return similar(colptr, 0), similar(colptr, 0)
     end
-    inds1 = findall(
-        map(
-            (x, y) -> ((x <= nnz) && (x != y)),
-            @view(colptr[1:(end - 1)]),
-            @view(colptr[2:end])
-        ),
+    # `similar` + `map!` keeps the mask concretely typed: `map` over the two views is only
+    # inferred as an abstract GPU array, and code compiled for abstract arrays here is
+    # invalidated whenever a package adds a `getindex` method.
+    mask = similar(colptr, Bool, length(colptr) - 1)
+    map!(
+        (x, y) -> ((x <= nnz) && (x != y)),
+        mask,
+        @view(colptr[1:(end - 1)]),
+        @view(colptr[2:end])
     )
+    # `findall` is not inferred to a concrete array type either; assert the vector type
+    # it returns.
+    IV = typeof(similar(colptr, Int, 0))
+    inds1 = findall(mask)::IV
     if length(inds1) == 0
         return similar(rowval, 0), similar(colptr, 0)
     end
     ptrs = colptr[inds1]
     rows = rowval[ptrs]
-    inds2 = findall(inds1 .== rows)
+    inds2 = findall(inds1 .== rows)::IV
     if length(inds2) == 0
         return similar(rows, 0), similar(ptrs, 0)
     end
