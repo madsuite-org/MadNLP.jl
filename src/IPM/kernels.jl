@@ -19,6 +19,16 @@ function set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolv
     return
 end
 
+# the border diagonal of the condensed system, Σd - 1/Σs on the kept rows, tends to zero
+# when a slack leaves its bound; the perturbation δ = border_delta μ^border_delta_exp
+# keeps the static factorization away from that pivot (mul! stays exact, so refinement
+# removes the bias)
+function set_aug_diagonal!(kkt::SparseCondensedKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
+    invoke(set_aug_diagonal!, Tuple{AbstractKKTSystem{T}, AbstractMadNLPSolver{T}}, kkt, solver)
+    kkt.border_delta[1] = kkt.border_delta_base * get_mu(solver)^kkt.border_delta_exp
+    return
+end
+
 function _set_aug_diagonal!(kkt::AbstractKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
     @views kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag

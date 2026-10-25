@@ -39,3 +39,29 @@ using MadNLPTests
         @test solver_qn.cnt.lag_hess_cnt == 0
     end
 end
+
+# dense Jacobian rows kept out of the condensation as a border, factored by cuDSS's LDLᵀ:
+# every row of DenseDummyQP is dense, so with the thresholds lowered all m rows are kept
+@testset "MadNLP -- CUDSSSolver: SparseCondensedKKTSystem with a border" begin
+    n, m = 50, 10
+    border = Dict{Symbol,Any}(:dense_row_abs => 8, :dense_row_rel => 0.1, :dense_row_fill_min => 0.0)
+    nlp_ref = MadNLPTests.DenseDummyQP(zeros(Float64, n); m=m)
+    results_ref = MadNLP.madnlp(nlp_ref; kkt_system=MadNLP.SparseKKTSystem, print_level=MadNLP.ERROR)
+
+    nlp = MadNLPTests.DenseDummyQP(CUDA.zeros(Float64, n); m=m)
+    solver = MadNLPSolver(
+        nlp;
+        callback=MadNLP.SparseCallback,
+        print_level=MadNLP.ERROR,
+        kkt_system=MadNLP.SparseCondensedKKTSystem,
+        linear_solver=MadNLPGPU.CUDSSSolver,
+        kkt_options=border,
+    )
+    kkt = MadNLP.get_kkt(solver)
+    @test length(kkt.ind_D) == m
+    @test size(kkt.aug_com, 1) == n + m
+    results = MadNLP.solve!(solver)
+    @test results.status == MadNLP.SOLVE_SUCCEEDED
+    @test results.objective ≈ results_ref.objective atol=1e-6
+    @test Array(results.solution) ≈ Array(results_ref.solution) atol=1e-6
+end

@@ -30,8 +30,9 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     # buffer
     buffer::VT
     buffer2::VT
+    buffer3::VT
 
-    # Augmented system
+    # Augmented system: the condensed block of the sparse rows, bordered by the dense rows
     aug_com::MT
 
     # slack diagonal buffer
@@ -39,6 +40,24 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     dptr::VTu1
     hptr::VTu1
     jptr::VTu2
+
+    # Dense Jacobian rows are kept out of the condensation and carried, with their
+    # multipliers, as a border of aug_com (see create_kkt_system). With no such row,
+    # jt_s === jt_csc, aug_c === aug_com, dbuf_s === diag_buffer and the maps are empty.
+    ind_S::VI          # rows condensed
+    ind_D::VI          # rows kept as the border
+    jt_s::MT           # the ind_S columns of jt_csc
+    smap::VI           # nonzeros(jt_csc) -> nonzeros(jt_s)
+    aug_c::MT          # condensed block of the ind_S rows
+    dbuf_s::VT         # diag_buffer[ind_S]
+    cmap::VI           # nonzeros(aug_c) -> nonzeros(aug_com)
+    dmap_pos::VI       # positions of the J_D entries in nonzeros(aug_com)
+    dmap_src::VI       # their sources in nonzeros(jt_csc)
+    epos::VI           # positions of the border diagonal in nonzeros(aug_com)
+    pd_buffer::VT      # solve buffer of length n + m_D
+    border_delta::Vector{T}   # current perturbation of the border diagonal (host scalar)
+    border_delta_base::T
+    border_delta_exp::T
 
     # LinearSolver
     linear_solver::LS
@@ -52,6 +71,24 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     ext::EXT
 end
 
+"""
+    create_kkt_system(::Type{SparseCondensedKKTSystem}, cb, linear_solver; kwargs...)
+
+Condensing a dense Jacobian row turns the condensed matrix dense (the row's outer
+product). Rows with more than `dense_row_abs` nonzeros and more than `dense_row_rel`
+times the number of variables are therefore kept out of the condensation, with their
+multipliers, as a border: the matrix handed to the linear solver is
+
+    [ H + Σx + J_Sᵀ D_S J_S   J_Dᵀ            ]
+    [ J_D                     Σd_D - Σs_D⁻¹ - δ ]
+
+of size n + m_D, whose inertia (n, m_D, 0) is known, so a static LDLᵀ factorization
+applies; `δ = border_delta * μ^border_delta_exp` keeps the border diagonal away from
+zero. The rows are kept only when the fill they would cause, `Σ nnz(row)² / 2`, exceeds
+`dense_row_fill_min`, and only when the linear solver can factor an indefinite matrix
+(a solver set to a Cholesky factorization condenses every row). With no row kept the
+system is the plain condensed one.
+"""
 function create_kkt_system(
     ::Type{SparseCondensedKKTSystem},
     cb::SparseCallback{T,VT},
@@ -59,6 +96,11 @@ function create_kkt_system(
     opt_linear_solver=default_options(linear_solver),
     hessian_approximation=ExactHessian,
     qn_options=QuasiNewtonOptions(),
+    dense_row_abs::Int = 512,
+    dense_row_rel::Float64 = 0.10,
+    dense_row_fill_min::Float64 = 1e7,
+    border_delta::Float64 = 1e-8,
+    border_delta_exp::Float64 = 0.25,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -85,6 +127,22 @@ function create_kkt_system(
     nlb = length(cb.ind_lb)
     nub = length(cb.ind_ub)
 
+    # dense rows: more than dense_row_abs nonzeros and more than dense_row_rel * n
+    cnt = zeros(Int, m)
+    for r in Array(jac_sparsity_I)
+        cnt[r] += 1
+    end
+    ind_D = findall(i -> cnt[i] > dense_row_abs && cnt[i] > dense_row_rel * n, 1:m)
+    if sum(c -> c^2, cnt[ind_D]; init = 0) / 2 < dense_row_fill_min
+        ind_D = Int[]
+    end
+    if !isempty(ind_D) && !_factors_indefinite(opt_linear_solver)
+        Base.@warn "$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix; the $(length(ind_D)) dense Jacobian rows are condensed."
+        ind_D = Int[]
+    end
+    ind_S = setdiff(1:m, ind_D)
+    mD = length(ind_D)
+    mS = length(ind_S)
 
     reg = VT(undef, n_tot)
     pr_diag = VT(undef, n_tot)
@@ -95,9 +153,11 @@ function create_kkt_system(
     u_lower = VT(undef, nub)
     buffer = VT(undef, m)
     buffer2 = VT(undef, m)
+    buffer3 = VT(undef, m)
     hess = VT(undef, n_hess)
     jac = VT(undef, n_jac)
     diag_buffer = VT(undef, m)
+    pd_buffer = VT(undef, n + mD)
     fill!(jac, zero(T))
 
     hess_raw = SparseMatrixCOO(n, n, hess_sparsity_I, hess_sparsity_J, hess)
@@ -111,13 +171,65 @@ function create_kkt_system(
     jt_csc, jt_csc_map = coo_to_csc(jt_coo)
     hess_com, hess_csc_map = coo_to_csc(hess_raw)
 
-    aug_com, dptr, hptr, jptr = build_condensed_aug_symbolic(
-        hess_com,
-        jt_csc
-    )
+    tovi(v) = (o = similar(ind_ineq, Int, length(v)); copyto!(o, v); o)   # index maps on the backend
+
+    if mD == 0
+        aug_com, dptr, hptr, jptr = build_condensed_aug_symbolic(hess_com, jt_csc)
+        jt_s, aug_c, dbuf_s = jt_csc, aug_com, diag_buffer
+        smap = cmap = dmap_pos = dmap_src = epos = tovi(Int[])
+    else
+        # the ind_S columns of jt (pattern fixed; values refreshed through smap);
+        # the symbolic work runs on host copies of the patterns
+        jcolptr = Array(SparseArrays.getcolptr(jt_csc))
+        jrowval = Array(SparseArrays.rowvals(jt_csc))
+        smap = Int[]
+        scolptr = Vector{Int32}(undef, mS + 1)
+        scolptr[1] = 1
+        for (jj, j) in enumerate(ind_S)
+            rng = jcolptr[j]:jcolptr[j+1]-1
+            append!(smap, rng)
+            scolptr[jj+1] = scolptr[jj] + Int32(length(rng))
+        end
+        jt_s = typeof(jt_csc)(SparseMatrixCSC{T,Int32}(n, mS, scolptr, jrowval[smap], zeros(T, length(smap))))
+        dbuf_s = VT(undef, mS)
+
+        # condensed block of the sparse rows
+        aug_c, dptr, hptr, jptr = build_condensed_aug_symbolic(hess_com, jt_s)
+
+        # bordered pattern [C 0; J_D diag] (lower triangle) from disjoint COO parts
+        Nb = n + mD
+        acolptr = Array(SparseArrays.getcolptr(aug_c))
+        arowval = Array(SparseArrays.rowvals(aug_c))
+        cI = Vector{Int}(undef, length(arowval))
+        cJ = Vector{Int}(undef, length(arowval))
+        for j in 1:n, k in acolptr[j]:acolptr[j+1]-1
+            cI[k] = arowval[k]
+            cJ[k] = j
+        end
+        dI = Int[]; dJ = Int[]; dsrc = Int[]
+        for (dd, d) in enumerate(ind_D)
+            for k in jcolptr[d]:jcolptr[d+1]-1
+                push!(dI, n + dd); push!(dJ, Int(jrowval[k])); push!(dsrc, k)
+            end
+        end
+        eI = collect(n+1:Nb)
+        L = length(cI) + length(dI) + length(eI)
+        Sidx = sparse([cI; dI; eI], [cJ; dJ; eI], Float64.(1:L), Nb, Nb)
+        @assert nnz(Sidx) == L
+        pos = Vector{Int}(undef, L)
+        for k in 1:L
+            pos[Int(Sidx.nzval[k])] = k
+        end
+        cmap = pos[1:length(cI)]
+        dmap_pos = pos[length(cI)+1:length(cI)+length(dI)]
+        dmap_src = dsrc
+        epos = pos[length(cI)+length(dI)+1:end]
+        aug_com = typeof(jt_csc)(SparseMatrixCSC{T,Int32}(Nb, Nb, Int32.(Sidx.colptr), Int32.(Sidx.rowval), zeros(T, L)))
+        smap, cmap, dmap_pos, dmap_src, epos = tovi(smap), tovi(cmap), tovi(dmap_pos), tovi(dmap_src), tovi(epos)
+    end
 
     # tell the linear solver the saddle-point partition before it analyzes
-    set_block_structure!(opt_linear_solver, size(aug_com, 1), 0)
+    set_block_structure!(opt_linear_solver, n, mD)
     _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
@@ -126,23 +238,40 @@ function create_kkt_system(
         quasi_newton,
         reg, pr_diag, du_diag,
         l_diag, u_diag, l_lower, u_lower,
-        buffer, buffer2,
+        buffer, buffer2, buffer3,
         aug_com, diag_buffer, dptr, hptr, jptr,
+        tovi(ind_S), tovi(ind_D), jt_s, smap, aug_c, dbuf_s, cmap, dmap_pos, dmap_src, epos,
+        pd_buffer, [T(border_delta)], T(border_delta), T(border_delta_exp),
         _linear_solver,
         ind_ineq, cb.ind_lb, cb.ind_ub,
         ext
     )
 end
 
+# A solver whose options select a Cholesky factorization (cholmod_algorithm,
+# cudss_algorithm, ...) cannot factor the bordered matrix; anything else is assumed
+# to handle a symmetric quasidefinite matrix.
+function _factors_indefinite(opt::AbstractOptions)
+    for name in fieldnames(typeof(opt))
+        v = getfield(opt, name)
+        if v isa LinearFactorization && v == CHOLESKY
+            return false
+        end
+    end
+    return true
+end
+
 get_sparse_condensed_ext(::Type{Vector{T}},args...) where T = nothing
 
 num_variables(kkt::SparseCondensedKKTSystem) = length(kkt.pr_diag)
+# the condensed block of the sparse rows is positive definite and the border carries
+# one negative pivot per kept row
 function is_inertia_correct(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg)
-    return (num_zero == 0) && (num_pos == size(kkt.aug_com, 1))
+    return (num_zero == 0) && (num_pos == size(kkt.hess_com, 1)) && (num_neg == length(kkt.ind_D))
 end
-# the slacks and the inequality duals are condensed out: the factorized matrix is
-# definite, so num_variables (which counts the slacks) is NOT its primal block size.
-block_structure(kkt::SparseCondensedKKTSystem) = (size(kkt.aug_com, 1), 0)
+# the slacks and the inequality duals of the condensed rows are eliminated, so
+# num_variables (which counts the slacks) is NOT the primal block size.
+block_structure(kkt::SparseCondensedKKTSystem) = (size(kkt.hess_com, 1), length(kkt.ind_D))
 should_regularize_dual(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg) = true
 
 Base.size(kkt::SparseCondensedKKTSystem,n::Int) = size(kkt.aug_com,n)
@@ -349,25 +478,34 @@ end
     end
 end
 
-function build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem{T,VT,MT}) where {T, VT, MT <: SparseMatrixCSC{T}}
-    _build_condensed_aug_coord!(
-        kkt.aug_com, kkt.pr_diag, kkt.hess_com, kkt.jt_csc, kkt.diag_buffer,
-        kkt.dptr, kkt.hptr, kkt.jptr
-    )
+# the condensed block H + Σx + Jtᵀ D Jt into aug, from the Jacobian columns Jt and the
+# diagonal D; the symbolic maps dptr/hptr/jptr were built for exactly these arguments
+function _build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem{T,VT,MT}, aug::MT, Jt::MT, D::VT) where {T, VT, MT <: SparseMatrixCSC{T}}
+    _build_condensed_aug_coord!(aug, kkt.pr_diag, kkt.hess_com, Jt, D, kkt.dptr, kkt.hptr, kkt.jptr)
 end
 
-function build_kkt!(kkt::SparseCondensedKKTSystem)
+build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_aug_coord!(kkt, kkt.aug_com, kkt.jt_csc, kkt.diag_buffer)
 
+function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where T
     n = size(kkt.hess_com, 1)
     m = size(kkt.jt_csc, 2)
 
-
-    Σx = view(kkt.pr_diag, 1:n)
     Σs = view(kkt.pr_diag, n+1:n+m)
     Σd = kkt.du_diag
 
     kkt.diag_buffer .= Σs ./ ( 1 .- Σd .* Σs)
-    build_condensed_aug_coord!(kkt)
+    if isempty(kkt.ind_D)
+        build_condensed_aug_coord!(kkt)
+        return
+    end
+    # condensed block of the sparse rows, then the border
+    nonzeros(kkt.jt_s) .= view(nonzeros(kkt.jt_csc), kkt.smap)
+    kkt.dbuf_s .= view(kkt.diag_buffer, kkt.ind_S)
+    _build_condensed_aug_coord!(kkt, kkt.aug_c, kkt.jt_s, kkt.dbuf_s)
+    view(nonzeros(kkt.aug_com), kkt.cmap) .= nonzeros(kkt.aug_c)
+    view(nonzeros(kkt.aug_com), kkt.dmap_pos) .= view(nonzeros(kkt.jt_csc), kkt.dmap_src)
+    view(nonzeros(kkt.aug_com), kkt.epos) .= view(Σd, kkt.ind_D) .- 1 ./ view(Σs, kkt.ind_D) .- kkt.border_delta[1]
+    return
 end
 
 get_jacobian(kkt::SparseCondensedKKTSystem) = kkt.jac

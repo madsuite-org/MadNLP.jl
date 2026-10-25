@@ -143,6 +143,7 @@ end
 function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector)  where T
 
     (n,m) = size(kkt.jt_csc)
+    mD = length(kkt.ind_D)
 
     # Decompose buffers
     wx = _madnlp_unsafe_wrap(full(w), n)
@@ -152,14 +153,39 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector)  whe
 
     reduce_rhs!(kkt, w)
 
-    kkt.buffer .= kkt.diag_buffer .* (wz .+ ws ./ Σs)
+    if mD == 0
+        kkt.buffer .= kkt.diag_buffer .* (wz .+ ws ./ Σs)
 
-    mul!(wx, kkt.jt_csc, kkt.buffer, one(T), one(T))
-    solve_linear_system!(kkt.linear_solver, wx)
+        mul!(wx, kkt.jt_csc, kkt.buffer, one(T), one(T))
+        solve_linear_system!(kkt.linear_solver, wx)
 
-    mul!(kkt.buffer2, kkt.jt_csc', wx) # TODO: investigate why directly using wz here is causing an error
+        mul!(kkt.buffer2, kkt.jt_csc', wx) # TODO: investigate why directly using wz here is causing an error
 
-    wz .= .- kkt.buffer .+ kkt.diag_buffer .* kkt.buffer2
+        wz .= .- kkt.buffer .+ kkt.diag_buffer .* kkt.buffer2
+        ws .= (ws .+ wz) ./ Σs
+
+        finish_aug_solve!(kkt, w)
+        return w
+    end
+
+    # folded right-hand side r = wz + ws / Σs of every row; the condensed rows add
+    # J_Sᵀ D_S r_S to the primal block, the kept rows enter the border
+    kkt.buffer .= wz .+ ws ./ Σs
+    kkt.buffer3 .= kkt.diag_buffer .* kkt.buffer
+    view(kkt.buffer3, kkt.ind_D) .= zero(T)
+    pdx = view(kkt.pd_buffer, 1:n)
+    pdy = view(kkt.pd_buffer, n+1:n+mD)
+    pdx .= wx
+    mul!(pdx, kkt.jt_csc, kkt.buffer3, one(T), one(T))
+    pdy .= view(kkt.buffer, kkt.ind_D)
+
+    solve_linear_system!(kkt.linear_solver, kkt.pd_buffer)
+
+    wx .= pdx
+    # multipliers: recovered for the condensed rows, solved for the kept rows
+    mul!(kkt.buffer2, kkt.jt_csc', wx)
+    view(wz, kkt.ind_S) .= view(kkt.diag_buffer, kkt.ind_S) .* (view(kkt.buffer2, kkt.ind_S) .- view(kkt.buffer, kkt.ind_S))
+    view(wz, kkt.ind_D) .= pdy
     ws .= (ws .+ wz) ./ Σs
 
     finish_aug_solve!(kkt, w)

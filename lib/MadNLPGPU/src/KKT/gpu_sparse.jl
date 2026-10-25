@@ -305,14 +305,17 @@ end
     MadNLP.build_condensed_aug_coord!
 =#
 
-function MadNLP.build_condensed_aug_coord!(
-        kkt::MadNLP.AbstractCondensedKKTSystem{T, VT},
+# the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`:
+# the whole system (aug_com, jt_csc, diag_buffer) or, with dense rows kept as a
+# border, the block of the condensed rows (aug_c, jt_s, dbuf_s)
+function MadNLP._build_condensed_aug_coord!(
+        kkt::MadNLP.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
     ) where {T, VT <: AbstractGPUVector{T}}
-    fill!(MadNLP.nzval(kkt.aug_com), zero(T))
+    fill!(MadNLP.nzval(aug), zero(T))
     backend = get_backend(kkt.pr_diag)
     if length(kkt.hptr) > 0
         _transfer_hessian_kernel!(backend)(
-            MadNLP.nzval(kkt.aug_com),
+            MadNLP.nzval(aug),
             kkt.hptr,
             MadNLP.nzval(kkt.hess_com);
             ndrange = length(kkt.hptr),
@@ -320,7 +323,7 @@ function MadNLP.build_condensed_aug_coord!(
     end
     if length(kkt.dptr) > 0
         _transfer_hessian_kernel!(backend)(
-            MadNLP.nzval(kkt.aug_com),
+            MadNLP.nzval(aug),
             kkt.dptr,
             kkt.pr_diag;
             ndrange = length(kkt.dptr),
@@ -328,11 +331,11 @@ function MadNLP.build_condensed_aug_coord!(
     end
     if length(kkt.ext.jptrptr) > 1 # otherwise error is thrown
         _transfer_jtsj_kernel!(backend)(
-            MadNLP.nzval(kkt.aug_com),
+            MadNLP.nzval(aug),
             kkt.jptr,
             kkt.ext.jptrptr,
-            MadNLP.nzval(kkt.jt_csc),
-            kkt.diag_buffer;
+            MadNLP.nzval(Jt),
+            D;
             ndrange = length(kkt.ext.jptrptr) - 1,
         )
     end
