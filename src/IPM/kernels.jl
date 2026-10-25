@@ -20,7 +20,7 @@ function set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolv
 end
 
 # the border diagonal of the condensed system, Σd - 1/Σs on the kept rows, tends to zero
-# when a slack leaves its bound; the perturbation δ = border_delta μ^border_delta_exp
+# when a slack reaches its bound (the constraint becomes active); the perturbation δ = border_delta μ^border_delta_exp
 # keeps the static factorization away from that pivot (mul! stays exact, so refinement
 # removes the bias)
 function set_aug_diagonal!(kkt::SparseCondensedKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T

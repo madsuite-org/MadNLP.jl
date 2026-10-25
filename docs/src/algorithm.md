@@ -258,8 +258,9 @@ Condensing a dense Jacobian row would turn the condensed matrix dense, so rows w
 more than `dense_row_abs` nonzeros (default 512) and more than `dense_row_rel` times
 the number of variables (default 0.1) are kept out of the condensation, with their
 multipliers, as a border of the condensed matrix; the border is used only when the
-fill those rows would cause exceeds `dense_row_fill_min` (default `1e7`) and when the
-linear solver can factor an indefinite matrix. The bordered matrix has a known
+fill those rows would cause exceeds `dense_row_fill_min` (default `1e7`; a single row
+reaches it at about 4,500 nonzeros, where `nnz²/2` is `1e7`) and when the linear
+solver can factor an indefinite matrix. The bordered matrix has a known
 inertia, so the inertia test still applies. These thresholds are passed through
 `kkt_options`, for example
 ```julia
