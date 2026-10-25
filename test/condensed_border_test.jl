@@ -10,11 +10,12 @@ struct BorderQP{T} <: NLPModels.AbstractNLPModel{T, Vector{T}}
     meta::NLPModels.NLPModelMeta{T, Vector{T}}
     counters::NLPModels.Counters
     n::Int
+    dense::Bool   # every row dense (x_i - x_{i+1} + 0 * sum(x) <= 1) instead of sparse
 end
 
-function BorderQP(n::Int; T = Float64)
-    m = n + 1   # n sparse rows x_i - x_{i+1} <= 1 (cyclic), one dense row sum(x) <= n/2
-    nnzj = 2n + n
+function BorderQP(n::Int; T = Float64, dense::Bool = false)
+    m = n + 1   # n rows x_i - x_{i+1} <= 1 (cyclic), one dense row sum(x) <= n/2
+    nnzj = (dense ? n * n : 2n) + n
     nnzh = n
     meta = NLPModels.NLPModelMeta(
         n; ncon = m, nnzj = nnzj, nnzh = nnzh,
@@ -22,7 +23,7 @@ function BorderQP(n::Int; T = Float64)
         lcon = fill(T(-Inf), m), ucon = [ones(T, n); T(n) / 2],
         minimize = true, name = "BorderQP",
     )
-    return BorderQP{T}(meta, NLPModels.Counters(), n)
+    return BorderQP{T}(meta, NLPModels.Counters(), n, dense)
 end
 
 NLPModels.obj(nlp::BorderQP, x::AbstractVector) = sum((x[i] - i)^2 for i in 1:nlp.n) / 2
@@ -41,10 +42,16 @@ end
 function NLPModels.jac_structure!(nlp::BorderQP, I::AbstractVector, J::AbstractVector)
     n = nlp.n
     k = 0
-    for i in 1:n
-        I[k+1] = i; J[k+1] = i
-        I[k+2] = i; J[k+2] = mod1(i + 1, n)
-        k += 2
+    if nlp.dense
+        for i in 1:n, j in 1:n
+            k += 1; I[k] = i; J[k] = j
+        end
+    else
+        for i in 1:n
+            I[k+1] = i; J[k+1] = i
+            I[k+2] = i; J[k+2] = mod1(i + 1, n)
+            k += 2
+        end
     end
     for j in 1:n
         I[k+j] = n + 1; J[k+j] = j
@@ -53,10 +60,19 @@ function NLPModels.jac_structure!(nlp::BorderQP, I::AbstractVector, J::AbstractV
 end
 function NLPModels.jac_coord!(nlp::BorderQP, x::AbstractVector, V::AbstractVector)
     n = nlp.n
-    for i in 1:n
-        V[2i-1] = one(eltype(V)); V[2i] = -one(eltype(V))
+    o = one(eltype(V))
+    if nlp.dense
+        fill!(V, zero(eltype(V)))
+        for i in 1:n
+            V[(i-1)*n + i] = o; V[(i-1)*n + mod1(i + 1, n)] = -o
+        end
+        V[n*n+1:n*n+n] .= o
+    else
+        for i in 1:n
+            V[2i-1] = o; V[2i] = -o
+        end
+        V[2n+1:3n] .= o
     end
-    V[2n+1:3n] .= one(eltype(V))
     return V
 end
 function NLPModels.hess_structure!(nlp::BorderQP, I::AbstractVector, J::AbstractVector)
@@ -106,6 +122,14 @@ end
             @test res0.solution ≈ ref.solution atol = 1e-6
         end
     end
+
+    # every row dense: the condensed block is one dense n x n triangle, which is smaller
+    # than a border of all the rows, so nothing is kept
+    nlp_dense = BorderQP(n; dense = true)
+    solver = MadNLP.MadNLPSolver(nlp_dense; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.LDLSolver,
+                                 kkt_options = border, print_level = MadNLP.ERROR, tol = 1e-8)
+    @test isempty(MadNLP.get_kkt(solver).ind_D)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
 
     # a Cholesky solver cannot factor the border: the rows are condensed with a warning
     @test_logs (:warn, r"Cholesky") match_mode = :any begin

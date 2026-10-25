@@ -256,11 +256,13 @@ kkt_system=SparseCondensedKKTSystem
 ```
 Condensing a dense Jacobian row would turn the condensed matrix dense, so rows with
 more than `dense_row_abs` nonzeros (default 512) and more than `dense_row_rel` times
-the number of variables (default 0.1) are kept out of the condensation, with their
-multipliers, as a border of the condensed matrix; the border is used only when the
-fill those rows would cause exceeds `dense_row_fill_min` (default `1e7`; a single row
-reaches it at about 4,500 nonzeros, where `nnz²/2` is `1e7`) and when the linear
-solver can factor an indefinite matrix. The bordered matrix has a known
+the number of variables (default 0.1) are candidates to be kept out of the condensation,
+with their multipliers, as a border of the condensed matrix. The densest candidates are
+kept, as many as minimize the estimated nonzeros of the factored matrix (a problem whose
+rows are all dense is better condensed into one dense block than bordered), and the
+border is used only when it saves more than `dense_row_fill_min` nonzeros (default `1e7`;
+a single row reaches it at about 4,500 nonzeros, where `nnz²/2` is `1e7`) and when the
+linear solver can factor an indefinite matrix. The bordered matrix has a known
 inertia, so the inertia test still applies. These thresholds are passed through
 `kkt_options`, for example
 ```julia

@@ -84,9 +84,11 @@ multipliers, as a border: the matrix handed to the linear solver is
 
 of size n + m_D, whose inertia (n, m_D, 0) is known, so a static LDLᵀ factorization
 applies; `δ = border_delta * μ^border_delta_exp` keeps the border diagonal away from
-zero. The rows are kept only when the fill they would cause, `Σ nnz(row)² / 2`, exceeds
-`dense_row_fill_min`, and only when the linear solver can factor an indefinite matrix
-(a solver set to a Cholesky factorization condenses every row). With no row kept the
+zero. Among the candidate rows the densest are kept, as many as minimize the estimated
+nonzeros of the factored matrix (a condensed block is at most a dense n × n triangle, a
+kept row costs 2 nnz + 1 border entries), and only when that saves more than
+`dense_row_fill_min` nonzeros and the linear solver can factor an indefinite matrix (a
+solver set to a Cholesky factorization condenses every row). With no row kept the
 system is the plain condensed one.
 """
 function create_kkt_system(
@@ -127,15 +129,33 @@ function create_kkt_system(
     nlb = length(cb.ind_lb)
     nub = length(cb.ind_ub)
 
-    # dense rows: more than dense_row_abs nonzeros and more than dense_row_rel * n
+    # dense rows: more than dense_row_abs nonzeros and more than dense_row_rel * n. Of
+    # the candidates, the densest k are kept as the border, k chosen to minimize the
+    # estimated nonzeros of the factored matrix: the condensed block is bounded by a dense
+    # n x n triangle, so once the rows left condensed fill it, keeping more rows only adds
+    # border entries (2 nnz + 1 each). The border is used when the saving exceeds
+    # dense_row_fill_min.
     cnt = zeros(Int, m)
     for r in Array(jac_sparsity_I)
         cnt[r] += 1
     end
-    ind_D = findall(i -> cnt[i] > dense_row_abs && cnt[i] > dense_row_rel * n, 1:m)
-    if sum(c -> c^2, cnt[ind_D]; init = 0) / 2 < dense_row_fill_min
-        ind_D = Int[]
+    tri(c) = c * (c + 1) / 2
+    cand = sort!(findall(i -> cnt[i] > dense_row_abs && cnt[i] > dense_row_rel * n, 1:m); by = i -> -cnt[i])
+    dense_cap = tri(n)
+    base = n_hess + sum(tri, cnt; init = 0.0)             # every row condensed, before the cap
+    total(k, saved, border) = min(dense_cap, base - saved) + border
+    best_k, best_total, saved, border = 0, min(dense_cap, base), 0.0, 0.0
+    for (k, i) in enumerate(cand)
+        saved += tri(cnt[i])
+        border += 2 * cnt[i] + 1
+        if total(k, saved, border) < best_total
+            best_k, best_total = k, total(k, saved, border)
+        end
     end
+    if min(dense_cap, base) - best_total < dense_row_fill_min
+        best_k = 0
+    end
+    ind_D = sort!(cand[1:best_k])
     if !isempty(ind_D) && !_factors_indefinite(opt_linear_solver)
         Base.@warn "$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix; the $(length(ind_D)) dense Jacobian rows are condensed."
         ind_D = Int[]
