@@ -43,6 +43,7 @@ import HSL:
     Ma97Info
 
 import LinearAlgebra
+import PrecompileTools
 
 include("common.jl")
 include("ma27.jl")
@@ -50,6 +51,7 @@ include("ma57.jl")
 include("ma77.jl")
 include("ma86.jl")
 include("ma97.jl")
+include("precompile.jl")
 
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver
 

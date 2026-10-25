@@ -72,21 +72,22 @@ function NLPModels.hess_coord!(m::PrecompileChainModel, x::AbstractVector, y::Ab
 end
 
 """
-    _precompile_solves(like; sizes = (100, 20000))
+    _precompile_solves(like; sizes = (100, 20000), options...)
 
 Solve `PrecompileChainModel`s stored in arrays like `like` (a `Vector`, `CuVector`, ...)
 with and without a fixed variable at each of `sizes`, since large problems use different
 reduction and scan kernels on a GPU, and run the restoration phases on a solved
-instance, which these problems never enter on their own. Models are built here so that, when this runs inside `@compile_workload`,
-the code compiled while building them is kept too.
+instance, which these problems never enter on their own. `options` are passed to the
+solver (e.g. `linear_solver`). Models are built here so that, when this runs inside
+`@compile_workload`, the code compiled while building them is kept too.
 """
-function _precompile_solves(like::AbstractVector; sizes = (100, 20000))
+function _precompile_solves(like::AbstractVector; sizes = (100, 20000), options...)
     for n in sizes, fixed in (false, true)
-        madnlp(PrecompileChainModel(n, like; fixed); print_level = MadNLP.ERROR)
+        madnlp(PrecompileChainModel(n, like; fixed); print_level = MadNLP.ERROR, options...)
     end
     for n in sizes
         solver = MadNLPSolver(ModelBarrier(PrecompileChainModel(n, like));
-                              print_level = MadNLP.ERROR, max_iter = 30)
+                              print_level = MadNLP.ERROR, max_iter = 30, options...)
         solve!(solver)
         restore!(solver)
         robust!(solver)
