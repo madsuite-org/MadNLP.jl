@@ -1103,6 +1103,10 @@ function create_kkt_system(
 
     # --- Create solvers ---
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
+    # tell the linear solvers the saddle-point partition before they analyze: the
+    # per-scenario blocks and the first-stage complement are all definite
+    set_block_structure!(schur_scenario_opt_linear_solver, blk_size, 0)
+    set_block_structure!(opt_linear_solver, size(schur_csc, 1), 0)
     scenario_solvers = [schur_scenario_linear_solver(A_kk_vec[k]; opt = schur_scenario_opt_linear_solver) for k in 1:ns]
     _linear_solver = linear_solver(schur_csc; opt = opt_linear_solver)
 
@@ -1198,7 +1202,7 @@ function _accumulate_block_inertia!(kkt::SchurComplementCondensedKKTSystem)
     return
 end
 # the Schur complement is definite: the duals are eliminated, not factorized
-block_structure(kkt::SchurComplementKKTSystem) = (size(kkt.aug_com, 1), 0)
+block_structure(kkt::SchurComplementCondensedKKTSystem) = (kkt.nd, 0)
 
 should_regularize_dual(kkt::SchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg) = true
 

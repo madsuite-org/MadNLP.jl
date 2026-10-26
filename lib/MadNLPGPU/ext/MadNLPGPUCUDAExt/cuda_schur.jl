@@ -517,6 +517,9 @@ function MadNLP.create_kkt_system(
     # the CUDSSSolver constructor, and every scenario solve in build_kkt!/solve_kkt! is
     # single-RHS (the multi-RHS ubatch solve is broken above nbatch≈14, see build_kkt!), so no
     # extra multi-RHS descriptors/analysis are needed.
+    # tell cuDSS the saddle-point partition before it analyzes (all blocks are definite)
+    MadNLP.set_block_structure!(schur_scenario_opt_linear_solver, blk_size, 0)
+    MadNLP.set_block_structure!(schur_opt_linear_solver, size(schur_csc, 1), 0)
     scenario_solver = CUDSSSolver(A_kk_batched; opt=schur_scenario_opt_linear_solver)
     schur_solver = CUDSSSolver(schur_csc; opt = schur_opt_linear_solver)  # analysis runs once
 
@@ -561,7 +564,7 @@ function MadNLP.is_inertia_correct(kkt::GPUSchurComplementCondensedKKTSystem, nu
     return (num_zero == 0) && (num_pos == kkt.nd) && (num_neg == 0)
 end
 # the Schur complement is definite: the duals are eliminated, not factorized
-MadNLP.block_structure(kkt::GPUSchurComplementKKTSystem) = (size(kkt.aug_com, 1), 0)
+MadNLP.block_structure(kkt::GPUSchurComplementCondensedKKTSystem) = (kkt.nd, 0)
 
 MadNLP.should_regularize_dual(kkt::GPUSchurComplementCondensedKKTSystem, num_pos, num_zero, num_neg) = true
 
