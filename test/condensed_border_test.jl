@@ -36,7 +36,7 @@ function NLPModels.cons!(nlp::BorderQP, x::AbstractVector, c::AbstractVector)
     for i in 1:n
         c[i] = x[i] - x[mod1(i + 1, n)]
     end
-    c[n+1] = sum(x)
+    c[n + 1] = sum(x)
     return c
 end
 function NLPModels.jac_structure!(nlp::BorderQP, I::AbstractVector, J::AbstractVector)
@@ -48,13 +48,13 @@ function NLPModels.jac_structure!(nlp::BorderQP, I::AbstractVector, J::AbstractV
         end
     else
         for i in 1:n
-            I[k+1] = i; J[k+1] = i
-            I[k+2] = i; J[k+2] = mod1(i + 1, n)
+            I[k + 1] = i; J[k + 1] = i
+            I[k + 2] = i; J[k + 2] = mod1(i + 1, n)
             k += 2
         end
     end
     for j in 1:n
-        I[k+j] = n + 1; J[k+j] = j
+        I[k + j] = n + 1; J[k + j] = j
     end
     return I, J
 end
@@ -64,14 +64,14 @@ function NLPModels.jac_coord!(nlp::BorderQP, x::AbstractVector, V::AbstractVecto
     if nlp.dense
         fill!(V, zero(eltype(V)))
         for i in 1:n
-            V[(i-1)*n + i] = o; V[(i-1)*n + mod1(i + 1, n)] = -o
+            V[(i - 1) * n + i] = o; V[(i - 1) * n + mod1(i + 1, n)] = -o
         end
-        V[n*n+1:n*n+n] .= o
+        V[(n * n + 1):(n * n + n)] .= o
     else
         for i in 1:n
-            V[2i-1] = o; V[2i] = -o
+            V[2i - 1] = o; V[2i] = -o
         end
-        V[2n+1:3n] .= o
+        V[(2n + 1):3n] .= o
     end
     return V
 end
@@ -88,9 +88,11 @@ end
     n = 40
     nlp = BorderQP(n)
     # the dense row is kept: thresholds below its nonzero count and no fill floor
-    border = Dict{Symbol,Any}(:dense_row_abs => 8, :dense_row_rel => 0.1, :dense_row_fill_min => 0.0)
-    ref = MadNLP.madnlp(nlp; kkt_system = MadNLP.SparseKKTSystem, linear_solver = MadNLP.UmfpackSolver,
-                        print_level = MadNLP.ERROR, tol = 1e-8)
+    border = Dict{Symbol, Any}(:dense_row_abs => 8, :dense_row_rel => 0.1, :dense_row_fill_min => 0.0)
+    ref = MadNLP.madnlp(
+        nlp; kkt_system = MadNLP.SparseKKTSystem, linear_solver = MadNLP.UmfpackSolver,
+        print_level = MadNLP.ERROR, tol = 1.0e-8
+    )
     @test ref.status == MadNLP.SOLVE_SUCCEEDED
 
     for (name, ls, lsopts) in (
@@ -98,43 +100,51 @@ end
             ("CHOLMOD-LDL", MadNLP.CHOLMODSolver, (; cholmod_algorithm = MadNLP.LDL)),
         )
         @testset "$name" begin
-            solver = MadNLP.MadNLPSolver(nlp; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = ls,
-                                         kkt_options = border, print_level = MadNLP.ERROR, tol = 1e-8, lsopts...)
+            solver = MadNLP.MadNLPSolver(
+                nlp; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = ls,
+                kkt_options = border, print_level = MadNLP.ERROR, tol = 1.0e-8, lsopts...
+            )
             kkt = MadNLP.get_kkt(solver)
-            @test length(kkt.ind_D) == 1 && kkt.ind_D[1] == n + 1
+            @test length(kkt.border.ind_D) == 1 && kkt.border.ind_D[1] == n + 1
             @test MadNLP.block_structure(kkt) == (n, 1)
             @test size(kkt.aug_com, 1) == n + 1
             res = MadNLP.solve!(solver)
             @test res.status == MadNLP.SOLVE_SUCCEEDED
-            @test res.solution ≈ ref.solution atol = 1e-6
+            @test res.solution ≈ ref.solution atol = 1.0e-6
             # the kept-row multiplier is the one of the coupling constraint
-            @test res.multipliers[n+1] ≈ ref.multipliers[n+1] atol = 1e-6
+            @test res.multipliers[n + 1] ≈ ref.multipliers[n + 1] atol = 1.0e-6
 
             # with the defaults the row is condensed and the system is the plain condensed one
-            solver0 = MadNLP.MadNLPSolver(nlp; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = ls,
-                                          print_level = MadNLP.ERROR, tol = 1e-8, lsopts...)
+            solver0 = MadNLP.MadNLPSolver(
+                nlp; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = ls,
+                print_level = MadNLP.ERROR, tol = 1.0e-8, lsopts...
+            )
             kkt0 = MadNLP.get_kkt(solver0)
-            @test isempty(kkt0.ind_D)
-            @test kkt0.aug_c === kkt0.aug_com && kkt0.jt_s === kkt0.jt_csc
+            @test isempty(kkt0.border.ind_D)
+            @test kkt0.border.aug_c === kkt0.aug_com && kkt0.border.jt_s === kkt0.jt_csc
             @test size(kkt0.aug_com, 1) == n
             res0 = MadNLP.solve!(solver0)
             @test res0.status == MadNLP.SOLVE_SUCCEEDED
-            @test res0.solution ≈ ref.solution atol = 1e-6
+            @test res0.solution ≈ ref.solution atol = 1.0e-6
         end
     end
 
     # every row dense: the condensed block is one dense n x n triangle, which is smaller
     # than a border of all the rows, so nothing is kept
     nlp_dense = BorderQP(n; dense = true)
-    solver = MadNLP.MadNLPSolver(nlp_dense; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.LDLSolver,
-                                 kkt_options = border, print_level = MadNLP.ERROR, tol = 1e-8)
-    @test isempty(MadNLP.get_kkt(solver).ind_D)
+    solver = MadNLP.MadNLPSolver(
+        nlp_dense; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.LDLSolver,
+        kkt_options = border, print_level = MadNLP.ERROR, tol = 1.0e-8
+    )
+    @test isempty(MadNLP.get_kkt(solver).border.ind_D)
     @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
 
     # a Cholesky solver cannot factor the border: the rows are condensed with a warning
     @test_logs (:warn, r"Cholesky") match_mode = :any begin
-        solver = MadNLP.MadNLPSolver(nlp; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.CHOLMODSolver,
-                                     kkt_options = border, print_level = MadNLP.ERROR)
-        @test isempty(MadNLP.get_kkt(solver).ind_D)
+        solver = MadNLP.MadNLPSolver(
+            nlp; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.CHOLMODSolver,
+            kkt_options = border, print_level = MadNLP.ERROR
+        )
+        @test isempty(MadNLP.get_kkt(solver).border.ind_D)
     end
 end

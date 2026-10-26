@@ -32,9 +32,9 @@ function NLPModels.grad!(nlp::BorderQPGPU, x::AbstractVector, g::AbstractVector)
 end
 function NLPModels.cons!(nlp::BorderQPGPU, x::AbstractVector, c::AbstractVector)
     n = nlp.n
-    c[1:n-1] .= view(x, 1:n-1) .- view(x, 2:n)
+    c[1:(n - 1)] .= view(x, 1:(n - 1)) .- view(x, 2:n)
     c[n:n] .= view(x, n:n) .- view(x, 1:1)
-    c[n+1:n+1] .= sum(x)
+    c[(n + 1):(n + 1)] .= sum(x)
     return c
 end
 function NLPModels.jac_structure!(nlp::BorderQPGPU, I::AbstractVector, J::AbstractVector)
@@ -62,34 +62,38 @@ end
 
 @testset "MadNLP -- CUDSSSolver: SparseCondensedKKTSystem with a border" begin
     n = 40
-    border = Dict{Symbol,Any}(:dense_row_abs => 8, :dense_row_rel => 0.1, :dense_row_fill_min => 0.0)
-    results_ref = MadNLP.madnlp(BorderQPGPU(zeros(Float64, n)); kkt_system=MadNLP.SparseKKTSystem,
-                                linear_solver=MadNLP.UmfpackSolver, print_level=MadNLP.ERROR, tol=1e-8)
+    border = Dict{Symbol, Any}(:dense_row_abs => 8, :dense_row_rel => 0.1, :dense_row_fill_min => 0.0)
+    results_ref = MadNLP.madnlp(
+        BorderQPGPU(zeros(Float64, n)); kkt_system = MadNLP.SparseKKTSystem,
+        linear_solver = MadNLP.UmfpackSolver, print_level = MadNLP.ERROR, tol = 1.0e-8
+    )
     @test results_ref.status == MadNLP.SOLVE_SUCCEEDED
 
     nlp = BorderQPGPU(CUDA.zeros(Float64, n))
     solver = MadNLPSolver(
         nlp;
-        print_level=MadNLP.ERROR,
-        kkt_system=MadNLP.SparseCondensedKKTSystem,
-        linear_solver=MadNLPGPU.CUDSSSolver,
-        kkt_options=border,
-        tol=1e-8,
+        print_level = MadNLP.ERROR,
+        kkt_system = MadNLP.SparseCondensedKKTSystem,
+        linear_solver = MadNLPGPU.CUDSSSolver,
+        kkt_options = border,
+        tol = 1.0e-8,
     )
     kkt = MadNLP.get_kkt(solver)
-    @test length(kkt.ind_D) == 1
+    @test length(kkt.border.ind_D) == 1
     @test size(kkt.aug_com, 1) == n + 1
     results = MadNLP.solve!(solver)
     @test results.status == MadNLP.SOLVE_SUCCEEDED
-    @test results.objective ≈ results_ref.objective atol=1e-6
-    @test Array(results.solution) ≈ Array(results_ref.solution) atol=1e-6
-    @test Array(results.multipliers)[n+1] ≈ results_ref.multipliers[n+1] atol=1e-6
+    @test results.objective ≈ results_ref.objective atol = 1.0e-6
+    @test Array(results.solution) ≈ Array(results_ref.solution) atol = 1.0e-6
+    @test Array(results.multipliers)[n + 1] ≈ results_ref.multipliers[n + 1] atol = 1.0e-6
 
     # with the defaults the dense row is condensed: the plain condensed system on the GPU
-    solver0 = MadNLPSolver(BorderQPGPU(CUDA.zeros(Float64, n)); print_level=MadNLP.ERROR,
-                           kkt_system=MadNLP.SparseCondensedKKTSystem, linear_solver=MadNLPGPU.CUDSSSolver, tol=1e-8)
-    @test isempty(MadNLP.get_kkt(solver0).ind_D)
+    solver0 = MadNLPSolver(
+        BorderQPGPU(CUDA.zeros(Float64, n)); print_level = MadNLP.ERROR,
+        kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLPGPU.CUDSSSolver, tol = 1.0e-8
+    )
+    @test isempty(MadNLP.get_kkt(solver0).border.ind_D)
     results0 = MadNLP.solve!(solver0)
     @test results0.status == MadNLP.SOLVE_SUCCEEDED
-    @test Array(results0.solution) ≈ Array(results_ref.solution) atol=1e-6
+    @test Array(results0.solution) ≈ Array(results_ref.solution) atol = 1.0e-6
 end

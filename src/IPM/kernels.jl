@@ -1,13 +1,9 @@
 
 # KKT system updates -------------------------------------------------------
 # Set diagonal
-function set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
-    x = full(get_x(solver))
-    xl = full(get_xl(solver))
-    xu = full(get_xu(solver))
-    zl = full(get_zl(solver))
-    zu = full(get_zu(solver))
+set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T = _set_aug_diagonal!(kkt, solver)
 
+function _set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
     fill!(kkt.reg, get_opt(solver).default_primal_regularization)
     fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
     kkt.l_diag .= get_xl_r(solver) .- get_x_lr(solver)   # (Xˡ - X)
@@ -23,9 +19,10 @@ end
 # when a slack reaches its bound (the constraint becomes active); the perturbation δ = border_delta μ^border_delta_exp
 # keeps the static factorization away from that pivot (mul! stays exact, so refinement
 # removes the bias)
-function set_aug_diagonal!(kkt::SparseCondensedKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
-    invoke(set_aug_diagonal!, Tuple{AbstractKKTSystem{T}, AbstractMadNLPSolver{T}}, kkt, solver)
-    kkt.border_delta[1] = kkt.border_delta_base * get_mu(solver)^kkt.border_delta_exp
+function set_aug_diagonal!(kkt::SparseCondensedKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where {T}
+    _set_aug_diagonal!(kkt, solver)
+    b = kkt.border
+    b.delta[1] = b.delta_base * get_mu(solver)^b.delta_exp
     return
 end
 
