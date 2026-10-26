@@ -1,6 +1,6 @@
 name = "MadNLPGPU"
 uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
-version = "0.10.3"
+version = "0.11.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
@@ -29,7 +29,7 @@ AMD = "0.5"
 AMDGPU = "2"
 Adapt = "4"
 CUDACore = "6"
-CUDSS = "0.7, 0.8"
+CUDSS = "1.0"
 GPUArraysCore = "0.2"
 KernelAbstractions = "0.9"
 MadNLP = "0.10"
