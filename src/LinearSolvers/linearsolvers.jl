@@ -94,6 +94,26 @@ function inertia end
 
 function improve! end
 
+"""
+    set_block_structure!(opt, n_primal::Integer, n_dual::Integer) -> opt
+
+Declare to a linear solver's option object the saddle-point partition
+`(n_primal, n_dual)` of the matrix it is about to factorize (see
+[`block_structure`](@ref)). The KKT system calls this *before* constructing the
+solver, so the partition is available to the symbolic analysis and not only to
+the numeric phase.
+
+A solver that can exploit the partition declares mutable `n_primal` and/or
+`n_dual` option fields, which are filled in here; for every other solver this is
+a no-op, so no existing option type has to change.
+"""
+function set_block_structure!(opt, n_primal::Integer, n_dual::Integer)
+    ismutable(opt) || return opt
+    hasproperty(opt, :n_primal) && setproperty!(opt, :n_primal, Int(n_primal))
+    hasproperty(opt, :n_dual)   && setproperty!(opt, :n_dual,   Int(n_dual))
+    return opt
+end
+
 # Default function for AbstractKKTVector
 function solve_linear_system!(s::AbstractLinearSolver, x::AbstractKKTVector)
     solve_linear_system!(s, full(x))

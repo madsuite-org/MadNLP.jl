@@ -2,3 +2,4 @@
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 MadNLPGPU = "d72a61cc-809d-412f-99be-fd81f4b8a598"
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"

@@ -660,7 +660,7 @@ function unpack_x!(x_full, cb::AbstractCallback, x)
     x_full .= x
 end
 function unpack_z!(z_full, cb::AbstractCallback, z)
-    z_full .= z ./ cb.obj_scale[]
+    z_full .= z .* (cb.obj_sign / cb.obj_scale[])
 end
 function unpack_y!(y_full, cb::AbstractCallback, y)
     y_full .= (y .* cb.con_scale) .* (cb.obj_sign / cb.obj_scale[])
@@ -692,7 +692,7 @@ function unpack_x!(x_full, cb::SparseCallback{T, VT, VI, NLP, FH}, x) where {T, 
 end
 function unpack_z!(z_full, cb::SparseCallback{T, VT, VI, NLP, FH}, z) where {T, VT, VI, NLP, FH<:MakeParameter}
     free = cb.fixed_handler.free
-    z_full[free] .= z ./ cb.obj_scale[]
+    z_full[free] .= z .* (cb.obj_sign / cb.obj_scale[])
 end
 
 
@@ -1067,13 +1067,11 @@ end
 #=
     Compute bounds' multipliers for fixed variables
 
-    At a KKT solution, we have:
+    At a KKT solution, the multipliers (y, zl, zu) returned to the user satisfy
 
-    Min problem:
-    ∇f + ∇cᵀ y - zl + zu = 0 , (zl, zu) >= 0
+    ∇f + ∇cᵀ y - zl + zu = 0
 
-    Max problem:
-    ∇f + ∇cᵀ y + zl - zu = 0 , (zl, zu) >= 0
+    with (zl, zu) >= 0 for a min problem and (zl, zu) <= 0 for a max problem.
 =#
 
 # N.B.: by default do nothing as the bounds' multipliers are computed by the algorithm
@@ -1088,8 +1086,8 @@ function update_z!(cb::AbstractCallback{T, VT, FH}, x, y, zl, zu, jacl) where {T
     NLPModels.jtprod!(cb.nlp, x, y, jtv)     # ∇cᵀ y
     g_full .+= jtv                           # ∇f + ∇cᵀ y
     g_fixed = view(g_full, ind_fixed)
-    zl[ind_fixed] .= max.(zero(T), cb.obj_sign .* g_fixed)
-    zu[ind_fixed] .= max.(zero(T), .-cb.obj_sign .* g_fixed)
+    zl[ind_fixed] .= cb.obj_sign .* max.(zero(T), cb.obj_sign .* g_fixed)
+    zu[ind_fixed] .= cb.obj_sign .* max.(zero(T), .-cb.obj_sign .* g_fixed)
     return
 end
 
