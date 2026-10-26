@@ -115,7 +115,9 @@ end
 Wraps a linear solver behind an abstractly typed field, so a KKT system that stores it
 has the same type for every linear solver. The interior-point code, which is specialized
 on the KKT system type, is then compiled once and shared by all linear solvers; only the
-calls forwarded below dispatch dynamically, a few times per iteration. Fields of the
+calls forwarded below dispatch dynamically, a few times per iteration. They forward
+through `Base.invokelatest`, so linear solver methods added by packages loaded later do
+not invalidate the compiled interior-point code. Fields of the
 wrapped solver are reachable as fields of the barrier; the solver itself is `wrapped`.
 """
 struct LinearSolverBarrier{T} <: AbstractLinearSolver{T}
@@ -128,15 +130,18 @@ Base.getproperty(s::LinearSolverBarrier, name::Symbol) =
 Base.hasproperty(s::LinearSolverBarrier, name::Symbol) =
     name === :wrapped || hasproperty(getfield(s, :wrapped), name)
 
-introduce(s::LinearSolverBarrier) = introduce(s.wrapped)
-factorize!(s::LinearSolverBarrier) = (factorize!(s.wrapped); s)
-solve_linear_system!(s::LinearSolverBarrier, x::AbstractVector) = solve_linear_system!(s.wrapped, x)
-solve_linear_system!(s::LinearSolverBarrier, x::AbstractKKTVector) = solve_linear_system!(s.wrapped, x)
-solve_linear_system!(s::LinearSolverBarrier, X::AbstractMatrix) = solve_linear_system!(s.wrapped, X)
-is_inertia(s::LinearSolverBarrier) = is_inertia(s.wrapped)
-inertia(s::LinearSolverBarrier) = inertia(s.wrapped)
-improve!(s::LinearSolverBarrier) = improve!(s.wrapped)
-is_async(s::LinearSolverBarrier) = is_async(s.wrapped)
+introduce(s::LinearSolverBarrier) = Base.invokelatest(introduce, s.wrapped)
+factorize!(s::LinearSolverBarrier) = (Base.invokelatest(factorize!, s.wrapped); s)
+solve_linear_system!(s::LinearSolverBarrier, x::AbstractVector) =
+    Base.invokelatest(solve_linear_system!, s.wrapped, x)
+solve_linear_system!(s::LinearSolverBarrier, x::AbstractKKTVector) =
+    Base.invokelatest(solve_linear_system!, s.wrapped, x)
+solve_linear_system!(s::LinearSolverBarrier, X::AbstractMatrix) =
+    Base.invokelatest(solve_linear_system!, s.wrapped, X)
+is_inertia(s::LinearSolverBarrier) = Base.invokelatest(is_inertia, s.wrapped)::Bool
+inertia(s::LinearSolverBarrier) = Base.invokelatest(inertia, s.wrapped)
+improve!(s::LinearSolverBarrier) = Base.invokelatest(improve!, s.wrapped)::Bool
+is_async(s::LinearSolverBarrier) = Base.invokelatest(is_async, s.wrapped)::Bool
 
 #=
     Iterator's interface

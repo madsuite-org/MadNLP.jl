@@ -11,13 +11,16 @@ model is reused for any other model with the same element and vector types. Pass
 (needed for `juliac --trim`, which requires static dispatch).
 
 """
-function madnlp(model::AbstractNLPModel; specialize_model::Bool = false, kwargs...)
+function madnlp(@nospecialize(model::AbstractNLPModel); specialize_model::Bool = false, kwargs...)
     # By default the model is wrapped in a ModelBarrier, so the solver's type does not
     # depend on the model type and its compiled code is shared across models. The
     # specialized path goes through invokelatest so that the default path never compiles
     # a solver for the concrete model type.
     specialize_model && return Base.invokelatest(_madnlp, model; kwargs...)
-    return _madnlp(ModelBarrier(model); kwargs...)
+    # The barrier's element and vector types are not known here, so call through
+    # invokelatest: this method then has no backedges to invalidate, and the call runs
+    # the `_madnlp` compiled for the concrete barrier type.
+    return Base.invokelatest(_madnlp, ModelBarrier(model); kwargs...)
 end
 
 function _madnlp(nlp::AbstractNLPModel; kwargs...)

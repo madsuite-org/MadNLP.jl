@@ -234,10 +234,17 @@ struct ModelBarrier{T,VT} <: NLPModels.AbstractNLPModel{T,VT}
     inner::NLPModels.AbstractNLPModel{T,VT}
     meta::NLPModels.NLPModelMeta{T,VT}
     counters::NLPModels.Counters
+    ModelBarrier{T,VT}(@nospecialize(inner), meta, counters) where {T,VT} =
+        new{T,VT}(inner, meta, counters)
 end
 
-ModelBarrier(m::NLPModels.AbstractNLPModel{T,VT}) where {T,VT} =
-    ModelBarrier{T,VT}(m, m.meta, NLPModels.Counters())
+# Not specialized on the model type: the barrier is built once per solve, and reading
+# `meta` through `invokelatest` keeps `getproperty` methods added later from
+# invalidating this method and `madnlp`, which calls it.
+ModelBarrier(@nospecialize(m::NLPModels.AbstractNLPModel)) =
+    _model_barrier(m, Base.invokelatest(getproperty, m, :meta)::NLPModels.NLPModelMeta)
+_model_barrier(@nospecialize(m), meta::NLPModels.NLPModelMeta{T,VT}) where {T,VT} =
+    ModelBarrier{T,VT}(m, meta, NLPModels.Counters())
 ModelBarrier(m::ModelBarrier) = m
 
 Base.getproperty(m::ModelBarrier, s::Symbol) =
