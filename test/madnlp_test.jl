@@ -212,7 +212,7 @@ end
 end
 
 @testset "LinearSolverBarrier" begin
-    nlp = MadNLPTests.HS15Model()
+    nlp = MadNLP.SparseWrapperModel(Array, MadNLPTests.HS15Model())
     a = MadNLPSolver(nlp; print_level = MadNLP.ERROR, linear_solver = MumpsSolver)
     b = MadNLPSolver(nlp; print_level = MadNLP.ERROR, linear_solver = LDLSolver)
     # the KKT system type does not depend on the linear solver
