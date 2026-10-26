@@ -46,7 +46,7 @@ jobs:
         run: |
           using Pkg
           Pkg.add([
-              PackageSpec(name="MathOptInterface", rev="bl/model_with_quad"),
+              PackageSpec(name="MathOptInterface", rev="bl/qp_block_data"),
           ])
       - name: test MadNLP
         shell: julia --project=./MadNLP --color=yes {0}
@@ -94,6 +94,7 @@ jobs:
               PackageSpec(path="./MadNLPTests"),
               PackageSpec(path=path_HSL_jll),
           ])
+          Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/qp_block_data"))
       - name: test HSL solvers
         run: julia --project=./MadNLP/test/HSL --code-coverage=user --color=yes MadNLP/test/HSL/runtests.jl
       - uses: julia-actions/julia-processcoverage@v1
@@ -133,6 +134,7 @@ jobs:
               PackageSpec(path="./MadNLP"),
               PackageSpec(path="./MadNLPTests"),
           ])
+          Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/qp_block_data"))
       # Julia 1.13's Pkg auto-precompile looks up changed indirect deps by name
       # and fails with "Unknown package"; the test step precompiles on load.
       - name: Add cuMadNLP

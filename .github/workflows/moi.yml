@@ -33,6 +33,7 @@ jobs:
           using Pkg
           Pkg.Registry.update()
           Pkg.develop([PackageSpec(path="./MadCore"), PackageSpec(path="./MadNLPCore"), PackageSpec(path="./MadNLP")])
+          Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/qp_block_data"))
           Pkg.instantiate()
       - name: test MOI wrapper and MINLPTests
         run: julia --project=./MadNLP/test/MOI --code-coverage=user --color=yes MadNLP/test/MOI/runtests.jl
