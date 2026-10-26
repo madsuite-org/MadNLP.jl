@@ -1,12 +1,13 @@
 using Test
 using LinearAlgebra
+using SparseArrays
 using CUDA
 using CUDSS
 using MadNLP
 using MadNLPGPU
 using MadNLPTests
 
-@testset "GPUSchurComplementKKTSystem" begin
+@testset "GPUSchurComplementCondensedKKTSystem" begin
 
     @testset "Basic convergence — quadratic with coupling" begin
         ns, nv, nd, nc = 3, 1, 1, 1
@@ -26,8 +27,8 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCUDASolver,
+            kkt_system = SchurComplementCondensedKKTSystem,
+            linear_solver = CUDSSSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
@@ -54,17 +55,27 @@ using MadNLPTests
         ref = madnlp(
             nlp_cpu;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCPUSolver,
+            kkt_system = SchurComplementCondensedKKTSystem,
+            linear_solver = MadNLP.MumpsSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
+        # The equality constraints (lcon == ucon == 0) are relaxed into slacks, whose
+        # barrier weight σ_s ~ 1/μ² blows up near convergence and enters each condensed
+        # per-scenario block as σ_s·JᵀJ — a rank-1 term that drives cond → 1e16. cuDSS
+        # iterative refinement cannot refine a numerically singular system and raises
+        # CUDSS_STATUS_IR_FAILED, so pin the batched scenario solver to ir=0 (best-effort
+        # direct solve); MadNLP's outer Richardson refinement handles the residual.
+        gpu_opts = schur_opts(; ns, nv, nd, nc)
+        scenario_opt = MadNLP.default_options(CUDSSSolver)
+        scenario_opt.cudss_ir = 0
+        gpu_opts[:schur_scenario_opt_linear_solver] = scenario_opt
         gpu_result = madnlp(
             nlp_gpu;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCUDASolver,
-            kkt_options = schur_opts(; ns, nv, nd, nc),
+            kkt_system = SchurComplementCondensedKKTSystem,
+            linear_solver = CUDSSSolver,
+            kkt_options = gpu_opts,
             print_level = MadNLP.ERROR,
         )
 
@@ -96,8 +107,8 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCUDASolver,
+            kkt_system = SchurComplementCondensedKKTSystem,
+            linear_solver = CUDSSSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
@@ -142,8 +153,8 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCUDASolver,
+            kkt_system = SchurComplementCondensedKKTSystem,
+            linear_solver = CUDSSSolver,
             kkt_options = opts,
             print_level = MadNLP.ERROR,
         )
@@ -168,8 +179,8 @@ using MadNLPTests
         result = madnlp(
             nlp;
             callback = MadNLP.SparseCallback,
-            kkt_system = SchurComplementKKTSystem,
-            linear_solver = LapackCUDASolver,
+            kkt_system = SchurComplementCondensedKKTSystem,
+            linear_solver = CUDSSSolver,
             kkt_options = schur_opts(; ns, nv, nd, nc),
             print_level = MadNLP.ERROR,
         )
@@ -178,5 +189,112 @@ using MadNLPTests
         @test isapprox(sol[1], 3.0; atol = 1.0e-3)
         @test isapprox(sol[2], 7.0; atol = 1.0e-3)
         @test isapprox(sol[3], 5.0; atol = 1.0e-3)
+    end
+
+    @testset "Design-only constraints — match CPU reference" begin
+        # Non-contiguous layout + design-only equality and inequality constraints.
+        for (ns, nv, nd) in ((2, 2, 2), (3, 2, 3))
+            n = ns * nv + nd
+            qp_cpu, _, _, kkt_opts =
+                build_twostage_qp_general(zeros(Float64, n); ns, nv, nd, permute = true)
+            qp_gpu, _, _, _ =
+                build_twostage_qp_general(CUDA.zeros(Float64, n); ns, nv, nd, permute = true)
+
+            # Pin both cuDSS solvers to ir=0: relaxed-equality slacks drive the condensed
+            # systems numerically singular near convergence (σ_s·JᵀJ, σ_s ~ 1/μ²), where
+            # cuDSS iterative refinement raises CUDSS_STATUS_IR_FAILED. Here the design-only
+            # equality lands in the first-stage Schur complement, so the complement solver
+            # is the one that goes singular (the scenario blocks can too). The best-effort
+            # direct solve plus MadNLP's outer Richardson refinement suffice.
+            scenario_opt = MadNLP.default_options(CUDSSSolver)
+            scenario_opt.cudss_ir = 0
+            complement_opt = MadNLP.default_options(CUDSSSolver)
+            complement_opt.cudss_ir = 0
+            kkt_opts[:schur_scenario_opt_linear_solver] = scenario_opt
+            kkt_opts[:schur_opt_linear_solver] = complement_opt
+
+            ref = madnlp(qp_cpu; linear_solver = LapackCPUSolver, print_level = MadNLP.ERROR)
+            # The condensed default `bound_relax_factor = tol` (= 1e-4 here) relaxes the
+            # design-only EQUALITIES into ±2e-4 boxes; the optimizer exploits that slack and
+            # lands ~2·tol off the exact-equality reference — this testset compares against
+            # ground truth, so pin the tight relaxation explicitly.
+            gpu_result = madnlp(
+                qp_gpu;
+                callback = MadNLP.SparseCallback,
+                kkt_system = SchurComplementCondensedKKTSystem,
+                linear_solver = CUDSSSolver,
+                kkt_options = kkt_opts,
+                bound_relax_factor = 1.0e-8,
+                print_level = MadNLP.ERROR,
+            )
+
+            @test ref.status == MadNLP.SOLVE_SUCCEEDED
+            @test gpu_result.status == MadNLP.SOLVE_SUCCEEDED
+            @test isapprox(gpu_result.objective, ref.objective; atol = 1.0e-6)
+            @test isapprox(Array(gpu_result.solution), Array(ref.solution); atol = 1.0e-4)
+        end
+    end
+
+    # Assemble one KKT matrix (jac+hess at x0, pr_diag=1, du_diag=-1e-8) and return it.
+    # RelaxEquality (the Schur default): all constraints condense, so a coupling
+    # equality becomes a coupling inequality whose J'ΣJ splits across A_kk / C_dk / S_dd.
+    function _assembled_kkt(qp, solver, kkt_opts)
+        cb = MadNLP.create_callback(
+            MadNLP.SparseCallback, qp; equality_treatment = MadNLP.RelaxEquality,
+        )
+        kkt = MadNLP.create_kkt_system(MadNLP.SchurComplementCondensedKKTSystem, cb, solver; kkt_opts...)
+        x0 = cb.nlp.meta.x0
+        y0 = cb.nlp.meta.y0
+        MadNLP._eval_jac_wrapper!(cb, x0, MadNLP.get_jacobian(kkt))
+        MadNLP.compress_jacobian!(kkt)
+        MadNLP._eval_lag_hess_wrapper!(cb, x0, y0, MadNLP.get_hessian(kkt))
+        MadNLP.compress_hessian!(kkt)
+        fill!(kkt.pr_diag, 1.0)
+        fill!(kkt.du_diag, -1.0e-8)
+        MadNLP.build_kkt!(kkt)
+        return kkt
+    end
+
+    @testset "Sparse Schur (cuDSS) — GPU schur_csc matches CPU schur_csc" begin
+        # Both the CPU and GPU first-stage Schur complements are sparse lower-triangular
+        # CSCs (same symbolic pattern, size nd × nd, SPD). Densified + symmetrized they
+        # must agree. Directly catches triangle / sign / nzpos / double-count bugs in the
+        # sparse assembly, including the relaxed coupling-equality → C_dk cross-term.
+        for (ns, nv, nd) in ((2, 2, 2), (3, 2, 3), (4, 1, 2))
+            n = ns * nv + nd
+            qp_cpu, _, _, kkt_opts =
+                build_twostage_qp_general(zeros(Float64, n); ns, nv, nd, permute = true)
+            qp_gpu, _, _, _ =
+                build_twostage_qp_general(CUDA.zeros(Float64, n); ns, nv, nd, permute = true)
+
+            kkt_cpu = _assembled_kkt(qp_cpu, MadNLP.MumpsSolver, kkt_opts)
+            kkt_gpu = _assembled_kkt(qp_gpu, CUDSSSolver, kkt_opts)
+
+            A_dense = Array(Symmetric(Matrix(kkt_cpu.schur_csc), :L))
+            S = kkt_gpu.schur_csc
+            nS = size(S, 1)
+            S_lower = SparseMatrixCSC(
+                nS, nS, Array(S.colPtr), Array(S.rowVal), Array(S.nzVal),
+            )
+            S_full = Array(Symmetric(Matrix(S_lower), :L))
+
+            @test kkt_gpu.m <= nd
+            @test isapprox(S_full, A_dense; atol = 1.0e-7, rtol = 1.0e-7)
+        end
+    end
+
+    @testset "Sparse Schur (cuDSS) — reduced coupling buffers sized to m ≤ nd" begin
+        # The reduced C_dk / tmp / Schur-block buffers are width m (the coupled-design
+        # count), not nd — the memory/compute win. m ≤ nd always; for SCOPF m ≪ nd.
+        ns, nv, nd = 3, 2, 3
+        n = ns * nv + nd
+        qp_gpu, _, _, kkt_opts =
+            build_twostage_qp_general(CUDA.zeros(Float64, n); ns, nv, nd, permute = true)
+        kkt = _assembled_kkt(qp_gpu, CUDSSSolver, kkt_opts)
+        @test 1 <= kkt.m <= nd
+        @test size(kkt.C_dk_batched, 2) == kkt.m
+        @test size(kkt.tmp_blk_nd_batched, 2) == kkt.m
+        @test size(kkt.schur_block_batched, 1) == kkt.m
+        @test size(kkt.schur_block_batched, 2) == kkt.m
     end
 end

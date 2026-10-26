@@ -24,151 +24,131 @@
     @inbounds nzval[offset + nzpos_flat[i]] += src[src_idx[i]]
 end
 
-# Scatter src[src_idx[i]] into C_dk[v_idx, d_idx, k] (blk_size × nd × ns).
-# Layout has scenario-var dim first so each C_dk[:, :, k] is a contiguous
-# (blk × nd) matrix — directly usable as a cuDSS multi-RHS dense matrix.
-# Used for: Hessian coupling entries, equality Jacobian coupling entries.
-@kernel function _scatter_to_Cdk_batched!(
-    C_dk,
-    @Const(src),
-    @Const(src_idx),
-    @Const(v_idx_flat),       # scenario-var index (1..blk)
-    @Const(d_idx_flat),       # design-var index (1..nd)
-    @Const(n_per_s),
-)
-    i = @index(Global)
-    k = (i - 1) ÷ n_per_s + 1
-    @inbounds C_dk[v_idx_flat[i], d_idx_flat[i], k] += src[src_idx[i]]
-end
-
-# Inequality condensation → A_kk (lower triangle).
-@kernel function _ineq_condense_Akk_kernel!(
-    nzval,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(nzpos_flat),
-    @Const(jcoo1_flat),
-    @Const(jcoo2_flat),
-    @Const(bufidx_flat),
-    @Const(nnz_per_block),
-    @Const(n_per_s),
-)
-    i = @index(Global)
-    offset = ((i - 1) ÷ n_per_s) * nnz_per_block
-    @inbounds nzval[offset + nzpos_flat[i]] += diag_buffer[bufidx_flat[i]] *
-        jac[jcoo1_flat[i]] * jac[jcoo2_flat[i]]
-end
-
-# Inequality condensation → C_dk (blk_size × nd × ns; see _scatter_to_Cdk_batched!).
-@kernel function _ineq_condense_Cdk_kernel!(
-    C_dk,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(v_idx_flat),       # scenario-var index (1..blk)
-    @Const(d_idx_flat),       # design-var index (1..nd)
-    @Const(jcoo_d_flat),
-    @Const(jcoo_v_flat),
-    @Const(bufidx_flat),
-    @Const(n_per_s),
-)
-    i = @index(Global)
-    k = (i - 1) ÷ n_per_s + 1
-    @inbounds C_dk[v_idx_flat[i], d_idx_flat[i], k] += diag_buffer[bufidx_flat[i]] *
-        jac[jcoo_d_flat[i]] * jac[jcoo_v_flat[i]]
-end
-
-# Inequality condensation → S (atomic adds since multiple scenarios target the
-# same nd × nd dense matrix).
-@kernel function _ineq_condense_S_kernel!(
-    S,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(row_flat),
-    @Const(col_flat),
-    @Const(jcoo1_flat),
-    @Const(jcoo2_flat),
-    @Const(bufidx_flat),
-)
-    i = @index(Global)
-    @inbounds begin
-        val = diag_buffer[bufidx_flat[i]] * jac[jcoo1_flat[i]] * jac[jcoo2_flat[i]]
-        CUDACore.@atomic S[row_flat[i], col_flat[i]] += val
-    end
-end
-
-# Initialize S from design-design Hessian
-@kernel function _init_S_hess_kernel!(
-    S,
-    @Const(hess),
-    @Const(coo_indices),
-    @Const(row_indices),
-    @Const(col_indices),
-)
-    idx = @index(Global)
-    @inbounds S[row_indices[idx], col_indices[idx]] += hess[coo_indices[idx]]
-end
-
-# Add pr_diag_dd to S diagonal
-@kernel function _init_S_diag_kernel!(
-    S,
-    @Const(pr_diag),
-    @Const(diag_offset),
-    @Const(nd),
-)
-    idx = @index(Global)
-    if idx <= nd
-        @inbounds S[idx, idx] += pr_diag[diag_offset + idx]
-    end
-end
-
-# Extract per-scenario RHS from global wx/wy → rhs_k_batched (blk_size × ns)
+# Extract per-scenario RHS from global wx → rhs_k_batched (nv × ns). Under
+# RelaxEquality the per-scenario block has no equality rows (blk_size == nv), so
+# only scenario variables are gathered. Their global indices come from
+# `scen_var_global` (flat, length ns*nv, scenario-major), since a scenario's
+# variables need not be contiguous.
 @kernel function _extract_rhs_kernel!(
     rhs_k,
     @Const(wx),
-    @Const(wy),
-    @Const(eq_global_indices),
+    @Const(scen_var_global),
     @Const(nv),
-    @Const(nc_eq),
     @Const(ns),
-    @Const(blk_size),
 )
     i = @index(Global)
-    k = (i - 1) ÷ blk_size + 1
-    local_idx = (i - 1) % blk_size + 1
+    k = (i - 1) ÷ nv + 1
+    local_idx = (i - 1) % nv + 1
     if k <= ns
-        if local_idx <= nv
-            gi = (k - 1) * nv + local_idx
-            @inbounds rhs_k[local_idx, k] = wx[gi]
-        else
-            eq_idx = local_idx - nv
-            flat_idx = (k - 1) * nc_eq + eq_idx
-            @inbounds rhs_k[local_idx, k] = wy[eq_global_indices[flat_idx]]
-        end
+        @inbounds gi = scen_var_global[(k - 1) * nv + local_idx]
+        @inbounds rhs_k[local_idx, k] = wx[gi]
     end
 end
 
-# Write back per-scenario solution to global wx/wy
+# Write back per-scenario solution to global wx
 @kernel function _writeback_rhs_kernel!(
     wx,
-    wy,
     @Const(rhs_k),
-    @Const(eq_global_indices),
+    @Const(scen_var_global),
     @Const(nv),
-    @Const(nc_eq),
     @Const(ns),
-    @Const(blk_size),
 )
     i = @index(Global)
-    k = (i - 1) ÷ blk_size + 1
-    local_idx = (i - 1) % blk_size + 1
+    k = (i - 1) ÷ nv + 1
+    local_idx = (i - 1) % nv + 1
     if k <= ns
-        if local_idx <= nv
-            gi = (k - 1) * nv + local_idx
-            @inbounds wx[gi] = rhs_k[local_idx, k]
-        else
-            eq_idx = local_idx - nv
-            flat_idx = (k - 1) * nc_eq + eq_idx
-            @inbounds wy[eq_global_indices[flat_idx]] = rhs_k[local_idx, k]
+        @inbounds gi = scen_var_global[(k - 1) * nv + local_idx]
+        @inbounds wx[gi] = rhs_k[local_idx, k]
+    end
+end
+
+# ===== Sparse-Schur (cuDSS) assembly kernel ======================================
+# Scatters into the lower-triangular CSC `nzval` of the sparse Schur complement at a
+# precomputed nzval position. Used for the design pr_diag diagonal, which targets distinct
+# diagonal slots with no collision (so a plain atomic add is race-free and deterministic; the
+# Σ-amplified / duplicate-prone contributions go through the deterministic scatters below).
+@kernel function _scatter_to_csc_atomic!(
+        nzval,
+        @Const(src),
+        @Const(src_idx),
+        @Const(nzpos),
+    )
+    i = @index(Global)
+    @inbounds CUDACore.@atomic nzval[nzpos[i]] += src[src_idx[i]]
+end
+
+# ===== Deterministic (atomic-free) condensation scatters ========================
+# The atomic-add condensation scatters above are correct but their summation ORDER is
+# nondeterministic. With the RelaxEquality condensation weights Σ ≈ 1e8, that reorders the
+# accumulation enough to perturb the assembled blocks by ~1e-7 run-to-run; amplified by the
+# (legitimate) KKT conditioning this tips the IPM step-acceptance residual across its
+# threshold → nondeterministic convergence. These deterministic variants assign ONE thread
+# per output slot, which sums that slot's contributions in a fixed (sorted) order with a plain
+# `+=` (no two threads touch the same slot within a launch, and launches are sequential), so
+# the assembled blocks are reproducible run-to-run — matching the deterministic CPU assembly.
+#
+# `segstart`/`segslot` describe, for one target array, the contiguous contribution ranges per
+# slot in a stable-by-slot ordering: segment `s` owns sorted contributions
+# `segstart[s] : segstart[s+1]-1`, all targeting linear index `segslot[s]`.
+
+# Linear scatter value = src[src_idx] → any target nzval, deterministic (one thread per slot).
+@kernel function _det_lin_scatter!(
+        nzval,
+        @Const(src),
+        @Const(src_idx),
+        @Const(segstart),
+        @Const(segslot),
+    )
+    s = @index(Global)
+    @inbounds begin
+        acc = zero(eltype(nzval))
+        for j in segstart[s]:(segstart[s + 1] - 1)
+            acc += src[src_idx[j]]
+        end
+        nzval[segslot[s]] += acc
+    end
+end
+
+# Inequality condensation (Σ-amplified) → any target nzval (A_kk / C_dk / S), deterministic.
+@kernel function _det_quad_scatter!(
+        nzval,
+        @Const(jac),
+        @Const(diag_buffer),
+        @Const(jc1),
+        @Const(jc2),
+        @Const(buf),
+        @Const(segstart),
+        @Const(segslot),
+    )
+    s = @index(Global)
+    @inbounds begin
+        acc = zero(eltype(nzval))
+        for j in segstart[s]:(segstart[s + 1] - 1)
+            acc += diag_buffer[buf[j]] * jac[jc1[j]] * jac[jc2[j]]
+        end
+        nzval[segslot[s]] += acc
+    end
+end
+
+# Schur reduction block → CSC nzval, deterministic: one thread per lower-triangle (a,b) slot
+# sums -D[a,b,k] over the ns scenarios in fixed order.
+@kernel function _det_schur_block!(
+        nzval,
+        @Const(D),
+        @Const(fill_nzpos),
+        @Const(m),
+        @Const(ns),
+    )
+    i = @index(Global)
+    a = (i - 1) % m + 1
+    b = (i - 1) ÷ m + 1
+    if a >= b
+        @inbounds begin
+            acc = zero(eltype(nzval))
+            for k in 1:ns
+                acc += -D[a, b, k]
+            end
+            nzval[fill_nzpos[a, b]] += acc
         end
     end
 end
