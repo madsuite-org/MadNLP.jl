@@ -13,13 +13,15 @@ MadNLP.@kwdef mutable struct CudssSolverOptions <: MadNLP.AbstractOptions
     cudss_solve_alg::String = "default"
     cudss_matching::Bool = false
     cudss_pivoting::Bool = true
-    # pivot type, applied after cudss_pivoting: 'C' (column), 'R' (row), 'N' (none), or 'B' for
-    # the Bunch-Kaufman pivoting of cuDSS 1.0 (symmetric indefinite matrices); ' ' leaves
-    # cuDSS's own choice
+    # pivot type, applied after cudss_pivoting: one of cuDSS's "pivot_type" values ('A'
+    # automatic, 'N' none, 'C' / 'R' global column / row, 'D' diagonal, 'L' local block, 'B'
+    # Bunch-Kaufman for symmetric indefinite matrices); ' ' leaves cuDSS's own choice
     cudss_pivot_type::Char = ' '
-    # redo the analysis phase at every factorization: with matching enabled, cuDSS decides the
-    # matching permutation and scaling from the numerical values during analysis, and the
-    # values are still zero when the solver is constructed
+    # redo the analysis phase at every factorization, so that a value-dependent analysis
+    # (matching) always sees the current values; a diagnostic baseline, since it pays the
+    # reordering and the symbolic factorization at every iteration. The cheaper choices
+    # below cover the practical cases: cudss_deferred_analysis for the first matrix and
+    # cudss_reanalyze_on_improve for a matching that has gone stale
     cudss_analysis_each_factorization::Bool = false
     # run the analysis phase at the first factorization instead of at construction, so that a
     # value-dependent analysis (matching) sees the first KKT matrix rather than zeros; later
@@ -61,14 +63,7 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
         CUDSS.cudss_set(solver, "pivot_type", 'N')
     end
     if opt.cudss_pivot_type != ' '
-        if opt.cudss_pivot_type == 'B' && pkgversion(CUDSS) < v"1"
-            # CUDSS.jl before 1.0 has no name for Bunch-Kaufman; set the raw
-            # cudssPivotType_t value (CUDSS_PIVOT_BUNCH_KAUFMAN = 6), which the loaded
-            # library accepts from cuDSS 1.0 on
-            CUDSS.cudssConfigSet(solver.config, CUDSS.CUDSS_CONFIG_PIVOT_TYPE, Ref{Cint}(6), Csize_t(sizeof(Cint)))
-        else
-            CUDSS.cudss_set(solver, "pivot_type", opt.cudss_pivot_type)
-        end
+        CUDSS.cudss_set(solver, "pivot_type", opt.cudss_pivot_type)
     end
     if opt.cudss_pivot_epsilon > 0.0
         CUDSS.cudss_set(solver, "pivot_epsilon", opt.cudss_pivot_epsilon)
@@ -82,10 +77,7 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
         if opt.cudss_matching_alg != "default"
             CUDSS.cudss_set(solver, "matching_alg", opt.cudss_matching_alg)
         end
-    elseif pkgversion(CUDSS) >= v"1"
-        # cuDSS 1.0 enables matching by default ("default" now selects an algorithm);
-        # switch it off explicitly so that cudss_matching = false means the same under
-        # every library version
+    else
         CUDSS.cudss_set(solver, "matching_alg", "none")
     end
     if opt.cudss_reordering_alg != "default"
