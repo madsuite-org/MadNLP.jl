@@ -1,6 +1,6 @@
 name = "MadNLPHSL"
 uuid = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
-version = "0.7.3"
+version = "0.7.4"
 
 [deps]
 HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
@@ -10,7 +10,7 @@ MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 [compat]
 HSL = "0.5.3"
 LinearAlgebra = "1.9"
-MadNLP = "0.10"
+MadNLP = "0.10, 0.11"
 MadNLPTests = "0.6"
 Quadmath = "0.5.10, 1.0.1"
 Test = "1.9"
