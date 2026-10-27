@@ -1847,7 +1847,7 @@ function MOI.get(
 )
     MOI.check_result_index_bounds(model, attr)
     MOI.throw_if_not_valid(model, ci)
-    return -model.result.multipliers_U[ci.value]
+    return -_dual_multiplier(model) * model.result.multipliers_U[ci.value]
 end
 
 function MOI.get(
@@ -1857,7 +1857,7 @@ function MOI.get(
 )
     MOI.check_result_index_bounds(model, attr)
     MOI.throw_if_not_valid(model, ci)
-    return model.result.multipliers_L[ci.value]
+    return _dual_multiplier(model) * model.result.multipliers_L[ci.value]
 end
 
 function MOI.get(
@@ -1867,7 +1867,7 @@ function MOI.get(
 )
     MOI.check_result_index_bounds(model, attr)
     MOI.throw_if_not_valid(model, ci)
-    return model.result.multipliers_L[ci.value] - model.result.multipliers_U[ci.value]
+    return _dual_multiplier(model) * (model.result.multipliers_L[ci.value] - model.result.multipliers_U[ci.value])
 end
 
 function MOI.get(
@@ -1877,7 +1877,7 @@ function MOI.get(
 )
     MOI.check_result_index_bounds(model, attr)
     MOI.throw_if_not_valid(model, ci)
-    return model.result.multipliers_L[ci.value] - model.result.multipliers_U[ci.value]
+    return _dual_multiplier(model) * (model.result.multipliers_L[ci.value] - model.result.multipliers_U[ci.value])
 end
 
 ### MOI.NLPBlockDual

@@ -901,6 +901,8 @@ end
 function is_inertia_correct(kkt::SchurComplementKKTSystem, num_pos, num_zero, num_neg)
     return (num_zero == 0) && (num_pos == size(kkt.aug_com, 1))
 end
+# the Schur complement is definite: the duals are eliminated, not factorized
+block_structure(kkt::SchurComplementKKTSystem) = (size(kkt.aug_com, 1), 0)
 
 should_regularize_dual(kkt::SchurComplementKKTSystem, num_pos, num_zero, num_neg) = true
 

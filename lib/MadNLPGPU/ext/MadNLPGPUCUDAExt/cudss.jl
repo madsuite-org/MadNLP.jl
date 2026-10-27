@@ -76,17 +76,11 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
     if opt.cudss_pivot_threshold > 0.0
         CUDSS.cudss_set(solver, "pivot_threshold", opt.cudss_pivot_threshold)
     end
+    # cuDSS 1.0 enables matching ("default" = automatic) for symmetric matrices,
+    # so it must be disabled explicitly with "none".
     if opt.cudss_matching
-        if pkgversion(CUDSS) < v"0.8"
-            CUDSS.cudss_set(solver, "use_matching", 1)
-            if opt.cudss_matching_alg != "default"
-                CUDSS.cudss_set(solver, "matching_alg", opt.cudss_matching_alg)
-            end
-        else
-            # cuDSS 0.8 dropped "use_matching": matching is enabled by selecting a
-            # matching algorithm ("default" disables it), so fall back to "algo1".
-            matching_alg = opt.cudss_matching_alg == "default" ? "algo1" : opt.cudss_matching_alg
-            CUDSS.cudss_set(solver, "matching_alg", matching_alg)
+        if opt.cudss_matching_alg != "default"
+            CUDSS.cudss_set(solver, "matching_alg", opt.cudss_matching_alg)
         end
     elseif pkgversion(CUDSS) >= v"1"
         # cuDSS 1.0 enables matching by default ("default" now selects an algorithm);

@@ -19,6 +19,7 @@ end
     include("madnlpgpu_test.jl")
     if HAS_CUDA && CUDA.functional()
         include("densekkt_cuda.jl")
+        include("condensed_mul_cuda.jl")
         # Need to add support for CompactLBFGS in SparseCondensedKKTSystem (Issue #563)
         # include("sparsekkt_cuda.jl")
         include("schur_cuda_test.jl")

@@ -244,6 +244,24 @@ function is_inertia_correct(kkt::AbstractKKTSystem, num_pos, num_zero, num_neg)
 end
 
 """
+    block_structure(kkt::AbstractKKTSystem) -> (n_primal, n_dual)
+
+Saddle-point partition of the matrix handed to the linear solver. The matrix is
+laid out `[primal; dual]`: the leading `n_primal` rows and columns carry the
+primal block (positive definite once regularized), the trailing `n_dual` rows and
+columns the dual block. A definite system, such as the condensed KKT system,
+returns `(n, 0)`.
+
+This is the same partition whose inertia [`is_inertia_correct`](@ref) checks. It
+is handed to the linear solver through [`set_block_structure!`](@ref) *before* the
+solver is constructed, so a solver that can exploit it (signed static pivot
+perturbation, block-aware pivoting, lazy dual regularization) already has it
+during the symbolic analysis.
+"""
+block_structure(kkt::AbstractKKTSystem) =
+    (num_variables(kkt), size(kkt, 1) - num_variables(kkt))
+
+"""
         should_regularize_dual(kkt::AbstractKKTSystem, num_pos, num_zero, num_neg)
 
 Check if the inertia ``(num_pos, num_zero, num_neg)`` returned by the linear solver

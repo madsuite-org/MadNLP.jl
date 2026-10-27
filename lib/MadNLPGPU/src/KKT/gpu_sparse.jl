@@ -33,7 +33,7 @@ function MadNLP.mul!(
 
     MadNLP.mul!(wx, kkt.hess_com, xx, alpha, beta)
     MadNLP.mul!(wx, kkt.hess_com', xx, alpha, one(T))
-    MadNLP.mul!(wx, kkt.jt_csc, xz, alpha, beta)
+    MadNLP.mul!(wx, kkt.jt_csc, xz, alpha, one(T))
     if !isempty(kkt.ext.diag_map_to)
         backend = get_backend(MadNLP.full(w))
         _diag_operation_kernel!(backend)(
@@ -47,9 +47,61 @@ function MadNLP.mul!(
         )
     end
 
-    MadNLP.mul!(wz, kkt.jt_csc', xx, alpha, one(T))
-    MadNLP.axpy!(-alpha, xz, ws)
+    MadNLP.mul!(wz, kkt.jt_csc', xx, alpha, beta)
     MadNLP.axpy!(-alpha, xs, wz)
+    ws .= beta .* ws .- alpha .* xz
+    return MadNLP._kktmul!(
+        w,
+        x,
+        kkt.reg,
+        kkt.du_diag,
+        kkt.l_lower,
+        kkt.u_lower,
+        kkt.l_diag,
+        kkt.u_diag,
+        alpha,
+        beta,
+    )
+end
+
+#=
+    MadNLP.mul! with SparseKKTSystem + GPU
+
+    The core method applies Symmetric(hess_com, :L), which cuSPARSE does not
+    support (CUSPARSE_STATUS_NOT_SUPPORTED). Do the symmetric product as
+    L*x + Lᵀ*x minus the double-counted diagonal, as in the condensed path.
+=#
+function MadNLP.mul!(
+        w::MadNLP.AbstractKKTVector{T, VT},
+        kkt::MadNLP.SparseKKTSystem{T, VT, MT, QN},
+        x::MadNLP.AbstractKKTVector,
+        alpha = one(T),
+        beta = zero(T),
+    ) where {T, VT <: AbstractGPUVector{T}, MT, QN <: MadNLP.ExactHessian}
+    n = size(kkt.hess_com, 1)
+    wx = MadNLP.primal(w)
+    xx = MadNLP.primal(x)
+    wz = MadNLP.dual(w)
+    xz = MadNLP.dual(x)
+
+    # symmetric Hessian block: Symmetric(hess_com, :L) * xx
+    MadNLP.mul!(wx, kkt.hess_com, xx, alpha, beta)
+    MadNLP.mul!(wx, kkt.hess_com', xx, alpha, one(T))
+    backend = get_backend(wx)
+    _sub_tril_diag_kernel!(backend)(
+        wx,
+        kkt.hess_com.colPtr,
+        kkt.hess_com.rowVal,
+        kkt.hess_com.nzVal,
+        xx,
+        alpha;
+        ndrange = n,
+    )
+
+    # Jacobian coupling
+    MadNLP.mul!(wx, kkt.jac_com', xz, alpha, one(T))
+    MadNLP.mul!(wz, kkt.jac_com, xx, alpha, beta)
+
     return MadNLP._kktmul!(
         w,
         x,
@@ -66,7 +118,7 @@ end
 
 function MadNLP.mul_hess_blk!(
         wx::VT,
-        kkt::Union{MadNLP.SparseKKTSystem, MadNLP.SparseCondensedKKTSystem},
+        kkt::MadNLP.SparseCondensedKKTSystem,
         t,
     ) where {T, VT <: AbstractGPUVector{T}}
     n = size(kkt.hess_com, 1)
@@ -87,6 +139,35 @@ function MadNLP.mul_hess_blk!(
             ndrange = length(kkt.ext.diag_map_to),
         )
     end
+
+    fill!(@view(wx[(n + 1):end]), 0)
+    wx .+= t .* kkt.pr_diag
+    return
+end
+
+# SparseKKTSystem has no `ext`; subtract the double-counted diagonal directly
+# from the tril CSC (see the GPU mul! above).
+function MadNLP.mul_hess_blk!(
+        wx::VT,
+        kkt::MadNLP.SparseKKTSystem,
+        t,
+    ) where {T, VT <: AbstractGPUVector{T}}
+    n = size(kkt.hess_com, 1)
+    wxx = @view(wx[1:n])
+    tx = @view(t[1:n])
+
+    MadNLP.mul!(wxx, kkt.hess_com, tx, one(T), zero(T))
+    MadNLP.mul!(wxx, kkt.hess_com', tx, one(T), one(T))
+    backend = get_backend(wx)
+    _sub_tril_diag_kernel!(backend)(
+        wxx,
+        kkt.hess_com.colPtr,
+        kkt.hess_com.rowVal,
+        kkt.hess_com.nzVal,
+        tx,
+        one(T);
+        ndrange = n,
+    )
 
     fill!(@view(wx[(n + 1):end]), 0)
     wx .+= t .* kkt.pr_diag
@@ -344,7 +425,7 @@ end
 =#
 
 function MadNLP.compress_hessian!(
-        kkt::MadNLP.AbstractSparseKKTSystem{T, VT},
+        kkt::MadNLP.SparseCondensedKKTSystem{T, VT},
     ) where {T, VT <: AbstractGPUVector{T}}
     fill!(MadNLP.nzval(kkt.hess_com), zero(T))
     backend = get_backend(kkt.pr_diag)
