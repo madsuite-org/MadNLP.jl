@@ -26,7 +26,7 @@ MadNLPGPUCUDAExt = ["CUDACore", "CUDSS", "cuBLAS", "cuSOLVER", "cuSPARSE"]
 
 [compat]
 AMD = "0.5"
-AMDGPU = "2"
+AMDGPU = "2.10"
 Adapt = "4"
 CUDACore = "6"
 CUDSS = "1.0"
