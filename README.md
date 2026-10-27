@@ -18,8 +18,8 @@
 [build-gh-url]: https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml
 [codecov-img]: https://codecov.io/gh/madsuite-org/MadNLP.jl/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/madsuite-org/MadNLP.jl
-[doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.5825776.svg
-[doi-url]: https://doi.org/10.5281/zenodo.5825776
+[doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6335552.svg
+[doi-url]: https://doi.org/10.5281/zenodo.6335552
 
 
 ## Quickstart
@@ -65,6 +65,8 @@ If you use MadNLP.jl in your research, we would greatly appreciate your citing i
   publisher   = {Springer}
 }
 ```
+
+To cite the software itself, use the Zenodo archive [10.5281/zenodo.6335552](https://doi.org/10.5281/zenodo.6335552), which always resolves to the latest release. Each release also has its own version DOI, listed on that page.
 
 ## Supporting MadNLP.jl
 - Please report issues and feature requests via the [GitHub issue tracker](https://github.com/madsuite-org/MadNLP.jl/issues).

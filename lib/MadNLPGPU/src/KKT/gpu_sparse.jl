@@ -33,7 +33,7 @@ function MadNLP.mul!(
 
     MadNLP.mul!(wx, kkt.hess_com, xx, alpha, beta)
     MadNLP.mul!(wx, kkt.hess_com', xx, alpha, one(T))
-    MadNLP.mul!(wx, kkt.jt_csc, xz, alpha, beta)
+    MadNLP.mul!(wx, kkt.jt_csc, xz, alpha, one(T))
     if !isempty(kkt.ext.diag_map_to)
         backend = get_backend(MadNLP.full(w))
         _diag_operation_kernel!(backend)(
@@ -47,9 +47,9 @@ function MadNLP.mul!(
         )
     end
 
-    MadNLP.mul!(wz, kkt.jt_csc', xx, alpha, one(T))
-    MadNLP.axpy!(-alpha, xz, ws)
+    MadNLP.mul!(wz, kkt.jt_csc', xx, alpha, beta)
     MadNLP.axpy!(-alpha, xs, wz)
+    ws .= beta .* ws .- alpha .* xz
     return MadNLP._kktmul!(
         w,
         x,

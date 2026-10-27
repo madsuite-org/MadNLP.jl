@@ -116,6 +116,8 @@ function create_kkt_system(
         jt_csc
     )
 
+    # tell the linear solver the saddle-point partition before it analyzes
+    set_block_structure!(opt_linear_solver, size(aug_com, 1), 0)
     _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
@@ -138,6 +140,9 @@ num_variables(kkt::SparseCondensedKKTSystem) = length(kkt.pr_diag)
 function is_inertia_correct(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg)
     return (num_zero == 0) && (num_pos == size(kkt.aug_com, 1))
 end
+# the slacks and the inequality duals are condensed out: the factorized matrix is
+# definite, so num_variables (which counts the slacks) is NOT its primal block size.
+block_structure(kkt::SparseCondensedKKTSystem) = (size(kkt.aug_com, 1), 0)
 should_regularize_dual(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg) = true
 
 Base.size(kkt::SparseCondensedKKTSystem,n::Int) = size(kkt.aug_com,n)

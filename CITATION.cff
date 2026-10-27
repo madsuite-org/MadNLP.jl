@@ -1,0 +1,49 @@
+cff-version: 1.2.0
+message: "If you use MadNLP.jl in your research, please cite the paper below and the software archive."
+title: MadNLP.jl
+type: software
+authors:
+  - family-names: Shin
+    given-names: Sungho
+    affiliation: Massachusetts Institute of Technology
+  - family-names: Pacaud
+    given-names: François
+    affiliation: Mines Paris-PSL
+  - family-names: Montoison
+    given-names: Alexis
+    affiliation: Advanced Micro Devices
+  - family-names: Schanen
+    given-names: Michel
+    affiliation: Argonne National Laboratory
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.6335552
+    description: Concept DOI for all releases, archived on Zenodo
+repository-code: https://github.com/madsuite-org/MadNLP.jl
+url: https://madsuite-org.github.io/MadNLP.jl/stable
+license: MIT
+keywords:
+  - nonlinear programming
+  - interior-point method
+  - GPU
+  - Julia
+preferred-citation:
+  type: article
+  title: Condensed interior-point methods for scalable nonlinear programming on GPUs
+  authors:
+    - family-names: Pacaud
+      given-names: François
+    - family-names: Shin
+      given-names: Sungho
+    - family-names: Montoison
+      given-names: Alexis
+    - family-names: Schanen
+      given-names: Michel
+    - family-names: Anitescu
+      given-names: Mihai
+  journal: Mathematical Programming Computation
+  year: 2026
+  start: 1
+  end: 39
+  publisher:
+    name: Springer

@@ -348,6 +348,55 @@ end
     @test eltype(results.solution) == T
 end
 
+# Maximize -f(x), where f is the objective of the wrapped minimization problem.
+struct NegatedModel{T, VT, M <: NLPModels.AbstractNLPModel{T, VT}} <: NLPModels.AbstractNLPModel{T, VT}
+    inner::M
+    meta::NLPModels.NLPModelMeta{T, VT}
+    counters::NLPModels.Counters
+end
+NegatedModel(inner; kwargs...) = NegatedModel(
+    inner,
+    NLPModels.NLPModelMeta(inner.meta; minimize = false, kwargs...),
+    NLPModels.Counters(),
+)
+NLPModels.obj(nlp::NegatedModel, x::AbstractVector) = -NLPModels.obj(nlp.inner, x)
+NLPModels.grad!(nlp::NegatedModel, x::AbstractVector, g::AbstractVector) = (NLPModels.grad!(nlp.inner, x, g); g .*= -1)
+NLPModels.cons!(nlp::NegatedModel, x::AbstractVector, c::AbstractVector) = NLPModels.cons!(nlp.inner, x, c)
+NLPModels.jac_structure!(nlp::NegatedModel, I::AbstractVector, J::AbstractVector) = NLPModels.jac_structure!(nlp.inner, I, J)
+NLPModels.jac_coord!(nlp::NegatedModel, x::AbstractVector, J::AbstractVector) = NLPModels.jac_coord!(nlp.inner, x, J)
+NLPModels.jtprod!(nlp::NegatedModel, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector) = NLPModels.jtprod!(nlp.inner, x, v, Jtv)
+NLPModels.hess_structure!(nlp::NegatedModel, I::AbstractVector, J::AbstractVector) = NLPModels.hess_structure!(nlp.inner, I, J)
+function NLPModels.hess_coord!(nlp::NegatedModel, x::AbstractVector, y::AbstractVector, H::AbstractVector; obj_weight = 1.0)
+    return NLPModels.hess_coord!(nlp.inner, x, y, H; obj_weight = -obj_weight)
+end
+NLPModels.jac_dense!(nlp::NegatedModel, x, J) = NLPModels.jac_dense!(nlp.inner, x, J)
+NLPModels.hess_dense!(nlp::NegatedModel, x, y, H; obj_weight = 1.0) = NLPModels.hess_dense!(nlp.inner, x, y, H; obj_weight = -obj_weight)
+
+@testset "Issue #660: sign of the multipliers for a maximization problem" begin
+    # x1 <= 0.5 is active at the solution of HS15: fixing x1 = 0.5 does not change it.
+    for (lvar, uvar) in (([-Inf, -Inf], [0.5, Inf]), ([0.5, -Inf], [0.5, Inf]))
+        nlp_min = MadNLPTests.HS15Model()
+        nlp_min.meta.lvar .= lvar
+        nlp_min.meta.uvar .= uvar
+        nlp_max = NegatedModel(nlp_min)
+        sol_min = madnlp(nlp_min; print_level=MadNLP.ERROR)
+        sol_max = madnlp(nlp_max; print_level=MadNLP.ERROR)
+        @test sol_min.status == sol_max.status == MadNLP.SOLVE_SUCCEEDED
+        @test sol_max.objective ≈ -sol_min.objective
+        @test sol_max.solution ≈ sol_min.solution
+        @test sol_max.multipliers ≈ -sol_min.multipliers
+        @test sol_max.multipliers_L ≈ -sol_min.multipliers_L
+        @test sol_max.multipliers_U ≈ -sol_min.multipliers_U
+        # Stationarity of the problem as written: ∇f + Jᵀy - zl + zu = 0
+        for (nlp, sol) in ((nlp_min, sol_min), (nlp_max, sol_max))
+            x = sol.solution
+            res = NLPModels.grad(nlp, x) + NLPModels.jac(nlp, x)' * sol.multipliers -
+                sol.multipliers_L + sol.multipliers_U
+            @test maximum(abs, res) <= 1e-6
+        end
+    end
+end
+
 @testset "Issue #430" begin
     # Test MadNLP is working with bound_relax_factor=0
     nlp = MadNLPTests.HS15Model()

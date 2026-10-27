@@ -81,6 +81,9 @@ function create_kkt_system(
     fill!(diag_hess, zero(T))
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
+    # tell the linear solver the saddle-point partition before it analyzes
+    _np = length(pr_diag)
+    set_block_structure!(opt_linear_solver, _np, size(aug_com, 1) - _np)
     _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
 
     return DenseKKTSystem(

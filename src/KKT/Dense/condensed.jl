@@ -94,6 +94,9 @@ function create_kkt_system(
     ind_ineq_shifted = cb.ind_ineq .+ n .+ ns
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
+    # tell the linear solver the saddle-point partition before it analyzes
+    _np = size(hess, 1)
+    set_block_structure!(opt_linear_solver, _np, size(aug_com, 1) - _np)
     _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
 
     return DenseCondensedKKTSystem(
@@ -189,6 +192,8 @@ end
 function is_inertia_correct(kkt::DenseCondensedKKTSystem, num_pos, num_zero, num_neg)
     return (num_zero == 0 && num_neg == kkt.n_eq)
 end
+# inequalities are condensed out, the equalities are kept: [primal; dual(n_eq)]
+block_structure(kkt::DenseCondensedKKTSystem) = (size(kkt.aug_com, 1) - kkt.n_eq, kkt.n_eq)
 
 # For inertia-free regularization
 function _mul_expanded!(y::AbstractVector, kkt::DenseCondensedKKTSystem{T}, x::AbstractVector) where T
