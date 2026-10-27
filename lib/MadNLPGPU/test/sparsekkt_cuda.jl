@@ -39,3 +39,4 @@ using MadNLPTests
         @test solver_qn.cnt.lag_hess_cnt == 0
     end
 end
+
