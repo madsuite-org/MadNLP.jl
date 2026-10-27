@@ -154,6 +154,28 @@ end
     end
 end
 
+# Subtract the double-counted diagonal of a lower-triangular CSC after a
+# symmetric product computed as L*x + Lᵀ*x. For column j the diagonal entry is
+# the first stored entry (row == j) when present.
+@kernel function _sub_tril_diag_kernel!(
+    wx,
+    @Const(colptr),
+    @Const(rowval),
+    @Const(nzval),
+    @Const(x),
+    @Const(alpha),
+)
+    j = @index(Global)
+    @inbounds begin
+        for p in colptr[j]:(colptr[j + 1] - 1)
+            if rowval[p] == j
+                wx[j] -= alpha * nzval[p] * x[j]
+                break
+            end
+        end
+    end
+end
+
 #=
     MadNLP.compress_hessian! / MadNLP.compress_jacobian!
 =#

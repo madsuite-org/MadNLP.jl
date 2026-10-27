@@ -71,24 +71,58 @@ cuda_testset = [
         ),
         [],
     ],
-    # [
-    #     "Formulation K2",
-    #     ()->MadNLP.Optimizer(
-    #         linear_solver=CUDSSSolver,
-    #         print_level=MadNLP.ERROR,
-    #         kkt_system=MadNLP.SparseKKTSystem,
-    #     ),
-    #     [],
-    # ],
-    # [
-    #     "Formulation K2.5",
-    #     ()->MadNLP.Optimizer(
-    #         linear_solver=CUDSSSolver,
-    #         print_level=MadNLP.ERROR,
-    #         kkt_system=MadNLP.ScaledSparseKKTSystem,
-    #     ),
-    #     [],
-    # ],
+    [
+        # Bunch-Kaufman pivoting with matching: the analysis reads the values, so it is
+        # deferred to the first factorization and redone when a solve is rejected
+        "CUDSS-BUNCHKAUFMAN",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadNLPGPU.CUDSSSolver,
+            print_level=MadNLP.ERROR,
+            cudss_pivot_type='B',
+            cudss_matching=true,
+            cudss_deferred_analysis=true,
+            cudss_reanalyze_on_improve=true,
+        ),
+        [],
+    ],
+    [
+        "CUDSS-ANALYSIS-EACH",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadNLPGPU.CUDSSSolver,
+            print_level=MadNLP.ERROR,
+            cudss_matching=true,
+            cudss_analysis_each_factorization=true,
+        ),
+        [],
+    ],
+    [
+        "CUDSS-NOREFACTORIZATION",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadNLPGPU.CUDSSSolver,
+            print_level=MadNLP.ERROR,
+            cudss_pivot_type='B',
+            cudss_refactorization=false,
+        ),
+        [],
+    ],
+    [
+        "Formulation K2",
+        ()->MadNLP.Optimizer(
+            linear_solver=MadNLPGPU.CUDSSSolver,
+            print_level=MadNLP.ERROR,
+            kkt_system=MadNLP.SparseKKTSystem,
+        ),
+        [],
+    ],
+    [
+        "Formulation K2.5",
+        ()->MadNLP.Optimizer(
+            linear_solver=MadNLPGPU.CUDSSSolver,
+            print_level=MadNLP.ERROR,
+            kkt_system=MadNLP.ScaledSparseKKTSystem,
+        ),
+        [],
+    ],
     [
         "LapackGPU-BUNCHKAUFMAN",
         ()->MadNLP.Optimizer(

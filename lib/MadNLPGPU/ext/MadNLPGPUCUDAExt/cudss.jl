@@ -13,6 +13,28 @@ MadNLP.@kwdef mutable struct CudssSolverOptions <: MadNLP.AbstractOptions
     cudss_solve_alg::String = "default"
     cudss_matching::Bool = false
     cudss_pivoting::Bool = true
+    # pivot type, applied after cudss_pivoting: one of cuDSS's "pivot_type" values ('A'
+    # automatic, 'N' none, 'C' / 'R' global column / row, 'D' diagonal, 'L' local block, 'B'
+    # Bunch-Kaufman for symmetric indefinite matrices); ' ' leaves cuDSS's own choice
+    cudss_pivot_type::Char = ' '
+    # redo the analysis phase at every factorization, so that a value-dependent analysis
+    # (matching) always sees the current values; a diagnostic baseline, since it pays the
+    # reordering and the symbolic factorization at every iteration. The cheaper choices
+    # below cover the practical cases: cudss_deferred_analysis for the first matrix and
+    # cudss_reanalyze_on_improve for a matching that has gone stale
+    cudss_analysis_each_factorization::Bool = false
+    # run the analysis phase at the first factorization instead of at construction, so that a
+    # value-dependent analysis (matching) sees the first KKT matrix rather than zeros; later
+    # factorizations keep that analysis
+    cudss_deferred_analysis::Bool = false
+    # after the first factorization call the cheaper "refactorization" phase, which keeps the
+    # pivot sequence of the first; false runs the numerical "factorization" phase every time,
+    # so a pivoting factorization re-pivots on the current values
+    cudss_refactorization::Bool = true
+    # when MadNLP's iterative refinement rejects a solve, redo the analysis on the current
+    # values and factorize again before the retry, so a stale matching is refreshed only where
+    # it has visibly failed; at most once per factorization
+    cudss_reanalyze_on_improve::Bool = false
     cudss_hybrid_execute::Bool = false
     cudss_hybrid_memory::Bool = false
     cudss_hybrid_memory_limit::Int = 0
@@ -39,6 +61,9 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
     end
     if !opt.cudss_pivoting
         CUDSS.cudss_set(solver, "pivot_type", 'N')
+    end
+    if opt.cudss_pivot_type != ' '
+        CUDSS.cudss_set(solver, "pivot_type", opt.cudss_pivot_type)
     end
     if opt.cudss_pivot_epsilon > 0.0
         CUDSS.cudss_set(solver, "pivot_epsilon", opt.cudss_pivot_epsilon)
@@ -86,6 +111,9 @@ mutable struct CUDSSSolver{T, V} <: MadNLP.AbstractLinearSolver{T}
     x_gpu::CUDSS.CudssMatrix{T}
     b_gpu::CUDSS.CudssMatrix{T}
     buffer::V
+    analyzed::Bool
+    improved::Bool                  # improve! already ran since the last factorize!
+    reanalysis_cnt::Int             # analyses redone by improve! over the solver's life
 
     opt::CudssSolverOptions
     logger::MadNLP.MadNLPLogger
@@ -141,7 +169,8 @@ function CUDSSSolver(
     # The phase "analysis" is "reordering" combined with "symbolic_factorization"
     x_gpu = CUDSS.CudssMatrix(T, n; nbatch = nbatch)
     b_gpu = CUDSS.CudssMatrix(T, n; nbatch = nbatch)
-    CUDSS.cudss("analysis", solver, x_gpu, b_gpu, asynchronous = opt.cudss_asynchronous)
+    analyzed = !opt.cudss_deferred_analysis
+    analyzed && CUDSS.cudss("analysis", solver, x_gpu, b_gpu, asynchronous = opt.cudss_asynchronous)
 
     # Allocate additional buffer for iterative refinement
     # Always allocate it to support dynamic updates to opt.cudss_ir
@@ -149,14 +178,21 @@ function CUDSSSolver(
 
     return CUDSSSolver(
         solver, csc,
-        x_gpu, b_gpu, buffer,
+        x_gpu, b_gpu, buffer, analyzed, false, 0,
         opt, logger,
     )
 end
 
 function MadNLP.factorize!(M::CUDSSSolver)
     CUDSS.cudss_update(M.inner.matrix, nonzeros(M.tril))
-    if M.inner.fresh_factorization
+    M.improved = false
+    if M.opt.cudss_analysis_each_factorization || !M.analyzed
+        CUDSS.cudss("analysis", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+        M.analyzed = true
+        CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+        return M
+    end
+    if M.inner.fresh_factorization || !M.opt.cudss_refactorization
         CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
     else
         CUDSS.cudss("refactorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
@@ -208,7 +244,15 @@ function MadNLP.inertia(M::CUDSSSolver)
         error(M.logger, "Unsupported cudss_algorithm")
     end
 end
-MadNLP.improve!(M::CUDSSSolver) = false
+function MadNLP.improve!(M::CUDSSSolver)
+    (M.opt.cudss_reanalyze_on_improve && !M.improved) || return false
+    M.improved = true
+    M.reanalysis_cnt += 1
+    MadNLP.@notice(M.logger, "cuDSS: analysis redone after a rejected solve ($(M.reanalysis_cnt) so far)")
+    CUDSS.cudss("analysis", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    return true
+end
 MadNLP.is_supported(::Type{CUDSSSolver}, ::Type{Float32}) = true
 MadNLP.is_supported(::Type{CUDSSSolver}, ::Type{Float64}) = true
 MadNLP.introduce(M::CUDSSSolver) = "cuDSS v$(CUDSS.version())"
