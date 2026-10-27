@@ -1,0 +1,16 @@
+{
+  "title": "MadNLP.jl",
+  "upload_type": "software",
+  "description": "A nonlinear programming solver based on the filter line-search interior point method that can handle and exploit diverse classes of data structures, on either host or device memory.",
+  "license": "MIT",
+  "creators": [
+    {"name": "Shin, Sungho", "affiliation": "Massachusetts Institute of Technology"},
+    {"name": "Pacaud, François", "affiliation": "Mines Paris-PSL"},
+    {"name": "Montoison, Alexis", "affiliation": "Advanced Micro Devices"},
+    {"name": "Schanen, Michel", "affiliation": "Argonne National Laboratory"}
+  ],
+  "keywords": ["nonlinear programming", "interior-point method", "GPU", "Julia"],
+  "related_identifiers": [
+    {"identifier": "https://github.com/madsuite-org/MadNLP.jl", "relation": "isSupplementTo", "scheme": "url"}
+  ]
+}
