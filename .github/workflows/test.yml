@@ -155,6 +155,14 @@ jobs:
         run: |
           using Pkg
           Pkg.add("AMDGPU")
+      # Record the runner's ROCm stack and GPUs so intermittent failures can be
+      # matched to a hardware/library combination.
+      - name: AMDGPU versioninfo
+        if: matrix.gpu == 'amdgpu'
+        shell: julia --project=./lib/MadNLPGPU/test --color=yes {0}
+        run: |
+          using AMDGPU
+          AMDGPU.versioninfo()
       - name: test MadNLPGPU
         env:
           MADNLP_GPU_BACKEND: ${{ matrix.gpu }}
