@@ -113,6 +113,78 @@ end
 # Type definitions for noncontiguous views
 const SubVector{Tv,VT, VI} = SubArray{Tv, 1, VT, Tuple{VI}, false}
 
+"""
+    AbstractTimer
+
+Accumulates the time spent in a code region into a `Float64` field of
+`MadNLPCounters`. A timer implements [`timer_start!`](@ref),
+[`timer_stop!`](@ref) and [`timer_flush!`](@ref); [`create_timer`](@ref)
+picks the timer for a vector type. Regions may nest. The timer keeps the start
+marks itself, so a call through the abstract `MadNLPCounters.timer` field does
+not allocate.
+"""
+abstract type AbstractTimer end
+
+"""
+    WallTimer <: AbstractTimer
+
+Measures host wall-clock time. Used for host arrays, where every region
+has finished when it returns.
+"""
+struct WallTimer <: AbstractTimer
+    starts::Vector{Float64}
+end
+WallTimer() = WallTimer(Float64[])
+
+"""
+    timer_start!(timer::AbstractTimer)
+
+Mark the start of a timed region.
+"""
+timer_start!(timer::WallTimer) = (push!(timer.starts, time()); nothing)
+
+"""
+    timer_stop!(timer::AbstractTimer, cnt::MadNLPCounters, ::Val{field})
+
+Mark the end of the innermost open region and add its duration to
+`getfield(cnt, field)`. A timer for asynchronous devices may add the duration
+later, in a subsequent call or in [`timer_flush!`](@ref).
+"""
+function timer_stop!(timer::WallTimer, cnt, ::Val{field}) where {field}
+    setfield!(cnt, field, getfield(cnt, field) + (time() - pop!(timer.starts)))
+    return
+end
+
+"""
+    timer_flush!(timer::AbstractTimer, cnt::MadNLPCounters)
+
+Add every pending duration to `cnt`, waiting for the device if needed.
+"""
+timer_flush!(::WallTimer, cnt) = nothing
+
+"""
+    create_timer(::Type{VT})
+
+Return the [`AbstractTimer`](@ref) used for a solver working on vectors of type `VT`.
+"""
+create_timer(::Type{VT}) where {VT} = WallTimer()
+
+"""
+    @timed_region cnt field ex
+
+Evaluate `ex` and add the time it takes to `getfield(cnt, field)` with
+`cnt.timer`. `field` is a literal `Symbol`. Returns the value of `ex`.
+"""
+macro timed_region(cnt, field, ex)
+    return quote
+        local _cnt = $(esc(cnt))
+        timer_start!(_cnt.timer)
+        local _val = $(esc(ex))
+        timer_stop!(_cnt.timer, _cnt, Val($(esc(field))))
+        _val
+    end
+end
+
 @kwdef mutable struct MadNLPCounters
     k::Int = 0 # total iteration counter
     l::Int = 0 # backtracking line search counter
@@ -120,6 +192,7 @@ const SubVector{Tv,VT, VI} = SubArray{Tv, 1, VT, Tuple{VI}, false}
     ir::Int = 0 # iterative refinement counter
 
     start_time::Float64
+    timer::AbstractTimer = WallTimer()
 
     linear_solver_time::Float64 = 0.
     eval_function_time::Float64 = 0.

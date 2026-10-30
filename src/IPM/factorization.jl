@@ -1,7 +1,7 @@
 function solve_refine_wrapper!(d, solver, p, w)
     result = false
 
-    get_cnt(solver).linear_solver_time += @elapsed begin
+    @timed_region get_cnt(solver) :linear_solver_time begin
         if solve_refine!(d, get_iterator(solver), p, w)
             result = true
         else
@@ -21,7 +21,7 @@ end
 function factorize_wrapper!(solver::AbstractMadNLPSolver)
     @trace(get_logger(solver),"Factorization started.")
     build_kkt!(get_kkt(solver))
-    get_cnt(solver).linear_solver_time += @elapsed factorize!(get_kkt(solver).linear_solver)
+    @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
     get_cnt(solver).factorization_cnt += 1
     return
 end
