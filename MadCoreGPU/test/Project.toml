@@ -1,5 +1,15 @@
 [deps]
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[sources]
+MadCore = {path = "../../MadCore"}
+MadCoreGPU = {path = ".."}
+MadNLP = {path = "../../MadNLP"}
+MadNLPCore = {path = "../../MadNLPCore"}
+MadNLPTests = {path = "../../MadNLPTests"}

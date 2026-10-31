@@ -141,6 +141,19 @@ jobs:
         env:
           MADNLP_GPU_BACKEND: ${{ matrix.gpu }}
         run: julia --project=./MadCoreGPU/test --code-coverage=user --color=yes MadCoreGPU/test/runtests.jl
+      - name: test cuMadNLP
+        if: matrix.gpu == 'cuda'
+        run: julia --project=./MadCoreGPU/test --code-coverage=user --color=yes cuMadNLP/test/runtests.jl
+      - name: test MadNLPGPU
+        if: matrix.gpu == 'cuda'
+        shell: julia --project=./MadCoreGPU/test --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.develop(path="./MadNLPGPU")
+          include(joinpath(pwd(), "MadNLPGPU", "test", "runtests.jl"))
+      - name: test rocMadNLP
+        if: matrix.gpu == 'amdgpu'
+        run: julia --project=./MadCoreGPU/test --code-coverage=user --color=yes rocMadNLP/test/runtests.jl
       - uses: julia-actions/julia-processcoverage@v1
         with:
           directories: MadCoreGPU/src,MadCoreGPU/ext,MadNLPCore/ext,cuMadNLP/src,rocMadNLP/src

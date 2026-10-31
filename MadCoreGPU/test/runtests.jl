@@ -17,6 +17,7 @@ catch
 end
 
 @testset "MadCoreGPU test" begin
+    include("cpu_test.jl")
     include("gpu_test.jl")
     include("timer_test.jl")
     if HAS_CUDA && CUDA.functional()
