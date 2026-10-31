@@ -46,7 +46,7 @@ function _csc_grouping(cscmap::AbstractVector)
     zvals = CuArray(collect(1:length(cscmap)))
     ptr = map((s, k) -> (s, k), cscmap, zvals)   # (destination CSC slot, COO source)
     length(ptr) > 0 && sort!(ptr)                # group by destination slot
-    ptrptr = MadNLP.getptr(ptr; by = (a, b) -> a[1] != b[1])
+    ptrptr = MadCore.getptr(ptr; by = (a, b) -> a[1] != b[1])
     grouping = (ptr, ptrptr)
     lock(_TRANSFER_GROUPING_LOCK)
     try
@@ -58,16 +58,16 @@ function _csc_grouping(cscmap::AbstractVector)
     return grouping
 end
 
-function MadNLP.transfer!(
+function MadCore.transfer!(
         dest::cuSPARSE.CuSparseMatrixCSC,
-        src::MadNLP.SparseMatrixCOO,
+        src::MadCore.SparseMatrixCOO,
         cscmap,
     )
     ptr, ptrptr = _csc_grouping(cscmap)
     fill!(dest.nzVal, zero(eltype(dest.nzVal)))
     if length(ptrptr) > 1
         backend = get_backend(dest.nzVal)
-        MadNLPGPU._transfer_to_csc_kernel!(backend)(
+        MadCoreGPU._transfer_to_csc_kernel!(backend)(
             dest.nzVal, ptr, ptrptr, src.V;
             ndrange = length(ptrptr) - 1,
         )
@@ -76,13 +76,13 @@ function MadNLP.transfer!(
     return dest
 end
 
-MadNLP.nzval(H::cuSPARSE.CuSparseMatrixCSC) = H.nzVal
+MadCore.nzval(H::cuSPARSE.CuSparseMatrixCSC) = H.nzVal
 
-function MadNLP._get_sparse_csc(dims, colptr::CuVector, rowval, nzval)
+function MadCore._get_sparse_csc(dims, colptr::CuVector, rowval, nzval)
     return cuSPARSE.CuSparseMatrixCSC(colptr, rowval, nzval, dims)
 end
 
-function MadNLP._sym_length(Jt::cuSPARSE.CuSparseMatrixCSC)
+function MadCore._sym_length(Jt::cuSPARSE.CuSparseMatrixCSC)
     return mapreduce(
         (x, y) -> begin
             z = x - y
@@ -94,14 +94,14 @@ function MadNLP._sym_length(Jt::cuSPARSE.CuSparseMatrixCSC)
     )
 end
 
-function MadNLP.get_tril_to_full(csc::cuSPARSE.CuSparseMatrixCSC{Tv, Ti}) where {Tv, Ti}
-    cscind = MadNLP.SparseMatrixCSC{Int, Ti}(
+function MadCore.get_tril_to_full(csc::cuSPARSE.CuSparseMatrixCSC{Tv, Ti}) where {Tv, Ti}
+    cscind = MadCore.SparseMatrixCSC{Int, Ti}(
         Symmetric(
-            MadNLP.SparseMatrixCSC{Int, Ti}(
+            MadCore.SparseMatrixCSC{Int, Ti}(
                 size(csc)...,
                 Array(csc.colPtr),
                 Array(csc.rowVal),
-                collect(1:MadNLP.nnz(csc)),
+                collect(1:MadCore.nnz(csc)),
             ),
             :L,
         ),
@@ -109,7 +109,7 @@ function MadNLP.get_tril_to_full(csc::cuSPARSE.CuSparseMatrixCSC{Tv, Ti}) where 
     return cuSPARSE.CuSparseMatrixCSC{Tv, Ti}(
             CuArray(cscind.colptr),
             CuArray(cscind.rowval),
-            CuVector{Tv}(undef, MadNLP.nnz(cscind)),
+            CuVector{Tv}(undef, MadCore.nnz(cscind)),
             size(csc),
         ),
         view(csc.nzVal, CuArray(cscind.nzval))

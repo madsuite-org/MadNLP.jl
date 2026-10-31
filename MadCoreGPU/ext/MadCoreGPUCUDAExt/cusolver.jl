@@ -4,7 +4,7 @@ for (potrf, potrf_buffer, potrs, nbytes, T) in
         (:cusolverDnSpotrf, :cusolverDnSpotrf_bufferSize, :cusolverDnSpotrs, :4, :Float32),
     )
     @eval begin
-        function MadNLP.setup_cholesky!(M::LapackCUDASolver{$T})
+        function MadCore.setup_cholesky!(M::LapackCUDAState{$T})
             if M.legacy
                 potrf_lwork_gpu = Ref{Cint}(0)
                 cuSOLVER.$potrf_buffer(
@@ -40,7 +40,7 @@ for (potrf, potrf_buffer, potrs, nbytes, T) in
             return M
         end
 
-        function MadNLP.factorize_cholesky!(M::LapackCUDASolver{$T})
+        function MadCore.factorize_cholesky!(M::LapackCUDAState{$T})
             if M.legacy
                 cuSOLVER.$potrf(
                     dense_handle(),
@@ -72,7 +72,7 @@ for (potrf, potrf_buffer, potrs, nbytes, T) in
             return M
         end
 
-        function MadNLP.solve_cholesky!(M::LapackCUDASolver{$T}, x::CuVector{$T})
+        function MadCore.solve_cholesky!(M::LapackCUDAState{$T}, x::CuVector{$T})
             if M.legacy
                 cuSOLVER.$potrs(
                     dense_handle(),
@@ -112,7 +112,7 @@ for (sytrf_buffer, sytrf, nbytes, T) in
         (:cusolverDnSsytrf_bufferSize, :cusolverDnSsytrf, :4, :Float32),
     )
     @eval begin
-        function MadNLP.setup_bunchkaufman!(M::LapackCUDASolver{$T})
+        function MadCore.setup_bunchkaufman!(M::LapackCUDAState{$T})
             resize!(M.ipiv, M.n)
             resize!(M.ipiv64, M.n)
             sytrf_lwork_gpu = Ref{Cint}(0)
@@ -147,7 +147,7 @@ for (sytrf_buffer, sytrf, nbytes, T) in
             return M
         end
 
-        function MadNLP.factorize_bunchkaufman!(M::LapackCUDASolver{$T})
+        function MadCore.factorize_bunchkaufman!(M::LapackCUDAState{$T})
             # We only have the legacy API for sytrf
             cuSOLVER.$sytrf(
                 dense_handle(),
@@ -163,7 +163,7 @@ for (sytrf_buffer, sytrf, nbytes, T) in
             return M
         end
 
-        function MadNLP.solve_bunchkaufman!(M::LapackCUDASolver{$T}, x::CuVector{$T})
+        function MadCore.solve_bunchkaufman!(M::LapackCUDAState{$T}, x::CuVector{$T})
             copyto!(M.ipiv64, M.ipiv)  # No workaround possible until NVIDIA implements cusolverDnXsytrf
             cuSOLVER.cusolverDnXsytrs(
                 dense_handle(),
@@ -194,7 +194,7 @@ for (getrf, getrf_buffer, getrs, nbytes, T) in
         (:cusolverDnSgetrf, :cusolverDnSgetrf_bufferSize, :cusolverDnSgetrs, :4, :Float32),
     )
     @eval begin
-        function MadNLP.setup_lu!(M::LapackCUDASolver{$T})
+        function MadCore.setup_lu!(M::LapackCUDAState{$T})
             if M.legacy
                 resize!(M.ipiv, M.n)
                 getrf_lwork_gpu = Ref{Cint}(0)
@@ -232,7 +232,7 @@ for (getrf, getrf_buffer, getrs, nbytes, T) in
             return M
         end
 
-        function MadNLP.factorize_lu!(M::LapackCUDASolver{$T})
+        function MadCore.factorize_lu!(M::LapackCUDAState{$T})
             if M.legacy
                 cuSOLVER.$getrf(
                     dense_handle(),
@@ -265,7 +265,7 @@ for (getrf, getrf_buffer, getrs, nbytes, T) in
             return M
         end
 
-        function MadNLP.solve_lu!(M::LapackCUDASolver{$T}, x::CuVector{$T})
+        function MadCore.solve_lu!(M::LapackCUDAState{$T}, x::CuVector{$T})
             if M.legacy
                 cuSOLVER.$getrs(
                     dense_handle(),
@@ -307,7 +307,7 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, nbytes, T) in
         (:cusolverDnSgeqrf, :cusolverDnSgeqrf_bufferSize, :cusolverDnSormqr, :cusolverDnSormqr_bufferSize, :cublasStrsv_v2_64, :4, :Float32),
     )
     @eval begin
-        function MadNLP.setup_qr!(M::LapackCUDASolver{$T})
+        function MadCore.setup_qr!(M::LapackCUDAState{$T})
             resize!(M.tau, M.n)
             ormqr_lwork_gpu = Ref{Cint}(0)
             cuSOLVER.$ormqr_buffer(
@@ -361,7 +361,7 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, nbytes, T) in
             return M
         end
 
-        function MadNLP.factorize_qr!(M::LapackCUDASolver{$T})
+        function MadCore.factorize_qr!(M::LapackCUDAState{$T})
             if M.legacy
                 cuSOLVER.$geqrf(
                     dense_handle(),
@@ -396,7 +396,7 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, nbytes, T) in
             return M
         end
 
-        function MadNLP.solve_qr!(M::LapackCUDASolver{$T}, x::CuVector{$T})
+        function MadCore.solve_qr!(M::LapackCUDAState{$T}, x::CuVector{$T})
             # We only have the legacy API for ormqr
             cuSOLVER.$ormqr(
                 dense_handle(),
@@ -436,7 +436,7 @@ for (syevd, syevd_buffer, gemv, nbytes, T) in
         (:cusolverDnSsyevd, :cusolverDnSsyevd_bufferSize, :cublasSgemv_v2_64, :4, :Float32),
     )
     @eval begin
-        function MadNLP.setup_evd!(M::LapackCUDASolver{$T})
+        function MadCore.setup_evd!(M::LapackCUDAState{$T})
             resize!(M.tau, M.n)
             resize!(M.Λ, M.n)
             if M.legacy
@@ -479,7 +479,7 @@ for (syevd, syevd_buffer, gemv, nbytes, T) in
             return M
         end
 
-        function MadNLP.factorize_evd!(M::LapackCUDASolver{$T})
+        function MadCore.factorize_evd!(M::LapackCUDAState{$T})
             if M.legacy
                 cuSOLVER.$syevd(
                     dense_handle(),
@@ -516,7 +516,7 @@ for (syevd, syevd_buffer, gemv, nbytes, T) in
             return M
         end
 
-        function MadNLP.solve_evd!(M::LapackCUDASolver{$T}, x::CuVector{$T})
+        function MadCore.solve_evd!(M::LapackCUDAState{$T}, x::CuVector{$T})
             cuBLAS.$gemv(
                 handle(),
                 CUBLAS_OP_T,

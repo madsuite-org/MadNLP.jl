@@ -1,4 +1,4 @@
-function MadNLP._update_S_and_Y!(qn::MadNLP.CompactLBFGS, s::AbstractGPUVector, y::AbstractGPUVector)
+function MadCore._update_S_and_Y!(qn::MadCore.CompactLBFGS, s::AbstractGPUVector, y::AbstractGPUVector)
     return if qn.current_mem < qn.max_mem
         qn.current_mem += 1
         n, k = size(qn)
@@ -10,7 +10,7 @@ function MadNLP._update_S_and_Y!(qn::MadNLP.CompactLBFGS, s::AbstractGPUVector, 
         qn.Yk = reshape(vec_Yk, n, k)
         view(qn.Sk, 1:n, k) .= s
         view(qn.Yk, 1:n, k) .= y
-        MadNLP._resize!(qn)
+        MadCore._resize!(qn)
     else
         n, k = size(qn)
         # Shift
@@ -22,7 +22,7 @@ function MadNLP._update_S_and_Y!(qn::MadNLP.CompactLBFGS, s::AbstractGPUVector, 
     end
 end
 
-function MadNLP._update_L_and_D!(qn::MadNLP.CompactLBFGS{T}, sk::AbstractGPUVector, yk::AbstractGPUVector) where {T}
+function MadCore._update_L_and_D!(qn::MadCore.CompactLBFGS{T}, sk::AbstractGPUVector, yk::AbstractGPUVector) where {T}
     # Update the strict lower triangular part of S'Y
     n, k = size(qn)
     return if qn.max_mem_reached

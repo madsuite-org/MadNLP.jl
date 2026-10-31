@@ -1,5 +1,5 @@
 #=
-    MadNLP._update_S_and_Y!
+    MadCore._update_S_and_Y!
 =#
 
 @kernel function _update_S_and_Y_kernel!(k, S, Y)
@@ -11,7 +11,7 @@
 end
 
 #=
-    MadNLP._update_L_and_D!
+    MadCore._update_L_and_D!
 =#
 @kernel function _update_L_and_D_kernel!(L)
     i, j = @index(Global, NTuple)

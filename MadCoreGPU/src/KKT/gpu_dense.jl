@@ -3,52 +3,52 @@
 ######################################################################
 
 #=
-    MadNLP._madnlp_unsafe_wrap
+    MadCore._madnlp_unsafe_wrap
 =#
 
-function MadNLP._madnlp_unsafe_wrap(vec::VT, n, shift = 1) where {T, VT <: AbstractGPUVector{T}}
+function MadCore._madnlp_unsafe_wrap(vec::VT, n, shift = 1) where {T, VT <: AbstractGPUVector{T}}
     return view(vec, shift:(shift + n - 1))
 end
 
 #=
-    MadNLP.diag!
+    MadCore.diag!
 =#
 
-function MadNLP.diag!(dest::AbstractGPUVector{T}, src::AbstractGPUMatrix{T}) where {T}
+function MadCore.diag!(dest::AbstractGPUVector{T}, src::AbstractGPUMatrix{T}) where {T}
     @assert length(dest) == size(src, 1)
     backend = get_backend(dest)
-    MadNLPGPU._copy_diag_kernel!(backend)(dest, src, ndrange = length(dest))
+    MadCoreGPU._copy_diag_kernel!(backend)(dest, src, ndrange = length(dest))
     return
 end
 
 #=
-    MadNLP.diag_add!
+    MadCore.diag_add!
 =#
 
-function MadNLP.diag_add!(dest::AbstractGPUMatrix, src1::AbstractGPUVector, src2::AbstractGPUVector)
+function MadCore.diag_add!(dest::AbstractGPUMatrix, src1::AbstractGPUVector, src2::AbstractGPUVector)
     backend = get_backend(dest)
-    MadNLPGPU._add_diagonal_kernel!(backend)(dest, src1, src2, ndrange = size(dest, 1))
+    MadCoreGPU._add_diagonal_kernel!(backend)(dest, src1, src2, ndrange = size(dest, 1))
     return
 end
 
 #=
-    MadNLP._set_diag!
+    MadCore._set_diag!
 =#
 
-function MadNLP._set_diag!(A::AbstractGPUMatrix, inds, a)
+function MadCore._set_diag!(A::AbstractGPUMatrix, inds, a)
     if !isempty(inds)
         backend = get_backend(A)
-        MadNLPGPU._set_diag_kernel!(backend)(A, inds, a; ndrange = length(inds))
+        MadCoreGPU._set_diag_kernel!(backend)(A, inds, a; ndrange = length(inds))
 
     end
     return
 end
 
 #=
-    MadNLP._build_dense_kkt_system!
+    MadCore._build_dense_kkt_system!
 =#
 
-function MadNLP._build_dense_kkt_system!(
+function MadCore._build_dense_kkt_system!(
         dest::AbstractGPUMatrix,
         hess::AbstractGPUMatrix,
         jac::AbstractGPUMatrix,
@@ -63,7 +63,7 @@ function MadNLP._build_dense_kkt_system!(
     backend = get_backend(dest)
     ind_ineq_gpu = adapt(backend, ind_ineq)
     ndrange = (n + m + ns, n)
-    MadNLPGPU._build_dense_kkt_system_kernel!(backend)(
+    MadCoreGPU._build_dense_kkt_system_kernel!(backend)(
         dest,
         hess,
         jac,
@@ -80,10 +80,10 @@ function MadNLP._build_dense_kkt_system!(
 end
 
 #=
-    MadNLP._build_ineq_jac!
+    MadCore._build_ineq_jac!
 =#
 
-function MadNLP._build_ineq_jac!(
+function MadCore._build_ineq_jac!(
         dest::AbstractGPUMatrix,
         jac::AbstractGPUMatrix,
         diag_buffer::AbstractGPUVector,
@@ -95,7 +95,7 @@ function MadNLP._build_ineq_jac!(
     backend = get_backend(dest)
     ind_ineq_gpu = adapt(backend, ind_ineq)
     ndrange = (m_ineq, n)
-    MadNLPGPU._build_jacobian_condensed_kernel!(backend)(
+    MadCoreGPU._build_jacobian_condensed_kernel!(backend)(
         dest,
         jac,
         diag_buffer,
@@ -107,10 +107,10 @@ function MadNLP._build_ineq_jac!(
 end
 
 #=
-    MadNLP._build_condensed_kkt_system!
+    MadCore._build_condensed_kkt_system!
 =#
 
-function MadNLP._build_condensed_kkt_system!(
+function MadCore._build_condensed_kkt_system!(
         dest::AbstractGPUMatrix,
         hess::AbstractGPUMatrix,
         jac::AbstractGPUMatrix,
@@ -123,7 +123,7 @@ function MadNLP._build_condensed_kkt_system!(
     backend = get_backend(dest)
     ind_eq_gpu = adapt(backend, ind_eq)
     ndrange = (n + m_eq, n)
-    MadNLPGPU._build_condensed_kkt_system_kernel!(backend)(
+    MadCoreGPU._build_condensed_kkt_system_kernel!(backend)(
         dest,
         hess,
         jac,

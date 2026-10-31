@@ -1,4 +1,4 @@
-mutable struct LapackROCmSolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Alg}
+mutable struct LapackROCmState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, Alg}
     A::MT
     fact::ROCMatrix{T}
     n::Int64
@@ -12,17 +12,17 @@ mutable struct LapackROCmSolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Al
     ipiv::ROCVector{Int64}
     alpha::Base.RefValue{T}
     beta::Base.RefValue{T}
-    opt::MadNLP.LapackOptions
-    logger::MadNLP.MadNLPLogger
+    opt::MadCore.LapackOptions
+    logger::MadCore.MadNLPLogger
 
-    function LapackROCmSolver(
+    function LapackROCmState(
         A::MT;
         option_dict::Dict{Symbol,Any} = Dict{Symbol,Any}(),
-        opt = MadNLP.LapackOptions(),
-        logger = MadNLP.MadNLPLogger(),
+        opt = MadCore.LapackOptions(),
+        logger = MadCore.MadNLPLogger(),
         kwargs...,
     ) where {MT<:AbstractMatrix}
-        MadNLP.set_options!(opt, option_dict, kwargs...)
+        MadCore.set_options!(opt, option_dict, kwargs...)
         T = eltype(A)
         m,n = size(A)
         @assert m == n
@@ -37,24 +37,24 @@ mutable struct LapackROCmSolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Al
         beta = Ref{T}(0)
         alg = opt.lapack_algorithm
         solver = new{T, MT, alg}(A, fact, n, sol, tau, Λ, info, info32, ipiv, alpha, beta, opt, logger)
-        MadNLP.setup!(solver)
+        MadCore.setup!(solver)
         return solver
     end
 end
 
-MadNLP.transfer_matrix!(M::LapackROCmSolver) = MadNLPGPU.gpu_transfer!(M.fact, M.A)
-MadNLP._get_info(M::LapackROCmSolver) = sum(M.info)
-MadNLP.default_options(::Type{LapackROCmSolver}) = MadNLP.LapackOptions(MadNLP.EVD)
-MadNLP.introduce(M::LapackROCmSolver) = "rocSOLVER v$(rocSOLVER.version()) -- ($(M.opt.lapack_algorithm))"
-MadNLP.solve!(M::LapackROCmSolver{T}, x::ROCVector{T}) where {T} = MadNLP._solve!(M, x)
+MadCore.transfer_matrix!(M::LapackROCmState) = MadCoreGPU.gpu_transfer!(M.fact, M.A)
+MadCore._get_info(M::LapackROCmState) = sum(M.info)
+MadCore.default_options(::Type{LapackROCmState}) = MadCore.LapackOptions(MadCore.EVD)
+MadCore.introduce(M::LapackROCmState) = "rocSOLVER v$(rocSOLVER.version()) -- ($(M.opt.lapack_algorithm))"
+MadCore.solve!(M::LapackROCmState{T}, x::ROCVector{T}) where {T} = MadCore._solve!(M, x)
 
 for (potrf, potrs, T) in
     ((:rocsolver_dpotrf_64, :rocsolver_dpotrs_64, :Float64),
      (:rocsolver_spotrf_64, :rocsolver_spotrs_64, :Float32))
     @eval begin
-        MadNLP.setup_cholesky!(M::LapackROCmSolver{$T}) = M
+        MadCore.setup_cholesky!(M::LapackROCmState{$T}) = M
 
-        function MadNLP.factorize_cholesky!(M::LapackROCmSolver{$T})
+        function MadCore.factorize_cholesky!(M::LapackROCmState{$T})
             rocSOLVER.$potrf(
                 rocBLAS.handle(),
                 rocBLAS.rocblas_fill_lower,
@@ -66,7 +66,7 @@ for (potrf, potrs, T) in
             return M
         end
 
-        function MadNLP.solve_cholesky!(M::LapackROCmSolver{$T}, x::ROCVector{$T})
+        function MadCore.solve_cholesky!(M::LapackROCmState{$T}, x::ROCVector{$T})
             rocSOLVER.$potrs(
                 rocBLAS.handle(),
                 rocBLAS.rocblas_fill_lower,
@@ -86,12 +86,12 @@ for (getrf, getrs, T) in
     ((:rocsolver_dgetrf_64, :rocsolver_dgetrs_64, :Float64),
      (:rocsolver_sgetrf_64, :rocsolver_sgetrs_64, :Float32))
     @eval begin
-        function MadNLP.setup_lu!(M::LapackROCmSolver{$T})
+        function MadCore.setup_lu!(M::LapackROCmState{$T})
             resize!(M.ipiv, M.n)
             return M
         end
 
-        function MadNLP.factorize_lu!(M::LapackROCmSolver{$T})
+        function MadCore.factorize_lu!(M::LapackROCmState{$T})
             rocSOLVER.$getrf(
                 rocBLAS.handle(),
                 M.n,
@@ -104,7 +104,7 @@ for (getrf, getrs, T) in
             return M
         end
 
-        function MadNLP.solve_lu!(M::LapackROCmSolver{$T}, x::ROCVector{$T})
+        function MadCore.solve_lu!(M::LapackROCmState{$T}, x::ROCVector{$T})
             rocSOLVER.$getrs(
                 rocBLAS.handle(),
                 rocBLAS.rocblas_operation_none,
@@ -125,12 +125,12 @@ for (geqrf, ormqr, trsv, T) in
     ((:rocsolver_dgeqrf_64, :rocsolver_dormqr, :rocblas_dtrsv_64, :Float64),
      (:rocsolver_sgeqrf_64, :rocsolver_sormqr, :rocblas_strsv_64, :Float32))
     @eval begin
-        function MadNLP.setup_qr!(M::LapackROCmSolver{$T})
+        function MadCore.setup_qr!(M::LapackROCmState{$T})
             resize!(M.tau, M.n)
             return M
         end
 
-        function MadNLP.factorize_qr!(M::LapackROCmSolver{$T})
+        function MadCore.factorize_qr!(M::LapackROCmState{$T})
             rocSOLVER.$geqrf(
                 rocBLAS.handle(),
                 M.n,
@@ -142,7 +142,7 @@ for (geqrf, ormqr, trsv, T) in
             return M
         end
 
-        function MadNLP.solve_qr!(M::LapackROCmSolver{$T}, x::ROCVector{$T})
+        function MadCore.solve_qr!(M::LapackROCmState{$T}, x::ROCVector{$T})
             rocSOLVER.$ormqr(
                 rocBLAS.handle(),
                 rocBLAS.rocblas_side_left,
@@ -176,13 +176,13 @@ for (syevd, gemv, T) in
     ((:rocsolver_dsyevd, :rocblas_dgemv_64, :Float64),
      (:rocsolver_ssyevd, :rocblas_sgemv_64, :Float32))
     @eval begin
-        function MadNLP.setup_evd!(M::LapackROCmSolver{$T})
+        function MadCore.setup_evd!(M::LapackROCmState{$T})
             resize!(M.tau, M.n)
             resize!(M.Λ, M.n)
             return M
         end
 
-        function MadNLP.factorize_evd!(M::LapackROCmSolver{$T})
+        function MadCore.factorize_evd!(M::LapackROCmState{$T})
             rocSOLVER.$syevd(
                 rocBLAS.handle(),
                 rocSOLVER.rocblas_evect_original,
@@ -197,7 +197,7 @@ for (syevd, gemv, T) in
             return M
         end
 
-        function MadNLP.solve_evd!(M::LapackROCmSolver{$T}, x::ROCVector{$T})
+        function MadCore.solve_evd!(M::LapackROCmState{$T}, x::ROCVector{$T})
             rocBLAS.$gemv(
                 rocBLAS.handle(),
                 rocBLAS.rocblas_operation_transpose,

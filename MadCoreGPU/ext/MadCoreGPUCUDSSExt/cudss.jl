@@ -1,6 +1,6 @@
-MadNLP.@kwdef mutable struct CudssSolverOptions <: MadNLP.AbstractOptions
+MadCore.@kwdef mutable struct CudssSolverOptions <: MadCore.AbstractOptions
     # Use LDLᵀ by default in CUDSS as Cholesky can lead to undefined behavior.
-    cudss_algorithm::MadNLP.LinearFactorization = MadNLP.LDL
+    cudss_algorithm::MadCore.LinearFactorization = MadCore.LDL
     cudss_ordering::ORDERING = DEFAULT_ORDERING
     cudss_perm::Vector{Cint} = Cint[]
     cudss_ir::Int = 0
@@ -31,7 +31,7 @@ MadNLP.@kwdef mutable struct CudssSolverOptions <: MadNLP.AbstractOptions
     # pivot sequence of the first; false runs the numerical "factorization" phase every time,
     # so a pivoting factorization re-pivots on the current values
     cudss_refactorization::Bool = true
-    # when MadNLP's iterative refinement rejects a solve, redo the analysis on the current
+    # when MadCore's iterative refinement rejects a solve, redo the analysis on the current
     # values and factorize again before the retry, so a stale matching is refreshed only where
     # it has visibly failed; at most once per factorization
     cudss_reanalyze_on_improve::Bool = false
@@ -105,7 +105,7 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
     end
 end
 
-mutable struct CUDSSSolver{T, V} <: MadNLP.AbstractLinearSolver{T}
+mutable struct CUDSSState{T, V} <: MadCore.AbstractLinearSolver{T}
     inner::CUDSS.CudssSolver{T}
     tril::cuSPARSE.CuSparseMatrixCSC{T, Cint}
     x_gpu::CUDSS.CudssMatrix{T}
@@ -116,13 +116,13 @@ mutable struct CUDSSSolver{T, V} <: MadNLP.AbstractLinearSolver{T}
     reanalysis_cnt::Int             # analyses redone by improve! over the solver's life
 
     opt::CudssSolverOptions
-    logger::MadNLP.MadNLPLogger
+    logger::MadCore.MadNLPLogger
 end
 
-function CUDSSSolver(
+function CUDSSState(
         csc::cuSPARSE.CuSparseMatrixCSC{T, Cint};
         opt = CudssSolverOptions(),
-        logger = MadNLP.MadNLPLogger(),
+        logger = MadCore.MadNLPLogger(),
     ) where {T}
     n, m = size(csc)
     @assert n == m
@@ -130,9 +130,9 @@ function CUDSSSolver(
     view = 'U'
     structure = 'G'
     # We need view = 'F' for the sparse LU decomposition
-    (opt.cudss_algorithm == MadNLP.LU) && error(logger, "The sparse LU of cuDSS is not supported.")
-    (opt.cudss_algorithm == MadNLP.CHOLESKY) && (structure = "SPD")
-    (opt.cudss_algorithm == MadNLP.LDL) && (structure = "S")
+    (opt.cudss_algorithm == MadCore.LU) && error(logger, "The sparse LU of cuDSS is not supported.")
+    (opt.cudss_algorithm == MadCore.CHOLESKY) && (structure = "SPD")
+    (opt.cudss_algorithm == MadCore.LDL) && (structure = "S")
 
     solver = CUDSS.CudssSolver(csc.colPtr, csc.rowVal, csc.nzVal, structure, view)
     set_cudss_options!(solver, opt)
@@ -176,14 +176,14 @@ function CUDSSSolver(
     # Always allocate it to support dynamic updates to opt.cudss_ir
     buffer = CuVector{T}(undef, n * nbatch)
 
-    return CUDSSSolver(
+    return CUDSSState(
         solver, csc,
         x_gpu, b_gpu, buffer, analyzed, false, 0,
         opt, logger,
     )
 end
 
-function MadNLP.factorize!(M::CUDSSSolver)
+function MadCore.factorize!(M::CUDSSState)
     CUDSS.cudss_update(M.inner.matrix, nonzeros(M.tril))
     M.improved = false
     if M.opt.cudss_analysis_each_factorization || !M.analyzed
@@ -200,7 +200,7 @@ function MadNLP.factorize!(M::CUDSSSolver)
     return M
 end
 
-function MadNLP.solve_linear_system!(M::CUDSSSolver{T, V}, xb::V) where {T, V}
+function MadCore.solve_linear_system!(M::CUDSSState{T, V}, xb::V) where {T, V}
     if M.opt.cudss_ir > 0
         copyto!(M.buffer, xb)
         CUDSS.cudss_update(M.b_gpu, M.buffer)
@@ -212,10 +212,10 @@ function MadNLP.solve_linear_system!(M::CUDSSSolver{T, V}, xb::V) where {T, V}
     return xb
 end
 
-MadNLP.input_type(::Type{CUDSSSolver}) = :csc
-MadNLP.default_options(::Type{CUDSSSolver}) = CudssSolverOptions()
-MadNLP.is_inertia(M::CUDSSSolver) = (M.inner.matrix.nbatch == 1)  # Uncomment if MadNLP.LU is supported -- (M.opt.cudss_algorithm ∈ (MadNLP.CHOLESKY, MadNLP.LDL))
-function MadNLP.inertia(M::CUDSSSolver)
+MadCore.input_type(::Type{CUDSSState}) = :csc
+MadCore.default_options(::Type{CUDSSState}) = CudssSolverOptions()
+MadCore.is_inertia(M::CUDSSState) = (M.inner.matrix.nbatch == 1)  # Uncomment if MadCore.LU is supported -- (M.opt.cudss_algorithm ∈ (MadCore.CHOLESKY, MadCore.LDL))
+function MadCore.inertia(M::CUDSSState)
     @assert M.inner.matrix.nbatch == 1
     n = size(M.tril, 1)
     info = CUDSS.cudss_get(M.inner, "info")
@@ -225,13 +225,13 @@ function MadNLP.inertia(M::CUDSSSolver)
     #
     # `buffer` contains the diagonal of the factorized matrix.
 
-    return if M.opt.cudss_algorithm == MadNLP.CHOLESKY
+    return if M.opt.cudss_algorithm == MadCore.CHOLESKY
         if info == 0
             return (n, 0, 0)
         else
             return (n - 2, 1, 1) # if factorization fails, return a dummy inertia
         end
-    elseif M.opt.cudss_algorithm == MadNLP.LDL
+    elseif M.opt.cudss_algorithm == MadCore.LDL
         # N.B.: cuDSS does not always return the correct inertia.
         if info == 0
             (k, l) = CUDSS.cudss_get(M.inner, "inertia")
@@ -244,16 +244,23 @@ function MadNLP.inertia(M::CUDSSSolver)
         error(M.logger, "Unsupported cudss_algorithm")
     end
 end
-function MadNLP.improve!(M::CUDSSSolver)
+function MadCore.improve!(M::CUDSSState)
     (M.opt.cudss_reanalyze_on_improve && !M.improved) || return false
     M.improved = true
     M.reanalysis_cnt += 1
-    MadNLP.@notice(M.logger, "cuDSS: analysis redone after a rejected solve ($(M.reanalysis_cnt) so far)")
+    MadCore.@notice(M.logger, "cuDSS: analysis redone after a rejected solve ($(M.reanalysis_cnt) so far)")
     CUDSS.cudss("analysis", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
     CUDSS.cudss("factorization", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
     return true
 end
-MadNLP.is_supported(::Type{CUDSSSolver}, ::Type{Float32}) = true
-MadNLP.is_supported(::Type{CUDSSSolver}, ::Type{Float64}) = true
-MadNLP.introduce(M::CUDSSSolver) = "cuDSS v$(CUDSS.version())"
-MadNLP.is_async(M::CUDSSSolver) = M.opt.cudss_asynchronous
+MadCore.is_supported(::Type{CUDSSState}, ::Type{Float32}) = true
+MadCore.is_supported(::Type{CUDSSState}, ::Type{Float64}) = true
+MadCore.introduce(M::CUDSSState) = "cuDSS v$(CUDSS.version())"
+MadCore.is_async(M::CUDSSState) = M.opt.cudss_asynchronous
+
+function MadCore.default_options(::MadCore.AbstractNLPModel{T, VT}, ::Type{MadCore.SparseCondensedKKTSystem}, linear_solver::Type{MadCoreGPU.CUDSSSolver}) where {T, VT <: CuVector{T}}
+    opt = MadCore.default_options(linear_solver)
+    # MadCore.set_options!(opt, Dict(:cudss_algorithm => MadCore.CHOLESKY)) # commented out due to issue #539
+
+    return opt
+end

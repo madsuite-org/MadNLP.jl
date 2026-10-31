@@ -3,21 +3,21 @@
 ##### (functions requiring concrete rocSPARSE types) #
 ######################################################
 
-function MadNLP.transfer!(
+function MadCore.transfer!(
     dest::rocSPARSE.ROCSparseMatrixCSC,
-    src::MadNLP.SparseMatrixCOO,
+    src::MadCore.SparseMatrixCOO,
     map,
 )
     return copyto!(view(dest.nzVal, map), src.V)
 end
 
-MadNLP.nzval(H::rocSPARSE.ROCSparseMatrixCSC) = H.nzVal
+MadCore.nzval(H::rocSPARSE.ROCSparseMatrixCSC) = H.nzVal
 
-function MadNLP._get_sparse_csc(dims, colptr::ROCVector, rowval, nzval)
+function MadCore._get_sparse_csc(dims, colptr::ROCVector, rowval, nzval)
     return rocSPARSE.ROCSparseMatrixCSC(colptr, rowval, nzval, dims)
 end
 
-function MadNLP._sym_length(Jt::rocSPARSE.ROCSparseMatrixCSC)
+function MadCore._sym_length(Jt::rocSPARSE.ROCSparseMatrixCSC)
     return mapreduce(
         (x, y) -> begin
             z = x - y
@@ -29,14 +29,14 @@ function MadNLP._sym_length(Jt::rocSPARSE.ROCSparseMatrixCSC)
     )
 end
 
-function MadNLP.get_tril_to_full(csc::rocSPARSE.ROCSparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
-    cscind = MadNLP.SparseMatrixCSC{Int,Ti}(
+function MadCore.get_tril_to_full(csc::rocSPARSE.ROCSparseMatrixCSC{Tv,Ti}) where {Tv,Ti}
+    cscind = MadCore.SparseMatrixCSC{Int,Ti}(
         Symmetric(
-            MadNLP.SparseMatrixCSC{Int,Ti}(
+            MadCore.SparseMatrixCSC{Int,Ti}(
                 size(csc)...,
                 Array(csc.colPtr),
                 Array(csc.rowVal),
-                collect(1:MadNLP.nnz(csc)),
+                collect(1:MadCore.nnz(csc)),
             ),
             :L,
         ),
@@ -44,7 +44,7 @@ function MadNLP.get_tril_to_full(csc::rocSPARSE.ROCSparseMatrixCSC{Tv,Ti}) where
     return rocSPARSE.ROCSparseMatrixCSC{Tv,Ti}(
         ROCArray(cscind.colptr),
         ROCArray(cscind.rowval),
-        ROCVector{Tv}(undef, MadNLP.nnz(cscind)),
+        ROCVector{Tv}(undef, MadCore.nnz(cscind)),
         size(csc),
     ),
     view(csc.nzVal, ROCArray(cscind.nzval))

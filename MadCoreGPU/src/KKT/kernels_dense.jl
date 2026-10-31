@@ -3,7 +3,7 @@
 ####################################################################
 
 #=
-    MadNLP.diag!
+    MadCore.diag!
 =#
 
 @kernel function _copy_diag_kernel!(dest, src)
@@ -12,7 +12,7 @@
 end
 
 #=
-    MadNLP.diag_add!
+    MadCore.diag_add!
 =#
 
 @kernel function _add_diagonal_kernel!(dest, src1, src2)
@@ -21,7 +21,7 @@ end
 end
 
 #=
-    MadNLP._set_diag!
+    MadCore._set_diag!
 =#
 
 @kernel function _set_diag_kernel!(A, inds, a)
@@ -33,7 +33,7 @@ end
 end
 
 #=
-    MadNLP._build_dense_kkt_system!
+    MadCore._build_dense_kkt_system!
 =#
 
 @kernel function _build_dense_kkt_system_kernel!(
@@ -75,7 +75,7 @@ end
 end
 
 #=
-    MadNLP._build_ineq_jac!
+    MadCore._build_ineq_jac!
 =#
 
 @kernel function _build_jacobian_condensed_kernel!(dest, jac, diag_buffer, ind_ineq, m_ineq)
@@ -85,7 +85,7 @@ end
 end
 
 #=
-    MadNLP._build_condensed_kkt_system!
+    MadCore._build_condensed_kkt_system!
 =#
 
 @kernel function _build_condensed_kkt_system_kernel!(

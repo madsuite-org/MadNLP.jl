@@ -5,12 +5,19 @@ version = "0.1.0"
 [deps]
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
 
+[weakdeps]
+MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
+
+[extensions]
+MadNLPCoreGPUExt = "MadCoreGPU"
+
 [sources]
 MadCore = {path = "../MadCore"}
 
 [compat]
 LDLFactorizations = "0.10"
 MadCore = "0.1"
+MadCoreGPU = "0.1"
 MUMPS_seq_jll = "~500.900"
 NLPModels = "0.21.9"
 OpenBLAS32_jll = "0.3"

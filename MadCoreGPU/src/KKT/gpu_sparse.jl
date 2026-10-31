@@ -8,13 +8,13 @@
 # remain in per-extension files.
 
 #=
-    MadNLP.mul! with SparseCondensedKKTSystem + GPU
+    MadCore.mul! with SparseCondensedKKTSystem + GPU
 =#
 
-function MadNLP.mul!(
-        w::MadNLP.AbstractKKTVector{T, VT},
-        kkt::MadNLP.SparseCondensedKKTSystem,
-        x::MadNLP.AbstractKKTVector,
+function MadCore.mul!(
+        w::MadCore.AbstractKKTVector{T, VT},
+        kkt::MadCore.SparseCondensedKKTSystem,
+        x::MadCore.AbstractKKTVector,
         alpha = one(T),
         beta = zero(T),
     ) where {T, VT <: AbstractGPUVector{T}}
@@ -22,20 +22,20 @@ function MadNLP.mul!(
     m = size(kkt.jt_csc, 2)
 
     # Decompose results
-    xx = view(MadNLP.full(x), 1:n)
-    xs = view(MadNLP.full(x), (n + 1):(n + m))
-    xz = view(MadNLP.full(x), (n + m + 1):(n + 2 * m))
+    xx = view(MadCore.full(x), 1:n)
+    xs = view(MadCore.full(x), (n + 1):(n + m))
+    xz = view(MadCore.full(x), (n + m + 1):(n + 2 * m))
 
     # Decompose buffers
-    wx = view(MadNLP.full(w), 1:n)
-    ws = view(MadNLP.full(w), (n + 1):(n + m))
-    wz = view(MadNLP.full(w), (n + m + 1):(n + 2 * m))
+    wx = view(MadCore.full(w), 1:n)
+    ws = view(MadCore.full(w), (n + 1):(n + m))
+    wz = view(MadCore.full(w), (n + m + 1):(n + 2 * m))
 
-    MadNLP.mul!(wx, kkt.hess_com, xx, alpha, beta)
-    MadNLP.mul!(wx, kkt.hess_com', xx, alpha, one(T))
-    MadNLP.mul!(wx, kkt.jt_csc, xz, alpha, one(T))
+    MadCore.mul!(wx, kkt.hess_com, xx, alpha, beta)
+    MadCore.mul!(wx, kkt.hess_com', xx, alpha, one(T))
+    MadCore.mul!(wx, kkt.jt_csc, xz, alpha, one(T))
     if !isempty(kkt.ext.diag_map_to)
-        backend = get_backend(MadNLP.full(w))
+        backend = get_backend(MadCore.full(w))
         _diag_operation_kernel!(backend)(
             wx,
             kkt.hess_com.nzVal,
@@ -47,10 +47,10 @@ function MadNLP.mul!(
         )
     end
 
-    MadNLP.mul!(wz, kkt.jt_csc', xx, alpha, beta)
-    MadNLP.axpy!(-alpha, xs, wz)
+    MadCore.mul!(wz, kkt.jt_csc', xx, alpha, beta)
+    MadCore.axpy!(-alpha, xs, wz)
     ws .= beta .* ws .- alpha .* xz
-    return MadNLP._kktmul!(
+    return MadCore._kktmul!(
         w,
         x,
         kkt.reg,
@@ -65,28 +65,28 @@ function MadNLP.mul!(
 end
 
 #=
-    MadNLP.mul! with SparseKKTSystem + GPU
+    MadCore.mul! with SparseKKTSystem + GPU
 
     The core method applies Symmetric(hess_com, :L), which cuSPARSE does not
     support (CUSPARSE_STATUS_NOT_SUPPORTED). Do the symmetric product as
     L*x + Lᵀ*x minus the double-counted diagonal, as in the condensed path.
 =#
-function MadNLP.mul!(
-        w::MadNLP.AbstractKKTVector{T, VT},
-        kkt::MadNLP.SparseKKTSystem{T, VT, MT, QN},
-        x::MadNLP.AbstractKKTVector,
+function MadCore.mul!(
+        w::MadCore.AbstractKKTVector{T, VT},
+        kkt::MadCore.SparseKKTSystem{T, VT, MT, QN},
+        x::MadCore.AbstractKKTVector,
         alpha = one(T),
         beta = zero(T),
-    ) where {T, VT <: AbstractGPUVector{T}, MT, QN <: MadNLP.ExactHessian}
+    ) where {T, VT <: AbstractGPUVector{T}, MT, QN <: MadCore.ExactHessian}
     n = size(kkt.hess_com, 1)
-    wx = MadNLP.primal(w)
-    xx = MadNLP.primal(x)
-    wz = MadNLP.dual(w)
-    xz = MadNLP.dual(x)
+    wx = MadCore.primal(w)
+    xx = MadCore.primal(x)
+    wz = MadCore.dual(w)
+    xz = MadCore.dual(x)
 
     # symmetric Hessian block: Symmetric(hess_com, :L) * xx
-    MadNLP.mul!(wx, kkt.hess_com, xx, alpha, beta)
-    MadNLP.mul!(wx, kkt.hess_com', xx, alpha, one(T))
+    MadCore.mul!(wx, kkt.hess_com, xx, alpha, beta)
+    MadCore.mul!(wx, kkt.hess_com', xx, alpha, one(T))
     backend = get_backend(wx)
     _sub_tril_diag_kernel!(backend)(
         wx,
@@ -99,10 +99,10 @@ function MadNLP.mul!(
     )
 
     # Jacobian coupling
-    MadNLP.mul!(wx, kkt.jac_com', xz, alpha, one(T))
-    MadNLP.mul!(wz, kkt.jac_com, xx, alpha, beta)
+    MadCore.mul!(wx, kkt.jac_com', xz, alpha, one(T))
+    MadCore.mul!(wz, kkt.jac_com, xx, alpha, beta)
 
-    return MadNLP._kktmul!(
+    return MadCore._kktmul!(
         w,
         x,
         kkt.reg,
@@ -116,17 +116,17 @@ function MadNLP.mul!(
     )
 end
 
-function MadNLP.mul_hess_blk!(
+function MadCore.mul_hess_blk!(
         wx::VT,
-        kkt::MadNLP.SparseCondensedKKTSystem,
+        kkt::MadCore.SparseCondensedKKTSystem,
         t,
     ) where {T, VT <: AbstractGPUVector{T}}
     n = size(kkt.hess_com, 1)
     wxx = @view(wx[1:n])
     tx = @view(t[1:n])
 
-    MadNLP.mul!(wxx, kkt.hess_com, tx, one(T), zero(T))
-    MadNLP.mul!(wxx, kkt.hess_com', tx, one(T), one(T))
+    MadCore.mul!(wxx, kkt.hess_com, tx, one(T), zero(T))
+    MadCore.mul!(wxx, kkt.hess_com', tx, one(T), one(T))
     if !isempty(kkt.ext.diag_map_to)
         backend = get_backend(wx)
         _diag_operation_kernel!(backend)(
@@ -147,17 +147,17 @@ end
 
 # SparseKKTSystem has no `ext`; subtract the double-counted diagonal directly
 # from the tril CSC (see the GPU mul! above).
-function MadNLP.mul_hess_blk!(
+function MadCore.mul_hess_blk!(
         wx::VT,
-        kkt::MadNLP.SparseKKTSystem,
+        kkt::MadCore.SparseKKTSystem,
         t,
     ) where {T, VT <: AbstractGPUVector{T}}
     n = size(kkt.hess_com, 1)
     wxx = @view(wx[1:n])
     tx = @view(t[1:n])
 
-    MadNLP.mul!(wxx, kkt.hess_com, tx, one(T), zero(T))
-    MadNLP.mul!(wxx, kkt.hess_com', tx, one(T), one(T))
+    MadCore.mul!(wxx, kkt.hess_com, tx, one(T), zero(T))
+    MadCore.mul!(wxx, kkt.hess_com', tx, one(T), one(T))
     backend = get_backend(wx)
     _sub_tril_diag_kernel!(backend)(
         wxx,
@@ -178,7 +178,7 @@ end
     get_sparse_condensed_ext
 =#
 
-function MadNLP.get_sparse_condensed_ext(
+function MadCore.get_sparse_condensed_ext(
         ::Type{VT},
         hess_com,
         jptr,
@@ -198,9 +198,9 @@ function MadNLP.get_sparse_condensed_ext(
     end
 
     by = (i, j) -> i[1] != j[1]
-    jptrptr = MadNLP.getptr(jptr, by = by)
-    hess_com_ptrptr = MadNLP.getptr(hess_com_ptr, by = by)
-    jt_csc_ptrptr = MadNLP.getptr(jt_csc_ptr, by = by)
+    jptrptr = MadCore.getptr(jptr, by = by)
+    hess_com_ptrptr = MadCore.getptr(hess_com_ptr, by = by)
+    jt_csc_ptrptr = MadCore.getptr(jt_csc_ptr, by = by)
 
     diag_map_to, diag_map_fr = get_diagonal_mapping(hess_com.colPtr, hess_com.rowVal)
 
@@ -252,10 +252,10 @@ function get_diagonal_mapping(colptr, rowval)
 end
 
 #=
-    MadNLP._first_and_last_col
+    MadCore._first_and_last_col
 =#
 
-function MadNLP._first_and_last_col(sym2::AbstractGPUVector, ptr2)
+function MadCore._first_and_last_col(sym2::AbstractGPUVector, ptr2)
     @allowscalar begin
         first = sym2[1][2]
         last = sym2[ptr2[end]][2]
@@ -274,10 +274,10 @@ function getij(idx, n)
 end
 
 #=
-    MadNLP._set_colptr!
+    MadCore._set_colptr!
 =#
 
-function MadNLP._set_colptr!(colptr::AbstractGPUVector, ptr2, sym2, guide)
+function MadCore._set_colptr!(colptr::AbstractGPUVector, ptr2, sym2, guide)
     if length(ptr2) > 1 # otherwise error is thrown
         backend = get_backend(colptr)
         _set_colptr_kernel!(backend)(
@@ -292,10 +292,10 @@ function MadNLP._set_colptr!(colptr::AbstractGPUVector, ptr2, sym2, guide)
 end
 
 #=
-    MadNLP.tril_to_full! (dense GPU matrix version)
+    MadCore.tril_to_full! (dense GPU matrix version)
 =#
 
-function MadNLP.tril_to_full!(dense::AbstractGPUMatrix{T}) where {T}
+function MadCore.tril_to_full!(dense::AbstractGPUMatrix{T}) where {T}
     n = size(dense, 1)
     backend = get_backend(dense)
     _tril_to_full_kernel!(backend)(dense; ndrange = div(n^2 + n, 2))
@@ -303,10 +303,10 @@ function MadNLP.tril_to_full!(dense::AbstractGPUMatrix{T}) where {T}
 end
 
 #=
-    MadNLP.force_lower_triangular!
+    MadCore.force_lower_triangular!
 =#
 
-function MadNLP.force_lower_triangular!(I::AbstractGPUVector{T}, J) where {T}
+function MadCore.force_lower_triangular!(I::AbstractGPUVector{T}, J) where {T}
     if !isempty(I)
         backend = get_backend(I)
         _force_lower_triangular_kernel!(backend)(I, J; ndrange = length(I))
@@ -315,10 +315,10 @@ function MadNLP.force_lower_triangular!(I::AbstractGPUVector{T}, J) where {T}
 end
 
 #=
-    MadNLP._set_con_scale_sparse!
+    MadCore._set_con_scale_sparse!
 =#
 
-function MadNLP._set_con_scale_sparse!(
+function MadCore._set_con_scale_sparse!(
         con_scale::VT,
         jac_I,
         jac_buffer,
@@ -326,7 +326,7 @@ function MadNLP._set_con_scale_sparse!(
     ind_jac = adapt(get_backend(jac_I), collect(1:length(jac_I)))
     inds = map((i, j) -> (i, j), jac_I, ind_jac)
     !isempty(inds) && sort!(inds)
-    ptr = MadNLP.getptr(inds; by = ((x1, x2), (y1, y2)) -> x1 != y1)
+    ptr = MadCore.getptr(inds; by = ((x1, x2), (y1, y2)) -> x1 != y1)
     if length(ptr) > 1
         backend = get_backend(con_scale)
         _set_con_scale_sparse_kernel!(backend)(
@@ -342,11 +342,11 @@ function MadNLP._set_con_scale_sparse!(
 end
 
 #=
-    MadNLP.coo_to_csc
+    MadCore.coo_to_csc
 =#
 
-function MadNLP.coo_to_csc(
-        coo::MadNLP.SparseMatrixCOO{T, I, VT, VI},
+function MadCore.coo_to_csc(
+        coo::MadCore.SparseMatrixCOO{T, I, VT, VI},
     ) where {T, I, VT <: AbstractGPUArray, VI <: AbstractGPUArray}
     zvals = adapt(get_backend(coo.I), collect(1:length(coo.I)))
     coord = map((i, j, k) -> ((i, j), k), coo.I, coo.J, zvals)
@@ -354,7 +354,7 @@ function MadNLP.coo_to_csc(
         sort!(coord, lt = (((i, j), k), ((n, m), l)) -> (j, i) < (m, n))
     end
 
-    mapptr = MadNLP.getptr(coord; by = ((x1, x2), (y1, y2)) -> x1 != y1)
+    mapptr = MadCore.getptr(coord; by = ((x1, x2), (y1, y2)) -> x1 != y1)
 
     colptr = similar(coo.I, size(coo, 2) + 1)
 
@@ -374,7 +374,7 @@ function MadNLP.coo_to_csc(
     rowval = map(x -> x[1][1], coord_csc)
     nzval = similar(rowval, T)
 
-    csc = MadNLP._get_sparse_csc(size(coo), colptr, rowval, nzval)
+    csc = MadCore._get_sparse_csc(size(coo), colptr, rowval, nzval)
 
     cscmap = similar(coo.I, Int)
     if length(mapptr) > 1
@@ -390,28 +390,28 @@ function MadNLP.coo_to_csc(
 end
 
 #=
-    MadNLP.build_condensed_aug_coord!
+    MadCore.build_condensed_aug_coord!
 =#
 
 # the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`:
 # the whole system (aug_com, jt_csc, diag_buffer) or, with dense rows kept as a
 # border, the block of the condensed rows (aug_c, jt_s, dbuf_s)
-function MadNLP._build_condensed_aug_coord!(
-        kkt::MadNLP.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
+function MadCore._build_condensed_aug_coord!(
+        kkt::MadCore.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
     ) where {T, VT <: AbstractGPUVector{T}}
-    fill!(MadNLP.nzval(aug), zero(T))
+    fill!(MadCore.nzval(aug), zero(T))
     backend = get_backend(kkt.pr_diag)
     if length(kkt.hptr) > 0
         _transfer_hessian_kernel!(backend)(
-            MadNLP.nzval(aug),
+            MadCore.nzval(aug),
             kkt.hptr,
-            MadNLP.nzval(kkt.hess_com);
+            MadCore.nzval(kkt.hess_com);
             ndrange = length(kkt.hptr),
         )
     end
     if length(kkt.dptr) > 0
         _transfer_hessian_kernel!(backend)(
-            MadNLP.nzval(aug),
+            MadCore.nzval(aug),
             kkt.dptr,
             kkt.pr_diag;
             ndrange = length(kkt.dptr),
@@ -419,10 +419,10 @@ function MadNLP._build_condensed_aug_coord!(
     end
     if length(kkt.ext.jptrptr) > 1 # otherwise error is thrown
         _transfer_jtsj_kernel!(backend)(
-            MadNLP.nzval(aug),
+            MadCore.nzval(aug),
             kkt.jptr,
             kkt.ext.jptrptr,
-            MadNLP.nzval(Jt),
+            MadCore.nzval(Jt),
             D;
             ndrange = length(kkt.ext.jptrptr) - 1,
         )
@@ -431,17 +431,17 @@ function MadNLP._build_condensed_aug_coord!(
 end
 
 #=
-    MadNLP.compress_hessian!
+    MadCore.compress_hessian!
 =#
 
-function MadNLP.compress_hessian!(
-        kkt::MadNLP.SparseCondensedKKTSystem{T, VT},
+function MadCore.compress_hessian!(
+        kkt::MadCore.SparseCondensedKKTSystem{T, VT},
     ) where {T, VT <: AbstractGPUVector{T}}
-    fill!(MadNLP.nzval(kkt.hess_com), zero(T))
+    fill!(MadCore.nzval(kkt.hess_com), zero(T))
     backend = get_backend(kkt.pr_diag)
     if length(kkt.ext.hess_com_ptrptr) > 1
         _transfer_to_csc_kernel!(backend)(
-            MadNLP.nzval(kkt.hess_com),
+            MadCore.nzval(kkt.hess_com),
             kkt.ext.hess_com_ptr,
             kkt.ext.hess_com_ptrptr,
             kkt.hess_raw.V;
@@ -452,17 +452,17 @@ function MadNLP.compress_hessian!(
 end
 
 #=
-    MadNLP.compress_jacobian!
+    MadCore.compress_jacobian!
 =#
 
-function MadNLP.compress_jacobian!(
-        kkt::MadNLP.SparseCondensedKKTSystem{T, VT},
+function MadCore.compress_jacobian!(
+        kkt::MadCore.SparseCondensedKKTSystem{T, VT},
     ) where {T, VT <: AbstractGPUVector{T}}
-    fill!(MadNLP.nzval(kkt.jt_csc), zero(T))
+    fill!(MadCore.nzval(kkt.jt_csc), zero(T))
     backend = get_backend(kkt.pr_diag)
     if length(kkt.ext.jt_csc_ptrptr) > 1 # otherwise error is thrown
         _transfer_to_csc_kernel!(backend)(
-            MadNLP.nzval(kkt.jt_csc),
+            MadCore.nzval(kkt.jt_csc),
             kkt.ext.jt_csc_ptr,
             kkt.ext.jt_csc_ptrptr,
             kkt.jt_coo.V;
@@ -473,10 +473,10 @@ function MadNLP.compress_jacobian!(
 end
 
 #=
-    MadNLP._build_condensed_aug_symbolic_hess
+    MadCore._build_condensed_aug_symbolic_hess
 =#
 
-function MadNLP._build_condensed_aug_symbolic_hess(
+function MadCore._build_condensed_aug_symbolic_hess(
         H,
         sym,
         sym2::AbstractGPUVector,
@@ -495,10 +495,10 @@ function MadNLP._build_condensed_aug_symbolic_hess(
 end
 
 #=
-    MadNLP._build_condensed_aug_symbolic_jt
+    MadCore._build_condensed_aug_symbolic_jt
 =#
 
-function MadNLP._build_condensed_aug_symbolic_jt(
+function MadCore._build_condensed_aug_symbolic_jt(
         Jt,
         sym,
         sym2::AbstractGPUVector,
@@ -524,10 +524,10 @@ function MadNLP._build_condensed_aug_symbolic_jt(
 end
 
 #=
-    MadNLP._build_scale_augmented_system_coo!
+    MadCore._build_scale_augmented_system_coo!
 =#
 
-function MadNLP._build_scale_augmented_system_coo!(dest, src, scaling::AbstractGPUArray, n, m)
+function MadCore._build_scale_augmented_system_coo!(dest, src, scaling::AbstractGPUArray, n, m)
     backend = get_backend(scaling)
     _scale_augmented_system_coo_kernel!(backend)(
         dest.V,

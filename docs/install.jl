@@ -8,6 +8,7 @@ Pkg.develop([
     PackageSpec(path=joinpath(MADNLP_DIR, "MadCore")),
     PackageSpec(path=joinpath(MADNLP_DIR, "MadNLPCore")),
     PackageSpec(path=MADNLP_DIR),
+    PackageSpec(path=joinpath(MADNLP_DIR, "MadCoreGPU")),
     PackageSpec(path=joinpath(MADNLP_DIR, "lib", "MadNLPGPU")),
     PackageSpec(path=joinpath(MADNLP_DIR, "lib", "MadNLPTests")),
 ])

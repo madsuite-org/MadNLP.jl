@@ -33,7 +33,7 @@ end
 end
 
 #=
-    MadNLP._set_colptr!
+    MadCore._set_colptr!
 =#
 
 @kernel function _set_colptr_kernel!(colptr, @Const(sym2), @Const(ptr2), @Const(guide))
@@ -51,7 +51,7 @@ end
 end
 
 #=
-    MadNLP.tril_to_full!
+    MadCore.tril_to_full!
 =#
 
 @kernel function _tril_to_full_kernel!(dense)
@@ -62,7 +62,7 @@ end
 end
 
 #=
-    MadNLP.force_lower_triangular!
+    MadCore.force_lower_triangular!
 =#
 
 @kernel function _force_lower_triangular_kernel!(I, J)
@@ -76,7 +76,7 @@ end
 end
 
 #=
-    MadNLP.coo_to_csc
+    MadCore.coo_to_csc
 =#
 
 @kernel function _set_coo_to_colptr_kernel!(colptr, @Const(coord))
@@ -121,7 +121,7 @@ end
 end
 
 #=
-    MadNLP.build_condensed_aug_coord!
+    MadCore.build_condensed_aug_coord!
 =#
 
 @kernel function _transfer_hessian_kernel!(y, @Const(ptr), @Const(x))
@@ -177,7 +177,7 @@ end
 end
 
 #=
-    MadNLP.compress_hessian! / MadNLP.compress_jacobian!
+    MadCore.compress_hessian! / MadCore.compress_jacobian!
 =#
 
 @kernel function _transfer_to_csc_kernel!(y, @Const(ptr), @Const(ptrptr), @Const(x))
@@ -189,7 +189,7 @@ end
 end
 
 #=
-    MadNLP._set_con_scale_sparse!
+    MadCore._set_con_scale_sparse!
 =#
 
 @kernel function _set_con_scale_sparse_kernel!(
@@ -212,7 +212,7 @@ end
 end
 
 #=
-    MadNLP._build_condensed_aug_symbolic_hess
+    MadCore._build_condensed_aug_symbolic_hess
 =#
 
 @kernel function _build_condensed_aug_symbolic_hess_kernel!(
@@ -230,7 +230,7 @@ end
 end
 
 #=
-    MadNLP._build_condensed_aug_symbolic_jt
+    MadCore._build_condensed_aug_symbolic_jt
 =#
 
 @kernel function _build_condensed_aug_symbolic_jt_kernel!(
@@ -260,7 +260,7 @@ end
 end
 
 #=
-    MadNLP._build_scale_augmented_system_coo!
+    MadCore._build_scale_augmented_system_coo!
 =#
 
 @kernel function _scale_augmented_system_coo_kernel!(dest_V, @Const(src_I), @Const(src_J), @Const(src_V), @Const(scaling), @Const(n), @Const(m))

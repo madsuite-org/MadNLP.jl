@@ -1,4 +1,4 @@
-mutable struct LapackCUDASolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Alg}
+mutable struct LapackCUDAState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, Alg}
     A::MT
     fact::CuMatrix{T}
     n::Int64
@@ -12,20 +12,20 @@ mutable struct LapackCUDASolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Al
     info::CuVector{Cint}
     ipiv::CuVector{Cint}
     ipiv64::CuVector{Int64}
-    opt::MadNLP.LapackOptions
-    logger::MadNLP.MadNLPLogger
+    opt::MadCore.LapackOptions
+    logger::MadCore.MadNLPLogger
     legacy::Bool
     params::CuSolverParameters
 
-    function LapackCUDASolver(
+    function LapackCUDAState(
             A::MT;
             option_dict::Dict{Symbol, Any} = Dict{Symbol, Any}(),
-            opt = MadNLP.LapackOptions(),
-            logger = MadNLP.MadNLPLogger(),
+            opt = MadCore.LapackOptions(),
+            logger = MadCore.MadNLPLogger(),
             legacy::Bool = true,
             kwargs...,
         ) where {MT <: AbstractMatrix}
-        MadNLP.set_options!(opt, option_dict, kwargs...)
+        MadCore.set_options!(opt, option_dict, kwargs...)
         T = eltype(A)
         m, n = size(A)
         @assert m == n
@@ -46,12 +46,12 @@ mutable struct LapackCUDASolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Al
             A, fact, n, sol, tau, Λ, work_gpu, lwork_gpu, work_cpu, lwork_cpu,
             info, ipiv, ipiv64, opt, logger, legacy, params
         )
-        MadNLP.setup!(solver)
+        MadCore.setup!(solver)
         return solver
     end
 end
 
-MadNLP.transfer_matrix!(M::LapackCUDASolver) = MadNLPGPU.gpu_transfer!(M.fact, M.A)
-MadNLP._get_info(M::LapackCUDASolver) = sum(M.info)
-MadNLP.solve!(M::LapackCUDASolver{T}, x::CuVector{T}) where {T} = MadNLP._solve!(M, x)
-MadNLP.introduce(M::LapackCUDASolver) = "cuSOLVER v$(cuSOLVER.version()) -- ($(M.opt.lapack_algorithm))"
+MadCore.transfer_matrix!(M::LapackCUDAState) = MadCoreGPU.gpu_transfer!(M.fact, M.A)
+MadCore._get_info(M::LapackCUDAState) = sum(M.info)
+MadCore.solve!(M::LapackCUDAState{T}, x::CuVector{T}) where {T} = MadCore._solve!(M, x)
+MadCore.introduce(M::LapackCUDAState) = "cuSOLVER v$(cuSOLVER.version()) -- ($(M.opt.lapack_algorithm))"

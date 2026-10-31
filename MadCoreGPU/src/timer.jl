@@ -1,12 +1,12 @@
 """
-    EventTimer{E} <: MadNLP.AbstractTimer
+    EventTimer{E} <: MadCore.AbstractTimer
 
 Times regions on a GPU stream with device events of type `E`, without
-synchronizing the host. [`MadNLP.timer_start!`](@ref) and
-[`MadNLP.timer_stop!`](@ref) record an event on the current stream. A region's
+synchronizing the host. [`MadCore.timer_start!`](@ref) and
+[`MadCore.timer_stop!`](@ref) record an event on the current stream. A region's
 duration is added to the counters once its stop event has completed: completed
 regions are collected at every `timer_stop!` with a non-blocking query, and the
-rest in [`MadNLP.timer_flush!`](@ref) at the end of the solve.
+rest in [`MadCore.timer_flush!`](@ref) at the end of the solve.
 
 The measured time is the span of the device timeline between the two events, so
 it includes the device work of the region and any time the device sits idle
@@ -15,7 +15,7 @@ while the host is still inside the region.
 A backend provides `_new_event(::Type{E})`, `_record!(::E)`, `_isdone(::E)`,
 `_wait(::E)` and `_elapsed(start::E, stop::E)` (in seconds).
 """
-struct EventTimer{E} <: MadNLP.AbstractTimer
+struct EventTimer{E} <: MadCore.AbstractTimer
     starts::Vector{E}
     pending::Vector{Tuple{E, E, Symbol}}
     pool::Vector{E}
@@ -32,14 +32,14 @@ function _take_event!(timer::EventTimer{E}) where {E}
     return isempty(timer.pool) ? _new_event(E) : pop!(timer.pool)
 end
 
-function MadNLP.timer_start!(timer::EventTimer)
+function MadCore.timer_start!(timer::EventTimer)
     start = _take_event!(timer)
     _record!(start)
     push!(timer.starts, start)
     return
 end
 
-function MadNLP.timer_stop!(timer::EventTimer, cnt, ::Val{field}) where {field}
+function MadCore.timer_stop!(timer::EventTimer, cnt, ::Val{field}) where {field}
     stop = _take_event!(timer)
     _record!(stop)
     push!(timer.pending, (pop!(timer.starts), stop, field))
@@ -47,7 +47,7 @@ function MadNLP.timer_stop!(timer::EventTimer, cnt, ::Val{field}) where {field}
     return
 end
 
-MadNLP.timer_flush!(timer::EventTimer, cnt) = _collect!(timer, cnt, true)
+MadCore.timer_flush!(timer::EventTimer, cnt) = _collect!(timer, cnt, true)
 
 # Events on one stream complete in order, so collection stops at the first
 # region that has not completed.

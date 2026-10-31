@@ -6,8 +6,8 @@
     GPUSchurComplementKKTSystem
 
 GPU-native Schur complement KKT system, the CUDA counterpart of CPU
-[`MadNLP.SchurComplementKKTSystem`](@ref). Uses a single batched
-`CuSparseMatrixCSC` holding all `ns` scenario blocks (factored by `CUDSSSolver`
+[`MadCore.SchurComplementKKTSystem`](@ref). Uses a single batched
+`CuSparseMatrixCSC` holding all `ns` scenario blocks (factored by `CUDSSState`
 with uniform batching) and CUBLAS strided batched GEMM for the Schur complement
 accumulation.
 
@@ -25,13 +25,13 @@ struct GPUSchurComplementKKTSystem{
     VT <: AbstractVector{T},
     MT <: AbstractMatrix{T},
     QN,
-    LS,   # linear solver for Schur complement S (LapackCUDASolver)
-    LS2,  # batched scenario solver (CUDSSSolver)
+    LS,   # linear solver for Schur complement S (LapackCUDAState)
+    LS2,  # batched scenario solver (CUDSSState)
     COO_T,   # SparseMatrixCOO type for hess_raw
     COO_JT,  # SparseMatrixCOO type for jt_coo
     CSC_T,   # CuSparseMatrixCSC type
     VI <: AbstractVector{Int},
-} <: MadNLP.AbstractCondensedKKTSystem{T, VT, MT, QN}
+} <: MadCore.AbstractCondensedKKTSystem{T, VT, MT, QN}
 
     # COO value buffers on GPU
     hess::VT
@@ -162,18 +162,18 @@ struct GPUSchurComplementKKTSystem{
 end
 
 # --- Dispatch: GPU path when callback uses CuVector ---
-function MadNLP.create_kkt_system(
-    ::Type{MadNLP.SchurComplementKKTSystem},
-    cb::MadNLP.SparseCallback{T, VT},
+function MadCore.create_kkt_system(
+    ::Type{MadCore.SchurComplementKKTSystem},
+    cb::MadCore.SparseCallback{T, VT},
     linear_solver::Type;
-    opt_linear_solver=MadNLP.default_options(linear_solver),
-    hessian_approximation=MadNLP.ExactHessian,
-    qn_options=MadNLP.QuasiNewtonOptions(),
+    opt_linear_solver=MadCore.default_options(linear_solver),
+    hessian_approximation=MadCore.ExactHessian,
+    qn_options=MadCore.QuasiNewtonOptions(),
     schur_ns::Int=0,
     schur_nv::Int=0,
     schur_nd::Int=0,
     schur_nc::Int=0,
-    schur_scenario_opt_linear_solver=MadNLP.default_options(CUDSSSolver),
+    schur_scenario_opt_linear_solver=MadCore.default_options(CUDSSState),
 ) where {T, VT <: CuVector{T}}
 
     n = cb.nvar
@@ -183,18 +183,18 @@ function MadNLP.create_kkt_system(
     nlb = length(cb.ind_lb)
     nub = length(cb.ind_ub)
 
-    ns, nv, nd, nc = MadNLP._resolve_schur_dims(cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc)
+    ns, nv, nd, nc = MadCore._resolve_schur_dims(cb, n, m, schur_ns, schur_nv, schur_nd, schur_nc)
 
     # --- Get sparsity patterns on CPU ---
     jac_sparsity_I = Vector{Int32}(undef, cb.nnzj)
     jac_sparsity_J = Vector{Int32}(undef, cb.nnzj)
-    MadNLP._jac_sparsity_wrapper!(cb, jac_sparsity_I, jac_sparsity_J)
+    MadCore._jac_sparsity_wrapper!(cb, jac_sparsity_I, jac_sparsity_J)
 
-    hess_sparsity_I_gpu, hess_sparsity_J_gpu = MadNLP.build_hessian_structure(cb, hessian_approximation)
+    hess_sparsity_I_gpu, hess_sparsity_J_gpu = MadCore.build_hessian_structure(cb, hessian_approximation)
     # Convert to CPU for construction-time classification loops
     hess_sparsity_I = Vector{Int32}(Array(hess_sparsity_I_gpu))
     hess_sparsity_J = Vector{Int32}(Array(hess_sparsity_J_gpu))
-    MadNLP.force_lower_triangular!(hess_sparsity_I, hess_sparsity_J)
+    MadCore.force_lower_triangular!(hess_sparsity_I, hess_sparsity_J)
 
     n_hess = length(hess_sparsity_I)
     n_jac = length(jac_sparsity_I)
@@ -211,11 +211,11 @@ function MadNLP.create_kkt_system(
     jac_I_gpu = CuVector{Int32}(jac_sparsity_I)
     jac_J_gpu = CuVector{Int32}(jac_sparsity_J)
 
-    hess_raw = MadNLP.SparseMatrixCOO(n, n, hess_I_gpu, hess_J_gpu, hess)
-    jt_coo = MadNLP.SparseMatrixCOO(n, m, jac_J_gpu, jac_I_gpu, jac)
+    hess_raw = MadCore.SparseMatrixCOO(n, n, hess_I_gpu, hess_J_gpu, hess)
+    jt_coo = MadCore.SparseMatrixCOO(n, m, jac_J_gpu, jac_I_gpu, jac)
 
-    hess_csc, hess_csc_map = MadNLP.coo_to_csc(hess_raw)
-    jt_csc, jt_csc_map = MadNLP.coo_to_csc(jt_coo)
+    hess_csc, hess_csc_map = MadCore.coo_to_csc(hess_raw)
+    jt_csc, jt_csc_map = MadCore.coo_to_csc(jt_coo)
 
     # --- Classify constraints per scenario and build per-scenario maps (CPU) ---
     cpu_ind_eq = Array(cb.ind_eq)
@@ -223,7 +223,7 @@ function MadNLP.create_kkt_system(
     cpu_ind_lb = Array(cb.ind_lb)
     cpu_ind_ub = Array(cb.ind_ub)
 
-    sym = MadNLP._build_schur_symbolic(
+    sym = MadCore._build_schur_symbolic(
         T, n, m, ns, nv, nd, nc,
         hess_sparsity_I, hess_sparsity_J,
         jac_sparsity_I, jac_sparsity_J,
@@ -237,7 +237,7 @@ function MadNLP.create_kkt_system(
 
     # Flatten per-scenario block_maps into the per-field concatenated CPU vectors
     # the GPU struct stores (one upload per field below).
-    flat = MadNLP._flatten_block_maps(sym.block_maps)
+    flat = MadCore._flatten_block_maps(sym.block_maps)
 
     # --- Create batched CSC on GPU (shared colptr/rowval, per-scenario nzval slabs) ---
     batched_colPtr = CuVector{Cint}(Vector{Cint}(akk_csc_cpu.colptr))
@@ -313,11 +313,11 @@ function MadNLP.create_kkt_system(
     gpu_eq_global_indices = CuVector{Int}(sym.eq_global_flat)
 
     # --- Create solvers ---
-    quasi_newton = MadNLP.create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
+    quasi_newton = MadCore.create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
     # cuDSS is the only sparse batched solver wired into this path; users tune it
     # via `schur_scenario_opt_linear_solver` rather than swapping the type.
-    scenario_solver = CUDSSSolver(A_kk_batched; opt=schur_scenario_opt_linear_solver)
-    _linear_solver = MadNLP.LinearSolverBarrier(linear_solver(aug_com; opt=opt_linear_solver))
+    scenario_solver = CUDSSState(A_kk_batched; opt=schur_scenario_opt_linear_solver)
+    _linear_solver = MadCore.LinearSolverBarrier(MadCore.create_linear_solver(linear_solver, aug_com; opt=opt_linear_solver))
 
     # --- Multi-RHS cuDSS descriptors for batched A_kk \ C_dk' ---
     # The descriptors hold the (blk × nd) shape per scenario and point at the
@@ -368,25 +368,25 @@ function MadNLP.create_kkt_system(
 end
 
 # --- Trivial accessors ---
-MadNLP.num_variables(kkt::GPUSchurComplementKKTSystem) = size(kkt.hess_csc, 1)
+MadCore.num_variables(kkt::GPUSchurComplementKKTSystem) = size(kkt.hess_csc, 1)
 
-function MadNLP.get_slack_regularization(kkt::GPUSchurComplementKKTSystem)
-    n = MadNLP.num_variables(kkt)
+function MadCore.get_slack_regularization(kkt::GPUSchurComplementKKTSystem)
+    n = MadCore.num_variables(kkt)
     return view(kkt.pr_diag, n+1:n+kkt.n_ineq)
 end
 
-function MadNLP.is_inertia_correct(kkt::GPUSchurComplementKKTSystem, num_pos, num_zero, num_neg)
+function MadCore.is_inertia_correct(kkt::GPUSchurComplementKKTSystem, num_pos, num_zero, num_neg)
     return (num_zero == 0) && (num_pos == size(kkt.aug_com, 1))
 end
 # the Schur complement is definite: the duals are eliminated, not factorized
-MadNLP.block_structure(kkt::GPUSchurComplementKKTSystem) = (size(kkt.aug_com, 1), 0)
+MadCore.block_structure(kkt::GPUSchurComplementKKTSystem) = (size(kkt.aug_com, 1), 0)
 
-MadNLP.should_regularize_dual(kkt::GPUSchurComplementKKTSystem, num_pos, num_zero, num_neg) = true
+MadCore.should_regularize_dual(kkt::GPUSchurComplementKKTSystem, num_pos, num_zero, num_neg) = true
 
-MadNLP.nnz_jacobian(kkt::GPUSchurComplementKKTSystem) = MadNLP.nnz(kkt.jt_coo)
+MadCore.nnz_jacobian(kkt::GPUSchurComplementKKTSystem) = MadCore.nnz(kkt.jt_coo)
 
-function MadNLP.jtprod!(y::VT, kkt::GPUSchurComplementKKTSystem, x::VT) where {VT <: CuVector}
-    nx = MadNLP.num_variables(kkt)
+function MadCore.jtprod!(y::VT, kkt::GPUSchurComplementKKTSystem, x::VT) where {VT <: CuVector}
+    nx = MadCore.num_variables(kkt)
     ns_ineq = kkt.n_ineq
     yx = view(y, 1:nx)
     ys = view(y, 1+nx:nx+ns_ineq)
@@ -395,20 +395,20 @@ function MadNLP.jtprod!(y::VT, kkt::GPUSchurComplementKKTSystem, x::VT) where {V
     return
 end
 
-function MadNLP.compress_jacobian!(kkt::GPUSchurComplementKKTSystem)
-    MadNLP.transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
+function MadCore.compress_jacobian!(kkt::GPUSchurComplementKKTSystem)
+    MadCore.transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
-function MadNLP.compress_hessian!(kkt::GPUSchurComplementKKTSystem)
-    MadNLP.transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
+function MadCore.compress_hessian!(kkt::GPUSchurComplementKKTSystem)
+    MadCore.transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
 end
 
 # --- build_kkt! ---
-function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
+function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
     ns = kkt.ns
     nv = kkt.nv
     nd = kkt.nd
-    n = MadNLP.num_variables(kkt)
+    n = MadCore.num_variables(kkt)
     blk = kkt.blk_size
     backend = CUDABackend()
     nzval = kkt.A_kk_batched.nzVal
@@ -535,7 +535,7 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
     end
 
     # Factorize all scenario blocks in one batched cuDSS call
-    MadNLP.factorize!(kkt.scenario_solver)
+    MadCore.factorize!(kkt.scenario_solver)
 
     # Compute tmp = A_kk^{-1} * C_dk' in one batched multi-RHS cuDSS solve:
     # for each scenario k, solve the (blk × blk) system with nd right-hand sides
@@ -564,31 +564,31 @@ function MadNLP.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
 end
 
 # --- factorize_kkt! ---
-function MadNLP.factorize_kkt!(kkt::GPUSchurComplementKKTSystem)
-    return MadNLP.factorize!(kkt.linear_solver)
+function MadCore.factorize_kkt!(kkt::GPUSchurComplementKKTSystem)
+    return MadCore.factorize!(kkt.linear_solver)
 end
 
 # --- solve_kkt! ---
-function MadNLP.solve_kkt!(
+function MadCore.solve_kkt!(
     kkt::GPUSchurComplementKKTSystem{T},
-    w::MadNLP.AbstractKKTVector{T},
+    w::MadCore.AbstractKKTVector{T},
 ) where T
 
     ns = kkt.ns
     nv = kkt.nv
     nd = kkt.nd
-    n = MadNLP.num_variables(kkt)
+    n = MadCore.num_variables(kkt)
     blk = kkt.blk_size
     nc_eq = kkt.nc_eq_per_s
     backend = CUDABackend()
 
-    wx = view(MadNLP.full(w), 1:n)
-    ws = view(MadNLP.full(w), n+1:n+kkt.n_ineq)
-    wy = MadNLP.dual(w)
+    wx = view(MadCore.full(w), 1:n)
+    ws = view(MadCore.full(w), n+1:n+kkt.n_ineq)
+    wy = MadCore.dual(w)
 
-    Sigma_s = MadNLP.get_slack_regularization(kkt)
+    Sigma_s = MadCore.get_slack_regularization(kkt)
 
-    MadNLP.reduce_rhs!(kkt, w)
+    MadCore.reduce_rhs!(kkt, w)
 
     # Step 1: condense inequality contributions
     fill!(kkt.buffer, zero(T))
@@ -609,7 +609,7 @@ function MadNLP.solve_kkt!(
 
     # Step 3: Forward elimination — batched solve
     copyto!(kkt.solve_buffer, vec(kkt.rhs_k_batched))
-    MadNLP.solve_linear_system!(kkt.scenario_solver, kkt.solve_buffer)
+    MadCore.solve_linear_system!(kkt.scenario_solver, kkt.solve_buffer)
     copyto!(vec(kkt.rhs_k_batched), kkt.solve_buffer)
 
     # rhs_d -= Σ_k C_dk[:,:,k]' * rhs_k[:,k]: same column-major reshape trick as
@@ -619,7 +619,7 @@ function MadNLP.solve_kkt!(
     mul!(kkt.rhs_d, C_2d', vec(kkt.rhs_k_batched), -one(T), one(T))
 
     # Step 4: Solve Schur complement
-    MadNLP.solve_linear_system!(kkt.linear_solver, kkt.rhs_d)
+    MadCore.solve_linear_system!(kkt.linear_solver, kkt.rhs_d)
 
     # Step 5: Back-substitution. rhs_k[:,k] -= tmp[:,:,k] * rhs_d for all k;
     # reshape tmp as (blk*ns, nd) so a single GEMV updates the flattened
@@ -654,46 +654,46 @@ function MadNLP.solve_kkt!(
         ws .= (ws .+ view(wy, kkt.ind_ineq)) ./ Sigma_s
     end
 
-    MadNLP.finish_aug_solve!(kkt, w)
+    MadCore.finish_aug_solve!(kkt, w)
     return w
 end
 
 # --- mul! for iterative refinement ---
-function MadNLP.mul!(
-    w::MadNLP.AbstractKKTVector{T, VT},
+function MadCore.mul!(
+    w::MadCore.AbstractKKTVector{T, VT},
     kkt::GPUSchurComplementKKTSystem{T},
-    x::MadNLP.AbstractKKTVector,
+    x::MadCore.AbstractKKTVector,
     alpha = one(T),
     beta = zero(T),
 ) where {T, VT <: CuVector{T}}
-    n = MadNLP.num_variables(kkt)
+    n = MadCore.num_variables(kkt)
 
-    wx = @view(MadNLP.primal(w)[1:n])
-    ws = @view(MadNLP.primal(w)[n+1:end])
-    wy = MadNLP.dual(w)
+    wx = @view(MadCore.primal(w)[1:n])
+    ws = @view(MadCore.primal(w)[n+1:end])
+    wy = MadCore.dual(w)
 
-    xx = @view(MadNLP.primal(x)[1:n])
-    xs = @view(MadNLP.primal(x)[n+1:end])
-    xz = @view(MadNLP.dual(x)[kkt.ind_ineq])
+    xx = @view(MadCore.primal(x)[1:n])
+    xs = @view(MadCore.primal(x)[n+1:end])
+    xz = @view(MadCore.dual(x)[kkt.ind_ineq])
 
     wx .= beta .* wx
     mul!(wx, Symmetric(kkt.hess_csc, :L), xx, alpha, one(T))
 
     m = size(kkt.jt_csc, 2)
     if m > 0
-        mul!(wx, kkt.jt_csc, MadNLP.dual(x), alpha, one(T))
+        mul!(wx, kkt.jt_csc, MadCore.dual(x), alpha, one(T))
         mul!(wy, kkt.jt_csc', xx, alpha, beta)
     else
         wy .= beta .* wy
     end
     ws .= beta .* ws .- alpha .* xz
-    @view(MadNLP.dual(w)[kkt.ind_ineq]) .-= alpha .* xs
-    MadNLP._kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
+    @view(MadCore.dual(w)[kkt.ind_ineq]) .-= alpha .* xs
+    MadCore._kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
 
-function MadNLP.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementKKTSystem{T}, t) where {T, VT <: CuVector{T}}
-    n = MadNLP.num_variables(kkt)
+function MadCore.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementKKTSystem{T}, t) where {T, VT <: CuVector{T}}
+    n = MadCore.num_variables(kkt)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess_csc, :L), @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
     wx .+= t .* kkt.pr_diag
