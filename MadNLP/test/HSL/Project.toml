@@ -1,0 +1,10 @@
+[deps]
+HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
+Quadmath = "be4d8f0f-7fa4-5f49-b795-2f01399ab2dd"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+HSL = "0.5.3"
+Quadmath = "0.5.10, 1.0.1"

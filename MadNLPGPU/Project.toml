@@ -1,0 +1,26 @@
+name = "MadNLPGPU"
+uuid = "d72a61cc-809d-412f-99be-fd81f4b8a598"
+version = "0.12.0"
+
+[deps]
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
+cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
+
+[sources]
+MadCore = {path = "../MadCore"}
+MadCoreGPU = {path = "../MadCoreGPU"}
+cuMadNLP = {path = "../cuMadNLP"}
+
+[compat]
+MadCore = "0.1"
+MadCoreGPU = "0.1"
+cuMadNLP = "0.1"
+Test = "1.10"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

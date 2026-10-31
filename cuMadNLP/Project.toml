@@ -1,0 +1,43 @@
+name = "cuMadNLP"
+uuid = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
+version = "0.1.0"
+
+[deps]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
+CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+cuBLAS = "182d3088-87b7-4494-8cad-fc6afaa545bc"
+cuSOLVER = "887afef0-6a32-4de5-add4-7827692ba8fc"
+cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
+
+[sources]
+MadCore = {path = "../MadCore"}
+MadCoreGPU = {path = "../MadCoreGPU"}
+MadNLP = {path = "../MadNLP"}
+MadNLPCore = {path = "../MadNLPCore"}
+
+[compat]
+CUDA = "6"
+CUDACore = "6"
+CUDSS = "1.0"
+MadCore = "0.1"
+MadCoreGPU = "0.1"
+MadNLP = "0.12"
+MadNLPCore = "0.1"
+PrecompileTools = "1.2"
+cuBLAS = "6"
+cuSOLVER = "6"
+cuSPARSE = "6"
+Test = "1.10"
+julia = "1.10"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

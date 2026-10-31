@@ -1,0 +1,35 @@
+name = "MadNLPCore"
+uuid = "38486723-7c71-48b9-ad12-dc22a86097e8"
+version = "0.1.0"
+
+[deps]
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+
+[weakdeps]
+MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
+
+[extensions]
+MadNLPCoreGPUExt = "MadCoreGPU"
+
+[sources]
+MadCore = {path = "../MadCore"}
+
+[compat]
+LDLFactorizations = "0.10"
+MadCore = "0.1"
+MadCoreGPU = "0.1"
+MUMPS_seq_jll = "~500.900"
+NLPModels = "0.21.9"
+OpenBLAS32_jll = "0.3"
+Test = "1.10"
+julia = "1.10"
+
+[extras]
+MUMPS_seq_jll = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
+OpenBLAS32_jll = "656ef2d0-ae68-5445-9ca0-591084a874a2"
+LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "LDLFactorizations", "MUMPS_seq_jll", "NLPModels", "OpenBLAS32_jll"]

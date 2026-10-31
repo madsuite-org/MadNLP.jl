@@ -1,0 +1,46 @@
+name = "MadCoreGPU"
+uuid = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
+version = "0.1.0"
+
+[deps]
+AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
+KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+
+[weakdeps]
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
+CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
+cuBLAS = "182d3088-87b7-4494-8cad-fc6afaa545bc"
+cuSOLVER = "887afef0-6a32-4de5-add4-7827692ba8fc"
+cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
+
+[extensions]
+MadCoreGPUAMDGPUExt = "AMDGPU"
+MadCoreGPUCUDAExt = ["CUDACore", "cuBLAS", "cuSOLVER", "cuSPARSE"]
+MadCoreGPUCUDSSExt = ["CUDACore", "CUDSS", "cuBLAS", "cuSOLVER", "cuSPARSE"]
+
+[sources]
+MadCore = {path = "../MadCore"}
+
+[compat]
+AMD = "0.5"
+AMDGPU = "2.10"
+Adapt = "4"
+CUDACore = "6"
+CUDSS = "1.0"
+GPUArraysCore = "0.2"
+KernelAbstractions = "0.10"
+LinearAlgebra = "1.10"
+MadCore = "0.1"
+Metis = "1"
+SparseArrays = "1.10"
+cuBLAS = "6"
+cuSOLVER = "6"
+cuSPARSE = "6"
+julia = "1.10"

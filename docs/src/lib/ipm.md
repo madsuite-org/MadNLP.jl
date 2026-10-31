@@ -9,6 +9,7 @@ a `AbstractNLPModel` and solves it using an interior-point method.
 The main entry point is the function `madnlp`:
 ```@docs
 madnlp
+madsuite
 MadNLPExecutionStats
 ```
 
