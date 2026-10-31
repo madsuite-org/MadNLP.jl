@@ -33,6 +33,7 @@ jobs:
           using Pkg
           Pkg.Registry.update()
           Pkg.develop(path=".")
+          Pkg.add(PackageSpec(name="MathOptInterface", rev="bl/qp_block_data"))
           Pkg.instantiate()
       - name: test MOI wrapper and MINLPTests
         run: julia --project=./test/MOI --code-coverage=user --color=yes test/MOI/runtests.jl
