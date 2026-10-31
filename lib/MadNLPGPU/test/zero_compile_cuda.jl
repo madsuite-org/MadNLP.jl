@@ -26,6 +26,9 @@ end
             using MadNLP, MadNLPGPU
             madnlp(MadNLP.PrecompileChainModel(100, CuVector{Float64}(undef, 0)); print_level = MadNLP.ERROR)
             """, r"\bMadNLP(GPU(CUDAExt)?)?\."; warm = k == 1)
+        # The test problem's constructor, called from the script's top level, is not part
+        # of what the workload is for.
+        filter!(l -> !occursin("MadNLP.PrecompileChainModel{", l), compiled)
         @test probe
         isempty(compiled) || foreach(l -> println(first(l, 300)), compiled)
         @test isempty(compiled)
