@@ -28,6 +28,9 @@ end
         madnlp(MadNLP.PrecompileChainModel(100, Float64[]); print_level = MadNLP.ERROR)
         madnlp(MadNLP.PrecompileChainModel(100, Float64[]; fixed = true); print_level = MadNLP.ERROR)
         """, r"\bMadNLP\.")
+    # The test problems' constructors, called from the script's top level, are not part
+    # of what the workload is for.
+    filter!(l -> !occursin("MadNLP.PrecompileChainModel{", l), compiled)
     @test probe
     isempty(compiled) || foreach(l -> println(first(l, 300)), compiled)
     @test isempty(compiled)
