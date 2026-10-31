@@ -867,7 +867,7 @@ function create_kkt_system(
     # --- Create solvers ---
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
     scenario_solvers = [schur_scenario_linear_solver(A_kk_vec[k]) for k in 1:ns]
-    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
+    _linear_solver = LinearSolverBarrier(linear_solver(aug_com; opt = opt_linear_solver))
 
     return SchurComplementKKTSystem(
         hess, jac,
