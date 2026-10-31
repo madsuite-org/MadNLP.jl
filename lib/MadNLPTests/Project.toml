@@ -15,7 +15,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 [compat]
 JuMP = "1.25"
 LinearAlgebra = "1.10"
-MadNLP = "0.10, 0.11"
+MadNLP = "0.10, 0.11, 0.12"
 NLPModels = "0.21.8"
 NLPModelsJuMP = "0.13"
 Random = "1.10"

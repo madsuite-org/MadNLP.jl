@@ -218,7 +218,7 @@ end
     # the KKT system type does not depend on the linear solver
     @test typeof(a.kkt) == typeof(b.kkt)
     @test a.kkt.linear_solver isa MadNLP.LinearSolverBarrier{Float64}
-    @test a.kkt.linear_solver.wrapped isa MumpsSolver{Float64}
+    @test startswith(MadNLP.introduce(a.kkt.linear_solver.wrapped), "MUMPS")
     # fields of the wrapped solver are forwarded, including one named `inner`
     @test a.kkt.linear_solver.csc === a.kkt.linear_solver.wrapped.csc
     @test b.kkt.linear_solver.inner === getfield(b.kkt.linear_solver.wrapped, :inner)

@@ -11,7 +11,7 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 [compat]
 HSL = "0.5.3"
 LinearAlgebra = "1.9"
-MadNLP = "0.10, 0.11"
+MadNLP = "0.10, 0.11, 0.12"
 MadNLPTests = "0.6"
 PrecompileTools = "1.2"
 Quadmath = "0.5.10, 1.0.1"

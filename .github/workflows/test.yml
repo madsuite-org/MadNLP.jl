@@ -27,19 +27,26 @@ jobs:
         with:
           channel: ${{ matrix.julia-version }}
       - uses: julia-actions/cache@v2
+      - name: test MadCore, MadNLPCore
+        # tested on their own, without MadNLP; once is enough
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          julia --project=./MadCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
+          julia --project=./MadNLPCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
       - name: test MadNLP
         shell: julia --project=. --color=yes {0}
         run: |
           using Pkg
           Pkg.Registry.update()
-          Pkg.instantiate()
-          using MadNLP
-          PATH_MADNLP = dirname(pathof(MadNLP))
-          Pkg.develop(path=joinpath(PATH_MADNLP, "..", "lib", "MadNLPTests"))
+          Pkg.develop([
+              PackageSpec(path="./MadCore"),
+              PackageSpec(path="./MadNLPCore"),
+              PackageSpec(path="./lib/MadNLPTests"),
+          ])
           Pkg.test("MadNLP", coverage=true)
       - uses: julia-actions/julia-processcoverage@v1
         with:
-          directories: src,ext
+          directories: src,ext,MadCore/src,MadCore/ext,MadNLPCore/src
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
@@ -69,6 +76,8 @@ jobs:
           Pkg.Registry.update()
           path_HSL_jll = "/home/action-runner/HSL_jll.jl.v" * ENV["HSL_VERSION"]
           Pkg.develop([
+              PackageSpec(path="./MadCore"),
+              PackageSpec(path="./MadNLPCore"),
               PackageSpec(path="."),
               PackageSpec(path="./lib/MadNLPTests"),
               PackageSpec(path=path_HSL_jll),
@@ -132,6 +141,8 @@ jobs:
           using Pkg
           Pkg.Registry.update()
           Pkg.develop([
+              PackageSpec(path="./MadCore"),
+              PackageSpec(path="./MadNLPCore"),
               PackageSpec(path="."),
               PackageSpec(path="./lib/MadNLPGPU"),
               PackageSpec(path="./lib/MadNLPTests"),

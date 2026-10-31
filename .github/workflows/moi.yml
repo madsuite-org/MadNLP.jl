@@ -32,7 +32,7 @@ jobs:
         run: |
           using Pkg
           Pkg.Registry.update()
-          Pkg.develop(path=".")
+          Pkg.develop([PackageSpec(path="./MadCore"), PackageSpec(path="./MadNLPCore"), PackageSpec(path=".")])
           Pkg.instantiate()
       - name: test MOI wrapper and MINLPTests
         run: julia --project=./test/MOI --code-coverage=user --color=yes test/MOI/runtests.jl

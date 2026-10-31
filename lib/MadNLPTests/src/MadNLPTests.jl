@@ -34,11 +34,11 @@ function test_linear_solver(solver, T; kwargs...)
     csc = sparse(row,col,val,m,n)
     if MadNLP.input_type(solver) == :csc
         opt = MadNLP.default_options(solver)
-        M = solver(csc; opt=opt)
+        M = MadNLP.create_linear_solver(solver, csc; opt=opt)
     elseif MadNLP.input_type(solver) == :dense
         dense = Array(csc)
         opt = MadNLP.default_options(solver)
-        M = solver(dense; opt=opt)
+        M = MadNLP.create_linear_solver(solver, dense; opt=opt)
     end
     MadNLP.introduce(M)
     MadNLP.improve!(M)
