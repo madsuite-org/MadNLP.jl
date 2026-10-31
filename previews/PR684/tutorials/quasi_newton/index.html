@@ -84,11 +84,11 @@ Number of Lagrangian Hessian evaluations              = 21
 Number of KKT factorizations                          = 40
 Number of KKT backsolves                              = 22
 
-Total wall secs in initialization                     =  0.326 s
+Total wall secs in initialization                     =  0.324 s
 Total wall secs in linear solver                      =  0.002 s
-Total wall secs in NLP function evaluations           =  0.619 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.374 s
-Total wall secs                                       =  1.321 s
+Total wall secs in NLP function evaluations           =  0.517 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.378 s
+Total wall secs                                       =  1.221 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>We observe that MadNLP converges in about twenty iterations.</p><p>To replace the second-order derivatives by an LBFGS approximation, you should pass the option <code>hessian_approximation=MadNLP.CompactLBFGS</code> to MadNLP.</p><pre><code class="language-julia hljs">results_qn = madnlp(
     nlp;
@@ -232,11 +232,11 @@ Number of Lagrangian Hessian evaluations              = 0
 Number of KKT factorizations                          = 94
 Number of KKT backsolves                              = 97
 
-Total wall secs in initialization                     =  0.219 s
-Total wall secs in linear solver                      =  0.080 s
-Total wall secs in NLP function evaluations           =  0.000 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  = 11.069 s
-Total wall secs                                       = 11.368 s
+Total wall secs in initialization                     =  0.221 s
+Total wall secs in linear solver                      =  0.089 s
+Total wall secs in NLP function evaluations           =  0.001 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  = 11.257 s
+Total wall secs                                       = 11.566 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>We observe that MadNLP requires significantly more iterations, but the solution time has decreased by an order of magnitude. As expected, the number of Hessian evaluations is 0.</p><h3 id="How-to-tune-the-options-in-LBFGS?"><a class="docs-heading-anchor" href="#How-to-tune-the-options-in-LBFGS?">How to tune the options in LBFGS?</a><a id="How-to-tune-the-options-in-LBFGS?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-tune-the-options-in-LBFGS?" title="Permalink"></a></h3><p>You can tune the LBFGS options by using the option <code>quasi_newton_options</code>. The option takes as input a <code>QuasiNewtonOptions</code> structure, with the following attributes (we put on the right their default values):</p><ul><li><code>init_strategy::BFGSInitStrategy = SCALAR1</code></li><li><code>max_history::Int = 6</code></li><li><code>init_value::Float64 = 1.0</code></li><li><code>sigma_min::Float64 = 1e-8</code></li><li><code>sigma_max::Float64 = 1e+8</code></li></ul><p>The most important parameter is <code>max_history</code>, which encodes the number of vectors used in the low-rank approximation. For instance, we can increase the history to use the 20 past iterates using:</p><pre><code class="language-julia hljs">qn_options = MadNLP.QuasiNewtonOptions(; max_history=20)
 results_qn = madnlp(
@@ -349,8 +349,8 @@ Number of KKT backsolves                              = 64
 Total wall secs in initialization                     =  0.000 s
 Total wall secs in linear solver                      =  0.035 s
 Total wall secs in NLP function evaluations           =  0.000 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.083 s
-Total wall secs                                       =  0.119 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  0.006 s
+Total wall secs                                       =  0.042 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>We observe that the total number of iterations has decreased compared to the default history.</p><h3 id="How-is-LBFGS-implemented-in-MadNLP?"><a class="docs-heading-anchor" href="#How-is-LBFGS-implemented-in-MadNLP?">How is LBFGS implemented in MadNLP?</a><a id="How-is-LBFGS-implemented-in-MadNLP?-1"></a><a class="docs-heading-anchor-permalink" href="#How-is-LBFGS-implemented-in-MadNLP?" title="Permalink"></a></h3><p>MadNLP implements the compact LBFGS algorithm described <a href="https://link.springer.com/article/10.1007/bf01582063">in this article</a>. At each iteration, the Hessian <span>$W_k$</span> is approximated by a low rank positive definite matrix <span>$B_k$</span>, defined as</p><p class="math-container">\[B_k = \xi_k I + U_k V_k^\top
 \]</p><p>with <span>$\xi &gt; 0$</span> a scaling factor, <span>$U_k$</span> and <span>$V_k$</span> two <span>$n \times 2p$</span> matrices. The number <span>$p$</span> denotes the number of vectors used when computing the limited memory updates (the parameter <code>max_history</code> in MadNLP): the larger, the more accurate is the low-rank approximation.</p><p>Replacing the Hessian of the Lagrangian <span>$W_k$</span> by the low-rank matrix <span>$B_k$</span>, the KKT system solved in MadNLP rewrites as</p><p class="math-container">\[\begin{bmatrix}
@@ -473,11 +473,11 @@ Number of Lagrangian Hessian evaluations              = 0
 Number of KKT factorizations                          = 62
 Number of KKT backsolves                              = 63
 
-Total wall secs in initialization                     =  0.309 s
-Total wall secs in linear solver                      =  0.053 s
-Total wall secs in NLP function evaluations           =  0.081 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  9.766 s
-Total wall secs                                       = 10.209 s
+Total wall secs in initialization                     =  0.320 s
+Total wall secs in linear solver                      =  0.044 s
+Total wall secs in NLP function evaluations           =  0.062 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  9.488 s
+Total wall secs                                       =  9.914 s
 
 <span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre><p>Observe that BFGS converges in fewer iterations than LBFGS with the default history. Note that BFGS computes a positive definite approximation of the Hessian matrix.</p><p>If the problem is non-convex, it is usually recommended to use the damped version of the BFGS algorithm, which can be activated by replacing <code>MadNLP.BFGS</code> by <code>MadNLP.DampedBFGS</code> in the precedent call:</p><pre><code class="language-julia hljs">results_qn = madnlp(
     nlp;
@@ -576,10 +576,10 @@ Number of Lagrangian Hessian evaluations              = 0
 Number of KKT factorizations                          = 52
 Number of KKT backsolves                              = 53
 
-Total wall secs in initialization                     =  0.099 s
+Total wall secs in initialization                     =  0.075 s
 Total wall secs in linear solver                      =  0.003 s
 Total wall secs in NLP function evaluations           =  0.000 s
-Total wall secs in solver (w/o init./fun./lin. alg.)  =  8.462 s
-Total wall secs                                       =  8.565 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  8.626 s
+Total wall secs                                       =  8.704 s
 
-<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../warmstart/">« Warm-start</a><a class="docs-footer-nextpage" href="../kktsystem/">Custom KKT system »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 31 October 2026 16:42">Saturday 31 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-08).</span></code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../warmstart/">« Warm-start</a><a class="docs-footer-nextpage" href="../kktsystem/">Custom KKT system »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.19.0 on <span class="colophon-date" title="Saturday 31 October 2026 16:47">Saturday 31 October 2026</span>. Using Julia version 1.13.3.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
