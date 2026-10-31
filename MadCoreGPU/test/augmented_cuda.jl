@@ -58,7 +58,7 @@ NLPModels.hess_coord!(nlp::BoundedQPGPU, x::AbstractVector, y::AbstractVector, V
     @test any(results_ref.solution .≈ n / 2)
 
     solver = MadNLPSolver(BoundedQPGPU(CUDA.zeros(Float64, n)); print_level=MadNLP.ERROR,
-                          kkt_system=MadNLP.SparseKKTSystem, linear_solver=MadNLPGPU.CUDSSSolver, tol=1e-8)
+                          kkt_system=MadNLP.SparseKKTSystem, linear_solver=MadCoreGPU.CUDSSSolver, tol=1e-8)
     results = MadNLP.solve!(solver)
     @test results.status == MadNLP.SOLVE_SUCCEEDED
     # cuDSS without pivoting and UMFPACK take different regularization paths, so the

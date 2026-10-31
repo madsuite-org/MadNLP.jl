@@ -51,7 +51,7 @@ NLPModels.hess_coord!(nlp::CyclicQPGPU, x::AbstractVector, y::AbstractVector, V:
 @testset "MadNLP -- CUDSSSolver: condensed mul! is linear in beta" begin
     n = 30
     solver = MadNLPSolver(CyclicQPGPU(CUDA.zeros(Float64, n)); print_level=MadNLP.ERROR,
-                          kkt_system=MadNLP.SparseCondensedKKTSystem, linear_solver=MadNLPGPU.CUDSSSolver, max_iter=3)
+                          kkt_system=MadNLP.SparseCondensedKKTSystem, linear_solver=MadCoreGPU.CUDSSSolver, max_iter=3)
     MadNLP.solve!(solver)      # a few iterations so that the KKT matrix carries values
     kkt = MadNLP.get_kkt(solver)
     x = MadNLP.UnreducedKKTVector(kkt)

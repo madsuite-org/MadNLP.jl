@@ -3,7 +3,7 @@ using LinearAlgebra
 using CUDA
 using CUDSS
 using MadNLP
-using MadNLPGPU
+using cuMadNLP, MadCoreGPU
 using MadNLPTests
 
 @testset "GPUSchurComplementKKTSystem" begin

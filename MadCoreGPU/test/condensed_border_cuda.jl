@@ -74,7 +74,7 @@ end
         nlp;
         print_level = MadNLP.ERROR,
         kkt_system = MadNLP.SparseCondensedKKTSystem,
-        linear_solver = MadNLPGPU.CUDSSSolver,
+        linear_solver = MadCoreGPU.CUDSSSolver,
         kkt_options = border,
         tol = 1.0e-8,
     )
@@ -90,7 +90,7 @@ end
     # with the defaults the dense row is condensed: the plain condensed system on the GPU
     solver0 = MadNLPSolver(
         BorderQPGPU(CUDA.zeros(Float64, n)); print_level = MadNLP.ERROR,
-        kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLPGPU.CUDSSSolver, tol = 1.0e-8
+        kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadCoreGPU.CUDSSSolver, tol = 1.0e-8
     )
     @test isempty(MadNLP.get_kkt(solver0).border.ind_D)
     results0 = MadNLP.solve!(solver0)

@@ -1,20 +1,27 @@
+"""
+    MadNLPGPU
+
+Deprecated: use `cuMadNLP` on NVIDIA GPUs and `rocMadNLP` on AMD GPUs. MadNLPGPU
+loads cuMadNLP and keeps the names of MadNLPGPU resolving for one release.
+"""
 module MadNLPGPU
 
-import MadCore, MadCoreGPU, MadNLP
-import PrecompileTools
+import MadCore, MadCoreGPU, cuMadNLP
 
-# MadNLPGPU bundles MadNLP with the GPU KKT systems and linear solvers of MadCoreGPU.
-# For backward compatibility, every name of MadCoreGPU also resolves as
-# `MadNLPGPU.name`, and MadNLPGPU re-exports the names exported by MadNLP.
+# Every name of MadCoreGPU resolves as `MadNLPGPU.name`, as before the split.
 for name in MadCore.internal_names(MadCoreGPU)
     name === :MadCore && continue
     @eval import MadCoreGPU: $name
 end
-for name in names(MadNLP)
-    name === :MadNLP && continue
-    @eval using MadNLP: $name
+using cuMadNLP
+for name in names(cuMadNLP)
+    name === :cuMadNLP && continue
     @eval export $name
 end
-export LapackCUDASolver, CUDSSSolver, LapackROCmSolver
+
+function __init__()
+    Base.depwarn("MadNLPGPU is deprecated; use cuMadNLP (NVIDIA) or rocMadNLP (AMD).", :MadNLPGPU)
+    return
+end
 
 end # module

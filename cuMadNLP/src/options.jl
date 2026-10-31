@@ -1,4 +1,4 @@
-# Option presets of MadNLP for models on the GPU
+# Option presets of MadNLP for models on NVIDIA GPUs
 
 function MadNLP.MadNLPOptions{T}(
         nlp::MadNLP.AbstractNLPModel{T, VT};

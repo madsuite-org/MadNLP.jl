@@ -1,22 +1,23 @@
-using Test, MadNLP, MadNLPGPU, MadNLPTests
+using Test, MadNLP, MadCoreGPU, MadNLPTests
 
+# The GPU entry points set the option presets for GPU models; CI installs the one
+# matching the runner's GPU.
 const HAS_CUDA = try
-    using CUDA
-    using CUDSS
+    using CUDA, CUDSS, cuMadNLP
     true
 catch
     false
 end
 
 const HAS_AMDGPU = try
-    using AMDGPU
+    using AMDGPU, rocMadNLP
     true
 catch
     false
 end
 
-@testset "MadNLPGPU test" begin
-    include("madnlpgpu_test.jl")
+@testset "MadCoreGPU test" begin
+    include("gpu_test.jl")
     include("timer_test.jl")
     if HAS_CUDA && CUDA.functional()
         include("densekkt_cuda.jl")

@@ -3,7 +3,7 @@ cuda_testset = [
     [
         "CUDSS",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR
         ),
         [],
@@ -11,43 +11,43 @@ cuda_testset = [
     [
         "CUDSS-AMD",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadNLPGPU.AMD_ORDERING,
+            cudss_ordering=MadCoreGPU.AMD_ORDERING,
         ),
         [],
     ],
     [
         "CUDSS-SYMAMD",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadNLPGPU.SYMAMD_ORDERING,
+            cudss_ordering=MadCoreGPU.SYMAMD_ORDERING,
         ),
         [],
     ],
     [
         "CUDSS-COLAMD",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadNLPGPU.COLAMD_ORDERING,
+            cudss_ordering=MadCoreGPU.COLAMD_ORDERING,
         ),
         [],
     ],
     [
         "CUDSS-METIS",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadNLPGPU.METIS_ORDERING,
+            cudss_ordering=MadCoreGPU.METIS_ORDERING,
         ),
         [],
     ],
     [
         "CUDSS-IR",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_ir=1,
         ),
@@ -56,7 +56,7 @@ cuda_testset = [
     [
         "CUDSS-HYBRID",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_hybrid_memory=true,
         ),
@@ -65,7 +65,7 @@ cuda_testset = [
     [
         "CUDSS-NOPIVOTING",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_pivoting=false,
         ),
@@ -76,7 +76,7 @@ cuda_testset = [
         # deferred to the first factorization and redone when a solve is rejected
         "CUDSS-BUNCHKAUFMAN",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_pivot_type='B',
             cudss_matching=true,
@@ -88,7 +88,7 @@ cuda_testset = [
     [
         "CUDSS-ANALYSIS-EACH",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_matching=true,
             cudss_analysis_each_factorization=true,
@@ -98,7 +98,7 @@ cuda_testset = [
     [
         "CUDSS-NOREFACTORIZATION",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.CUDSSSolver,
+            linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_pivot_type='B',
             cudss_refactorization=false,
@@ -108,7 +108,7 @@ cuda_testset = [
     [
         "Formulation K2",
         ()->MadNLP.Optimizer(
-            linear_solver=MadNLPGPU.CUDSSSolver,
+            linear_solver=MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             kkt_system=MadNLP.SparseKKTSystem,
         ),
@@ -117,7 +117,7 @@ cuda_testset = [
     [
         "Formulation K2.5",
         ()->MadNLP.Optimizer(
-            linear_solver=MadNLPGPU.CUDSSSolver,
+            linear_solver=MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             kkt_system=MadNLP.ScaledSparseKKTSystem,
         ),
@@ -126,7 +126,7 @@ cuda_testset = [
     [
         "LapackGPU-BUNCHKAUFMAN",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackCUDASolver,
+            linear_solver = MadCoreGPU.LapackCUDASolver,
             lapack_algorithm=MadNLP.BUNCHKAUFMAN,
             print_level=MadNLP.ERROR,
         ),
@@ -135,7 +135,7 @@ cuda_testset = [
     [
         "LapackGPU-LU",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackCUDASolver,
+            linear_solver = MadCoreGPU.LapackCUDASolver,
             lapack_algorithm=MadNLP.LU,
             print_level=MadNLP.ERROR,
         ),
@@ -144,7 +144,7 @@ cuda_testset = [
     [
         "LapackGPU-QR",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackCUDASolver,
+            linear_solver = MadCoreGPU.LapackCUDASolver,
             lapack_algorithm=MadNLP.QR,
             print_level=MadNLP.ERROR,
         ),
@@ -153,7 +153,7 @@ cuda_testset = [
     [
         "LapackGPU-EVD",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackCUDASolver,
+            linear_solver = MadCoreGPU.LapackCUDASolver,
             lapack_algorithm=MadNLP.EVD,
             print_level=MadNLP.ERROR,
         ),
@@ -162,7 +162,7 @@ cuda_testset = [
     [
         "LapackGPU-CHOLESKY",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackCUDASolver,
+            linear_solver = MadCoreGPU.LapackCUDASolver,
             lapack_algorithm=MadNLP.CHOLESKY,
             print_level=MadNLP.ERROR,
         ),
@@ -174,7 +174,7 @@ rocm_testset = [
     [
         "LapackROCmSolver-LU",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackROCmSolver,
+            linear_solver = MadCoreGPU.LapackROCmSolver,
             lapack_algorithm=MadNLP.LU,
             print_level=MadNLP.ERROR,
         ),
@@ -183,7 +183,7 @@ rocm_testset = [
     [
         "LapackROCmSolver-QR",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackROCmSolver,
+            linear_solver = MadCoreGPU.LapackROCmSolver,
             lapack_algorithm=MadNLP.QR,
             print_level=MadNLP.ERROR,
         ),
@@ -192,7 +192,7 @@ rocm_testset = [
     [
         "LapackROCmSolver-EVD",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackROCmSolver,
+            linear_solver = MadCoreGPU.LapackROCmSolver,
             lapack_algorithm=MadNLP.EVD,
             print_level=MadNLP.ERROR,
         ),
@@ -201,7 +201,7 @@ rocm_testset = [
     [
         "LapackROCmSolver-CHOLESKY",
         ()->MadNLP.Optimizer(
-            linear_solver = MadNLPGPU.LapackROCmSolver,
+            linear_solver = MadCoreGPU.LapackROCmSolver,
             lapack_algorithm=MadNLP.CHOLESKY,
             print_level=MadNLP.ERROR,
         ),
@@ -209,18 +209,18 @@ rocm_testset = [
     ],
 ]
 
-@testset "MadNLPGPU test" begin
+@testset "GPU solvers" begin
     if HAS_CUDA && CUDA.functional()
-        MadNLPTests.test_linear_solver(MadNLPGPU.LapackCUDASolver, Float32)
-        MadNLPTests.test_linear_solver(MadNLPGPU.LapackCUDASolver, Float64)
+        MadNLPTests.test_linear_solver(MadCoreGPU.LapackCUDASolver, Float32)
+        MadNLPTests.test_linear_solver(MadCoreGPU.LapackCUDASolver, Float64)
         # Test LapackGPU wrapper
         for (name,optimizer_constructor,exclude) in cuda_testset
             test_madnlp(name,optimizer_constructor,exclude; Arr=CuArray)
         end
     end
     if HAS_AMDGPU && AMDGPU.functional()
-        MadNLPTests.test_linear_solver(MadNLPGPU.LapackROCmSolver, Float32)
-        MadNLPTests.test_linear_solver(MadNLPGPU.LapackROCmSolver, Float64)
+        MadNLPTests.test_linear_solver(MadCoreGPU.LapackROCmSolver, Float32)
+        MadNLPTests.test_linear_solver(MadCoreGPU.LapackROCmSolver, Float64)
         for (name,optimizer_constructor,exclude) in rocm_testset
             test_madnlp(name,optimizer_constructor,exclude; Arr=ROCArray)
         end

@@ -6,11 +6,11 @@ using MadNLPTests
 ], KKT in [
     MadNLP.SparseCondensedKKTSystem,
 ], SOLVER in [
-    MadNLPGPU.CUDSSSolver,
-    # MadNLPGPU.LapackCUDASolver,
+    MadCoreGPU.CUDSSSolver,
+    # MadCoreGPU.LapackCUDASolver,
 ]
     @testset "Size: ($n, $m)" for (n, m) in [(10, 0), (10, 5), (50, 10)]
-        if SOLVER == MadNLPGPU.LapackCUDASolver
+        if SOLVER == MadCoreGPU.LapackCUDASolver
             nlp = MadNLPTests.DenseDummyQP(zeros(Float64, n); m=m)
             solver_exact = MadNLPSolver(
                 nlp;

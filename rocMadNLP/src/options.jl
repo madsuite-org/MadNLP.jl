@@ -1,11 +1,11 @@
-# Option presets of MadNLP for models on the GPU
+# Option presets of MadNLP for models on AMD GPUs
 
 function MadNLP.MadNLPOptions{T}(
     nlp::MadNLP.AbstractNLPModel{T,VT};
     dense_callback = MadNLP.is_dense_callback(nlp),
     callback = dense_callback ? MadNLP.DenseCallback : MadNLP.SparseCallback,
     kkt_system = dense_callback ? MadNLP.DenseCondensedKKTSystem : MadNLP.SparseCondensedKKTSystem,
-    linear_solver = MadNLPGPU.LapackROCmSolver,
+    linear_solver = LapackROCmSolver,
     tol = MadNLP.get_tolerance(T,kkt_system),
     bound_relax_factor = tol,
 ) where {T, VT <: ROCVector{T}}

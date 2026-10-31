@@ -10,7 +10,7 @@ function test_event_timer(Arr, opts; sparse=false)
     stats = MadNLP.solve!(solver)
     cnt = solver.cnt
     @test stats.status == MadNLP.SOLVE_SUCCEEDED
-    @test cnt.timer isa MadNLPGPU.EventTimer
+    @test cnt.timer isa MadCoreGPU.EventTimer
     @test isempty(cnt.timer.pending)
     @test isfinite(cnt.linear_solver_time) && cnt.linear_solver_time > 0
     @test isfinite(cnt.eval_function_time) && cnt.eval_function_time > 0
@@ -22,19 +22,19 @@ end
         @testset "CUDSS" test_event_timer(CuArray, (;
             callback=MadNLP.SparseCallback,
             kkt_system=MadNLP.SparseKKTSystem,
-            linear_solver=MadNLPGPU.CUDSSSolver,
+            linear_solver=MadCoreGPU.CUDSSSolver,
         ); sparse=true)
         @testset "LapackCUDA" test_event_timer(CuArray, (;
             callback=MadNLP.DenseCallback,
             kkt_system=MadNLP.DenseKKTSystem,
-            linear_solver=MadNLPGPU.LapackCUDASolver,
+            linear_solver=MadCoreGPU.LapackCUDASolver,
         ))
     end
     if HAS_AMDGPU && AMDGPU.functional()
         @testset "LapackROCm" test_event_timer(ROCArray, (;
             callback=MadNLP.DenseCallback,
             kkt_system=MadNLP.DenseKKTSystem,
-            linear_solver=MadNLPGPU.LapackROCmSolver,
+            linear_solver=MadCoreGPU.LapackROCmSolver,
         ))
     end
 end
