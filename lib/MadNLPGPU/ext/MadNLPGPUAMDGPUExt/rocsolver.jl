@@ -5,7 +5,10 @@ mutable struct LapackROCmSolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Al
     sol::ROCVector{T}
     tau::ROCVector{T}
     Λ::ROCVector{T}
-    info::ROCVector{Cint}
+    # The `_64` rocSOLVER routines (getrf, potrf) write a 64-bit `info`;
+    # syevd uses the 32-bit API and writes a `rocblas_int`.
+    info::ROCVector{Int64}
+    info32::ROCVector{Cint}
     ipiv::ROCVector{Int64}
     alpha::Base.RefValue{T}
     beta::Base.RefValue{T}
@@ -27,12 +30,13 @@ mutable struct LapackROCmSolver{T, MT, Alg} <: MadNLP.AbstractLapackSolver{T, Al
         sol = ROCVector{T}(undef, 0)
         tau = ROCVector{T}(undef, 0)
         Λ = ROCVector{T}(undef, 0)
-        info = ROCVector{Cint}(undef, 1)
+        info = AMDGPU.zeros(Int64, 1)
+        info32 = AMDGPU.zeros(Cint, 1)
         ipiv = ROCVector{Int64}(undef, 0)
         alpha = Ref{T}(1)
         beta = Ref{T}(0)
         alg = opt.lapack_algorithm
-        solver = new{T, MT, alg}(A, fact, n, sol, tau, Λ, info, ipiv, alpha, beta, opt, logger)
+        solver = new{T, MT, alg}(A, fact, n, sol, tau, Λ, info, info32, ipiv, alpha, beta, opt, logger)
         MadNLP.setup!(solver)
         return solver
     end
@@ -188,7 +192,7 @@ for (syevd, gemv, T) in
                 Cint(M.n),
                 M.Λ,
                 M.tau,
-                M.info,
+                M.info32,
             )
             return M
         end
