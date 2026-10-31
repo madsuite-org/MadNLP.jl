@@ -21,6 +21,7 @@ end
 include("rocm_sparse.jl")
 include("rocsolver.jl")
 include("rocm.jl")
+include("timer.jl")
 include("precompile.jl")
 
 end

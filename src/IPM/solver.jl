@@ -175,11 +175,6 @@ function solve!(
             set_status!(solver, reinitialize!(solver))
         end
 
-        if is_async(get_kkt(solver).linear_solver)
-            @trace(get_logger(solver), "linear solver time is not available for asynchronous linear solvers.")
-            get_cnt(solver).linear_solver_time = NaN
-        end
-
         while get_status(solver) >= REGULAR
             get_status(solver) == REGULAR && (set_status!(solver, regular!(solver)))
             get_status(solver) == RESTORE && (set_status!(solver, restore!(solver)))
@@ -213,6 +208,7 @@ function solve!(
             get_opt(solver).rethrow_error && rethrow(e)
         end
     finally
+        timer_flush!(get_cnt(solver).timer, get_cnt(solver))
         get_cnt(solver).total_time = time() - get_cnt(solver).start_time
         if !(get_status(solver) < SOLVE_SUCCEEDED)
             print_summary(solver)

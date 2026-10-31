@@ -17,6 +17,7 @@ end
 
 @testset "MadNLPGPU test" begin
     include("madnlpgpu_test.jl")
+    include("timer_test.jl")
     if HAS_CUDA && CUDA.functional()
         include("densekkt_cuda.jl")
         include("condensed_mul_cuda.jl")

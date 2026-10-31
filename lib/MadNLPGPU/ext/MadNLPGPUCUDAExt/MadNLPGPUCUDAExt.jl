@@ -47,6 +47,7 @@ include("cudss.jl")
 include("cuda.jl")
 include("kernels_schur.jl")
 include("cuda_schur.jl")
+include("timer.jl")
 include("precompile.jl")
 
 end
