@@ -433,32 +433,34 @@ nzval(H) = H.nzval
     bitarray = similar(sym2, Bool, length(sym2))
     fill!(bitarray, true)
     bitarray[2:end] .= by.(@view(sym2[1:end-1]),  @view(sym2[2:end]))
-    # `similar` + `map!` into concretely typed arrays, and type assertions on `cumsum` and
-    # `findall`: `map` over views of these is only inferred as an abstract (GPU) array, and
-    # code compiled for abstract arrays here is invalidated whenever a package adds a
-    # `getindex` method (ExaModels does), which recompiles the KKT system's construction.
+    # `similar` + `map!` into concretely typed arrays, and `findall`'s result converted to
+    # one: `map` over views of these is only inferred as an abstract (GPU) array, and code
+    # compiled for abstract arrays here is invalidated whenever a package adds a `getindex`
+    # method (ExaModels does), which recompiles the KKT system's construction. `convert`
+    # rather than a type assertion: some GPU packages' `findall` allocates in the default
+    # memory rather than `sym`'s.
     IV = typeof(similar(sym, Int, 0))
-    guide = cumsum(bitarray)::IV
+    guide = cumsum!(similar(sym, Int, length(bitarray)), bitarray)
 
-    b = findall(x->x[1] == -1, sym)::IV
+    b = convert(IV, findall(x->x[1] == -1, sym))
     dptr = similar(sym, Tuple{Int32,Int32}, length(b))
     map!((x,y)->(Int32(x),Int32(y[2])), dptr, @view(guide[b]), @view(sym[b]))
 
-    b = findall(x->x[1] == 0, sym)::IV
+    b = convert(IV, findall(x->x[1] == 0, sym))
     hptr = similar(sym, Tuple{Int32,Int32}, length(b))
     map!((x,y)->(Int32(x),Int32(y[2])), hptr, @view(guide[b]), @view(sym[b]))
 
-    b = findall(x->x[1] != -1 && x[1] != 0, sym)::IV
-    jptr = similar(sym, Tuple{Int32,Tuple{Int,Int,Int}}, length(b))
+    b = convert(IV, findall(x->x[1] != -1 && x[1] != 0, sym))
+    jptr = similar(sym, Tuple{Int32,eltype(sym)}, length(b))
     map!((x,y)->(Int32(x),y), jptr, @view(guide[b]), @view(sym[b]))
 
-    ptr = findall(bitarray)::IV
+    ptr = convert(IV, findall(bitarray))
     rowval = similar(sym2, Int32, length(ptr))
     map!(((row,col),)->Int32(row), rowval, @view(sym2[ptr]))
 
     by2(x,y) = x[2] != y[2]
     bitarray[2:end] .= by2.(@view(sym2[1:end-1]),  @view(sym2[2:end]))
-    ptr2 = findall(bitarray)
+    ptr2 = convert(IV, findall(bitarray))
 
     first, last = _first_and_last_col(sym2,ptr2)
 
