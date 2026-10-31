@@ -31,6 +31,7 @@ import MadNLP:
     is_supported,
     default_options
 import MKL_jll: libmkl_rt
+import PrecompileTools
 
 if @isdefined(libpardiso)
     include("libpardiso.jl")
@@ -52,5 +53,7 @@ for name in names(MadNLP, all = true)
         @eval export $(name)
     end
 end
+
+include("precompile.jl")
 
 end # module

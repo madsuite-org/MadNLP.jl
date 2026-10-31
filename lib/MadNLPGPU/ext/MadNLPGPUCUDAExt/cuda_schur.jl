@@ -317,7 +317,7 @@ function MadNLP.create_kkt_system(
     # cuDSS is the only sparse batched solver wired into this path; users tune it
     # via `schur_scenario_opt_linear_solver` rather than swapping the type.
     scenario_solver = CUDSSSolver(A_kk_batched; opt=schur_scenario_opt_linear_solver)
-    _linear_solver = linear_solver(aug_com; opt=opt_linear_solver)
+    _linear_solver = MadNLP.LinearSolverBarrier(linear_solver(aug_com; opt=opt_linear_solver))
 
     # --- Multi-RHS cuDSS descriptors for batched A_kk \ C_dk' ---
     # The descriptors hold the (blk × nd) shape per scenario and point at the

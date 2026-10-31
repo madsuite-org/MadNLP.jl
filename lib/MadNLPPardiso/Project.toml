@@ -7,12 +7,14 @@ MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 MKL_jll = "856f044c-d86e-5d09-b602-aeab76dc8ba7"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 
 [compat]
-MadNLP = "0.9"
+MadNLP = "0.11"
 MadNLPTests = "0.6"
 julia = "1.10"
 MKL_jll = "~2021,2022"
+PrecompileTools = "1.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

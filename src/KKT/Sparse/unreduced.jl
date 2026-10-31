@@ -149,7 +149,7 @@ function create_kkt_system(
     # tell the linear solver the saddle-point partition before it analyzes
     _np = length(pr_diag)
     set_block_structure!(opt_linear_solver, _np, size(aug_com, 1) - _np)
-    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
+    _linear_solver = LinearSolverBarrier(linear_solver(aug_com; opt = opt_linear_solver))
     return SparseUnreducedKKTSystem(
         hess, jac_callback, jac, quasi_newton, reg, pr_diag, du_diag,
         l_diag, u_diag, l_lower, u_lower, l_lower_aug, u_lower_aug,

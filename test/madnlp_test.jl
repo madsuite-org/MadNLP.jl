@@ -193,6 +193,41 @@ end
     @test solver.status == MadNLP.SOLVE_SUCCEEDED
 end
 
+@testset "ModelBarrier" begin
+    nlp = MadNLPTests.HS15Model()
+    r1 = madnlp(nlp; print_level = MadNLP.ERROR)
+    r2 = madnlp(nlp; print_level = MadNLP.ERROR, specialize_model = true)
+    @test r1.status == r2.status == MadNLP.SOLVE_SUCCEEDED
+    @test r1.iter == r2.iter
+    @test r1.objective ≈ r2.objective
+    @test r1.solution ≈ r2.solution
+    @test r1.multipliers ≈ r2.multipliers
+    # the solver type does not depend on the model type (two sparse models of different types)
+    a = MadNLP.SparseWrapperModel(Array, nlp)
+    b = MadNLP.SparseWrapperModel(Array, a)
+    @test typeof(a) != typeof(b)
+    @test typeof(MadNLPSolver(MadNLP.ModelBarrier(a))) ==
+          typeof(MadNLPSolver(MadNLP.ModelBarrier(b)))
+    @test MadNLP.ModelBarrier(MadNLP.ModelBarrier(nlp)) isa MadNLP.ModelBarrier{Float64, Vector{Float64}}
+end
+
+@testset "LinearSolverBarrier" begin
+    nlp = MadNLP.SparseWrapperModel(Array, MadNLPTests.HS15Model())
+    a = MadNLPSolver(nlp; print_level = MadNLP.ERROR, linear_solver = MumpsSolver)
+    b = MadNLPSolver(nlp; print_level = MadNLP.ERROR, linear_solver = LDLSolver)
+    # the KKT system type does not depend on the linear solver
+    @test typeof(a.kkt) == typeof(b.kkt)
+    @test a.kkt.linear_solver isa MadNLP.LinearSolverBarrier{Float64}
+    @test a.kkt.linear_solver.wrapped isa MumpsSolver{Float64}
+    # fields of the wrapped solver are forwarded, including one named `inner`
+    @test a.kkt.linear_solver.csc === a.kkt.linear_solver.wrapped.csc
+    @test b.kkt.linear_solver.inner === getfield(b.kkt.linear_solver.wrapped, :inner)
+    @test hasproperty(a.kkt.linear_solver, :csc) && !hasproperty(a.kkt.linear_solver, :tril)
+    @test MadNLP.LinearSolverBarrier(a.kkt.linear_solver) === a.kkt.linear_solver
+    @test MadNLP.solve!(a).status == MadNLP.solve!(b).status == MadNLP.SOLVE_SUCCEEDED
+    @test a.obj_val ≈ b.obj_val
+end
+
 @testset "MadNLP scaling" begin
     MadNLPTests.test_scaling()
 end

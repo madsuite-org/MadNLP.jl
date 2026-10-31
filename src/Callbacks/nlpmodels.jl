@@ -59,7 +59,7 @@ struct MakeParameter{T, VT,VI} <: AbstractFixedVariableTreatment
     fixed::VI
     ind_jac_free::VI
     ind_hess_free::VI
-    hash_x::Ref{T}
+    hash_x::Base.RefValue{T}
     x_full::VT
     g_full::VT
 end

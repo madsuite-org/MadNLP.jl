@@ -219,3 +219,60 @@ function NLPModels.hess_dense!(
     copyto!(hess, m.hess)
     return hess
 end
+
+"""
+    ModelBarrier(m)
+
+Wrap `m` behind a field of abstract type. Code specialized on the model type
+(`MadNLPSolver`, the callbacks, `solve!`) is then compiled once per `(T, VT)` instead of
+once per model type, and only the model's own evaluation functions compile for a new
+model. Each evaluation is one dynamic call into `m`.
+
+Properties other than `meta` and `counters` are read from `m`.
+"""
+struct ModelBarrier{T,VT} <: NLPModels.AbstractNLPModel{T,VT}
+    inner::NLPModels.AbstractNLPModel{T,VT}
+    meta::NLPModels.NLPModelMeta{T,VT}
+    counters::NLPModels.Counters
+    ModelBarrier{T,VT}(@nospecialize(inner), meta, counters) where {T,VT} =
+        new{T,VT}(inner, meta, counters)
+end
+
+# Not specialized on the model type: the barrier is built once per solve, and reading
+# `meta` through `invokelatest` keeps `getproperty` methods added later from
+# invalidating this method and `madnlp`, which calls it.
+ModelBarrier(@nospecialize(m::NLPModels.AbstractNLPModel)) =
+    _model_barrier(m, Base.invokelatest(getproperty, m, :meta)::NLPModels.NLPModelMeta)
+_model_barrier(@nospecialize(m), meta::NLPModels.NLPModelMeta{T,VT}) where {T,VT} =
+    ModelBarrier{T,VT}(m, meta, NLPModels.Counters())
+ModelBarrier(m::ModelBarrier) = m
+
+Base.getproperty(m::ModelBarrier, s::Symbol) =
+    s === :inner || s === :meta || s === :counters ? getfield(m, s) :
+    Base.invokelatest(getproperty, getfield(m, :inner), s)
+Base.hasproperty(m::ModelBarrier, s::Symbol) =
+    s === :inner || s === :meta || s === :counters || Base.invokelatest(hasproperty, getfield(m, :inner), s)::Bool
+
+NLPModels.obj(m::ModelBarrier{T}, x::AbstractVector) where {T} = Base.invokelatest(NLPModels.obj, m.inner, x)::T
+NLPModels.grad!(m::ModelBarrier, x::AbstractVector, g::AbstractVector) =
+    (Base.invokelatest(NLPModels.grad!, m.inner, x, g); g)
+NLPModels.cons!(m::ModelBarrier, x::AbstractVector, c::AbstractVector) =
+    (Base.invokelatest(NLPModels.cons!, m.inner, x, c); c)
+NLPModels.jac_structure!(m::ModelBarrier, I::AbstractVector, J::AbstractVector) =
+    (Base.invokelatest(NLPModels.jac_structure!, m.inner, I, J); (I, J))
+NLPModels.hess_structure!(m::ModelBarrier, I::AbstractVector, J::AbstractVector) =
+    (Base.invokelatest(NLPModels.hess_structure!, m.inner, I, J); (I, J))
+NLPModels.jac_coord!(m::ModelBarrier, x::AbstractVector, J::AbstractVector) =
+    (Base.invokelatest(NLPModels.jac_coord!, m.inner, x, J); J)
+NLPModels.hess_coord!(m::ModelBarrier{T}, x::AbstractVector, y::AbstractVector, H::AbstractVector;
+                      obj_weight = one(T)) where {T} =
+    (Base.invokelatest(NLPModels.hess_coord!, m.inner, x, y, H; obj_weight = obj_weight); H)
+NLPModels.jprod!(m::ModelBarrier, x::AbstractVector, v::AbstractVector, Jv::AbstractVector) =
+    (Base.invokelatest(NLPModels.jprod!, m.inner, x, v, Jv); Jv)
+NLPModels.jtprod!(m::ModelBarrier, x::AbstractVector, v::AbstractVector, Jtv::AbstractVector) =
+    (Base.invokelatest(NLPModels.jtprod!, m.inner, x, v, Jtv); Jtv)
+NLPModels.jac_dense!(m::ModelBarrier, x::AbstractVector, J::AbstractMatrix) =
+    (Base.invokelatest(NLPModels.jac_dense!, m.inner, x, J); J)
+NLPModels.hess_dense!(m::ModelBarrier{T}, x::AbstractVector, y::AbstractVector, H::AbstractMatrix;
+                      obj_weight = one(T)) where {T} =
+    (Base.invokelatest(NLPModels.hess_dense!, m.inner, x, y, H; obj_weight = obj_weight); H)

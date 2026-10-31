@@ -181,7 +181,7 @@ function create_kkt_system(
 
     # tell the linear solver the saddle-point partition before it analyzes
     set_block_structure!(opt_linear_solver, n, mD)
-    _linear_solver = linear_solver(aug_com; opt = opt_linear_solver)
+    _linear_solver = LinearSolverBarrier(linear_solver(aug_com; opt = opt_linear_solver))
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
         hess, hess_raw, hess_com, hess_csc_map,
