@@ -15,21 +15,19 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [sources]
-MadCore = {path = "MadCore"}
-MadNLPCore = {path = "MadNLPCore"}
+MadCore = {path = "../MadCore"}
+MadNLPCore = {path = "../MadNLPCore"}
+MadNLPTests = {path = "../MadNLPTests"}
 
 [weakdeps]
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
-Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 
 [extensions]
 MadNLPMOI = "MathOptInterface"
-MadNLPPardisoExt = ["MadCore", "Pardiso"]
 
 [compat]
 HSL = "0.5.3"
 Krylov = "0.10"
-Pardiso = "1"
 MadCore = "0.1"
 MadNLPCore = "0.1"
 LDLFactorizations = "0.10"

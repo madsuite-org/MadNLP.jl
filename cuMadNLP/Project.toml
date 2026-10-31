@@ -18,7 +18,7 @@ cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
 [sources]
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
-MadNLP = {path = ".."}
+MadNLP = {path = "../MadNLP"}
 MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]

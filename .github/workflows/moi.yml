@@ -28,17 +28,17 @@ jobs:
           channel: ${{ matrix.julia-version }}
       - uses: julia-actions/cache@v2
       - name: Setup test environment
-        shell: julia --project=./test/MOI --color=yes {0}
+        shell: julia --project=./MadNLP/test/MOI --color=yes {0}
         run: |
           using Pkg
           Pkg.Registry.update()
-          Pkg.develop([PackageSpec(path="./MadCore"), PackageSpec(path="./MadNLPCore"), PackageSpec(path=".")])
+          Pkg.develop([PackageSpec(path="./MadCore"), PackageSpec(path="./MadNLPCore"), PackageSpec(path="./MadNLP")])
           Pkg.instantiate()
       - name: test MOI wrapper and MINLPTests
-        run: julia --project=./test/MOI --code-coverage=user --color=yes test/MOI/runtests.jl
+        run: julia --project=./MadNLP/test/MOI --code-coverage=user --color=yes MadNLP/test/MOI/runtests.jl
       - uses: julia-actions/julia-processcoverage@v1
         with:
-          directories: src,ext
+          directories: MadNLP/src,MadNLP/ext
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info

@@ -8,9 +8,9 @@ MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
 cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 
 [sources]
-MadCore = {path = "../../MadCore"}
-MadCoreGPU = {path = "../../MadCoreGPU"}
-cuMadNLP = {path = "../../cuMadNLP"}
+MadCore = {path = "../MadCore"}
+MadCoreGPU = {path = "../MadCoreGPU"}
+cuMadNLP = {path = "../cuMadNLP"}
 
 [compat]
 MadCore = "0.1"

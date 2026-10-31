@@ -13,7 +13,7 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 [sources]
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
-MadNLP = {path = ".."}
+MadNLP = {path = "../MadNLP"}
 MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]

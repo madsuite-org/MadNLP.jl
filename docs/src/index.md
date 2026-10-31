@@ -47,7 +47,7 @@ Other efficient linear solvers are interfaced, all listed in the table below.
 Linear solver | Type | Hardware
 :--- | :--- | :---
 ||
-__MadNLP (base)__||
+__MadNLP__||
 ||
 MumpsSolver (default)   | sparse | CPU
 UmfpackSolver           | sparse | CPU
@@ -55,22 +55,23 @@ LapackCPUSolver         | dense  | CPU
 LDLSolver               | sparse | CPU
 CHOLMODSolver           | sparse | CPU
 ||
-__MadNLPGPU__||
+__cuMadNLP / rocMadNLP__||
 ||
 CUDSSSolver             | sparse | CUDA
 LapackCUDASolver         | dense  | CUDA
 LapackROCmSolver         | dense  | AMD GPU
 ||
-__MadNLPHSL__||
+__MadNLP, with a licensed HSL library__||
 ||
 Ma27Solver              | sparse | CPU
 Ma57Solver              | sparse | CPU
+Ma77Solver              | sparse | CPU
 Ma86Solver              | sparse | CPU
 Ma97Solver              | sparse | CPU
 ||
-__MadNLPPardiso__||
+__with Pardiso.jl__||
 ||
-PardisoSolver           | sparse | CPU
+PanuaPardisoSolver      | sparse | CPU
 PardisoMKLSolver        | sparse | CPU
 
 !!! warning

@@ -34,19 +34,14 @@ jobs:
           julia --project=./MadCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
           julia --project=./MadNLPCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
       - name: test MadNLP
-        shell: julia --project=. --color=yes {0}
+        shell: julia --project=./MadNLP --color=yes {0}
         run: |
           using Pkg
           Pkg.Registry.update()
-          Pkg.develop([
-              PackageSpec(path="./MadCore"),
-              PackageSpec(path="./MadNLPCore"),
-              PackageSpec(path="./lib/MadNLPTests"),
-          ])
-          Pkg.test("MadNLP", coverage=true)
+          Pkg.test(coverage=true)
       - uses: julia-actions/julia-processcoverage@v1
         with:
-          directories: src,ext,MadCore/src,MadCore/ext,MadNLPCore/src
+          directories: MadNLP/src,MadNLP/ext,MadCore/src,MadCore/ext,MadNLPCore/src
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
@@ -69,8 +64,8 @@ jobs:
       - uses: julia-actions/cache@v1
       - name: Set HSL_VERSION as environment variable
         run: echo "HSL_VERSION=${{ matrix.hsl-version }}" >> $GITHUB_ENV
-      - name: test HSL solvers
-        shell: julia --project=./test/HSL --color=yes {0}
+      - name: Setup test environment
+        shell: julia --project=./MadNLP/test/HSL --color=yes {0}
         run: |
           using Pkg
           Pkg.Registry.update()
@@ -78,14 +73,15 @@ jobs:
           Pkg.develop([
               PackageSpec(path="./MadCore"),
               PackageSpec(path="./MadNLPCore"),
-              PackageSpec(path="."),
-              PackageSpec(path="./lib/MadNLPTests"),
+              PackageSpec(path="./MadNLP"),
+              PackageSpec(path="./MadNLPTests"),
               PackageSpec(path=path_HSL_jll),
           ])
-          include(joinpath(pwd(), "test", "HSL", "runtests.jl"))
+      - name: test HSL solvers
+        run: julia --project=./MadNLP/test/HSL --code-coverage=user --color=yes MadNLP/test/HSL/runtests.jl
       - uses: julia-actions/julia-processcoverage@v1
         with:
-          directories: MadCore/ext/MadCoreHSLExt,ext/MadNLPHSLExt
+          directories: MadCore/ext,MadNLP/ext
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
@@ -110,44 +106,44 @@ jobs:
         with:
           channel: ${{ matrix.julia-version }}
       - name: Setup test environment
-        shell: julia --project=./lib/MadNLPGPU/test --color=yes {0}
+        shell: julia --project=./MadCoreGPU/test --color=yes {0}
         run: |
           using Pkg
           Pkg.Registry.update()
           Pkg.develop([
               PackageSpec(path="./MadCore"),
               PackageSpec(path="./MadNLPCore"),
-              PackageSpec(path="."),
+              PackageSpec(path="./MadNLP"),
               PackageSpec(path="./MadCoreGPU"),
-              PackageSpec(path="./lib/MadNLPGPU"),
-              PackageSpec(path="./lib/MadNLPTests"),
+              PackageSpec(path="./MadNLPTests"),
           ])
       # Julia 1.13's Pkg auto-precompile looks up changed indirect deps by name
       # and fails with "Unknown package"; the test step precompiles on load.
-      - name: Add CUDA and CUDSS
+      - name: Add cuMadNLP
         if: matrix.gpu == 'cuda'
         env:
           JULIA_PKG_PRECOMPILE_AUTO: 0
-        shell: julia --project=./lib/MadNLPGPU/test --color=yes {0}
+        shell: julia --project=./MadCoreGPU/test --color=yes {0}
         run: |
           using Pkg
-          Pkg.add("CUDA")
-          Pkg.add("CUDSS")
-      - name: Add AMDGPU
+          Pkg.add(["CUDA", "CUDSS"])
+          Pkg.develop(path="./cuMadNLP")
+      - name: Add rocMadNLP
         if: matrix.gpu == 'amdgpu'
         env:
           JULIA_PKG_PRECOMPILE_AUTO: 0
-        shell: julia --project=./lib/MadNLPGPU/test --color=yes {0}
+        shell: julia --project=./MadCoreGPU/test --color=yes {0}
         run: |
           using Pkg
           Pkg.add("AMDGPU")
-      - name: test MadNLPGPU
+          Pkg.develop(path="./rocMadNLP")
+      - name: test MadCoreGPU
         env:
           MADNLP_GPU_BACKEND: ${{ matrix.gpu }}
-        run: julia --project=./lib/MadNLPGPU/test --code-coverage=user --color=yes -e 'include("lib/MadNLPGPU/test/runtests.jl")'
+        run: julia --project=./MadCoreGPU/test --code-coverage=user --color=yes MadCoreGPU/test/runtests.jl
       - uses: julia-actions/julia-processcoverage@v1
         with:
-          directories: MadCoreGPU/src,MadCoreGPU/ext,lib/MadNLPGPU/src,lib/MadNLPGPU/ext
+          directories: MadCoreGPU/src,MadCoreGPU/ext,MadNLPCore/ext,cuMadNLP/src,rocMadNLP/src
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
@@ -155,4 +151,3 @@ jobs:
           # The org-wide token cannot imply a repository; the slug says
           # which repo this upload is for.
           slug: ${{ github.repository }}
-

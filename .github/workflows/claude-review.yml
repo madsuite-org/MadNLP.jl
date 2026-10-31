@@ -60,10 +60,13 @@ jobs:
             TITLE: ${{ github.event.pull_request.title }}
 
             MadNLP is a nonlinear programming solver implementing a filter line-search
-            interior-point method in pure Julia. The core package is in src/ (IPM, KKT
-            systems, linear-solver interface, callbacks); subpackages live in lib/
-            (MadNLPGPU for CUDA and AMDGPU, MadNLPHSL, MadNLPKrylov, MadNLPPardiso,
-            MadNLPTests) and the MathOptInterface wrapper in ext/MadNLPMOI. Read the diff
+            interior-point method in pure Julia. The repository holds sibling packages:
+            MadCore/ (callbacks, KKT systems, linear-solver interface, IPM helpers; CPU
+            linear solvers as extensions), MadCoreGPU/ (GPU KKT systems and kernels;
+            CUDA, cuDSS and AMDGPU extensions), MadNLPCore/ (the
+            interior-point method), MadNLP/ (CPU entry point; MathOptInterface wrapper in
+            MadNLP/ext/MadNLPMOI), cuMadNLP/ and rocMadNLP/ (GPU entry points),
+            MadNLPTests/, and MadNLPGPU/ (deprecated shim). Read the diff
             (`git diff origin/master...HEAD`, `gh pr diff ${{ env.PR }}`), the source and
             tests it touches, and the docs pages it affects. CUDA and AMDGPU legs run in
             CI on this PR.
@@ -79,7 +82,7 @@ jobs:
                allocation inside the iteration loop, and changes that break the
                AbstractKKTSystem or linear-solver interfaces other packages implement.
             3. GPU paths: CPU and GPU results must agree; no scalar indexing of device
-               arrays in library code; device-specific code stays in lib/MadNLPGPU; no
+               arrays in library code; device-specific code stays in the MadCoreGPU extensions; no
                allocation inside kernels.
             4. Tests: new behavior has a test wired into test/runtests.jl (or the
                subpackage's test/runtests.jl), using MadNLPTests where it applies; results
