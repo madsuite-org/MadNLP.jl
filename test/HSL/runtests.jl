@@ -1,4 +1,4 @@
-using Test, MadNLP, MadNLPHSL, MadNLPTests, HSL, Quadmath
+using Test, MadNLP, MadNLPTests, HSL, Quadmath
 
 testset = [
     [
@@ -38,7 +38,7 @@ testset = [
     ],
 ]
 
-@testset "MadNLPHSL test" begin
+@testset "HSL solvers" begin
     if LIBHSL_isfunctional()
         for (hsl_solver, package) in [(Ma27Solver, "ma27"),
                                       (Ma57Solver, "ma57"),
@@ -50,7 +50,7 @@ testset = [
                 @testset "Float64" begin
                     MadNLPTests.test_linear_solver(hsl_solver,Float64)
                 end
-                if MadNLPHSL.is_supported(hsl_solver, Float128)
+                if MadNLP.is_supported(hsl_solver, Float128)
                     @testset "Float128" begin
                         MadNLPTests.test_linear_solver(hsl_solver,Float128)
                     end

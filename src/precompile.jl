@@ -212,5 +212,11 @@ end
         end
         # LDLFactorizations throws `SQDException` on the fixed-variable problem
         _precompile_linear_solver(Float64[], LDLSolver; fixed = (false,))
+        # the HSL solvers, when a functional HSL library is installed
+        if HSL.LIBHSL_isfunctional()
+            for solver in (Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver)
+                _precompile_linear_solver(Float64[], solver)
+            end
+        end
     end
 end

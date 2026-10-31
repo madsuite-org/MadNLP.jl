@@ -40,7 +40,7 @@ ma27_default_cntl(T) = T[0.1, 1.0, 0.0, 0.0, 0.0]
     ma27_meminc_factor::Float64 = 2.0
 end
 
-mutable struct Ma27Solver{T,INT} <: AbstractLinearSolver{T}
+mutable struct Ma27State{T,INT} <: AbstractLinearSolver{T}
     csc::SparseMatrixCSC{T,INT}
     I::Vector{INT}
     J::Vector{INT}
@@ -66,7 +66,7 @@ mutable struct Ma27Solver{T,INT} <: AbstractLinearSolver{T}
     logger::MadNLPLogger
 end
 
-function Ma27Solver(
+function Ma27State(
     csc::SparseMatrixCSC{T,INT};
     opt = Ma27Options(),
     logger = MadNLPLogger(),
@@ -114,7 +114,7 @@ function Ma27Solver(
     resize!(iw, liw)
     maxfrt = INT[1]
 
-    return Ma27Solver{T,INT}(
+    return Ma27State{T,INT}(
         csc,
         I,
         J,
@@ -137,7 +137,7 @@ function Ma27Solver(
 end
 
 
-function factorize!(M::Ma27Solver{T,INT}) where {T,INT}
+function factorize!(M::Ma27State{T,INT}) where {T,INT}
     M.a_view .= M.csc.nzval
     while true
         HSL.ma27br(
@@ -176,7 +176,7 @@ function factorize!(M::Ma27Solver{T,INT}) where {T,INT}
     return M
 end
 
-function solve_linear_system!(M::Ma27Solver{T,INT}, rhs::Vector{T}) where {T,INT}
+function solve_linear_system!(M::Ma27State{T,INT}, rhs::Vector{T}) where {T,INT}
     length(M.w) < M.maxfrt[1] && resize!(M.w, M.maxfrt[1])
     length(M.iw1) < M.nsteps[1] && resize!(M.iw1, M.nsteps[1])
     HSL.ma27cr(
@@ -199,8 +199,8 @@ function solve_linear_system!(M::Ma27Solver{T,INT}, rhs::Vector{T}) where {T,INT
     return rhs
 end
 
-is_inertia(::Ma27Solver) = true
-function inertia(M::Ma27Solver)
+is_inertia(::Ma27State) = true
+function inertia(M::Ma27State)
     dim = M.csc.n
     rank = (Int(M.info[1]) == 3) ? Int(M.info[2]) : dim
     neg = Int(M.info[15])
@@ -208,7 +208,7 @@ function inertia(M::Ma27Solver)
     return (rank - neg, dim - rank, neg)
 end
 
-function improve!(M::Ma27Solver)
+function improve!(M::Ma27State)
     if M.cntl[1] == M.opt.ma27_pivtolmax
         @debug(M.logger, "improve quality failed.")
         return false
@@ -218,7 +218,7 @@ function improve!(M::Ma27Solver)
     return true
 end
 
-introduce(::Ma27Solver) = "ma27 v$(HSL.MA27_version())"
-input_type(::Type{Ma27Solver}) = :csc
-default_options(::Type{Ma27Solver}) = Ma27Options()
-is_supported(::Type{Ma27Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:ma27), T)
+introduce(::Ma27State) = "ma27 v$(HSL.MA27_version())"
+input_type(::Type{Ma27State}) = :csc
+default_options(::Type{Ma27State}) = Ma27Options()
+is_supported(::Type{Ma27State}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:ma27), T)

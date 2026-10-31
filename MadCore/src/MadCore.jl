@@ -11,6 +11,8 @@ import NLPModels: finalize, AbstractNLPModel, obj, grad!, cons!, jac_coord!, hes
 import SolverCore: getStatus, AbstractOptimizationSolver, AbstractExecutionStats, solve!
 
 export LapackCPUSolver, MumpsSolver, LDLSolver, UmfpackSolver, CHOLMODSolver, DummySolver
+export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver
+export KrylovIterator
 export MadNLPExecutionStats, SchurComplementKKTSystem, solve!, madsuite
 
 """

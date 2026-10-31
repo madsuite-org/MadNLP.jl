@@ -23,4 +23,10 @@ import SparseArrays: sparse
     @testset "Schur complement" begin
         include("schur_test.jl")
     end
+
+    @testset "Extensions" begin
+        include("krylov_test.jl")
+        # MKL Pardiso was not tested in CI before; enable once its tests pass.
+        # include("pardiso_test.jl")
+    end
 end # @testset

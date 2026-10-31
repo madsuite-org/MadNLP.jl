@@ -69,8 +69,8 @@ jobs:
       - uses: julia-actions/cache@v1
       - name: Set HSL_VERSION as environment variable
         run: echo "HSL_VERSION=${{ matrix.hsl-version }}" >> $GITHUB_ENV
-      - name: test MadNLPHSL
-        shell: julia --project=./lib/MadNLPHSL --color=yes {0}
+      - name: test HSL solvers
+        shell: julia --project=./test/HSL --color=yes {0}
         run: |
           using Pkg
           Pkg.Registry.update()
@@ -82,10 +82,10 @@ jobs:
               PackageSpec(path="./lib/MadNLPTests"),
               PackageSpec(path=path_HSL_jll),
           ])
-          Pkg.test("MadNLPHSL", coverage=true)
+          include(joinpath(pwd(), "test", "HSL", "runtests.jl"))
       - uses: julia-actions/julia-processcoverage@v1
         with:
-          directories: lib/MadNLPHSL/src
+          directories: MadCore/ext/MadCoreHSLExt,ext/MadNLPHSLExt
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
@@ -93,32 +93,6 @@ jobs:
           # The org-wide token cannot imply a repository; the slug says
           # which repo this upload is for.
           slug: ${{ github.repository }}
-  # Pardiso license currently not available
-  #
-  # test-pardiso:
-  #   runs-on:
-  #     labels: pardiso
-  #   strategy:
-  #     matrix:
-  #       julia-version: ['1']
-  #   steps:
-  #     - uses: actions/checkout@v2
-  #     - uses: julia-actions/install-juliaup@v2
-  #       with:
-  #         channel: ${{ matrix.julia-version }}
-  #     - uses: julia-actions/cache@v1
-  #     - name: test MadNLPPardiso
-  #       shell: julia --project=./lib/MadNLPPardiso --color=yes {0}
-  #       run: |
-  #         using Pkg
-  #         Pkg.Registry.update()
-  #         Pkg.test("MadNLPPardiso", coverage=true)
-  #     - uses: julia-actions/julia-processcoverage@v1
-  #       with:
-  #         directories: lib/MadNLPPardiso/src
-  #     - uses: codecov/codecov-action@v5
-  #       with:
-  #         file: lcov.info
   # need to run one on cuda and one on amdgpu
   test-gpu:
     strategy:

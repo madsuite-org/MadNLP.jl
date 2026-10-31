@@ -3,6 +3,7 @@ uuid = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 version = "0.12.0"
 
 [deps]
+HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
@@ -19,11 +20,16 @@ MadNLPCore = {path = "MadNLPCore"}
 
 [weakdeps]
 MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
+Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 
 [extensions]
 MadNLPMOI = "MathOptInterface"
+MadNLPPardisoExt = ["MadCore", "Pardiso"]
 
 [compat]
+HSL = "0.5.3"
+Krylov = "0.10"
+Pardiso = "1"
 MadCore = "0.1"
 MadNLPCore = "0.1"
 LDLFactorizations = "0.10"
@@ -37,6 +43,7 @@ SparseArrays = "1.10"
 julia = "1.10"
 
 [extras]
+Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
 Quadmath = "be4d8f0f-7fa4-5f49-b795-2f01399ab2dd"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -44,4 +51,4 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "MadNLPTests", "Random", "Quadmath", "SparseArrays"]
+test = ["Test", "MadNLPTests", "Random", "Quadmath", "SparseArrays", "Krylov"]

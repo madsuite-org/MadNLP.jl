@@ -14,7 +14,7 @@ ma57_default_cntl(T) = T[1e-8, 1.0e-20, 0.5, 0.0, 0.0]
     ma57_small_pivot_flag::Int = 0
 end
 
-mutable struct Ma57Solver{T,INT} <: AbstractLinearSolver{T}
+mutable struct Ma57State{T,INT} <: AbstractLinearSolver{T}
     csc::SparseMatrixCSC{T,INT}
     I::Vector{INT}
     J::Vector{INT}
@@ -43,7 +43,7 @@ mutable struct Ma57Solver{T,INT} <: AbstractLinearSolver{T}
 end
 
 
-function Ma57Solver(
+function Ma57State(
     csc::SparseMatrixCSC{T,INT};
     opt = Ma57Options(),
     logger = MadNLPLogger(),
@@ -94,7 +94,7 @@ function Ma57Solver(
     lwork = INT(csc.n)
     work = Vector{T}(undef, lwork)
 
-    return Ma57Solver{T,INT}(
+    return Ma57State{T,INT}(
         csc,
         I,
         J,
@@ -116,7 +116,7 @@ function Ma57Solver(
     )
 end
 
-function factorize!(M::Ma57Solver{T,INT}) where {T,INT}
+function factorize!(M::Ma57State{T,INT}) where {T,INT}
     while true
         HSL.ma57br(
             T,
@@ -153,7 +153,7 @@ function factorize!(M::Ma57Solver{T,INT}) where {T,INT}
     return M
 end
 
-function solve_linear_system!(M::Ma57Solver{T,INT}, rhs::Vector{T}) where {T,INT}
+function solve_linear_system!(M::Ma57State{T,INT}, rhs::Vector{T}) where {T,INT}
     HSL.ma57cr(
         T,
         INT,
@@ -176,11 +176,11 @@ function solve_linear_system!(M::Ma57Solver{T,INT}, rhs::Vector{T}) where {T,INT
     return rhs
 end
 
-is_inertia(::Ma57Solver) = true
-function inertia(M::Ma57Solver)
+is_inertia(::Ma57State) = true
+function inertia(M::Ma57State)
     return (M.info[25] - M.info[24], Int64(M.csc.n) - M.info[25], M.info[24])
 end
-function improve!(M::Ma57Solver)
+function improve!(M::Ma57State)
     if M.cntl[1] == M.opt.ma57_pivtolmax
         @debug(M.logger, "improve quality failed.")
         return false
@@ -190,7 +190,7 @@ function improve!(M::Ma57Solver)
     return true
 end
 
-introduce(::Ma57Solver) = "ma57 v$(HSL.MA57_version())"
-input_type(::Type{Ma57Solver}) = :csc
-default_options(::Type{Ma57Solver}) = Ma57Options()
-is_supported(::Type{Ma57Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:ma57), T)
+introduce(::Ma57State) = "ma57 v$(HSL.MA57_version())"
+input_type(::Type{Ma57State}) = :csc
+default_options(::Type{Ma57State}) = Ma57Options()
+is_supported(::Type{Ma57State}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:ma57), T)

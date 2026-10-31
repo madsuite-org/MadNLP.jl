@@ -4,7 +4,7 @@
     ma77_file_size::Int = 2097152
     ma77_maxstore::Int = 0
     ma77_nemin::Int = 8
-    ma77_order::Ordering = METIS
+    ma77_order::HSLOrdering = METIS
     ma77_print_level::Int = -1
     ma77_small::Float64 = 1e-20
     ma77_static::Float64 = 0.0
@@ -12,7 +12,7 @@
     ma77_umax::Float64 = 1e-4
 end
 
-mutable struct Ma77Solver{T,INT} <: AbstractLinearSolver{T}
+mutable struct Ma77State{T,INT} <: AbstractLinearSolver{T}
     tril::SparseMatrixCSC{T,INT}
     full::SparseMatrixCSC{T,INT}
     tril_to_full_view::SubVector{T,Vector{T},Vector{Int}}
@@ -30,7 +30,7 @@ mutable struct Ma77Solver{T,INT} <: AbstractLinearSolver{T}
     logger::MadNLPLogger
 end
 
-function Ma77Solver(
+function Ma77State(
     csc::SparseMatrixCSC{T,INT};
     opt = Ma77Options(),
     logger = MadNLPLogger(),
@@ -110,7 +110,7 @@ function Ma77Solver(
     HSL.ma77_analyse(T, INT, order, keep, control, info)
     info.flag < 0 && throw(SymbolicException())
 
-    M = Ma77Solver{T,INT}(
+    M = Ma77State{T,INT}(
         csc,
         full,
         tril_to_full_view,
@@ -127,7 +127,7 @@ function Ma77Solver(
     return M
 end
 
-function factorize!(M::Ma77Solver{T,INT}) where {T,INT}
+function factorize!(M::Ma77State{T,INT}) where {T,INT}
     M.full.nzval .= M.tril_to_full_view
     for i = 1:M.full.n
         HSL.ma77_input_reals(
@@ -150,7 +150,7 @@ function factorize!(M::Ma77Solver{T,INT}) where {T,INT}
     M.info.flag < 0 && throw(FactorizationException())
     return M
 end
-function solve_linear_system!(M::Ma77Solver{T,INT}, rhs::Vector{T}) where {T,INT}
+function solve_linear_system!(M::Ma77State{T,INT}, rhs::Vector{T}) where {T,INT}
     HSL.ma77_solve(
         T,
         INT,
@@ -167,8 +167,8 @@ function solve_linear_system!(M::Ma77Solver{T,INT}, rhs::Vector{T}) where {T,INT
     return rhs
 end
 
-is_inertia(::Ma77Solver) = true
-function inertia(M::Ma77Solver)
+is_inertia(::Ma77State) = true
+function inertia(M::Ma77State)
     return (
         M.info.matrix_rank - M.info.num_neg,
         M.full.n - M.info.matrix_rank,
@@ -176,11 +176,11 @@ function inertia(M::Ma77Solver)
     )
 end
 
-function finalize(M::Ma77Solver{T,INT}) where {T,INT}
+function finalize(M::Ma77State{T,INT}) where {T,INT}
     HSL.ma77_finalise(T, INT, M.keep, M.control, M.info)
 end
 
-function improve!(M::Ma77Solver)
+function improve!(M::Ma77State)
     if M.control.u == M.opt.ma77_umax
         @debug(M.logger, "improve quality failed.")
         return false
@@ -190,7 +190,7 @@ function improve!(M::Ma77Solver)
     return true
 end
 
-introduce(::Ma77Solver) = "ma77 v$(HSL.HSL_MA77_version())"
-input_type(::Type{Ma77Solver}) = :csc
-default_options(::Type{Ma77Solver}) = Ma77Options()
-is_supported(::Type{Ma77Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:hsl_ma77), T)
+introduce(::Ma77State) = "ma77 v$(HSL.HSL_MA77_version())"
+input_type(::Type{Ma77State}) = :csc
+default_options(::Type{Ma77State}) = Ma77Options()
+is_supported(::Type{Ma77State}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:hsl_ma77), T)

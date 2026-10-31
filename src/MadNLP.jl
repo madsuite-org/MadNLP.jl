@@ -2,7 +2,7 @@ module MadNLP
 
 import MadCore, MadNLPCore
 import NLPModels
-import LDLFactorizations, MUMPS_seq_jll, OpenBLAS32_jll, SuiteSparse
+import HSL, LDLFactorizations, MUMPS_seq_jll, OpenBLAS32_jll, SuiteSparse
 
 # MadNLP bundles MadNLPCore with the CPU linear solvers. For backward compatibility,
 # every name of MadCore and MadNLPCore also resolves as `MadNLP.name`.
@@ -16,6 +16,7 @@ end
 
 export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementKKTSystem
 Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
+export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver, KrylovIterator
 
 version() = string(pkgversion(@__MODULE__))
 

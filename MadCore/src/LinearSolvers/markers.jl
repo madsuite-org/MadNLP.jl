@@ -93,3 +93,51 @@ default_options(::Type{DummySolver}) = DummySolverOptions()
 input_type(::Type{DummySolver}) = :csc
 is_supported(::Type{DummySolver}, ::Type{T}) where {T <: AbstractFloat} = true
 create_linear_solver(::Type{DummySolver}, A; kwargs...) = DummySolver(A; kwargs...)
+
+"""
+    KrylovIterator
+
+Select GMRES iterative refinement of the KKT system, preconditioned by the
+factorized KKT system, with the option `iterator = KrylovIterator`. The extension
+loaded by `Krylov` makes `KrylovIterator(kkt; opt, cnt, logger)` build the iterator
+and defines its `default_options`.
+"""
+struct KrylovIterator end
+backend_package(::Type{KrylovIterator}) = "Krylov"
+
+# HSL solvers, implemented in the extension loaded by `HSL`.
+
+@enum(HSLOrdering::Int, AMD = 1, METIS = 3,)
+@enum(HSLScaling::Int, SCALING_NONE = 0, MC64 = 1, MC77 = 2, MC30 = 4,)
+
+for (name, number) in ((:Ma27Solver, 27), (:Ma57Solver, 57), (:Ma77Solver, 77), (:Ma86Solver, 86), (:Ma97Solver, 97))
+    doc = """
+        $name
+
+    Select the sparse symmetric indefinite solver MA$number of the HSL library.
+    Implemented in the extension loaded by `HSL`.
+    """
+    @eval begin
+        @doc $doc struct $name end
+        backend_package(::Type{$name}) = "HSL"
+    end
+end
+
+"""
+    PardisoMKLSolver
+
+Select the sparse symmetric indefinite solver Pardiso of Intel MKL. Implemented in
+the extension loaded by `Pardiso`.
+"""
+struct PardisoMKLSolver end
+backend_package(::Type{PardisoMKLSolver}) = "Pardiso"
+
+"""
+    PanuaPardisoSolver
+
+Select the sparse symmetric solver of Panua Pardiso, which needs a license.
+Implemented in the extension loaded by `Pardiso`. It was called `PardisoSolver`
+in MadNLPPardiso; that name is now exported by Pardiso.jl.
+"""
+struct PanuaPardisoSolver end
+backend_package(::Type{PanuaPardisoSolver}) = "Pardiso"

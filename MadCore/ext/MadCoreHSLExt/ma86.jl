@@ -2,15 +2,15 @@
     ma86_num_threads::Int = 1
     ma86_print_level::Float64 = -1
     ma86_nemin::Int = 32
-    ma86_order::Ordering = METIS
-    ma86_scaling::Scaling = SCALING_NONE
+    ma86_order::HSLOrdering = METIS
+    ma86_scaling::HSLScaling = SCALING_NONE
     ma86_small::Float64 = 1e-20
     ma86_static::Float64 = 0.0
     ma86_u::Float64 = 1e-8
     ma86_umax::Float64 = 1e-4
 end
 
-mutable struct Ma86Solver{T,INT} <: AbstractLinearSolver{T}
+mutable struct Ma86State{T,INT} <: AbstractLinearSolver{T}
     csc::SparseMatrixCSC{T,INT}
 
     control::Ma86Control{T,INT}
@@ -28,7 +28,7 @@ end
 
 ma86_set_num_threads(n) = HSL.omp_set_num_threads(n)
 
-function Ma86Solver(
+function Ma86State(
     csc::SparseMatrixCSC{T,INT};
     opt = Ma86Options(),
     logger = MadNLPLogger(),
@@ -70,7 +70,7 @@ function Ma86Solver(
     HSL.ma86_analyse(T, INT, INT(csc.n), csc.colptr, csc.rowval, order, keep, control, info)
     info.flag < 0 && throw(SymbolicException())
 
-    M = Ma86Solver{T,INT}(
+    M = Ma86State{T,INT}(
         csc,
         control,
         info,
@@ -85,7 +85,7 @@ function Ma86Solver(
 
     return M
 end
-function factorize!(M::Ma86Solver{T,INT}) where {T,INT}
+function factorize!(M::Ma86State{T,INT}) where {T,INT}
     HSL.ma86_factor(
         T,
         INT,
@@ -102,7 +102,7 @@ function factorize!(M::Ma86Solver{T,INT}) where {T,INT}
     M.info.flag < 0 && throw(FactorizationException())
     return M
 end
-function solve_linear_system!(M::Ma86Solver{T,INT}, rhs::Vector{T}) where {T,INT}
+function solve_linear_system!(M::Ma86State{T,INT}, rhs::Vector{T}) where {T,INT}
     HSL.ma86_solve(
         T,
         INT,
@@ -119,8 +119,8 @@ function solve_linear_system!(M::Ma86Solver{T,INT}, rhs::Vector{T}) where {T,INT
     M.info.flag < 0 && throw(SolveException())
     return rhs
 end
-is_inertia(::Ma86Solver) = true
-function inertia(M::Ma86Solver)
+is_inertia(::Ma86State) = true
+function inertia(M::Ma86State)
     return (
         M.info.matrix_rank - M.info.num_neg,
         M.csc.n - M.info.matrix_rank,
@@ -128,11 +128,11 @@ function inertia(M::Ma86Solver)
     )
 end
 
-function finalize(M::Ma86Solver{T,INT}) where {T,INT}
+function finalize(M::Ma86State{T,INT}) where {T,INT}
     HSL.ma86_finalise(T, INT, M.keep, M.control)
 end
 
-function improve!(M::Ma86Solver)
+function improve!(M::Ma86State)
     if M.control.u == M.opt.ma86_umax
         @debug(M.logger, "improve quality failed.")
         return false
@@ -141,7 +141,7 @@ function improve!(M::Ma86Solver)
     @debug(M.logger, "improved quality: pivtol = $(M.control.u)")
     return true
 end
-introduce(::Ma86Solver) = "ma86 v$(HSL.HSL_MA86_version())"
-input_type(::Type{Ma86Solver}) = :csc
-default_options(::Type{Ma86Solver}) = Ma86Options()
-is_supported(::Type{Ma86Solver}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:hsl_ma86), T)
+introduce(::Ma86State) = "ma86 v$(HSL.HSL_MA86_version())"
+input_type(::Type{Ma86State}) = :csc
+default_options(::Type{Ma86State}) = Ma86Options()
+is_supported(::Type{Ma86State}, ::Type{T}) where T <: AbstractFloat = HSL.is_supported(Val(:hsl_ma86), T)
