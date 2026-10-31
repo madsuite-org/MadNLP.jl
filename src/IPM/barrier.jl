@@ -15,21 +15,27 @@ function _update_monotone!(
     sc::T
 ) where T
     set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
+    # A tiny step (Ipopt's tiny_step_flag) forces one mu decrease even if the barrier sub-problem
+    # is not yet solved, to escape a stall; the flag is consumed here and forces the first pass only.
+    tiny = get_cnt(solver).tiny_step
+    get_cnt(solver).tiny_step = false
     while (get_mu(solver) > max((barrier.mu_min::T), get_opt(solver).tol/10)) &&
-        (get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor*get_mu(solver))
+        (get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor*get_mu(solver) || tiny)
         mu_new = get_mu(
             get_mu(solver),
             (barrier.mu_min::T),
             (barrier.mu_linear_decrease_factor::T),
             (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
+        # mu first: tau and the barrier error the loop guard reads must be those of the new mu
         set_mu!(solver, mu_new)
         set_tau!(solver, get_tau(mu_new, get_opt(solver).tau_min))
-        # Re-evaluate the barrier error with the new barrier parameter
         set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
         empty!(get_filter(solver))
         push!(get_filter(solver), (get_theta_max(solver), -Inf))
+        tiny = false   # only the first decrease is forced by the tiny step
     end
     return
 end
@@ -65,6 +71,7 @@ function _update_monotone_RR!(
             (barrier.mu_linear_decrease_factor::T),
             (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
         inf_compl_mu_R = get_inf_compl_R(
             get_x_lr(solver),

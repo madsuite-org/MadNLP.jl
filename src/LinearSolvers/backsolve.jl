@@ -1,5 +1,13 @@
 @kwdef mutable struct RichardsonOptions <: AbstractOptions
     richardson_max_iter::Int = 10
+    # Minimum number of refinement passes BEYOND the initial backsolve, matching
+    # Ipopt's min_refinement_steps (=1). The first loop pass (ir==1) is the base
+    # solve; tolerance-based acceptance is gated until at least this many extra
+    # refinement passes have run.
+    richardson_min_iter::Int = 1
+    # Stall detection (Ipopt residual_improvement_factor): if a refinement pass does not reduce
+    # the residual ratio below this factor of the previous ratio, stop refining (it has stalled).
+    richardson_improvement_factor::Float64 = 0.999999999
     richardson_tol::Float64
     richardson_acceptable_tol::Float64
 end
@@ -40,6 +48,7 @@ function solve_refine!(
     if norm_b != zero(T)
         copyto!(full(w), full(b))
         iterator.cnt.ir = 0
+        residual_ratio_old = typemax(T)
 
         while true
             solve_kkt!(iterator.kkt, w)
@@ -58,9 +67,16 @@ function solve_refine!(
             @debug(iterator.logger, @sprintf("%4i %6.2e", iterator.cnt.ir, residual_ratio))
             iterator.cnt.ir += 1
 
-            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
+            # ir==1 is the base solve; enforce >= richardson_min_iter refinement
+            # passes before accepting on the residual tolerance (Ipopt parity).
+            # Also quit if refinement has stalled (no sufficient improvement vs the previous pass).
+            stalled = residual_ratio > iterator.opt.richardson_improvement_factor * residual_ratio_old
+            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) ||
+               (residual_ratio < iterator.opt.richardson_tol && iterator.cnt.ir > iterator.opt.richardson_min_iter) ||
+               (stalled && iterator.cnt.ir > iterator.opt.richardson_min_iter)
                 break
             end
+            residual_ratio_old = residual_ratio
         end
     end
 

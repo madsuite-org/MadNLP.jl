@@ -150,6 +150,15 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     acceptable_tol::T = 1e-6
     acceptable_iter::Int = 15
     diverging_iterates_tol::T = 1e20
+    # Ipopt-style component tolerances on the UNSCALED problem; convergence requires the
+    # overall scaled error <= tol AND each of these (Ipopt IpOptErrorConvCheck.cpp:226).
+    dual_inf_tol::T = 1.0
+    constr_viol_tol::T = 1e-4
+    compl_inf_tol::T = 1e-4
+    # Ipopt-style acceptable-point component tolerances (IpOptErrorConvCheck.cpp:328).
+    acceptable_dual_inf_tol::T = 1e10
+    acceptable_constr_viol_tol::T = 1e-2
+    acceptable_compl_inf_tol::T = 1e-2
     max_iter::Int = 3000
     max_wall_time::T = 1e6
     s_max::T = 100.
@@ -176,6 +185,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     bound_fac::T = 1e-2
     nlp_scaling::Bool = true
     nlp_scaling_max_gradient::T = 100.
+    nlp_scaling_min_value::T = 1e-8
 
     # Hessian Perturbation
     min_hessian_perturbation::T = 1e-20
@@ -197,14 +207,21 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     alpha_min_frac::T = 0.05
     s_theta::T = 1.1
     s_phi::T = 2.3
-    eta_phi::T = 1e-4
+    eta_phi::T = 1e-8
     kappa_soc::T = 0.99
     gamma_theta::T = 1e-5
-    gamma_phi::T = 1e-5
+    gamma_phi::T = 1e-8
     delta::T = 1
     kappa_sigma::T = 1e10
     barrier_tol_factor::T = 10.
     rho::T = 1000.
+    # Watchdog line search (Ipopt IpBacktrackingLineSearch.cpp), default on as in Ipopt.
+    # Uses a reference-relative success test; helps the restoration family (e.g. DJTL 1941->1524,
+    # matching Ipopt). A few degenerate problems (e.g. POLAK6, where Ipopt's watchdog does not
+    # activate) can be disrupted; disable with watchdog=false if needed.
+    watchdog::Bool = true
+    watchdog_shortened_iter_trigger::Int = 10
+    watchdog_trial_iter_max::Int = 3
 
     # Barrier
     # mu_min by courtesy of Ipopt

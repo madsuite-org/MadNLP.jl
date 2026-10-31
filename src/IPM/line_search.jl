@@ -45,7 +45,12 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         varphi_trial= get_varphi(get_obj_val_trial(solver),get_x_trial_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_trial_ur(solver),get_mu(solver))
         armijo_condition = is_armijo(varphi_trial,varphi,get_opt(solver).eta_phi,get_alpha(solver),varphi_d)
 
-        small_search_norm && break
+        # Tiny relative step: accept it and flag it so the barrier update forces a mu decrease
+        # next iteration (Ipopt tiny_step_flag -> MonotoneMuUpdate).
+        if small_search_norm
+            get_cnt(solver).tiny_step = true
+            break
+        end
 
         set_ftype!(solver, get_ftype(
             get_filter(solver),theta,theta_trial,varphi,varphi_trial,switching_condition,armijo_condition,
@@ -55,6 +60,15 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
 
         if get_ftype(solver) in ("f","h")
             @trace(get_logger(solver),"Step accepted with type $(get_ftype(solver))")
+            break
+        end
+
+        # Watchdog: the step was NOT normally accepted; take the full (alpha_max) step as a
+        # tentative watchdog trial (ftype "w"). Watchdog success is the normal f/h accept above.
+        if get_opt(solver).watchdog && (wd = get_watchdog(solver)) !== nothing && wd.in_watchdog &&
+           get_cnt(solver).l == 1 && is_valid(get_c_trial(solver)) &&
+           isfinite(varphi_trial) && isfinite(theta_trial)
+            set_ftype!(solver, "w")
             break
         end
 
@@ -114,9 +128,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         get_cnt(solver).unsuccessful_iterate = 0
     end
 
-    if !switching_condition || !armijo_condition
+    # Do not augment the filter during a watchdog trial step (Ipopt defers this).
+    in_wd = get_opt(solver).watchdog && (wd = get_watchdog(solver)) !== nothing && wd.in_watchdog
+    if (!switching_condition || !armijo_condition) && !in_wd
         @trace(get_logger(solver),"Augmenting filter.")
-        augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta)
+        augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta,get_opt(solver).gamma_phi)
     end
 
     return LINESEARCH_SUCCEEDED
@@ -215,7 +231,7 @@ function filter_line_search_RR!(solver::AbstractMadNLPSolver{T}) where T
 
     if !switching_condition || !armijo_condition
         @trace(get_logger(solver),"Augmenting restoration phase filter.")
-        augment_filter!(RR.filter,theta_R_trial,varphi_R_trial,get_opt(solver).gamma_theta)
+        augment_filter!(RR.filter,theta_R_trial,varphi_R_trial,get_opt(solver).gamma_theta,get_opt(solver).gamma_phi)
     end
 
     return LINESEARCH_SUCCEEDED

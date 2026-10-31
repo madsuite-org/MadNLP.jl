@@ -708,12 +708,14 @@ function get_mu(
     mu_linear_decrease_factor,
     mu_superlinear_decrease_power,
     tol,
+    barrier_tol_factor,
 ) where {T}
-    # Warning: `a * tol` should be strictly less than 100 * mu_min, see issue #242
-    a = min(T(99.0) * mu_min / tol, T(0.01))
+    # Floor on mu matches Ipopt's CalcNewMuAndTau (IpMonotoneMuUpdate.cpp):
+    #   new_mu = max(min(kappa_mu*mu, mu^theta_mu), mu_target, tol/(barrier_tol_factor+1))
+    # (Ipopt uses min(tol, compl_inf_tol); MadNLP has no separate compl_inf_tol, so tol.)
     return max(
         mu_min,
-        a * tol,
+        tol / (barrier_tol_factor + one(T)),
         min(mu_linear_decrease_factor*mu, mu^mu_superlinear_decrease_power),
     )
 end
@@ -760,8 +762,11 @@ function is_sufficient_progress(theta_trial::T, theta, gamma_theta, varphi_trial
     (has_constraints && ((theta_trial<=(1-gamma_theta)*theta+10*eps(T)*abs(theta))) || ((varphi_trial<=varphi-gamma_phi*theta +10*eps(T)*abs(varphi))))
 end
 
-function augment_filter!(filter, theta, varphi, gamma_theta)
-    push!(filter, ((1-gamma_theta)*theta, varphi-gamma_theta*theta))
+function augment_filter!(filter, theta, varphi, gamma_theta, gamma_phi)
+    # Match Ipopt FilterLSAcceptor::AugmentFilter (IpFilterLSAcceptor.cpp):
+    #   theta_add = (1 - gamma_theta) * theta ;  phi_add = phi - gamma_phi * theta
+    # (previously the phi margin incorrectly used gamma_theta).
+    push!(filter, ((1-gamma_theta)*theta, varphi-gamma_phi*theta))
 end
 
 function is_filter_acceptable(filter, theta, varphi)
