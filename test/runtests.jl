@@ -23,4 +23,6 @@ import SparseArrays: sparse
     @testset "Schur complement" begin
         include("schur_test.jl")
     end
+
+    include("zero_compile_test.jl")
 end # @testset
