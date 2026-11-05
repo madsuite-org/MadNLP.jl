@@ -117,7 +117,8 @@ archived results, its nearest archived ancestor is used and named in the output.
 
 ## CI
 
-`.github/workflows/benchmark.yml` runs the benchmark on the self-hosted GPU runner:
+`.github/workflows/benchmark.yml` runs the benchmark on the self-hosted runner labeled
+`benchmark`:
 
 - **On request, for a pull request:** add the `benchmark` label. Once the `build` workflow
   has succeeded on the head commit, the four sets run on the host and ACOPF, COPS and

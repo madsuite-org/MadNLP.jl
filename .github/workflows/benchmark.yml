@@ -1,7 +1,7 @@
 name: benchmark
 
-# Runs the benchmark of benchmark/ on the self-hosted GPU runner, with a wall limit of 900 s
-# per solve: the four sets (ACOPF, COPS, Mittelmann, CUTEst) on the host, then ACOPF, COPS and
+# Runs the benchmark of benchmark/ on the self-hosted runner labeled `benchmark` (a machine
+# with a CUDA device), with a wall limit of 900 s per solve: the four sets (ACOPF, COPS, Mittelmann, CUTEst) on the host, then ACOPF, COPS and
 # Mittelmann on the CUDA device (CUTEst runs on the host only).
 #
 # - A pull request is benchmarked on request: add the `benchmark` label. The run starts once
@@ -15,7 +15,9 @@ name: benchmark
 # - Any other set, configuration or revision is run, and optionally archived, by hand
 #   (workflow_dispatch).
 #
-# Same-repository branches only: code from a fork never runs on the self-hosted runner. The
+# Same-repository branches only: code from a fork never runs on the self-hosted runner.
+# The `benchmark` label names the one runner that takes these jobs, so two benchmarks never
+# run at once; timings are comparable only while that runner stays on the same machine. The
 # job that runs the benchmark has a read-only token; the archive and the comment are written
 # by a separate job that runs the scripts of the default branch on the uploaded result files.
 
@@ -125,7 +127,7 @@ jobs:
     concurrency:
       group: benchmark-${{ needs.gate.outputs.pr != '' && format('pr-{0}', needs.gate.outputs.pr) || github.event_name == 'workflow_run' && 'master' || github.run_id }}
       cancel-in-progress: ${{ needs.gate.outputs.pr != '' }}
-    runs-on: [self-hosted, cuda]
+    runs-on: [self-hosted, benchmark]
     timeout-minutes: 1440
     steps:
       - uses: actions/checkout@v4
