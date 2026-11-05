@@ -1,0 +1,19 @@
+config = "augmented_cudss"
+config_options = "(cudss_algorithm = MadNLP.LDL, cudss_pivoting = true, cudss_pivot_type = 'B', cudss_matching = true, cudss_matching_alg = \"algo6\", cudss_deferred_analysis = true, cudss_refactorization = false, cudss_reanalyze_on_improve = true)"
+cpu_model = "AMD EPYC 9135 16-Core Processor"
+cpu_threads = 64
+cuda_runtime = "13.4.0"
+device = "cuda"
+gpu_driver = "13.3.0"
+gpu_memory_gb = 95.0
+gpu_name = "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+host = "node5106"
+julia_threads = 8
+julia_version = "1.13.1"
+madnlp_commit = "47cc85e97067ca99c19a1576a8b6f463a4f4c778"
+memory_gb = 755.1
+note = "MadNLP branch dev, which is not a commit of master. acceptable_tol = tol, so no run stops at the acceptable level. ACOPF in the polar form only. t_compile was not measured."
+options = "(tol = 1.0e-8, acceptable_tol = 1.0e-8, max_wall_time = 7200.0)"
+set = "mittelmann"
+source = "Benchmark study presented at INFORMS 2026 (second run, 2026-10-31 and 2026-11-01), converted from that study's result files; not produced by benchmark/run.jl."
+timestamp = "2026-10-31T23:51:04.039"
