@@ -36,3 +36,15 @@ function configs(device::Symbol)
     end
     return c
 end
+
+# MadNLP ignores an option it does not know, so a mistyped option would measure the default
+# under the name of the configuration.
+function validate(configs)
+    for (name, opts) in configs
+        known = Set(fieldnames(MadNLP.MadNLPOptions))
+        haskey(opts, :linear_solver) && union!(known, fieldnames(typeof(MadNLP.default_options(opts.linear_solver))))
+        unknown = setdiff(keys(opts), known)
+        isempty(unknown) || error("configuration $name: unknown options $(join(unknown, ", "))")
+    end
+    return
+end

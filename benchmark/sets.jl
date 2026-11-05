@@ -48,30 +48,19 @@ function cops_case((model, args))
     return name => (backend -> f(COPSBenchmark.ExaModelsBackend(), args...; backend, prod = true))
 end
 
-# CUTEst.jl decodes and compiles every problem in one directory of its installation, so the
-# processes of a run, and of any other run that shares the installation, build their models
-# one at a time. The lock is a directory: creating one is atomic on network file systems too.
-# A lock older than `stale` seconds was left by a process that died and is taken over.
-function cutest_host_model(name; stale = 600.0)
-    lock = joinpath(CUTEst.libsif_path, "madnlp-benchmark.lock")
-    while true
+# CUTEst.jl decodes and compiles a problem in one directory of its installation, which two
+# processes cannot do at once, so run.jl decodes the problems first and workers only load them.
+cutest_host_model(name) = CUTEst.CUTEstModel{Float64}(name; decode = false)
+cutest_decoded(name) = all(isfile, joinpath.(CUTEst.libsif_path, ["lib$(name)_double.so", "OUTSDIF_$name.d"]))
+function decode_cutest(names)
+    for name in filter(!cutest_decoded, names)
         try
-            mkdir(lock)
-            break
+            finalize(CUTEst.CUTEstModel{Float64}(name))
         catch err
-            err isa Base.IOError || rethrow()
-            if time() - mtime(lock) > stale   # mtime is 0 for a lock removed in the meantime
-                rm(lock; force = true)
-            else
-                sleep(0.1)
-            end
+            @warn "$name: could not be decoded" exception = err
         end
     end
-    try
-        return CUTEst.CUTEstModel{Float64}(name)
-    finally
-        rm(lock; force = true)
-    end
+    return
 end
 
 const SETS = Dict{String, Function}(

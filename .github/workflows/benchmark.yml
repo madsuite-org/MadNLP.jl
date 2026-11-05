@@ -2,8 +2,8 @@ name: benchmark
 
 # Runs the benchmark of benchmark/ on the self-hosted runner labeled `benchmark` (a machine
 # with a CUDA device), with a wall limit of 900 s per solve: the four sets (ACOPF, COPS,
-# Mittelmann, CUTEst) with MadNLP's default configuration, on the host and then on the CUDA
-# device.
+# Mittelmann, CUTEst) with MadNLP's default configuration, on the host and on the CUDA device
+# at the same time.
 #
 # - A pull request is benchmarked on request: add the `benchmark` label. The run starts once
 #   the `build` workflow has succeeded on the head commit. A comment on the pull request then
@@ -79,7 +79,7 @@ jobs:
             const { owner, repo } = context.repo;
             const full = `${owner}/${repo}`;
             let run = false, commit = '', pr = '', base = '', archive = false;
-            // the legs of a run, executed one after the other
+            // the legs of a run, executed side by side
             let matrix = [
               { device: 'cpu', sets: 'acopf,cops,mittelmann,cutest', config: 'default' },
               { device: 'cuda', sets: 'acopf,cops,mittelmann,cutest', config: 'default' },
@@ -124,7 +124,7 @@ jobs:
     permissions:
       contents: read
     # One run at a time per pull request (a newer request replaces it) and one at a time for
-    # master. The legs of a run execute in sequence, since they share one machine.
+    # master.
     concurrency:
       group: benchmark-${{ needs.gate.outputs.pr != '' && format('pr-{0}', needs.gate.outputs.pr) || github.event_name == 'workflow_run' && 'master' || github.run_id }}
       cancel-in-progress: ${{ needs.gate.outputs.pr != '' }}
@@ -150,10 +150,16 @@ jobs:
                   println(join(m.captures, " "))
               end' > legs.txt
           test -s legs.txt
+          # the legs run side by side; the run fails if one of them does
+          pids=()
           while read -r device sets config; do
             julia --startup-file=no --project=benchmark benchmark/run.jl "$sets" \
-              --device="$device" --config="$config" --wall=$WALL --overwrite
+              --device="$device" --config="$config" --wall=$WALL --overwrite < /dev/null &
+            pids+=($!)
           done < legs.txt
+          rc=0
+          for pid in "${pids[@]}"; do wait "$pid" || rc=1; done
+          exit $rc
       # also after a failed or timed-out leg: the result files are written case by case
       - uses: actions/upload-artifact@v4
         if: always()

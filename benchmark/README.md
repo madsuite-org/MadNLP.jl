@@ -61,6 +61,7 @@ something new.
 | `--only=case,...` | all | restrict a set to the named instances |
 | `--tol=1e-8` | `1e-8` | convergence tolerance |
 | `--wall=7200` | `7200` | wall limit of a solve, in seconds |
+| `--margin=S` | larger of 120 s and 20% of the limit | how far past the limit a worker is killed |
 | `--no-warmup` | | skip the discarded solves (see the protocol) |
 | `--overwrite` | | start the result files afresh instead of resuming |
 | `--verbose` | | print MadNLP's iteration log |
@@ -68,11 +69,21 @@ something new.
 A run that is interrupted is resumed by the same command: an instance already in a result
 file is skipped.
 
-**Workers.** The instances are handed out to worker processes. On a CUDA device there is
-one worker per GPU, each with its own GPU. On the host, `auto` is a quarter of the physical
-cores, at most 8. Each solve is sequential; workers that run side by side on the host share
-its memory channels and slow each other down somewhat, so use `--workers=1` for the cleanest
-host timings. The number of workers is recorded in the metadata.
+**Workers.** The instances of all the requested sets form one queue, handed out to worker
+processes. On a CUDA device there is one worker per GPU, each with its own GPU. On the host,
+`auto` follows the size of the machine: 80% of the physical cores, limited to as many workers
+at their 8 GB memory limit as fit in half of the memory. Workers that run side by side on the host share its
+memory channels and slow each other down somewhat, so use `--workers=1` for the cleanest host
+timings. Each worker has a heap-size hint of 6 GB and is replaced between cases if it grows
+past 8 GB. The number of workers is recorded in the metadata.
+
+**Wall limit.** MadNLP checks `max_wall_time` between iterations, so one long factorization
+or evaluation can overrun it. The coordinating process therefore kills a worker when a build
+or a solve has run for the wall limit plus a margin (`--margin`, by default the larger of
+120 s and 20% of the limit), records the instance with status `-100`, and starts a new worker.
+
+**CUTEst.** On the host the problems are decoded once, before the workers start, and the
+decoded files stay in CUTEst.jl's directory for later runs.
 
 ## Protocol
 
@@ -94,7 +105,7 @@ host timings. The number of workers is recorded in the metadata.
   small, medium and large by the nonzeros of the Jacobian and the Hessian together: below
   2^18, below 2^20, and above.
 - **Feasibility.** `primal_feas` is the residual of the solver's scaled, relaxed problem. The
-  columns `viol_con` and `viol_var` are the violation of the model's own constraints and
+  columns `viol_eq`, `viol_con` and `viol_var` are the violation of the model's own constraints and
   bounds at the returned point, evaluated independently of the solver.
 - **Hardware.** Timings are comparable only on the same machine. Each result file has a
   metadata file beside it (`.meta.toml`) with the host, the CPU model, its cores and threads,
@@ -107,11 +118,11 @@ host timings. The number of workers is recorded in the metadata.
 `run.jl` writes `<set>_<configuration>.csv` with one row per instance:
 
 `case, status, iters, nvar, ncon, nnzj, nnzh, obj, primal_feas, dual_feas, n_fact,
-n_backsolve, n_obj, n_grad, n_con, n_jac, n_hess, t_total, t_linsolve, t_eval, t_init,
-t_compile, n_solves, viol_con, viol_var`
+n_backsolve, n_ir, n_obj, n_grad, n_con, n_jac, n_hess, t_total, t_linsolve, t_eval, t_init,
+t_compile, n_solves, viol_eq, viol_con, viol_var`
 
-`status` is MadNLP's status code; `-100` marks an instance whose model could not be built or
-whose solve threw.
+`status` is MadNLP's status code; `-100` marks an instance whose worker was killed at the wall
+limit, and `-101` one whose model could not be built or whose solve threw.
 
 ## Comparing and archiving
 

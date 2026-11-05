@@ -16,19 +16,25 @@ export run_benchmark, solve_case, read_results, read_meta, result_files, summari
 const HEADER = [
     "case", "status", "iters", "nvar", "ncon", "nnzj", "nnzh",
     "obj", "primal_feas", "dual_feas",
-    "n_fact", "n_backsolve", "n_obj", "n_grad", "n_con", "n_jac", "n_hess",
+    "n_fact", "n_backsolve", "n_ir", "n_obj", "n_grad", "n_con", "n_jac", "n_hess",
     "t_total", "t_linsolve", "t_eval", "t_init",
     # seconds Julia spent compiling during the recorded solve, and how many times the instance
     # was solved to obtain a solve free of compilation
     "t_compile", "n_solves",
     # violation of the model's own constraints and bounds at the returned point, evaluated
-    # independently of the solver: constraint rows beyond [lcon, ucon], variables beyond
-    # [lvar, uvar]. The solver's primal_feas is the residual of its scaled, relaxed problem.
-    "viol_con", "viol_var",
+    # independently of the solver: equality rows, all rows beyond [lcon, ucon], variables beyond
+    # [lvar, uvar]. The solver's primal_feas is the residual of its scaled, relaxed problem,
+    # where an equality can sit at the edge of its relaxed bounds under a clean status.
+    "viol_eq", "viol_con", "viol_var",
 ]
 
-# Status and time recorded for an instance that could not be built or whose solve threw.
-const ERROR_STATUS = -100
+# Status recorded for an instance whose worker was killed for overrunning the wall limit, and
+# for one that could not be built or whose solve threw. MadNLP checks its wall limit between
+# iterations only, so a single long factorization or evaluation can run far past it.
+const KILLED_STATUS = -100
+const ERROR_STATUS = -101
+
+const T_TOTAL = findfirst(==("t_total"), HEADER)
 
 sanitize(s) = replace(strip(String(s)), r"[^A-Za-z0-9.+-]+" => "_")
 
@@ -43,9 +49,10 @@ function violation(m, stats)
     c = Array(NLPModels.cons(m, convert(typeof(NLPModels.get_x0(m)), x)))
     lcon, ucon = Array(NLPModels.get_lcon(m)), Array(NLPModels.get_ucon(m))
     lvar, uvar = Array(NLPModels.get_lvar(m)), Array(NLPModels.get_uvar(m))
+    viol_eq = maximum(abs.(ifelse.(lcon .== ucon, c .- lcon, 0.0)); init = 0.0)
     viol_con = maximum(max.(lcon .- c, c .- ucon, 0); init = 0.0)
     viol_var = maximum(max.(lvar .- x, x .- uvar, 0); init = 0.0)
-    return (viol_con, viol_var)
+    return (viol_eq, viol_con, viol_var)
 end
 
 function result_row(case, m, stats, t_compile, n_solves)
@@ -54,12 +61,12 @@ function result_row(case, m, stats, t_compile, n_solves)
         violation(m, stats)
     catch err
         @warn "$case: could not evaluate the violation of the returned point" exception = err
-        (NaN, NaN)
+        (NaN, NaN, NaN)
     end
     return Any[
         case, Int(stats.status), stats.iter, dims(m)...,
         stats.objective, stats.primal_feas, stats.dual_feas,
-        c.factorization_cnt, c.backsolve_cnt,
+        c.factorization_cnt, c.backsolve_cnt, c.ir,
         c.obj_cnt, c.obj_grad_cnt, c.con_cnt, c.con_jac_cnt, c.lag_hess_cnt,
         c.total_time, c.linear_solver_time, c.eval_function_time, c.init_time,
         t_compile, n_solves,
@@ -67,9 +74,17 @@ function result_row(case, m, stats, t_compile, n_solves)
     ]
 end
 
-function error_row(case, m)
-    d = m === nothing ? (0, 0, 0, 0) : dims(m)
-    return Any[case, ERROR_STATUS, 0, d..., NaN, NaN, NaN, 0, 0, 0, 0, 0, 0, 0, NaN, NaN, NaN, NaN, NaN, 0, NaN, NaN]
+error_row(case, m) = failure_row(case, ERROR_STATUS, m === nothing ? (0, 0, 0, 0) : dims(m))
+
+"The row of an instance that has no solve to report; `d` is `(nvar, ncon, nnzj, nnzh)`."
+function failure_row(case, status, d)
+    row = Any[NaN for _ in HEADER]
+    row[1:3] = [case, status, 0]
+    row[4:7] .= d
+    for name in ("n_fact", "n_backsolve", "n_ir", "n_obj", "n_grad", "n_con", "n_jac", "n_hess", "n_solves")
+        row[findfirst(==(name), HEADER)] = 0
+    end
+    return row
 end
 
 function write_meta(path, fields)
@@ -77,8 +92,6 @@ function write_meta(path, fields)
         "timestamp" => string(Dates.now()),
         "host" => gethostname(),
         "julia_version" => string(VERSION),
-        "julia_threads" => Threads.nthreads(),
-        "blas_threads" => LinearAlgebra.BLAS.get_num_threads(),
         "cpu_model" => String(strip(Sys.cpu_info()[1].model)),
         "cpu_threads" => Sys.CPU_THREADS,
         "memory_gb" => round(Sys.total_memory() / 2^30; digits = 1),
@@ -140,13 +153,15 @@ type of `m` in this process, since the kernels of a device are compiled outside 
 compilation timer. A solve that reaches the wall limit is kept as it is. `t_compile` is the
 compilation time of the solve that is returned.
 """
-function solve(m, config, kwargs; warmup::Bool = true)
+function solve(m, config, kwargs; warmup::Bool = true, report = event -> nothing)
     first_of_type = (config, typeof(m)) ∉ WARMED
+    report(:solve)
     stats, t_compile = timed_solve(m, kwargs)
     push!(WARMED, (config, typeof(m)))
     n = 1
     while warmup && n < MAX_SOLVES && stats.status != MadNLP.MAXIMUM_WALLTIME_EXCEEDED &&
             (t_compile > COMPILE_TOLERANCE || (first_of_type && n == 1))
+        report(:solve)
         stats, t_compile = timed_solve(m, kwargs)
         n += 1
     end
@@ -154,16 +169,19 @@ function solve(m, config, kwargs; warmup::Bool = true)
 end
 
 """
-    solve_case(case, build, configs; backend, options, warmup, release, reclaim)
+    solve_case(case, build, configs; backend, options, warmup, release, reclaim, report)
 
 Build the model of `case` and solve it with every configuration of `configs`
 (`name => options`). Returns `name => row` for each, where `row` is a row of a result file.
 `release` is called with the model after its solves, for models that hold outside
 resources; `reclaim` afterwards, to return device memory before the next model is built.
+`report` is called with `(nvar, ncon, nnzj, nnzh)` once the model is built, with `:solve`
+before every solve, and with `name => row` after each configuration, so that a process
+watching this one knows how far it got if it never returns.
 """
 function solve_case(
         case, build, configs; backend = nothing, options = (;), warmup::Bool = true,
-        release = m -> nothing, reclaim = () -> nothing,
+        release = m -> nothing, reclaim = () -> nothing, report = event -> nothing,
     )
     m = try
         build(backend)
@@ -171,17 +189,19 @@ function solve_case(
         @warn "$case: the model could not be built" exception = (err, catch_backtrace())
         nothing
     end
+    m === nothing || report(dims(m))
     rows = map(configs) do (config, opts)
         row = if m === nothing
             error_row(case, m)
         else
             try
-                result_row(case, m, solve(m, config, (; options..., opts...); warmup)...)
+                result_row(case, m, solve(m, config, (; options..., opts...); warmup, report)...)
             catch err
                 @warn "$case [$config]: the solve threw" exception = (err, catch_backtrace())
                 error_row(case, m)
             end
         end
+        report(config => row)
         config => row
     end
     m === nothing || release(m)
@@ -192,67 +212,71 @@ function solve_case(
 end
 
 """
-    run_benchmark(solve_on, set, cases, configs; outdir, pids = [1], meta, overwrite)
+    run_benchmark(solve_on, sets, configs; outdir, slots = [1], meta, meta_of, overwrite)
 
-Solve every case of `cases` (names) with every configuration of `configs` (names) and write
-`<outdir>/<set>_<config>.csv`, with a metadata file beside each.
+Solve every case of `sets` (`set => case names`) with every configuration of `configs`
+(names) and write `<outdir>/<set>_<config>.csv`, with a metadata file beside each.
 
-`solve_on(pid, case, configs)` solves one case with the named configurations on process
-`pid` and returns `name => row` for each, as [`solve_case`](@ref) does. The cases are handed
-out to the processes `pids` as they become free; this process collects the rows and writes
-the files after every case, so an interrupted run keeps its rows.
+`solve_on(slot, set, case, configs)` solves one case with the named configurations on the
+worker `slot` and returns `name => row` for each. The cases of all the sets form one queue,
+handed out to the slots as they become free, so that a slow instance holds up one worker
+only. This process collects the rows and writes the files after every case, so an
+interrupted run keeps its rows.
 
 - `meta`: extra fields for the metadata files; `meta_of(config)`: fields of one configuration.
 - `overwrite`: start the result files afresh. By default a case already present in a result
   file is skipped, so that an interrupted run is resumed by the same command.
 """
 function run_benchmark(
-        solve_on, set::AbstractString, cases, configs; outdir::AbstractString, pids = [1],
+        solve_on, sets, configs; outdir::AbstractString, slots = [1],
         meta = Dict{String, Any}(), meta_of = config -> Dict{String, Any}(), overwrite::Bool = false,
     )
     mkpath(outdir)
-    file(config) = joinpath(outdir, "$(set)_$(config).csv")
-    rows = Dict{String, Matrix{Any}}()
-    done = Dict{String, Set{String}}()
-    for config in configs
-        rows[config] = reshape(Any[HEADER...], 1, :)
-        done[config] = Set{String}()
-        if !overwrite && isfile(file(config)) && filesize(file(config)) > 0
-            old = readdlm(file(config), ',', Any)
-            old[1, :] == HEADER || error("$(file(config)) has different columns; move it away or pass overwrite = true")
-            rows[config] = old
-            union!(done[config], string.(old[2:end, 1]))
+    file(set, config) = joinpath(outdir, "$(set)_$(config).csv")
+    rows = Dict{Tuple{String, String}, Matrix{Any}}()
+    queue = Channel{Tuple{String, String, Vector{String}}}(Inf)
+    for (set, cases) in sets
+        done = Dict{String, Set{String}}()
+        for config in configs
+            path = file(set, config)
+            rows[(set, config)] = reshape(Any[HEADER...], 1, :)
+            done[config] = Set{String}()
+            if !overwrite && isfile(path) && filesize(path) > 0
+                old = readdlm(path, ',', Any)
+                old[1, :] == HEADER || error("$path has different columns; move it away or pass overwrite = true")
+                rows[(set, config)] = old
+                union!(done[config], string.(old[2:end, 1]))
+            end
+            write_meta(
+                path * ".meta.toml",
+                merge(Dict{String, Any}("set" => set, "config" => config, "workers" => length(slots)), meta, meta_of(config)),
+            )
         end
-        write_meta(
-            file(config) * ".meta.toml",
-            merge(Dict{String, Any}("set" => set, "config" => config, "workers" => length(pids)), meta, meta_of(config)),
-        )
-    end
-    queue = Channel{Tuple{String, Vector{String}}}(Inf)
-    for case in cases
-        todo = [config for config in configs if case ∉ done[config]]
-        isempty(todo) || put!(queue, (case, todo))
+        for case in cases
+            todo = [config for config in configs if case ∉ done[config]]
+            isempty(todo) || put!(queue, (set, case, todo))
+        end
     end
     close(queue)
     written = ReentrantLock()
-    @sync for pid in pids
-        @async for (case, todo) in queue
+    @sync for slot in slots
+        @async for (set, case, todo) in queue
             results = try
-                solve_on(pid, case, todo)
+                solve_on(slot, set, case, todo)
             catch err   # the process failed, not the solver
-                @warn "$case: process $pid failed" exception = (err, catch_backtrace())
+                @warn "$case: worker failed" exception = (err, catch_backtrace())
                 [config => error_row(case, nothing) for config in todo]
             end
             lock(written) do
                 for (config, row) in results
-                    @info @sprintf("%-32s %-22s status %4d  iter %5d  time %10.3f s", case, config, row[2], row[3], row[18])
-                    rows[config] = vcat(rows[config], permutedims(row))
-                    writedlm(file(config), rows[config], ',')
+                    @info @sprintf("%-11s %-32s %-22s status %4d  iter %5d  time %10.3f s", set, case, config, row[2], row[3], row[T_TOTAL])
+                    rows[(set, config)] = vcat(rows[(set, config)], permutedims(row))
+                    writedlm(file(set, config), rows[(set, config)], ',')
                 end
             end
         end
     end
-    return [file(config) for config in configs]
+    return [file(set, config) for (set, _) in sets for config in configs]
 end
 
 # ------------------------------------------------------------------------------------------

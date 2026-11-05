@@ -15,14 +15,32 @@ using .MadNLPBenchmark
 # set => (case => build), filled on first use
 const CASES = Dict{String, Dict{String, Function}}()
 
-# Solve one case of a set with the named configurations on this process.
-function solve_here(set, case, config_names, options, warmup)
+# Solve one case of a set with the named configurations on this process, telling `events`
+# (a channel on the coordinating process) how far it has got.
+function solve_here(set, case, config_names, options, warmup, events)
     builds = get!(() -> Dict(SETS[set]()), CASES, set)
     chosen = [c for c in configs(DEVICE) if first(c) in config_names]
-    return solve_case(
-        case, builds[case], chosen; options, warmup,
+    solve_case(
+        case, builds[case], chosen; options, warmup, report = event -> put!(events, event),
         backend = DEVICE == :cuda ? CUDABackend() : nothing,
         release = set == "cutest" && DEVICE == :cpu ? finalize : (m -> nothing),
         reclaim = DEVICE == :cuda ? CUDA.reclaim : (() -> nothing),
     )
+    put!(events, :done)
+    return nothing
+end
+
+worker_threads() = Dict{String, Any}(
+    "julia_threads" => Threads.nthreads(), "blas_threads" => MadNLPBenchmark.LinearAlgebra.BLAS.get_num_threads(),
+)
+
+# Compile the solve path of this process on tiny problems, so that the first real instance a
+# new worker gets is not solved twice for it.
+function warm_up(config_names, options)
+    chosen = [c for c in configs(DEVICE) if first(c) in config_names]
+    backend = DEVICE == :cuda ? CUDABackend() : nothing
+    solve_case("warm-up", last(acopf_case("case14_ieee", ACOPF_FORMS[1])), chosen; backend, options, warmup = false)
+    "cutest" in SET_NAMES && DEVICE == :cpu &&
+        solve_case("warm-up", b -> cutest_host_model("HS15"), chosen; options, warmup = false, release = finalize)
+    return nothing
 end
