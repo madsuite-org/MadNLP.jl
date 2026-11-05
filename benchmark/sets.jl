@@ -48,6 +48,32 @@ function cops_case((model, args))
     return name => (backend -> f(COPSBenchmark.ExaModelsBackend(), args...; backend, prod = true))
 end
 
+# CUTEst.jl decodes and compiles every problem in one directory of its installation, so the
+# processes of a run, and of any other run that shares the installation, build their models
+# one at a time. The lock is a directory: creating one is atomic on network file systems too.
+# A lock older than `stale` seconds was left by a process that died and is taken over.
+function cutest_host_model(name; stale = 600.0)
+    lock = joinpath(CUTEst.libsif_path, "madnlp-benchmark.lock")
+    while true
+        try
+            mkdir(lock)
+            break
+        catch err
+            err isa Base.IOError || rethrow()
+            if time() - mtime(lock) > stale   # mtime is 0 for a lock removed in the meantime
+                rm(lock; force = true)
+            else
+                sleep(0.1)
+            end
+        end
+    end
+    try
+        return CUTEst.CUTEstModel{Float64}(name)
+    finally
+        rm(lock; force = true)
+    end
+end
+
 const SETS = Dict{String, Function}(
     "acopf" => () -> acopf_cases(ACOPF_CASES),
     "cops" => () -> cops_case.(COPS_CASES),
@@ -57,10 +83,9 @@ const SETS = Dict{String, Function}(
             for name in ExaMittelmann.mittelmann_instances(; benchmark = true)
     ],
     # the CUTEst problems with at least as many free variables as equality constraints: on the
-    # host through CUTEst.jl (one decoded problem at a time in a process), on a device as
-    # ExaCUTEst models
+    # host through CUTEst.jl, on a device as ExaCUTEst models
     "cutest" => () -> [
-        name => (backend -> backend === nothing ? CUTEst.CUTEstModel{Float64}(name) : ExaCUTEst.ExaCUTEstModel(name; backend))
+        name => (backend -> backend === nothing ? cutest_host_model(name) : ExaCUTEst.ExaCUTEstModel(name; backend))
             for name in readlines(joinpath(@__DIR__, "sets", "cutest.txt"))
     ],
     # a few small instances, for a functional check of a configuration and for CI

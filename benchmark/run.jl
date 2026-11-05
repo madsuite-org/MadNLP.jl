@@ -49,8 +49,8 @@ function start_workers(n)
     @sync for (i, pid) in enumerate(pids)
         @async begin
             remotecall_wait(Core.eval, pid, Main, :(const DEVICE = $(QuoteNode(DEVICE)); const SET_NAMES = $SET_NAMES))
-            # a GPU each; on the host a directory each, where CUTEst.jl decodes its problems
-            remotecall_wait(Core.eval, pid, Main, DEVICE == :cuda ? :(ENV["CUDA_VISIBLE_DEVICES"] = $(String(gpus[i]))) : :(cd(mktempdir())))
+            # a GPU each
+            DEVICE == :cuda && remotecall_wait(Core.eval, pid, Main, :(ENV["CUDA_VISIBLE_DEVICES"] = $(String(gpus[i]))))
             remotecall_wait(Core.eval, pid, Main, :(include($session)))
         end
     end
