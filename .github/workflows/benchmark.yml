@@ -1,0 +1,224 @@
+name: benchmark
+
+# Runs the benchmark of benchmark/ on the self-hosted GPU runner: the ACOPF and COPS sets on
+# the host and on the CUDA device, with a wall limit of 900 s per solve.
+#
+# - A pull request is benchmarked on request: add the `benchmark` label. The run starts once
+#   the `build` workflow has succeeded on the head commit, compares the results with the
+#   archived results of the base commit, and posts the comparison as a comment. A push to a
+#   labeled pull request is benchmarked again when its `build` run succeeds.
+# - A commit on master is benchmarked when its `build` run succeeds, and archived on the
+#   `benchmark-results` branch under <hardware>/<commit>/, which is what a pull request is
+#   compared with.
+# - Any other set, configuration or revision is run, and optionally archived, by hand
+#   (workflow_dispatch).
+#
+# Same-repository branches only: code from a fork never runs on the self-hosted runner. The
+# job that runs the benchmark has a read-only token; the archive and the comment are written
+# by a separate job that runs the scripts of the default branch on the uploaded result files.
+
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      sets:
+        description: 'Sets, comma-separated (smoke, acopf, cops, mittelmann, cutest)'
+        default: 'smoke'
+      config:
+        description: 'Configurations, comma-separated (see benchmark/configs.jl)'
+        default: 'default'
+      device:
+        description: 'cpu or cuda'
+        default: 'cuda'
+      archive:
+        description: 'Archive the results on the benchmark-results branch'
+        type: boolean
+        default: false
+
+permissions: {}
+
+env:
+  ARCHIVE_BRANCH: benchmark-results
+  # wall limit of a solve in seconds; a failure is scored with it, so it is the same for every archived run
+  WALL: 900
+
+jobs:
+  # Decide whether to benchmark, and which commit: the label and the result of `build` are
+  # both required for a pull request, in either order.
+  gate:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.decide.outputs.run }}
+      commit: ${{ steps.decide.outputs.commit }}
+      pr: ${{ steps.decide.outputs.pr }}
+      base: ${{ steps.decide.outputs.base }}
+      archive: ${{ steps.decide.outputs.archive }}
+      matrix: ${{ steps.decide.outputs.matrix }}
+    steps:
+      - id: decide
+        uses: actions/github-script@v7
+        env:
+          INPUT_SETS: ${{ inputs.sets }}
+          INPUT_CONFIG: ${{ inputs.config }}
+          INPUT_DEVICE: ${{ inputs.device }}
+          INPUT_ARCHIVE: ${{ inputs.archive }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const full = `${owner}/${repo}`;
+            let run = false, commit = '', pr = '', base = '', archive = false;
+            let matrix = [
+              { device: 'cpu', sets: 'acopf,cops', config: 'default' },
+              { device: 'cuda', sets: 'acopf,cops', config: 'default,augmented_cudss' },
+            ];
+            const labeled = p => p.labels.some(l => l.name === 'benchmark');
+            if (context.eventName === 'workflow_dispatch') {
+              run = true; commit = context.sha; archive = process.env.INPUT_ARCHIVE === 'true';
+              matrix = [{ device: process.env.INPUT_DEVICE, sets: process.env.INPUT_SETS, config: process.env.INPUT_CONFIG }];
+            } else if (context.eventName === 'workflow_run') {
+              const wr = context.payload.workflow_run;
+              if (wr.conclusion === 'success' && wr.head_repository.full_name === full) {
+                commit = wr.head_sha;
+                if (wr.event === 'push' && wr.head_branch === 'master') {
+                  run = true; archive = true;
+                } else if (wr.event === 'pull_request') {
+                  const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: commit });
+                  const p = data.find(p => p.state === 'open' && p.head.sha === commit && p.head.repo.full_name === full);
+                  if (p && labeled(p)) { run = true; pr = String(p.number); base = p.base.sha; }
+                }
+              }
+            } else if (context.eventName === 'pull_request') {
+              const p = context.payload.pull_request;
+              if (context.payload.label.name === 'benchmark' && p.head.repo.full_name === full) {
+                commit = p.head.sha;
+                // the label came after `build`: run now if `build` has succeeded on this commit;
+                // otherwise the completion of `build` starts the benchmark
+                const { data } = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, head_sha: commit, event: 'pull_request' });
+                const build = data.workflow_runs.filter(r => r.name === 'build').sort((a, b) => b.run_number - a.run_number)[0];
+                if (build && build.status === 'completed' && build.conclusion === 'success') {
+                  run = true; pr = String(p.number); base = p.base.sha;
+                }
+              }
+            }
+            core.info(`run=${run} commit=${commit} pr=${pr} base=${base} archive=${archive}`);
+            core.setOutput('run', String(run)); core.setOutput('commit', commit); core.setOutput('pr', pr);
+            core.setOutput('base', base); core.setOutput('archive', String(archive));
+            core.setOutput('matrix', JSON.stringify(matrix));
+
+  run:
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1   # the devices share one machine: a run must not perturb the other's timings
+      matrix:
+        include: ${{ fromJSON(needs.gate.outputs.matrix) }}
+    # one benchmark at a time on the runner, whatever the pull request or commit
+    concurrency:
+      group: benchmark-runner
+      cancel-in-progress: false
+    runs-on: [self-hosted, cuda]
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate.outputs.commit }}
+      - uses: julia-actions/install-juliaup@v2
+        with:
+          channel: '1'
+      - name: Instantiate
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
+        run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.Registry.update(); Pkg.instantiate()'
+      - name: Run
+        run: >-
+          julia --startup-file=no --project=benchmark benchmark/run.jl ${{ matrix.sets }}
+          --device=${{ matrix.device }} --config=${{ matrix.config }} --wall=$WALL --overwrite
+      - name: Summary
+        run: julia --startup-file=no --project=benchmark benchmark/summary.jl --wall=$WALL | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.device }}
+          path: benchmark/results
+
+  # Archive the results and comment on the pull request. Runs the scripts of the default
+  # branch on the result files of the `run` job; nothing from the benchmarked commit executes
+  # with this job's token.
+  publish:
+    needs: [gate, run]
+    if: always() && needs.gate.outputs.run == 'true' && needs.run.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: results-*
+          path: results
+          merge-multiple: true
+      - name: Archive
+        if: needs.gate.outputs.archive == 'true'
+        env:
+          COMMIT: ${{ needs.gate.outputs.commit }}
+        run: |
+          git clone --quiet --branch "$ARCHIVE_BRANCH" --single-branch --depth 1 \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" archive
+          for dir in results/*/; do
+            dest="archive/$(basename "$dir")/$COMMIT"
+            mkdir -p "$dest" && cp "$dir"* "$dest/"
+          done
+          cd archive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit --quiet -m "Results of $COMMIT"
+          git push --quiet origin "HEAD:$ARCHIVE_BRANCH"
+      - uses: julia-actions/install-juliaup@v2
+        if: needs.gate.outputs.pr != ''
+        with:
+          channel: '1'
+      - name: Compare with the base commit
+        if: needs.gate.outputs.pr != ''
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
+        run: |
+          julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+          for dir in results/*/; do
+            hardware=$(basename "$dir")
+            julia --startup-file=no --project=benchmark benchmark/compare.jl ${{ needs.gate.outputs.base }} "$dir" \
+              --hardware="$hardware" --wall=$WALL --candidate-label="\`${{ needs.gate.outputs.commit }}\`" >> comparison.md \
+              || echo "No archived results for the base commit on \`$hardware\`." >> comparison.md
+            echo >> comparison.md
+          done
+      - name: Comment
+        if: needs.gate.outputs.pr != ''
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ needs.gate.outputs.pr }}
+        with:
+          script: |
+            const fs = require('fs');
+            const marker = '<!-- madnlp-benchmark -->';
+            const body = marker + '\n' + fs.readFileSync('comparison.md', 'utf8').trimEnd();
+            const issue_number = Number(process.env.PR);
+            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number });
+            const existing = comments.find(c => c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number, body });
+            }
