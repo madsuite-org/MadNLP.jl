@@ -16,25 +16,24 @@ same from one run to the next.
 julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
 
 julia --project=benchmark benchmark/run.jl smoke                       # a functional check
-julia --project=benchmark benchmark/run.jl acopf,cops                  # two sets, default configuration
-julia --project=benchmark benchmark/run.jl acopf --device=cuda --config=default,augmented_cudss
+julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest           # the four sets on the host
+julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cuda
 
-julia --project=benchmark benchmark/summary.jl                         # solved counts and mean times
-julia --project=benchmark benchmark/compare.jl master HEAD --hardware=<tag>   # two commits
+julia --project=benchmark benchmark/summary.jl                         # the machine, solved counts and mean times
+julia --project=benchmark benchmark/compare.jl master benchmark/results           # against the archived results of master
 ```
 
 ## Problem sets
 
 | set | instances | source |
 |:---|---:|:---|
-| `acopf` | 66 | the typical-operating-point cases of pglib-opf, polar form, through ExaModelsPower |
+| `acopf` | 132 | the 66 typical-operating-point cases of pglib-opf, each in the polar and in the rectangular form, through ExaModelsPower |
 | `cops` | 65 | the COPS problems of COPSBenchmark: nine scaling models at five sizes each, the other models at their canonical sizes |
 | `mittelmann` | 47 | the instances scored in Hans Mittelmann's AMPL-NLP benchmark, through ExaMittelmann |
-| `cutest` | 1338 | the CUTEst problems with at least as many free variables as equality constraints (`sets/cutest.txt`), through CUTEst.jl; host only |
-| `smoke` | 10 | small ACOPF and COPS instances, for a functional check and for CI |
+| `cutest` | 1338 | the CUTEst problems with at least as many free variables as equality constraints (`sets/cutest.txt`): through CUTEst.jl on the host, as ExaCUTEst models on a device |
+| `smoke` | 12 | small ACOPF and COPS instances, for a functional check |
 
-The sets are defined in `sets.jl`. `acopf`, `cops`, `mittelmann` and `smoke` are ExaModels
-models and run on the host or on a CUDA device; `cutest` runs on the host.
+The sets are defined in `sets.jl`. Every set runs on the host and on a CUDA device.
 
 ## Configurations
 
@@ -56,6 +55,7 @@ something new.
 |:---|:---|:---|
 | `--config=a,b` | `default` | the configurations to run |
 | `--device=cpu\|cuda` | `cpu` | where the models and the solver live |
+| `--workers=auto\|N` | `auto` | the number of processes that solve; see below |
 | `--out=DIR` | `results/<hardware>` | where the result files go; `<hardware>` is the CPU model or the GPU name |
 | `--only=case,...` | all | restrict a set to the named instances |
 | `--tol=1e-8` | `1e-8` | convergence tolerance |
@@ -67,6 +67,12 @@ something new.
 A run that is interrupted is resumed by the same command: an instance already in a result
 file is skipped.
 
+**Workers.** The instances are handed out to worker processes. On a CUDA device there is
+one worker per GPU, each with its own GPU. On the host, `auto` is a quarter of the physical
+cores, at most 8. Each solve is sequential; workers that run side by side on the host share
+its memory channels and slow each other down somewhat, so use `--workers=1` for the cleanest
+host timings. The number of workers is recorded in the metadata.
+
 ## Protocol
 
 - **Options.** MadNLP's defaults, apart from what the configuration sets, the tolerance and
@@ -76,11 +82,12 @@ file is skipped.
   last iterate, is a failure.
 - **Time.** The recorded time is MadNLP's total time of one solve, with the initialization,
   the linear solver and the function evaluations also recorded separately.
-- **Compilation.** The first time a configuration meets a model type in a session, the
-  instance is solved once and that solve is discarded, so that no recorded time includes
-  compilation. All ACOPF cases share one model type and each COPS model family has its own, so
-  only the first instance of each is solved twice. A discarded solve that reaches the wall
-  limit is recorded instead of being repeated.
+- **Compilation.** No recorded solve includes compilation. Julia's compilation time is
+  measured around every solve, and a solve during which Julia compiled is repeated; an
+  instance is also solved a second time when its model type is new to the configuration in
+  that process, because the kernels of a device are compiled outside Julia's timer. The
+  column `t_compile` is the compilation time of the recorded solve and `n_solves` the number
+  of solves it took. A solve that reaches the wall limit is recorded as it is.
 - **Aggregate.** The number of instances solved, and the shifted geometric mean of the solve
   time with a shift of 10 s, a failure counting as the wall limit. Instances are split into
   small, medium and large by the nonzeros of the Jacobian and the Hessian together: below
@@ -89,8 +96,10 @@ file is skipped.
   columns `viol_con` and `viol_var` are the violation of the model's own constraints and
   bounds at the returned point, evaluated independently of the solver.
 - **Hardware.** Timings are comparable only on the same machine. Each result file has a
-  metadata file beside it (`.meta.toml`) with the machine, the thread counts, the package
-  versions, the MadNLP commit and the options.
+  metadata file beside it (`.meta.toml`) with the host, the CPU model, its cores and threads,
+  the memory, the GPU with its memory, driver and CUDA runtime, the thread counts, the package
+  versions, the MadNLP commit and the options. `summary.jl` names the machine above its
+  tables.
 
 ## Result files
 
@@ -98,22 +107,43 @@ file is skipped.
 
 `case, status, iters, nvar, ncon, nnzj, nnzh, obj, primal_feas, dual_feas, n_fact,
 n_backsolve, n_obj, n_grad, n_con, n_jac, n_hess, t_total, t_linsolve, t_eval, t_init,
-viol_con, viol_var`
+t_compile, n_solves, viol_con, viol_var`
 
 `status` is MadNLP's status code; `-100` marks an instance whose model could not be built or
 whose solve threw.
 
-## Comparing commits
+## Comparing and archiving
 
-`compare.jl BASE CANDIDATE` prints, per set and configuration, the instances solved, the
-shifted geometric means and their ratio, the ratio of iteration counts, and every instance
-whose outcome changed. BASE and CANDIDATE are each a directory of result files or a git
-revision.
+`compare.jl BASE CANDIDATE` prints, as Markdown, the machines of both sides and, per device,
+set and configuration, the instances solved, the shifted geometric means and their ratio,
+the ratio of iteration counts, and every instance whose outcome changed. It flags a set and
+configuration with fewer instances solved or a time ratio above `--threshold` (1.1). BASE and
+CANDIDATE are each a directory of result files or a git revision.
 
-Results are archived on the `benchmark-results` branch of the repository, one
-directory per machine and commit: `<hardware>/<commit>/<set>_<configuration>.csv`. A revision
-given to `compare.jl` is looked up there (pass `--hardware=<tag>`); if that commit has no
-archived results, its nearest archived ancestor is used and named in the output.
+Results are archived on the `benchmark-results` branch of the repository, one directory per
+machine and commit: `<hardware>/<commit>/<set>_<configuration>.csv`, with the metadata files
+and a summary. A revision given to `compare.jl` is looked up there; for a device the commit
+has no archived results for, its nearest archived ancestor is used and named in the output.
+Results from different machines can be compared: the output names both machines and says
+that their times are not comparable.
+
+`archive.jl [DIR]` archives the result files of `DIR` (default `benchmark/results`) under
+the commit recorded in their metadata.
+
+## By hand
+
+Everything CI does can be done from a checkout:
+
+```sh
+julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest               # host
+julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cuda # device
+
+julia --project=benchmark benchmark/summary.jl                               # the tables
+julia --project=benchmark benchmark/compare.jl master benchmark/results > comparison.md
+gh pr comment <number> --body-file comparison.md                             # post it on a pull request
+
+julia --project=benchmark benchmark/archive.jl                               # archive (needs push access)
+```
 
 ## CI
 
@@ -121,11 +151,11 @@ archived results, its nearest archived ancestor is used and named in the output.
 `benchmark`:
 
 - **On request, for a pull request:** add the `benchmark` label. Once the `build` workflow
-  has succeeded on the head commit, the four sets run on the host and ACOPF, COPS and
-  Mittelmann on the CUDA device, with a wall limit of 900 s per solve. A comment on the pull
-  request then gives the table of instances solved and shifted geometric mean times, and the
-  comparison with the archived results of the base commit. A push to a labeled pull request
-  is benchmarked again.
+  has succeeded on the head commit, the four sets run with the default configuration on the
+  host and on the CUDA device, with a wall limit of 900 s per solve. A comment on the pull
+  request then compares the pull request with `master`: the machines, the instances solved
+  and the shifted geometric mean times of both. A push to a labeled pull request is
+  benchmarked again.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on

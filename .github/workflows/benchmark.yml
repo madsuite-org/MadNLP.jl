@@ -1,8 +1,9 @@
 name: benchmark
 
 # Runs the benchmark of benchmark/ on the self-hosted runner labeled `benchmark` (a machine
-# with a CUDA device), with a wall limit of 900 s per solve: the four sets (ACOPF, COPS, Mittelmann, CUTEst) on the host, then ACOPF, COPS and
-# Mittelmann on the CUDA device (CUTEst runs on the host only).
+# with a CUDA device), with a wall limit of 900 s per solve: the four sets (ACOPF, COPS,
+# Mittelmann, CUTEst) with MadNLP's default configuration, on the host and then on the CUDA
+# device.
 #
 # - A pull request is benchmarked on request: add the `benchmark` label. The run starts once
 #   the `build` workflow has succeeded on the head commit. A comment on the pull request then
@@ -81,7 +82,7 @@ jobs:
             // the legs of a run, executed one after the other
             let matrix = [
               { device: 'cpu', sets: 'acopf,cops,mittelmann,cutest', config: 'default' },
-              { device: 'cuda', sets: 'acopf,cops,mittelmann', config: 'default,augmented_cudss' },
+              { device: 'cuda', sets: 'acopf,cops,mittelmann,cutest', config: 'default' },
             ];
             const labeled = p => p.labels.some(l => l.name === 'benchmark');
             if (context.eventName === 'workflow_dispatch') {
@@ -180,43 +181,24 @@ jobs:
       - uses: julia-actions/install-juliaup@v2
         with:
           channel: '1'
-      - name: Summarize
+      - name: Instantiate
         env:
           JULIA_PKG_PRECOMPILE_AUTO: 0
-          COMMIT: ${{ needs.gate.outputs.commit }}
-        run: |
-          julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.instantiate()'
-          for dir in results/*/; do
-            julia --startup-file=no --project=benchmark benchmark/summary.jl "$dir" --wall=$WALL > "${dir}summary.md"
-          done
-          { echo "## MadNLP benchmark of \`$COMMIT\`"; echo; cat results/*/summary.md; } | tee comment.md >> "$GITHUB_STEP_SUMMARY"
+        run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+      - name: Summarize
+        run: julia --startup-file=no --project=benchmark benchmark/summary.jl results/*/ --wall=$WALL | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Archive
         if: needs.gate.outputs.archive == 'true'
-        env:
-          COMMIT: ${{ needs.gate.outputs.commit }}
         run: |
-          git clone --quiet --branch "$ARCHIVE_BRANCH" --single-branch --depth 1 \
-            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" archive
-          for dir in results/*/; do
-            dest="archive/$(basename "$dir")/$COMMIT"
-            mkdir -p "$dest" && cp "$dir"* "$dest/"
-          done
-          cd archive
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit --quiet -m "Results of $COMMIT"
-          git push --quiet origin "HEAD:$ARCHIVE_BRANCH"
+          julia --startup-file=no --project=benchmark benchmark/archive.jl results --commit=${{ needs.gate.outputs.commit }} --wall=$WALL
       - name: Compare with the base commit
         if: needs.gate.outputs.pr != ''
-        run: |
-          for dir in results/*/; do
-            hardware=$(basename "$dir")
-            julia --startup-file=no --project=benchmark benchmark/compare.jl ${{ needs.gate.outputs.base }} "$dir" \
-              --hardware="$hardware" --wall=$WALL --candidate-label="\`${{ needs.gate.outputs.commit }}\`" >> comment.md \
-              || echo "No archived results for the base commit on \`$hardware\`." >> comment.md
-            echo >> comment.md
-          done
+        # without archived results for the base, the comparison prints this run's table alone
+        run: >-
+          julia --startup-file=no --project=benchmark benchmark/compare.jl ${{ needs.gate.outputs.base }} results --wall=$WALL
+          --candidate-label="\`${{ needs.gate.outputs.commit }}\` (this pull request)" > comment.md
       - name: Comment
         if: needs.gate.outputs.pr != ''
         uses: actions/github-script@v7

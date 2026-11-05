@@ -1,8 +1,8 @@
 # The problem sets. `SETS[name]()` returns the instances of a set as `name => build`, where
 # `build(backend)` returns the model on that backend (`nothing` for the host). Included by
-# run.jl after the problem packages are loaded.
+# session.jl after the problem packages are loaded.
 
-# The 66 typical-operating-point cases of pglib-opf, in the polar form.
+# The 66 typical-operating-point cases of pglib-opf, each in the polar and in the rectangular form.
 const ACOPF_CASES = [
     "case3_lmbd", "case5_pjm", "case14_ieee", "case24_ieee_rts", "case30_as", "case30_ieee",
     "case39_epri", "case57_ieee", "case60_c", "case73_ieee_rts", "case89_pegase", "case118_ieee",
@@ -18,7 +18,10 @@ const ACOPF_CASES = [
     "case10000_goc", "case10192_epigrids", "case10480_goc", "case13659_pegase", "case19402_goc",
     "case20758_epigrids", "case24464_goc", "case30000_goc", "case78484_epigrids",
 ]
-acopf_case(name) = name => (backend -> ExaModelsPower.opf_model("pglib_opf_$name.m"; backend)[1])
+const ACOPF_FORMS = ("polar" => ExaModelsPower.Polar(), "rect" => ExaModelsPower.Rect())
+acopf_case(name, (label, form)) =
+    "$(name)_$(label)" => (backend -> ExaModelsPower.opf_model("pglib_opf_$name.m"; backend, form)[1])
+acopf_cases(names) = [acopf_case(name, form) for name in names for form in ACOPF_FORMS]
 
 # COPS: the nine scaling models of the ExaModels GPU study at five sizes each, and the other
 # models of COPSBenchmark at their canonical sizes.
@@ -46,22 +49,23 @@ function cops_case((model, args))
 end
 
 const SETS = Dict{String, Function}(
-    "acopf" => () -> acopf_case.(ACOPF_CASES),
+    "acopf" => () -> acopf_cases(ACOPF_CASES),
     "cops" => () -> cops_case.(COPS_CASES),
     # the instances scored in Hans Mittelmann's AMPL-NLP benchmark table
     "mittelmann" => () -> [
         name => (backend -> ExaMittelmann.mittelmann(name; backend))
             for name in ExaMittelmann.mittelmann_instances(; benchmark = true)
     ],
-    # the CUTEst problems with at least as many free variables as equality constraints, through
-    # CUTEst.jl: host only, and one decoded problem at a time
+    # the CUTEst problems with at least as many free variables as equality constraints: on the
+    # host through CUTEst.jl (one decoded problem at a time in a process), on a device as
+    # ExaCUTEst models
     "cutest" => () -> [
-        name => (backend -> CUTEst.CUTEstModel{Float64}(name))
+        name => (backend -> backend === nothing ? CUTEst.CUTEstModel{Float64}(name) : ExaCUTEst.ExaCUTEstModel(name; backend))
             for name in readlines(joinpath(@__DIR__, "sets", "cutest.txt"))
     ],
     # a few small instances, for a functional check of a configuration and for CI
     "smoke" => () -> vcat(
-        acopf_case.(["case14_ieee", "case118_ieee", "case1354_pegase", "case2869_pegase"]),
+        acopf_cases(["case14_ieee", "case118_ieee", "case1354_pegase"]),
         cops_case.([(:catmix, (100,)), (:robot, (400,)), (:rocket, (3200,)), (:marine, (400,)), (:gasoil, (800,)), (:steering, (3200,))]),
     ),
 )

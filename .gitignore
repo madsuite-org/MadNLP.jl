@@ -33,9 +33,7 @@ deps/build.log
 .ci/Project.toml
 .ci/Manifest.toml
 
-# Benchmark byproduct
-benchmark/Project.toml
-benchmark/Manifest.toml
+# Benchmark byproduct (benchmark/.gitignore covers the results and the manifest)
 benchmark/*.csv
 benchmark/*.pdf
 

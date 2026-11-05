@@ -1,0 +1,32 @@
+[deps]
+COPSBenchmark = "3c263af4-7bba-497b-afe4-00c59a0a48a5"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
+CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
+CUTEst = "1b53aba6-35b6-5f92-a507-53c67d53f819"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+Distributed = "8ba89e20-285c-5b6f-9357-94700520ee1b"
+ExaCUTEst = "9cb3a1db-3fb4-4d49-92ce-e401df6f29bb"
+ExaMittelmann = "4a782417-a389-4eb4-8fdf-efdc5dee37fc"
+ExaModels = "1037b233-b668-4ce9-9b63-f9f681f55dd2"
+ExaModelsIO = "5de388b7-cc24-42d7-844b-21625f2005ef"
+ExaModelsPower = "2fff4b78-0b6c-428d-bac8-85ccea8c4bdf"
+ExaModelsSIF = "7f0b2a4e-8c3d-4a9b-9e6f-5b2a1c9d8e01"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MadNLPGPU = "d72a61cc-809d-412f-99be-fd81f4b8a598"
+MadNLPHSL = "7fb6135f-58fe-4112-84ca-653cf5be0c77"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+
+[sources]
+COPSBenchmark = {rev = "e6e3d56aafb40cce05c97774bf9601cc75526163", url = "https://github.com/madsuite-org/COPSBenchmark.jl"}
+ExaCUTEst = {rev = "16bd95537fbb976d848857f10f6a08da35db895c", url = "https://github.com/madsuite-org/ExaCUTEst.jl"}
+ExaMittelmann = {rev = "3ef6d7a585cce73536f9da1c96ea53c65b057585", url = "https://github.com/madsuite-org/ExaMittelmann.jl"}
+ExaModels = {rev = "669b76f5aa440fef8a5e96e5a9cef6be6f3844c6", url = "https://github.com/madsuite-org/ExaModels.jl"}
+ExaModelsIO = {rev = "e5cb59f6c2e638891c5058a49f8c65992d245d28", subdir = "ExaModelsIO", url = "https://github.com/madsuite-org/ExaModels.jl"}
+ExaModelsSIF = {rev = "9c2323d3129a4eefba0a1393e3df01dd6d1e79c3", url = "https://github.com/madsuite-org/ExaModelsSIF.jl"}
+MadNLP = {path = ".."}
+MadNLPGPU = {path = "../lib/MadNLPGPU"}
+MadNLPHSL = {path = "../lib/MadNLPHSL"}
