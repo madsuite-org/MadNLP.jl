@@ -1,12 +1,14 @@
 name: benchmark
 
-# Runs the benchmark of benchmark/ on the self-hosted GPU runner: the ACOPF and COPS sets on
-# the host and on the CUDA device, with a wall limit of 900 s per solve.
+# Runs the benchmark of benchmark/ on the self-hosted GPU runner, with a wall limit of 900 s
+# per solve: the four sets (ACOPF, COPS, Mittelmann, CUTEst) on the host, then ACOPF, COPS and
+# Mittelmann on the CUDA device (CUTEst runs on the host only).
 #
 # - A pull request is benchmarked on request: add the `benchmark` label. The run starts once
-#   the `build` workflow has succeeded on the head commit, compares the results with the
-#   archived results of the base commit, and posts the comparison as a comment. A push to a
-#   labeled pull request is benchmarked again when its `build` run succeeds.
+#   the `build` workflow has succeeded on the head commit. A comment on the pull request then
+#   gives the table of instances solved and shifted geometric mean times, and the comparison
+#   with the archived results of the base commit. A push to a labeled pull request is
+#   benchmarked again when its `build` run succeeds.
 # - A commit on master is benchmarked when its `build` run succeeds, and archived on the
 #   `benchmark-results` branch under <hardware>/<commit>/, which is what a pull request is
 #   compared with.
@@ -74,9 +76,10 @@ jobs:
             const { owner, repo } = context.repo;
             const full = `${owner}/${repo}`;
             let run = false, commit = '', pr = '', base = '', archive = false;
+            // the legs of a run, executed one after the other
             let matrix = [
-              { device: 'cpu', sets: 'acopf,cops', config: 'default' },
-              { device: 'cuda', sets: 'acopf,cops', config: 'default,augmented_cudss' },
+              { device: 'cpu', sets: 'acopf,cops,mittelmann,cutest', config: 'default' },
+              { device: 'cuda', sets: 'acopf,cops,mittelmann', config: 'default,augmented_cudss' },
             ];
             const labeled = p => p.labels.some(l => l.name === 'benchmark');
             if (context.eventName === 'workflow_dispatch') {
@@ -117,17 +120,13 @@ jobs:
     if: needs.gate.outputs.run == 'true'
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      max-parallel: 1   # the devices share one machine: a run must not perturb the other's timings
-      matrix:
-        include: ${{ fromJSON(needs.gate.outputs.matrix) }}
-    # one benchmark at a time on the runner, whatever the pull request or commit
+    # One run at a time per pull request (a newer request replaces it) and one at a time for
+    # master. The legs of a run execute in sequence, since they share one machine.
     concurrency:
-      group: benchmark-runner
-      cancel-in-progress: false
+      group: benchmark-${{ needs.gate.outputs.pr != '' && format('pr-{0}', needs.gate.outputs.pr) || github.event_name == 'workflow_run' && 'master' || github.run_id }}
+      cancel-in-progress: ${{ needs.gate.outputs.pr != '' }}
     runs-on: [self-hosted, cuda]
-    timeout-minutes: 360
+    timeout-minutes: 1440
     steps:
       - uses: actions/checkout@v4
         with:
@@ -140,14 +139,21 @@ jobs:
           JULIA_PKG_PRECOMPILE_AUTO: 0
         run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.Registry.update(); Pkg.instantiate()'
       - name: Run
-        run: >-
-          julia --startup-file=no --project=benchmark benchmark/run.jl ${{ matrix.sets }}
-          --device=${{ matrix.device }} --config=${{ matrix.config }} --wall=$WALL --overwrite
-      - name: Summary
-        run: julia --startup-file=no --project=benchmark benchmark/summary.jl --wall=$WALL | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          MATRIX: ${{ needs.gate.outputs.matrix }}
+        run: |
+          echo "$MATRIX" | julia --startup-file=no -e '
+              for m in eachmatch(r"\{\"device\":\"([^\"]*)\",\"sets\":\"([^\"]*)\",\"config\":\"([^\"]*)\"\}", read(stdin, String))
+                  println(join(m.captures, " "))
+              end' > legs.txt
+          test -s legs.txt
+          while read -r device sets config; do
+            julia --startup-file=no --project=benchmark benchmark/run.jl "$sets" \
+              --device="$device" --config="$config" --wall=$WALL --overwrite
+          done < legs.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: results-${{ matrix.device }}
+          name: results
           path: benchmark/results
 
   # Archive the results and comment on the pull request. Runs the scripts of the default
@@ -155,7 +161,7 @@ jobs:
   # with this job's token.
   publish:
     needs: [gate, run]
-    if: always() && needs.gate.outputs.run == 'true' && needs.run.result != 'cancelled'
+    if: needs.gate.outputs.run == 'true' && needs.run.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -167,9 +173,21 @@ jobs:
           fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
-          pattern: results-*
+          name: results
           path: results
-          merge-multiple: true
+      - uses: julia-actions/install-juliaup@v2
+        with:
+          channel: '1'
+      - name: Summarize
+        env:
+          JULIA_PKG_PRECOMPILE_AUTO: 0
+          COMMIT: ${{ needs.gate.outputs.commit }}
+        run: |
+          julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+          for dir in results/*/; do
+            julia --startup-file=no --project=benchmark benchmark/summary.jl "$dir" --wall=$WALL > "${dir}summary.md"
+          done
+          { echo "## MadNLP benchmark of \`$COMMIT\`"; echo; cat results/*/summary.md; } | tee comment.md >> "$GITHUB_STEP_SUMMARY"
       - name: Archive
         if: needs.gate.outputs.archive == 'true'
         env:
@@ -187,22 +205,15 @@ jobs:
           git add -A
           git commit --quiet -m "Results of $COMMIT"
           git push --quiet origin "HEAD:$ARCHIVE_BRANCH"
-      - uses: julia-actions/install-juliaup@v2
-        if: needs.gate.outputs.pr != ''
-        with:
-          channel: '1'
       - name: Compare with the base commit
         if: needs.gate.outputs.pr != ''
-        env:
-          JULIA_PKG_PRECOMPILE_AUTO: 0
         run: |
-          julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.instantiate()'
           for dir in results/*/; do
             hardware=$(basename "$dir")
             julia --startup-file=no --project=benchmark benchmark/compare.jl ${{ needs.gate.outputs.base }} "$dir" \
-              --hardware="$hardware" --wall=$WALL --candidate-label="\`${{ needs.gate.outputs.commit }}\`" >> comparison.md \
-              || echo "No archived results for the base commit on \`$hardware\`." >> comparison.md
-            echo >> comparison.md
+              --hardware="$hardware" --wall=$WALL --candidate-label="\`${{ needs.gate.outputs.commit }}\`" >> comment.md \
+              || echo "No archived results for the base commit on \`$hardware\`." >> comment.md
+            echo >> comment.md
           done
       - name: Comment
         if: needs.gate.outputs.pr != ''
@@ -213,7 +224,7 @@ jobs:
           script: |
             const fs = require('fs');
             const marker = '<!-- madnlp-benchmark -->';
-            const body = marker + '\n' + fs.readFileSync('comparison.md', 'utf8').trimEnd();
+            const body = marker + '\n' + fs.readFileSync('comment.md', 'utf8').trimEnd();
             const issue_number = Number(process.env.PR);
             const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number });
             const existing = comments.find(c => c.body.startsWith(marker));

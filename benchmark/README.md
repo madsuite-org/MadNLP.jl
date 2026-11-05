@@ -119,10 +119,13 @@ archived results, its nearest archived ancestor is used and named in the output.
 
 `.github/workflows/benchmark.yml` runs the benchmark on the self-hosted GPU runner:
 
-- **On request, for a pull request:** add the `benchmark` label. The ACOPF and COPS sets run
-  on the host and on the CUDA device with a wall limit of 900 s per solve, and a comment on
-  the pull request gives the comparison with the archived results of its base commit. A push
-  to a labeled pull request runs it again.
-- **For every commit on `master`:** the same run, archived on `benchmark-results`.
+- **On request, for a pull request:** add the `benchmark` label. Once the `build` workflow
+  has succeeded on the head commit, the four sets run on the host and ACOPF, COPS and
+  Mittelmann on the CUDA device, with a wall limit of 900 s per solve. A comment on the pull
+  request then gives the table of instances solved and shifted geometric mean times, and the
+  comparison with the archived results of the base commit. A push to a labeled pull request
+  is benchmarked again.
+- **For every commit on `master`:** the same run once `build` has succeeded, archived on
+  `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on
   any branch, and can archive its results.
