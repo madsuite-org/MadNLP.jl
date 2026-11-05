@@ -40,7 +40,6 @@ dims(m) = (NLPModels.get_nvar(m), NLPModels.get_ncon(m), NLPModels.get_nnzj(m), 
 
 function violation(m, stats)
     x = Array(stats.solution)
-    x = x[begin:(begin + NLPModels.get_nvar(m) - 1)]   # the solver appends its slacks
     c = Array(NLPModels.cons(m, convert(typeof(NLPModels.get_x0(m)), x)))
     lcon, ucon = Array(NLPModels.get_lcon(m)), Array(NLPModels.get_ucon(m))
     lvar, uvar = Array(NLPModels.get_lvar(m)), Array(NLPModels.get_uvar(m))
@@ -80,7 +79,7 @@ function write_meta(path, fields)
         "julia_version" => string(VERSION),
         "julia_threads" => Threads.nthreads(),
         "blas_threads" => LinearAlgebra.BLAS.get_num_threads(),
-        "cpu_model" => strip(Sys.cpu_info()[1].model),
+        "cpu_model" => String(strip(Sys.cpu_info()[1].model)),
         "cpu_threads" => Sys.CPU_THREADS,
         "memory_gb" => round(Sys.total_memory() / 2^30; digits = 1),
         "os" => string(Sys.KERNEL, " ", Sys.ARCH),
@@ -95,11 +94,7 @@ function write_meta(path, fields)
         name in direct && v !== nothing && (meta["pkg_" * name] = string(v))
     end
     merge!(meta, fields)
-    open(path, "w") do io
-        for (k, v) in sort!(collect(meta); by = first)
-            println(io, k, " = ", v isa AbstractString ? repr(String(v)) : v)
-        end
-    end
+    open(io -> TOML.print(io, meta; sorted = true), path, "w")
     return
 end
 

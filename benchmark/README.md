@@ -7,8 +7,9 @@ solver or a new option set against the current state of the solver.
 
 The environment in `Project.toml` takes MadNLP, MadNLPGPU and MadNLPHSL from this checkout
 through `[sources]`, so a benchmark always measures the code in the working tree. The problem
-packages that are not registered are pinned to a commit there, so that the instances are the
-same from one run to the next.
+packages that are not registered are pinned to a commit there, and the registered ones are
+bounded in `[compat]`, so that the instances and the software around MadNLP are the same from
+one run to the next. Widening a bound or moving a pin is a change to the benchmark itself.
 
 ## Quick start
 

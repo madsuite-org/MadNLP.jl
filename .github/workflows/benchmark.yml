@@ -154,14 +154,18 @@ jobs:
             julia --startup-file=no --project=benchmark benchmark/run.jl "$sets" \
               --device="$device" --config="$config" --wall=$WALL --overwrite
           done < legs.txt
+      # also after a failed or timed-out leg: the result files are written case by case
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: results
           path: benchmark/results
 
   # Archive the results and comment on the pull request. Runs the scripts of the default
-  # branch on the result files of the `run` job; nothing from the benchmarked commit executes
-  # with this job's token.
+  # branch on the result files of the `run` job, so that nothing from the benchmarked commit
+  # executes with this job's token. The one exception is the fallback step below, for a
+  # default branch without benchmark/: it runs the scripts of the benchmarked commit, which the
+  # gate has restricted to branches of this repository.
   publish:
     needs: [gate, run]
     if: needs.gate.outputs.run == 'true' && needs.run.result == 'success'
