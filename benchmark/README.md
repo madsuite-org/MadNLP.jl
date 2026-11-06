@@ -200,7 +200,7 @@ julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device
   request then compares the pull request with `master`: the machines, the instances solved
   and the shifted geometric mean times of both. A push to a labeled pull request
   stops the running benchmark and starts one on the new commit.
-  While it runs, the comment shows the results so far, updated every ten minutes.
+  While it runs, the comment shows the results so far, updated every minute.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on

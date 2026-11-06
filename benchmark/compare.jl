@@ -90,13 +90,13 @@ end
 # The results of one side on their own: used when there is nothing to compare them with.
 function report(io, rs::ResultSet; wall)
     for device in sort!(collect(keys(rs.machines)))
-        println(io, "- ", device, " runs on ", join(rs.machines[device], "; "))
+        println(io, "- ", solver_name(device), " runs on ", join(rs.machines[device], "; "))
     end
     println(io, "\nSGM is the shifted geometric mean of the solve time in seconds (shift 10 s, a failure counts as ", round(Int, wall), " s).\n")
-    println(io, "| device | set | configuration | instances | solved | SGM |\n|---|---|---|---|---|---|")
+    println(io, "| solver | set | configuration | instances | solved | SGM |\n|---|---|---|---|---|---|")
     for key in sort!(collect(keys(rs.rows)))
         rows = collect(values(rs.rows[key]))
-        @printf(io, "| %s | %s | %s | %d | %d | %.2f |\n", key..., length(rows), count(solved, rows), sgm(score_time.(rows, wall)))
+        @printf(io, "| %s | %s | %s | %d | %d | %.2f |\n", solver_name(key[1]), key[2], key[3], length(rows), count(solved, rows), sgm(score_time.(rows, wall)))
     end
     return
 end
@@ -107,17 +107,17 @@ function compare(io, base::ResultSet, cand::ResultSet; wall, threshold)
     println(io, "| results of | ", base.label, " | ", cand.label, " |")
     devices = sort!(collect(union(keys(base.machines), keys(cand.machines))))
     for device in devices
-        println(io, "| ", device, " runs on | ", join(get(base.machines, device, ["–"]), "<br>"), " | ", join(get(cand.machines, device, ["–"]), "<br>"), " |")
+        println(io, "| ", solver_name(device), " runs on | ", join(get(base.machines, device, ["–"]), "<br>"), " | ", join(get(cand.machines, device, ["–"]), "<br>"), " |")
     end
     different = [d for d in devices if haskey(base.machines, d) && haskey(cand.machines, d) && base.machines[d] != cand.machines[d]]
-    isempty(different) || println(io, "\n**The ", join(different, " and "), " runs of the two sides were made on different machines: their times are not comparable.** Solved counts and iteration counts are.")
+    isempty(different) || println(io, "\n**The ", join(solver_name.(different), " and "), " runs of the two sides were made on different machines: their times are not comparable.** Solved counts and iteration counts are.")
     common = sort!(collect(intersect(keys(base.rows), keys(cand.rows))))
     if isempty(common)
-        println(io, "\nNo device, set and configuration in common.")
+        println(io, "\nNo solver, set and configuration in common.")
         return
     end
     println(io, "\nOver the instances both sides have run. SGM is the shifted geometric mean of the solve time in seconds (shift 10 s, a failure counts as ", round(Int, wall), " s); the time ratio is the candidate's shifted time over the base's, so below 1 the candidate is faster.\n")
-    println(io, "| device | set | configuration | instances | solved: base | solved: candidate | SGM: base | SGM: candidate | time ratio | iterations ratio |")
+    println(io, "| solver | set | configuration | instances | solved: base | solved: candidate | SGM: base | SGM: candidate | time ratio | iterations ratio |")
     println(io, "|---|---|---|---|---|---|---|---|---|---|")
     changed = String[]
     regressed = String[]
@@ -131,17 +131,17 @@ function compare(io, base::ResultSet, cand::ResultSet; wall, threshold)
         both = [c for c in cases if solved(a[c]) && solved(b[c]) && a[c].iters > 0]
         # geometric mean of the iteration ratios over the instances both solve
         iters = isempty(both) ? NaN : exp(sum(c -> log(b[c].iters / a[c].iters), both) / length(both))
-        @printf(io, "| %s | %s | %s | %d | %d | %d | %.2f | %.2f | %.2f | %s |\n", key..., length(cases), na, nb, ga, gb, ratio, isnan(iters) ? "–" : @sprintf("%.2f", iters))
-        (nb < na || ratio > threshold) && push!(regressed, "$(key[1]) / $(key[2]) / $(key[3])")
+        @printf(io, "| %s | %s | %s | %d | %d | %d | %.2f | %.2f | %.2f | %s |\n", solver_name(key[1]), key[2], key[3], length(cases), na, nb, ga, gb, ratio, isnan(iters) ? "–" : @sprintf("%.2f", iters))
+        (nb < na || ratio > threshold) && push!(regressed, "$(solver_name(key[1])) / $(key[2]) / $(key[3])")
         for c in cases
             solved(a[c]) == solved(b[c]) && continue
-            push!(changed, @sprintf("| %s | %s | %s | %s | %d | %d |", key..., c, a[c].status, b[c].status))
+            push!(changed, @sprintf("| %s | %s | %s | %s | %d | %d |", solver_name(key[1]), key[2], key[3], c, a[c].status, b[c].status))
         end
     end
     isempty(regressed) || println(io, "\n**Possible regression** (fewer instances solved, or a time ratio above ", threshold, "): ", join(regressed, "; "), ".")
     if !isempty(changed)
         println(io, "\n<details><summary>Instances whose outcome changed (", length(changed), ")</summary>\n")
-        println(io, "| device | set | configuration | instance | status: base | status: candidate |\n|---|---|---|---|---|---|")
+        println(io, "| solver | set | configuration | instance | status: base | status: candidate |\n|---|---|---|---|---|---|")
         foreach(l -> println(io, l), changed)
         println(io, "\n</details>")
     end

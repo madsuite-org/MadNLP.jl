@@ -10,7 +10,7 @@ module MadNLPBenchmark
 using MadNLP, NLPModels
 using Dates, DelimitedFiles, LinearAlgebra, Printf, TOML
 
-export run_benchmark, solve_case, read_results, read_meta, result_files, summarize, hardware_line, solved, score_time, sgm, size_class
+export run_benchmark, solve_case, read_results, read_meta, result_files, summarize, solver_name, hardware_line, solved, score_time, sgm, size_class
 
 "The columns of a result file, in order."
 const HEADER = [
@@ -326,8 +326,10 @@ instances solved and the shifted geometric mean of the solve time by size class.
 """
 function summarize(io::IO, dir::AbstractString; wall = 7200.0)
     files = result_files(dir)
-    println(io, "### ", basename(rstrip(dir, '/')), "\n")
-    machines = unique!([hardware_line(read_meta(f)) for f in values(files) if isfile(f * ".meta.toml")])
+    metas = [read_meta(f) for f in values(files) if isfile(f * ".meta.toml")]
+    solvers = unique!(sort!([solver_name(m["device"]) for m in metas]))
+    println(io, "### ", join([solvers; basename(rstrip(dir, '/'))], ", ", " on "), "\n")
+    machines = unique!([hardware_line(m) for m in metas])
     foreach(m -> println(io, "- ", m), machines)
     isempty(machines) || println(io)
     for set in sort!(unique(first.(keys(files))))
@@ -347,6 +349,9 @@ function summarize(io::IO, dir::AbstractString; wall = 7200.0)
     end
     return
 end
+
+"The package that solves on `device`: MadNLP on the host, cuMadNLP on a CUDA device."
+solver_name(device) = device == "cuda" ? "cuMadNLP" : "MadNLP"
 
 "One line that names the machine of a run, from its metadata."
 function hardware_line(meta)

@@ -157,10 +157,10 @@ jobs:
           echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"
           unset CUDA_VISIBLE_DEVICES
           nvidia-smi -L
-          # the results so far go to the pull request every ten minutes; only this process gets the token
+          # the results so far go to the pull request every minute; only this process gets the token
           mkdir -p "$KEEP"
           if [ -n "$PR" ]; then
-            GH_TOKEN="$PROGRESS_TOKEN" julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --wall=$WALL < /dev/null &
+            GH_TOKEN="$PROGRESS_TOKEN" julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --every=60 --wall=$WALL < /dev/null &
             progress=$!
           fi
           unset PROGRESS_TOKEN
