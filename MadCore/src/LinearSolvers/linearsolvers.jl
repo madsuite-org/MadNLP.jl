@@ -164,6 +164,7 @@ solve_linear_system!(s::LinearSolverBarrier, x::AbstractKKTVector) =
     Base.invokelatest(solve_linear_system!, s.wrapped, x)
 solve_linear_system!(s::LinearSolverBarrier, X::AbstractMatrix) =
     Base.invokelatest(solve_linear_system!, s.wrapped, X)
+is_factorized(s::LinearSolverBarrier) = Base.invokelatest(is_factorized, s.wrapped)::Bool
 is_inertia(s::LinearSolverBarrier) = Base.invokelatest(is_inertia, s.wrapped)::Bool
 inertia(s::LinearSolverBarrier) = Base.invokelatest(inertia, s.wrapped)
 improve!(s::LinearSolverBarrier) = Base.invokelatest(improve!, s.wrapped)::Bool

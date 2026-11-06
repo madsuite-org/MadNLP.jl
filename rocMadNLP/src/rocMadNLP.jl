@@ -1,20 +1,20 @@
 """
     rocMadNLP
 
-Entry point of MadNLP on AMD GPUs. Loads MadNLP with the GPU KKT systems of
+Entry point of MadNLP on AMD GPUs. Loads MadNLPCore with the GPU KKT systems of
 MadCoreGPU and the rocSOLVER solvers. Models on `ROCVector` are solved with the
 condensed KKT system and rocSOLVER by default.
 """
 module rocMadNLP
 
-import MadCore, MadCoreGPU, MadNLPCore, MadNLP
+import MadCore, MadCoreGPU, MadNLPCore
 import AMDGPU
 using AMDGPU: ROCVector
 import PrecompileTools
 
-using MadNLP
-for name in names(MadNLP)
-    name === :MadNLP && continue
+using MadNLPCore
+for name in names(MadNLPCore)
+    name === :MadNLPCore && continue
     @eval export $name
 end
 using MadCoreGPU: LapackROCmSolver

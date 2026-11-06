@@ -9,11 +9,11 @@ PrecompileTools.@setup_workload begin
             PrecompileTools.@compile_workload begin
                 # Build models in here, not in the setup block: constructing them compiles
                 # GPU kernels, and only code compiled inside `@compile_workload` is kept.
-                wrapped = MadNLP.SparseWrapperModel(ROCVector, MadNLP.HS15Model())
-                MadNLP.madnlp(wrapped; print_level = MadNLP.ERROR)
+                wrapped = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+                MadNLPCore.madnlp(wrapped; print_level = MadNLPCore.ERROR)
                 # The default linear solver on AMD GPUs factorizes the condensed KKT system
                 # densely, so the large size stays moderate (above one thread block).
-                MadNLP._precompile_solves(ROCVector{Float64}(undef, 0); sizes = (100, 4096))
+                MadNLPCore._precompile_solves(ROCVector{Float64}(undef, 0); sizes = (100, 4096))
             end
         catch err
             @warn "rocMadNLP: the AMDGPU precompile workload failed; GPU solves compile on first use" exception = (err, catch_backtrace())

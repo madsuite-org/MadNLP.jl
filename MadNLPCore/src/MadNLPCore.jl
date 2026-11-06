@@ -14,15 +14,10 @@ end
 
 # Version info
 version() = string(pkgversion(@__MODULE__))
-# The banner reports the MadNLP release when MadNLP is loaded, and MadNLPCore's otherwise.
-const MADNLP_PKGID = Base.PkgId(Base.UUID("2621e9c9-9eb4-46b1-8089-e8c72242dfb6"), "MadNLP")
-function introduce()
-    madnlp = get(Base.loaded_modules, MADNLP_PKGID, nothing)
-    name, v = madnlp === nothing ? ("Core", version()) : ("", string(pkgversion(madnlp)))
-    return "\033[34mMad\033[31mN\033[32mL\033[35mP\033[0m$name version v$v"
-end
+introduce() = "\033[34mMad\033[31mN\033[32mL\033[35mP\033[0mCore version v$(version())"
 
 include(joinpath("IPM", "IPM.jl"))
+include("precompile_models.jl")
 
 madsuite(::Val{:madnlp}, args...; kwargs...) = madnlp(args...; kwargs...)
 

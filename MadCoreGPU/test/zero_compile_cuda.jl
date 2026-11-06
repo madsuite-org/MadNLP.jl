@@ -1,9 +1,9 @@
 # The CUDA precompile workload covers a GPU solve with the default options: in a fresh
-# Julia process, that compiles nothing of MadNLP or MadNLPGPU at run time, also when a
-# package loaded before MadNLP adds a `getindex` method for its own index type (as
+# Julia process, that compiles nothing of cuMadNLP and the packages it loads at run time, also when
+# a package loaded before them adds a `getindex` method for its own index type (as
 # ExaModels does), which invalidates code compiled for abstract arrays.
 
-# As in MadNLP's test/zero_compile_test.jl: the traced statements of a fresh process that
+# As in MadNLP/test/zero_compile_test.jl: the traced statements of a fresh process that
 # mention a module matching `pattern`, and whether the planted probe was traced.
 function compiled_at_run_time(code, pattern; warm = true)
     julia = joinpath(Sys.BINDIR, Base.julia_exename())
@@ -23,12 +23,12 @@ end
         compiled, probe = compiled_at_run_time("""
             using CUDA, CUDSS
             $prelude
-            using MadNLP, MadNLPGPU
-            madnlp(MadNLP.PrecompileChainModel(100, CuVector{Float64}(undef, 0)); print_level = MadNLP.ERROR)
-            """, r"\bMadNLP(GPU(CUDAExt)?)?\."; warm = k == 1)
+            using cuMadNLP, MadNLPCore
+            madnlp(MadNLPCore.PrecompileChainModel(100, CuVector{Float64}(undef, 0)); print_level = MadNLPCore.ERROR)
+            """, r"\b(cuMadNLP|Mad(NLPCore|Core|CoreGPU)(\w*Ext)?)\."; warm = k == 1)
         # The test problem's constructor, called from the script's top level, is not part
         # of what the workload is for.
-        filter!(l -> !occursin("MadNLP.PrecompileChainModel{", l), compiled)
+        filter!(l -> !occursin("MadNLPCore.PrecompileChainModel{", l), compiled)
         @test probe
         isempty(compiled) || foreach(l -> println(first(l, 300)), compiled)
         @test isempty(compiled)

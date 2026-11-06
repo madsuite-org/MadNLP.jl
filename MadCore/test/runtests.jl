@@ -13,6 +13,12 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         @test_throws MethodError MadCore.default_options(MumpsSolver)
     end
 
+    @testset "LinearSolverBarrier forwards is_factorized" begin
+        struct FailedSolver <: MadCore.AbstractLinearSolver{Float64} end
+        MadCore.is_factorized(::FailedSolver) = false
+        @test !MadCore.is_factorized(MadCore.LinearSolverBarrier(FailedSolver()))
+    end
+
     @testset "LDLSolver through its extension" begin
         using LDLFactorizations
         @test MadCore.is_supported(LDLSolver, Float64)

@@ -11,10 +11,10 @@ PrecompileTools.@setup_workload begin
                 # Build models in here, not in the setup block: constructing them compiles
                 # GPU kernels (the bounds analysis runs `findall`), and only code compiled
                 # inside `@compile_workload` is kept in the package image.
-                wrapped = MadNLP.SparseWrapperModel(CuVector, MadNLP.HS15Model())
-                MadNLP.madnlp(wrapped; print_level = MadNLP.ERROR)
-                MadNLP._precompile_solves(CuVector{Float64}(undef, 0))
-                MadNLP._precompile_linear_solver(CuVector{Float64}(undef, 0), LapackCUDASolver)
+                wrapped = MadNLPCore.SparseWrapperModel(CuVector, MadNLPCore.HS15Model())
+                MadNLPCore.madnlp(wrapped; print_level = MadNLPCore.ERROR)
+                MadNLPCore._precompile_solves(CuVector{Float64}(undef, 0))
+                MadNLPCore._precompile_linear_solver(CuVector{Float64}(undef, 0), LapackCUDASolver)
             end
         catch err
             @warn "cuMadNLP: the CUDA precompile workload failed; GPU solves compile on first use" exception = (err, catch_backtrace())

@@ -1,5 +1,5 @@
 # The precompile workload covers solving a problem with the default options: in a fresh
-# Julia process, that compiles nothing of MadNLP at run time.
+# Julia process, that compiles nothing of MadNLP, MadNLPCore or MadCore at run time.
 
 # Run `code` in a fresh process with this test environment and Julia's default flags, and
 # return the traced precompile statements that mention a module matching `pattern`
@@ -27,10 +27,10 @@ end
         madnlp(MadNLP.HS15Model(); print_level = MadNLP.ERROR)
         madnlp(MadNLP.PrecompileChainModel(100, Float64[]); print_level = MadNLP.ERROR)
         madnlp(MadNLP.PrecompileChainModel(100, Float64[]; fixed = true); print_level = MadNLP.ERROR)
-        """, r"\bMadNLP\.")
+        """, r"\bMad(NLP|NLPCore|Core)\.")
     # The test problems' constructors, called from the script's top level, are not part
     # of what the workload is for.
-    filter!(l -> !occursin("MadNLP.PrecompileChainModel{", l), compiled)
+    filter!(l -> !occursin("MadNLPCore.PrecompileChainModel{", l), compiled)
     @test probe
     isempty(compiled) || foreach(l -> println(first(l, 300)), compiled)
     @test isempty(compiled)

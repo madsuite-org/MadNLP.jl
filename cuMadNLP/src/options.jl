@@ -1,15 +1,15 @@
-# Option presets of MadNLP for models on NVIDIA GPUs
+# Option presets of MadNLPCore for models on NVIDIA GPUs
 
-function MadNLP.MadNLPOptions{T}(
-        nlp::MadNLP.AbstractNLPModel{T, VT};
-        dense_callback = MadNLP.is_dense_callback(nlp),
-        callback = dense_callback ? MadNLP.DenseCallback : MadNLP.SparseCallback,
-        kkt_system = dense_callback ? MadNLP.DenseCondensedKKTSystem : MadNLP.SparseCondensedKKTSystem,
+function MadNLPCore.MadNLPOptions{T}(
+        nlp::MadNLPCore.AbstractNLPModel{T, VT};
+        dense_callback = MadNLPCore.is_dense_callback(nlp),
+        callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
+        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.SparseCondensedKKTSystem,
         linear_solver = dense_callback ? LapackCUDASolver : CUDSSSolver,
-        tol = MadNLP.get_tolerance(T, kkt_system),
-        bound_relax_factor = (kkt_system == MadNLP.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
+        tol = MadNLPCore.get_tolerance(T, kkt_system),
+        bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
     ) where {T, VT <: CuVector{T}}
-    return MadNLP.MadNLPOptions{T}(
+    return MadNLPCore.MadNLPOptions{T}(
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,

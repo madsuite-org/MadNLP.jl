@@ -54,6 +54,7 @@ function solve_linear_system!(M::UmfpackState{T},rhs::Vector{T}) where T
     return rhs
 end
 
+is_factorized(M::UmfpackState) = UMFPACK.issuccess(M.inner)
 is_inertia(::UmfpackState) = false
 inertia(M::UmfpackState) = throw(InertiaException())
 input_type(::Type{UmfpackState}) = :csc

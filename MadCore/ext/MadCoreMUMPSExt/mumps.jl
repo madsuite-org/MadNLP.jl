@@ -237,6 +237,8 @@ function factorize!(M::MumpsState)
     return M
 end
 
+is_factorized(M::MumpsState) = !M.is_singular
+
 function solve_linear_system!(M::MumpsState{T},rhs::Vector{T}) where T
     M.is_singular && return rhs
     M.mumps_struc.rhs = pointer(rhs)
