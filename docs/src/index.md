@@ -59,6 +59,7 @@ __cuMadNLP / rocMadNLP__||
 ||
 CUDSSSolver             | sparse | CUDA
 LapackCUDASolver         | dense  | CUDA
+SDSSolver               | sparse | AMD GPU
 LapackROCmSolver         | dense  | AMD GPU
 ||
 __MadNLP, with a licensed HSL library__||
