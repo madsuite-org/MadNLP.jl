@@ -196,7 +196,7 @@ julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device
 `benchmark`:
 
 - **On request, for a pull request:** add the `benchmark` label. The four sets run with the default configuration on the
-  host and on the CUDA device, with a wall limit of 900 s per solve. A comment on the pull
+  host and on the CUDA device, with a wall limit of 2 hours per solve. A comment on the pull
   request then compares the pull request with `master`: the machines, the instances solved
   and the shifted geometric mean times of both. A push to a labeled pull request
   stops the running benchmark and starts one on the new commit.

@@ -1,7 +1,7 @@
 name: benchmark
 
 # Runs the benchmark of benchmark/ on the self-hosted runner labeled `benchmark` (a machine
-# with a CUDA device), with a wall limit of 900 s per solve: the four sets (ACOPF, COPS,
+# with a CUDA device), with a wall limit of 2 hours per solve: the four sets (ACOPF, COPS,
 # Mittelmann, CUTEst) with MadNLP's default configuration, on the host and on the CUDA device
 # at the same time.
 #
@@ -48,7 +48,7 @@ permissions: {}
 env:
   ARCHIVE_BRANCH: benchmark-results
   # wall limit of a solve in seconds; a failure is scored with it, so it is the same for every archived run
-  WALL: 900
+  WALL: 7200
 
 jobs:
   # Decide whether to benchmark, and which commit.
@@ -118,7 +118,7 @@ jobs:
       group: benchmark-${{ needs.gate.outputs.pr != '' && format('pr-{0}', needs.gate.outputs.pr) || github.event_name == 'workflow_run' && 'master' || github.run_id }}
       cancel-in-progress: ${{ needs.gate.outputs.pr != '' }}
     runs-on: benchmark
-    timeout-minutes: 1440
+    timeout-minutes: 4320
     env:
       # outside the checkout, so that if the runner is lost a new run of this commit resumes
       KEEP: ${{ github.workspace }}/../../madnlp-benchmark/${{ needs.gate.outputs.commit }}
