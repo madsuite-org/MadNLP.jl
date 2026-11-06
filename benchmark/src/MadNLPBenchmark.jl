@@ -132,6 +132,11 @@ const WARMED = Set{Tuple{String, DataType}}()
 const COMPILE_TOLERANCE = 0.01
 const MAX_SOLVES = 3
 
+# A first solve of a model type below this many seconds is repeated in any case: loading device
+# code costs a fraction of a second that Julia's compilation timer does not see, which matters
+# for a short solve and not for a long one.
+const REPEAT_BELOW = 10.0
+
 # One solve, with the time Julia spent compiling during it, in seconds.
 function timed_solve(m, kwargs)
     Base.cumulative_compile_timing(true)
@@ -146,57 +151,59 @@ function timed_solve(m, kwargs)
 end
 
 """
-    solve(m, config, kwargs; warmup = true) -> (stats, t_compile, n_solves)
+    solve(m, config, kwargs; warmup = true, guard) -> (stats, t_compile, n_solves)
 
 Solve `m` and return the statistics of a solve that carries no compilation. The solve is
-repeated while Julia compiled during it, and once more the first time `config` meets the
-type of `m` in this process, since the kernels of a device are compiled outside Julia's
-compilation timer. A solve that reaches the wall limit is kept as it is. `t_compile` is the
+repeated while Julia compiled during it, and once more if it was short and the first time
+`config` met the type of `m` in this process. A solve that reaches the wall limit is kept as
+it is. `t_compile` is the
 compilation time of the solve that is returned.
 """
-function solve(m, config, kwargs; warmup::Bool = true, report = event -> nothing)
+function solve(m, config, kwargs; warmup::Bool = true, guard = f -> f())
     first_of_type = (config, typeof(m)) ∉ WARMED
-    report(:solve)
-    stats, t_compile = timed_solve(m, kwargs)
+    stats, t_compile = guard(() -> timed_solve(m, kwargs))
     push!(WARMED, (config, typeof(m)))
     n = 1
     while warmup && n < MAX_SOLVES && stats.status != MadNLP.MAXIMUM_WALLTIME_EXCEEDED &&
-            (t_compile > COMPILE_TOLERANCE || (first_of_type && n == 1))
-        report(:solve)
-        stats, t_compile = timed_solve(m, kwargs)
+            (t_compile > COMPILE_TOLERANCE || (first_of_type && n == 1 && stats.counters.total_time < REPEAT_BELOW))
+        stats, t_compile = guard(() -> timed_solve(m, kwargs))
         n += 1
     end
     return stats, t_compile, n
 end
 
 """
-    solve_case(case, build, configs; backend, options, warmup, release, reclaim, report)
+    solve_case(case, build, configs; backend, options, warmup, prepare, release, reclaim, report)
 
 Build the model of `case` and solve it with every configuration of `configs`
 (`name => options`). Returns `name => row` for each, where `row` is a row of a result file.
-`release` is called with the model after its solves, for models that hold outside
+`prepare` is called with the model before its solves, to compile what can be compiled
+outside the timed region; `release` with the model after its solves, for models that hold outside
 resources; `reclaim` afterwards, to return device memory before the next model is built.
-`report` is called with `(nvar, ncon, nnzj, nnzh)` once the model is built, with `:solve`
-before every solve, and with `name => row` after each configuration, so that a process
-watching this one knows how far it got if it never returns.
+`guard` wraps every timed solve. `report` is called with `(nvar, ncon, nnzj, nnzh)` once the
+model is built and with `name => row` after each configuration, so that a process watching
+this one knows how far it got if it never returns.
 """
 function solve_case(
         case, build, configs; backend = nothing, options = (;), warmup::Bool = true,
-        release = m -> nothing, reclaim = () -> nothing, report = event -> nothing,
+        prepare = m -> nothing, release = m -> nothing, reclaim = () -> nothing, report = event -> nothing,
+        guard = f -> f(),
     )
     m = try
-        build(backend)
+        model = build(backend)
+        report(dims(model))
+        prepare(model)
+        model
     catch err
         @warn "$case: the model could not be built" exception = (err, catch_backtrace())
         nothing
     end
-    m === nothing || report(dims(m))
     rows = map(configs) do (config, opts)
         row = if m === nothing
             error_row(case, m)
         else
             try
-                result_row(case, m, solve(m, config, (; options..., opts...); warmup, report)...)
+                result_row(case, m, solve(m, config, (; options..., opts...); warmup, guard)...)
             catch err
                 @warn "$case [$config]: the solve threw" exception = (err, catch_backtrace())
                 error_row(case, m)
@@ -221,7 +228,8 @@ Solve every case of `sets` (`set => case names`) with every configuration of `co
 `solve_on(slot, set, case, configs)` solves one case with the named configurations on the
 worker `slot` and returns `name => row` for each. The cases of all the sets form one queue,
 handed out to the slots as they become free, so that a slow instance holds up one worker
-only. This process collects the rows and writes the files after every case, so an
+only. Cases with the same `group(set, case)` go to one worker in turn, so that instances of
+one compiled model type are compiled once. This process collects the rows and writes the files after every case, so an
 interrupted run keeps its rows.
 
 - `meta`: extra fields for the metadata files; `meta_of(config)`: fields of one configuration.
@@ -229,13 +237,13 @@ interrupted run keeps its rows.
   file is skipped, so that an interrupted run is resumed by the same command.
 """
 function run_benchmark(
-        solve_on, sets, configs; outdir::AbstractString, slots = [1],
+        solve_on, sets, configs; outdir::AbstractString, slots = [1], group = (set, case) -> case,
         meta = Dict{String, Any}(), meta_of = config -> Dict{String, Any}(), overwrite::Bool = false,
     )
     mkpath(outdir)
     file(set, config) = joinpath(outdir, "$(set)_$(config).csv")
     rows = Dict{Tuple{String, String}, Matrix{Any}}()
-    queue = Channel{Tuple{String, String, Vector{String}}}(Inf)
+    queue = Channel{Vector{Tuple{String, String, Vector{String}}}}(Inf)
     for (set, cases) in sets
         done = Dict{String, Set{String}}()
         for config in configs
@@ -253,15 +261,21 @@ function run_benchmark(
                 merge(Dict{String, Any}("set" => set, "config" => config, "workers" => length(slots)), meta, meta_of(config)),
             )
         end
+        groups = Dict{Any, Vector{Tuple{String, String, Vector{String}}}}()
+        order = []
         for case in cases
             todo = [config for config in configs if case ∉ done[config]]
-            isempty(todo) || put!(queue, (set, case, todo))
+            isempty(todo) && continue
+            key = group(set, case)
+            haskey(groups, key) || push!(order, key)
+            push!(get!(groups, key, []), (set, case, todo))
         end
+        foreach(key -> put!(queue, groups[key]), order)
     end
     close(queue)
     written = ReentrantLock()
     @sync for slot in slots
-        @async for (set, case, todo) in queue
+        @async for tasks in queue, (set, case, todo) in tasks
             results = try
                 solve_on(slot, set, case, todo)
             catch err   # the process failed, not the solver

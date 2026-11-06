@@ -104,12 +104,17 @@ jobs:
               const p = context.payload.pull_request;
               if (context.payload.label.name === 'benchmark' && p.head.repo.full_name === full) {
                 commit = p.head.sha;
-                // the label came after `build`: run now if `build` has succeeded on this commit;
-                // otherwise the completion of `build` starts the benchmark
+                // the label came after `build`: run now if its required jobs have passed on this
+                // commit; otherwise the completion of `build` starts the benchmark. The AMD job
+                // may fail by design, and its runners should not hold up a benchmark.
                 const { data } = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, head_sha: commit, event: 'pull_request' });
                 const build = data.workflow_runs.filter(r => r.name === 'build').sort((a, b) => b.run_number - a.run_number)[0];
-                if (build && build.status === 'completed' && build.conclusion === 'success') {
-                  run = true; pr = String(p.number); base = p.base.sha;
+                if (build) {
+                  const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, { owner, repo, run_id: build.id });
+                  const required = jobs.filter(j => !j.name.includes('amdgpu'));
+                  if (required.length > 0 && required.every(j => j.conclusion === 'success')) {
+                    run = true; pr = String(p.number); base = p.base.sha;
+                  }
                 }
               }
             }
@@ -130,6 +135,9 @@ jobs:
       cancel-in-progress: ${{ needs.gate.outputs.pr != '' }}
     runs-on: benchmark
     timeout-minutes: 1440
+    env:
+      # outside the checkout, so that if the runner is lost a new run of this commit resumes
+      KEEP: ${{ github.workspace }}/../../madnlp-benchmark/${{ needs.gate.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -141,6 +149,15 @@ jobs:
         env:
           JULIA_PKG_PRECOMPILE_AUTO: 0
         run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.Registry.update(); Pkg.instantiate()'
+      - name: Check the machine
+        run: |
+          free -g; df -h "$HOME" .; nproc; nvidia-smi -L
+          unset CUDA_VISIBLE_DEVICES
+          for device in cpu cuda; do
+            julia --startup-file=no --project=benchmark benchmark/run.jl smoke --device=$device --workers=1 --wall=120 \
+              --only=case14_ieee_polar,catmix_100 --out="$RUNNER_TEMP/preflight-$device"
+            grep -q ',1,' "$RUNNER_TEMP/preflight-$device/smoke_default.csv"
+          done
       - name: Run
         env:
           MATRIX: ${{ needs.gate.outputs.matrix }}
@@ -158,18 +175,23 @@ jobs:
           pids=()
           while read -r device sets config; do
             julia --startup-file=no --project=benchmark benchmark/run.jl "$sets" \
-              --device="$device" --config="$config" --wall=$WALL --overwrite < /dev/null &
+              --device="$device" --config="$config" --wall=$WALL --root="$KEEP" < /dev/null &
             pids+=($!)
           done < legs.txt
           rc=0
           for pid in "${pids[@]}"; do wait "$pid" || rc=1; done
           exit $rc
+      - name: Collect the results
+        if: always()
+        run: mkdir -p benchmark/results && cp -r "$KEEP"/. benchmark/results/ || true
       # also after a failed or timed-out leg: the result files are written case by case
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: results
           path: benchmark/results
+      - name: Remove the kept results
+        run: rm -rf "$KEEP"
 
   # Archive the results and comment on the pull request. Runs the scripts of the default
   # branch on the result files of the `run` job, so that nothing from the benchmarked commit

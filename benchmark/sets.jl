@@ -63,6 +63,9 @@ function decode_cutest(names)
     return
 end
 
+# Instances of one COPS model share a compiled model type.
+instance_group(set, case) = set == "cops" ? replace(case, r"_[0-9x]+$" => "") : case
+
 const SETS = Dict{String, Function}(
     "acopf" => () -> acopf_cases(ACOPF_CASES),
     "cops" => () -> cops_case.(COPS_CASES),

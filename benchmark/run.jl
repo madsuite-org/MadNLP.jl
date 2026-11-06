@@ -8,7 +8,7 @@ using Distributed
 
 function parse_args(args)
     isempty(args) && error(
-        "usage: run.jl <set>[,<set>...] [--config=a,b] [--device=cpu|cuda] [--workers=auto|N] [--out=DIR] " *
+        "usage: run.jl <set>[,<set>...] [--config=a,b] [--device=cpu|cuda] [--workers=auto|N] [--workers-per-gpu=2] [--root=DIR] [--out=DIR] " *
             "[--only=case,...] [--tol=1e-8] [--wall=7200] [--margin=S] [--no-warmup] [--overwrite] [--verbose]"
     )
     opt = Dict{String, String}("device" => "cpu", "config" => "default", "tol" => "1e-8", "wall" => "7200", "workers" => "auto")
@@ -32,18 +32,21 @@ include(joinpath(@__DIR__, "session.jl"))
 const HEAP_HINT = "6G"
 const RSS_LIMIT_GB = 8.0
 
-# The number of processes that solve. On a CUDA device, one per GPU. On the host, `auto` follows
-# the size of the machine: 80% of the physical cores, as each solve is sequential, and no more
-# workers at their memory limit than fit in half of the memory.
+# A worker above this share of the machine's memory is killed during a solve, as is one past
+# RSS_LIMIT_GB when the machine is nearly out of memory, before the system's out-of-memory
+# killer takes the job or the runner with it.
+const KILL_MEMORY_FRACTION = 0.4
+
+# The number of processes that solve. On a CUDA device, `--workers-per-gpu` per GPU. On the host, `auto` follows
+# the size of the machine: 75% of the physical cores, as each solve is sequential and a device
+# leg may run beside this one, and 3 GB per worker out of 75% of the memory, as workers rarely
+# reach their limit at the same time.
 function worker_count()
     requested = OPT["workers"] == "auto" ? nothing : parse(Int, OPT["workers"])
-    if DEVICE == :cuda
-        gpus = length(CUDA.devices())
-        return requested === nothing ? gpus : min(requested, gpus)
-    end
+    DEVICE == :cuda && return parse(Int, get(OPT, "workers-per-gpu", "2")) * length(CUDA.devices())
     cores = something(MadNLPBenchmark.physical_cores(), Sys.CPU_THREADS)
-    by_memory = floor(Int, 0.5 * Sys.total_memory() / 2^30 / RSS_LIMIT_GB)
-    return requested === nothing ? max(1, min(floor(Int, 0.8 * cores), by_memory)) : requested
+    by_memory = floor(Int, 0.75 * Sys.total_memory() / 2^30 / 3)
+    return requested === nothing ? max(1, min(floor(Int, 0.75 * cores), by_memory)) : requested
 end
 
 # A worker process and the GPU it is restricted to, if any. A killed worker is replaced in its slot.
@@ -51,7 +54,13 @@ mutable struct Slot
     pid::Int
     os_pid::Int
     gpu::String
+    token::Union{Nothing, RemoteChannel}   # one per GPU, see `solve_here`
 end
+
+# Seconds workers spent waiting for a GPU and seconds the GPUs spent in timed solves: if the
+# first is large there are more workers per GPU than the solves can use, and if the second is
+# far below the length of the run there are too few.
+const TOKEN_TIME = Dict("waiting" => 0.0, "solving" => 0.0)
 
 function start_worker!(slot::Slot, chosen, options)
     slot.pid = only(addprocs(1; exeflags = ["--project=$(Base.active_project())", "--startup-file=no", "--heap-size-hint=$HEAP_HINT"]))
@@ -64,16 +73,21 @@ function start_worker!(slot::Slot, chosen, options)
 end
 
 function resident_gb(os_pid)
-    for line in eachline("/proc/$os_pid/status")
-        startswith(line, "VmRSS:") && return parse(Float64, split(line)[2]) / 2^20
+    isfile("/proc/$os_pid/status") || return 0.0
+    try
+        for line in eachline("/proc/$os_pid/status")
+            startswith(line, "VmRSS:") && return parse(Float64, split(line)[2]) / 2^20
+        end
+    catch   # the process ended between the check and the read
     end
     return 0.0
 end
 
 function start_workers(n, chosen, options)
     # the GPUs this process sees, by the names a worker can be restricted to
-    gpus = DEVICE == :cuda ? split(get(ENV, "CUDA_VISIBLE_DEVICES", join(0:(n - 1), ",")), ",") : fill("", n)
-    slots = [Slot(0, 0, String(gpus[i])) for i in 1:n]
+    gpus = DEVICE == :cuda ? split(get(ENV, "CUDA_VISIBLE_DEVICES", join(0:(length(CUDA.devices()) - 1), ",")), ",") : [""]
+    tokens = Dict(gpu => (ch = RemoteChannel(() -> Channel{Int}(1)); put!(ch, 1); ch) for gpu in gpus if !isempty(gpu))
+    slots = [Slot(0, 0, String(gpus[mod1(i, length(gpus))]), get(tokens, gpus[mod1(i, length(gpus))], nothing)) for i in 1:n]
     @sync for slot in slots
         @async start_worker!(slot, chosen, options)
     end
@@ -85,42 +99,78 @@ end
 # library call, which cannot answer a query, is still detected. The instance is recorded with
 # what is known of it, and the configurations that finished before the kill keep their rows.
 function solve_on(slot, set, case, todo, chosen, options, warmup, limit)
+    slot.pid in workers() || start_worker!(slot, chosen, options)   # a failed restart is retried here
     events = RemoteChannel(() -> Channel{Any}(Inf))
-    remote_do(Main.solve_here, slot.pid, set, case, todo, options, warmup, events)
+    remote_do(Main.solve_here, slot.pid, set, case, todo, options, warmup, events, slot.token)
     rows = Pair{String, Vector{Any}}[]
     size = (0, 0, 0, 0)
     last = time()
+    state = :working   # :waiting for the GPU, :solving with it, or :working without it
+    # the rows of the configurations a dead worker did not finish, and a new worker
+    function replace_worker(status)
+        # a killed worker cannot hand back its token
+        state === :solving && slot.token !== nothing && !isready(slot.token) && put!(slot.token, 1)
+        restart(slot, chosen, options)
+        finished = first.(rows)
+        return [rows; [c => MadNLPBenchmark.failure_row(case, status, size) for c in todo if c ∉ finished]]
+    end
     while true
         if isready(events)
             event = take!(events)
             if event === :done
-                if isfile("/proc/$(slot.os_pid)/status") && resident_gb(slot.os_pid) > RSS_LIMIT_GB
+                failed = any(r -> last_status(r) == MadNLPBenchmark.ERROR_STATUS, rows)
+                # a device context can be unusable after an error, such as running out of memory
+                if resident_gb(slot.os_pid) > RSS_LIMIT_GB || (failed && DEVICE == :cuda)
                     rmprocs(slot.pid; waitfor = 30)
-                    start_worker!(slot, chosen, options)
+                    restart(slot, chosen, options)
                 end
                 return rows
             end
             event isa Tuple && (size = event)
             event isa Pair && push!(rows, event)
-            last = time()
-        elseif time() - last > limit
+            now = time()
+            event === :solve && (TOKEN_TIME["waiting"] += now - last)
+            event === :released && (TOKEN_TIME["solving"] += now - last)
+            event === :waiting && (state = :waiting)
+            event === :solve && (state = :solving)
+            event === :released && (state = :working)
+            last = now
+        elseif state !== :waiting && time() - last > limit   # waiting for a GPU is not a hang
             @warn "$case: no progress for $(round(Int, limit)) s, killing worker $(slot.pid)"
-            run(ignorestatus(`kill -9 $(slot.os_pid)`))
-            try
-                rmprocs(slot.pid; waitfor = 0)
-            catch
-            end
-            start_worker!(slot, chosen, options)
-            finished = first.(rows)
-            return [rows; [c => MadNLPBenchmark.failure_row(case, MadNLPBenchmark.KILLED_STATUS, size) for c in todo if c ∉ finished]]
+            kill_worker(slot)
+            return replace_worker(MadNLPBenchmark.KILLED_STATUS)
+        elseif resident_gb(slot.os_pid) > KILL_MEMORY_FRACTION * Sys.total_memory() / 2^30 ||
+                (resident_gb(slot.os_pid) > RSS_LIMIT_GB && Sys.free_memory() < 0.05 * Sys.total_memory())
+            @warn "$case: worker $(slot.pid) uses $(round(Int, resident_gb(slot.os_pid))) GB, killing it"
+            kill_worker(slot)
+            return replace_worker(MadNLPBenchmark.KILLED_STATUS)
         elseif !(slot.pid in workers())   # the worker died on its own: a crash inside a library
             @warn "$case: worker $(slot.pid) died"
-            start_worker!(slot, chosen, options)
-            finished = first.(rows)
-            return [rows; [c => MadNLPBenchmark.failure_row(case, MadNLPBenchmark.ERROR_STATUS, size) for c in todo if c ∉ finished]]
+            return replace_worker(MadNLPBenchmark.ERROR_STATUS)
         else
             sleep(0.2)
         end
+    end
+    return
+end
+
+last_status(row) = last(row)[2]
+
+function kill_worker(slot)
+    run(ignorestatus(`kill -9 $(slot.os_pid)`))
+    try
+        rmprocs(slot.pid; waitfor = 0)
+    catch
+    end
+    return
+end
+
+# A new worker for the slot. A failure here must not end the run: the next case tries again.
+function restart(slot, chosen, options)
+    try
+        start_worker!(slot, chosen, options)
+    catch err
+        @warn "could not start a worker" exception = err
     end
     return
 end
@@ -131,7 +181,8 @@ function main()
     unknown = setdiff(chosen, available)
     isempty(unknown) || error("no configuration $(join(unknown, ", ")) on $DEVICE; available: $(join(available, ", "))")
     device_name = DEVICE == :cuda ? CUDA.name(CUDA.device()) : nothing
-    outdir = get(OPT, "out", joinpath(@__DIR__, "results", MadNLPBenchmark.hardware_tag(device_name)))
+    root = get(OPT, "root", joinpath(@__DIR__, "results"))
+    outdir = get(OPT, "out", joinpath(root, MadNLPBenchmark.hardware_tag(device_name)))
     options = (;
         tol = parse(Float64, OPT["tol"]), max_wall_time = parse(Float64, OPT["wall"]),
         print_level = "verbose" in FLAGS ? MadNLP.INFO : MadNLP.ERROR, rethrow_error = false,
@@ -168,11 +219,12 @@ function main()
     limit = wall + parse(Float64, get(OPT, "margin", string(max(120.0, 0.2 * wall))))
     meta["watchdog_s"] = limit
     run_benchmark(
-        sets, chosen; outdir, slots, meta, overwrite = "overwrite" in FLAGS,
+        sets, chosen; outdir, slots, meta, overwrite = "overwrite" in FLAGS, group = instance_group,
         meta_of = config -> Dict{String, Any}("config_options" => string(config_options[config])),
     ) do slot, set, case, todo
         solve_on(slot, set, case, todo, chosen, options, warmup, limit)
     end
+    DEVICE == :cuda && @info "GPU time: $(round(Int, TOKEN_TIME["solving"])) s in timed solves, $(round(Int, TOKEN_TIME["waiting"])) s of workers waiting"
     return
 end
 

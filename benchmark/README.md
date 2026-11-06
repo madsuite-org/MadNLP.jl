@@ -58,7 +58,8 @@ something new.
 | `--config=a,b` | `default` | the configurations to run |
 | `--device=cpu\|cuda` | `cpu` | where the models and the solver live |
 | `--workers=auto\|N` | `auto` | the number of processes that solve; see below |
-| `--out=DIR` | `results/<hardware>` | where the result files go; `<hardware>` is the CPU model or the GPU name |
+| `--root=DIR` | `benchmark/results` | where the per-machine result directories go |
+| `--out=DIR` | `<root>/<hardware>` | where the result files go; `<hardware>` is the CPU model or the GPU name |
 | `--only=case,...` | all | restrict a set to the named instances |
 | `--tol=1e-8` | `1e-8` | convergence tolerance |
 | `--wall=7200` | `7200` | wall limit of a solve, in seconds |
@@ -72,8 +73,8 @@ file is skipped.
 
 **Workers.** The instances of all the requested sets form one queue, handed out to worker
 processes. On a CUDA device there is one worker per GPU, each with its own GPU. On the host,
-`auto` follows the size of the machine: 80% of the physical cores, limited to as many workers
-at their 8 GB memory limit as fit in half of the memory. Workers that run side by side on the host share its
+`auto` follows the size of the machine: 75% of the physical cores, limited to 3 GB per worker
+out of 75% of the memory. Workers that run side by side on the host share its
 memory channels and slow each other down somewhat, so use `--workers=1` for the cleanest host
 timings. Each worker has a heap-size hint of 6 GB and is replaced between cases if it grows
 past 8 GB. The number of workers is recorded in the metadata.
@@ -81,7 +82,8 @@ past 8 GB. The number of workers is recorded in the metadata.
 **Wall limit.** MadNLP checks `max_wall_time` between iterations, so one long factorization
 or evaluation can overrun it. The coordinating process therefore kills a worker when a build
 or a solve has run for the wall limit plus a margin (`--margin`, by default the larger of
-120 s and 20% of the limit), records the instance with status `-100`, and starts a new worker.
+120 s and 20% of the limit), records the instance with status `-100`, and starts a new worker. A worker that passes 40% of
+the machine's memory during a solve is treated the same way.
 
 **CUTEst.** On the host the problems are decoded once, before the workers start, and the
 decoded files stay in CUTEst.jl's directory for later runs.
@@ -95,8 +97,10 @@ decoded files stay in CUTEst.jl's directory for later runs.
   last iterate, is a failure.
 - **Time.** The recorded time is MadNLP's total time of one solve, with the initialization,
   the linear solver and the function evaluations also recorded separately.
-- **Compilation.** No recorded solve includes compilation. Julia's compilation time is
-  measured around every solve, and a solve during which Julia compiled is repeated; an
+- **Compilation.** No recorded solve includes compilation. The callbacks of an ExaModel are
+  compiled after the model is built, outside the timed region. Instances of one COPS model go
+  to one worker, so that they are compiled once. Julia's compilation time is then measured
+  around every solve, and a solve during which Julia compiled is repeated; an
   instance is also solved a second time when its model type is new to the configuration in
   that process, because the kernels of a device are compiled outside Julia's timer. The
   column `t_compile` is the compilation time of the recorded solve and `n_solves` the number
