@@ -136,8 +136,9 @@ const MAX_SOLVES = 3
 function timed_solve(m, kwargs)
     Base.cumulative_compile_timing(true)
     before = Base.cumulative_compile_time_ns()[1]
+    run_solver = get(kwargs, :solver, madnlp)
     stats = try
-        madnlp(m; kwargs...)
+        run_solver(m; (k => v for (k, v) in pairs(kwargs) if k != :solver)...)
     finally
         Base.cumulative_compile_timing(false)
     end

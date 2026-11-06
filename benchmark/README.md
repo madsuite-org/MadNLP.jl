@@ -45,6 +45,7 @@ something new.
 | configuration | device | KKT system | linear solver |
 |:---|:---|:---|:---|
 | `default` | cpu | MadNLP's default (`SparseKKTSystem`) | MadNLP's default (MUMPS) |
+| `ipopt` | cpu | Ipopt's own | Ipopt's default (MUMPS), as a baseline; no time breakdown or factorization counts |
 | `condensed_cholmod` | cpu | `SparseCondensedKKTSystem` | CHOLMOD |
 | `augmented_ma27`, `augmented_ma57` | cpu | `SparseKKTSystem` | MA27, MA57; only with a licensed HSL_jll |
 | `default` | cuda | MadNLPGPU's default (`SparseCondensedKKTSystem`) | cuDSS |
@@ -141,6 +142,17 @@ that their times are not comparable.
 
 `archive.jl [DIR]` archives the result files of `DIR` (default `benchmark/results`) under
 the commit recorded in their metadata.
+
+## Plots
+
+`benchmark/plots` is a separate environment, so that Plots stays out of a benchmark run. It
+draws one performance profile of the solve time per set, with a curve per directory and
+configuration:
+
+```sh
+julia --project=benchmark/plots -e 'using Pkg; Pkg.instantiate()'
+julia --project=benchmark/plots benchmark/plots/profiles.jl benchmark/results/*/ --out=profiles
+```
 
 ## By hand
 

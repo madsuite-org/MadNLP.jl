@@ -2,7 +2,7 @@
 # and the configurations. `DEVICE` (`:cpu` or `:cuda`) and `SET_NAMES` are defined by run.jl
 # before this file is included, on this process and on every worker.
 
-using MadNLP, MadNLPHSL, ExaModels, ExaModelsPower, COPSBenchmark, ExaMittelmann
+using MadNLP, MadNLPHSL, ExaModels, ExaModelsPower, COPSBenchmark, ExaMittelmann, NLPModels, NLPModelsIpopt
 # CUTEst: the compiled SIF decoders of CUTEst.jl on the host, ExaCUTEst models on a device
 "cutest" in SET_NAMES && (DEVICE == :cuda ? (@eval using ExaCUTEst) : (@eval using CUTEst))
 DEVICE == :cuda && @eval using CUDA, CUDSS, MadNLPGPU
