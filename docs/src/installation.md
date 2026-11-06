@@ -13,9 +13,10 @@ On NVIDIA GPUs, install cuMadNLP:
 ```julia
 pkg> add cuMadNLP
 ```
-On AMD GPUs, install rocMadNLP:
+On AMD GPUs, install rocMadNLP. It uses SparseDirectSolver.jl as its default linear solver,
+needs Julia 1.13, and is not registered yet, so add it from the repository:
 ```julia
-pkg> add rocMadNLP
+pkg> add https://github.com/madsuite-org/MadNLP.jl:rocMadNLP
 ```
 Both load MadNLPCore and set the default options for models whose data live on the GPU.
 They do not load MadNLP, so they bring no CPU linear solver: load MadNLP as well to solve

@@ -5,9 +5,9 @@ function MadNLPCore.MadNLPOptions{T}(
     dense_callback = MadNLPCore.is_dense_callback(nlp),
     callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
     kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.SparseCondensedKKTSystem,
-    linear_solver = LapackROCmSolver,
+    linear_solver = dense_callback ? LapackROCmSolver : SDSSolver,
     tol = MadNLPCore.get_tolerance(T,kkt_system),
-    bound_relax_factor = tol,
+    bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
 ) where {T, VT <: ROCVector{T}}
     return MadNLPCore.MadNLPOptions{T}(
         tol = tol,
