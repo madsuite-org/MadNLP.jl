@@ -179,6 +179,16 @@ end
 
 full(rhs::PrimalVector) = rhs.values
 primal(rhs::PrimalVector) = rhs.values
+"""
+    variable(rhs::PrimalVector)
+
+Return the part of `rhs` associated with the variables of the model.
+"""
 variable(rhs::PrimalVector) = rhs.x
+"""
+    slack(rhs::PrimalVector)
+
+Return the part of `rhs` associated with the slacks.
+"""
 slack(rhs::PrimalVector) = rhs.s
 

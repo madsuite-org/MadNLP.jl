@@ -350,6 +350,11 @@ function mul!(w::AbstractKKTVector{T}, kkt::AbstractDenseKKTSystem, x::AbstractK
     return w
 end
 
+"""
+    mul_hess_blk!(wx, kkt, t)
+
+Store in `wx` the product of `t` with the Hessian block of `kkt`, including the diagonal `pr_diag`.
+"""
 function mul_hess_blk!(wx, kkt::Union{DenseKKTSystem,DenseCondensedKKTSystem}, t)
     n = size(kkt.hess, 1)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess, :L), @view(t[1:n]))

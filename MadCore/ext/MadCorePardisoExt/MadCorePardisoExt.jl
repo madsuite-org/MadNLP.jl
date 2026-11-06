@@ -2,9 +2,11 @@ module MadCorePardisoExt
 
 import MadCore
 import Pardiso
-for name in MadCore.internal_names()
+for name in MadCore.public_names()
     @eval import MadCore: $name
 end
+import Base: @kwdef
+import SparseArrays: SparseMatrixCSC
 
 include("pardiso.jl")
 

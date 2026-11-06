@@ -39,6 +39,7 @@ makedocs(
             "Callback wrappers" => "lib/callbacks.md",
             "KKT systems" => "lib/kkt.md",
             "Linear Solvers" => "lib/linear_solvers.md",
+            "MadCore public API" => "lib/madcore.md",
         ]
     ]
 )

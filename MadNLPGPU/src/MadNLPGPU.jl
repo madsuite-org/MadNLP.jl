@@ -9,7 +9,7 @@ module MadNLPGPU
 import MadCore, MadCoreGPU, cuMadNLP
 
 # Every name of MadCoreGPU resolves as `MadNLPGPU.name`, as before the split.
-for name in MadCore.internal_names(MadCoreGPU)
+for name in MadCore.defined_names(MadCoreGPU)
     name === :MadCore && continue
     @eval import MadCoreGPU: $name
 end

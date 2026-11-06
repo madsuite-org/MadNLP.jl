@@ -9,6 +9,12 @@ const AbstractSparseKKTSystem{T, VT, MT, QN} = Union{
 #=
     Generic sparse methods
 =#
+"""
+    build_hessian_structure(cb::SparseCallback, hessian_approximation)
+
+Return the row and column indices of the Hessian block of the KKT system. A quasi-Newton
+approximation only stores the diagonal.
+"""
 function build_hessian_structure(cb::SparseCallback, ::Type{<:ExactHessian})
     hess_I = create_array(cb, Int32, cb.nnzh)
     hess_J = create_array(cb, Int32, cb.nnzh)

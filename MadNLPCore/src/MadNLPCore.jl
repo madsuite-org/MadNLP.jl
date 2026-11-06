@@ -1,14 +1,21 @@
 module MadNLPCore
 
 import MadCore
-for name in MadCore.internal_names()
+for name in MadCore.public_names()
     @eval import MadCore: $name
 end
+import Base: @kwdef, copyto!, finalize, string
+import LinearAlgebra: axpy!, dot, norm
+import MadCore: SubVector, _get_primary_options, _set_aug_diagonal!
+import NLPModels
+import NLPModels: AbstractNLPModel, get_x0, obj
+import Printf: @sprintf
+import SolverCore: solve!
 
 export MadNLPSolver, MadNLPOptions, madnlp
 # MadNLPCore also exports what MadCore exports.
 for name in names(MadCore)
-    name === :MadCore && continue
+    (name === :MadCore || !Base.isexported(MadCore, name)) && continue
     @eval export $name
 end
 

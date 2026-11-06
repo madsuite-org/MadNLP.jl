@@ -1,3 +1,9 @@
+"""
+    eval_f_wrapper(solver::AbstractMadNLPSolver, x::PrimalVector)
+
+Return the objective at `x` as a minimization objective, with its scaling, and record the
+evaluation in the counters of `solver`.
+"""
 function eval_f_wrapper(solver::AbstractMadNLPSolver{T}, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
@@ -16,6 +22,11 @@ function eval_f_wrapper(solver::AbstractMadNLPSolver{T}, x::PrimalVector{T}) whe
     return obj_val
 end
 
+"""
+    eval_grad_f_wrapper!(solver::AbstractMadNLPSolver, f::PrimalVector, x::PrimalVector)
+
+Store in `f` the gradient of the objective of [`eval_f_wrapper`](@ref) at `x`.
+"""
 function eval_grad_f_wrapper!(solver::AbstractMadNLPSolver, f::PrimalVector{T}, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
@@ -36,6 +47,11 @@ function eval_grad_f_wrapper!(solver::AbstractMadNLPSolver, f::PrimalVector{T}, 
     return f
 end
 
+"""
+    eval_cons_wrapper!(solver::AbstractMadNLPSolver, c, x::PrimalVector)
+
+Store in `c` the residual of the constraints at `x`, including the slacks and the right-hand side.
+"""
 function eval_cons_wrapper!(solver::AbstractMadNLPSolver, c::AbstractVector{T}, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
@@ -54,6 +70,11 @@ function eval_cons_wrapper!(solver::AbstractMadNLPSolver, c::AbstractVector{T}, 
     return c
 end
 
+"""
+    eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector)
+
+Evaluate the Jacobian at `x` and store it in `kkt`.
+"""
 function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
@@ -74,6 +95,12 @@ function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem,
     return jac
 end
 
+"""
+    eval_lag_hess_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector, l; is_resto = false)
+
+Evaluate the Hessian of the Lagrangian at `(x, l)` and store it in `kkt`. With
+`is_resto = true`, the objective is dropped, as in the restoration phase.
+"""
 function eval_lag_hess_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector{T},l::AbstractVector{T};is_resto=false) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)

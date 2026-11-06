@@ -2,9 +2,12 @@ module MadCoreKrylovExt
 
 import MadCore
 import Krylov
-for name in MadCore.internal_names()
+for name in MadCore.public_names()
     @eval import MadCore: $name
 end
+import Base: @kwdef, copyto!, size
+import LinearAlgebra: ldiv!, mul!, norm
+import Printf: @sprintf
 
 include("krylov.jl")
 

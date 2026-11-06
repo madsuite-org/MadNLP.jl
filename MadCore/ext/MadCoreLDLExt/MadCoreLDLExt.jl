@@ -2,9 +2,13 @@ module MadCoreLDLExt
 
 import MadCore
 import LDLFactorizations
-for name in MadCore.internal_names()
+for name in MadCore.public_names()
     @eval import MadCore: $name
 end
+import Base: @kwdef, size
+import LinearAlgebra: ldiv!
+import MadCore: SubVector
+import SparseArrays: SparseMatrixCSC
 
 include("ldl.jl")
 

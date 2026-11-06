@@ -3,9 +3,11 @@ module MadCoreMUMPSExt
 import MadCore
 import MUMPS_seq_jll, OpenBLAS32_jll
 import LinearAlgebra: BLAS
-for name in MadCore.internal_names()
+for name in MadCore.public_names()
     @eval import MadCore: $name
 end
+import Base: @kwdef, finalize
+import SparseArrays: SparseMatrixCSC, nnz
 
 include("mumps.jl")
 
