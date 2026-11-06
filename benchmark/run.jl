@@ -9,7 +9,7 @@ using Distributed
 function parse_args(args)
     isempty(args) && error(
         "usage: run.jl <set>[,<set>...] [--config=a,b] [--device=cpu|cuda] [--workers=auto|N] [--workers-per-gpu=2] [--root=DIR] [--out=DIR] " *
-            "[--only=case,...] [--tol=1e-8] [--wall=7200] [--margin=S] [--no-warmup] [--overwrite] [--verbose]"
+            "[--only=case,...] [--tol=1e-8] [--wall=7200] [--margin=S] [--status-every=300] [--no-warmup] [--overwrite] [--verbose]"
     )
     opt = Dict{String, String}("device" => "cpu", "config" => "default", "tol" => "1e-8", "wall" => "7200", "workers" => "auto")
     flags = Set{String}()
@@ -55,6 +55,9 @@ mutable struct Slot
     os_pid::Int
     gpu::String
     token::Union{Nothing, RemoteChannel}   # one per GPU, see `solve_here`
+    case::String     # what the worker is on, for the status report
+    state::Symbol
+    since::Float64
 end
 
 # Seconds workers spent waiting for a GPU and seconds the GPUs spent in timed solves: if the
@@ -87,7 +90,7 @@ function start_workers(n, chosen, options)
     # the GPUs this process sees, by the names a worker can be restricted to
     gpus = DEVICE == :cuda ? split(get(ENV, "CUDA_VISIBLE_DEVICES", join(0:(length(CUDA.devices()) - 1), ",")), ",") : [""]
     tokens = Dict(gpu => (ch = RemoteChannel(() -> Channel{Int}(1)); put!(ch, 1); ch) for gpu in gpus if !isempty(gpu))
-    slots = [Slot(0, 0, String(gpus[mod1(i, length(gpus))]), get(tokens, gpus[mod1(i, length(gpus))], nothing)) for i in 1:n]
+    slots = [Slot(0, 0, String(gpus[mod1(i, length(gpus))]), get(tokens, gpus[mod1(i, length(gpus))], nothing), "", :starting, time()) for i in 1:n]
     @sync for slot in slots
         @async start_worker!(slot, chosen, options)
     end
@@ -100,6 +103,7 @@ end
 # what is known of it, and the configurations that finished before the kill keep their rows.
 function solve_on(slot, set, case, todo, chosen, options, warmup, limit)
     slot.pid in workers() || start_worker!(slot, chosen, options)   # a failed restart is retried here
+    slot.case, slot.state, slot.since = "$set/$case", :building, time()
     events = RemoteChannel(() -> Channel{Any}(Inf))
     remote_do(Main.solve_here, slot.pid, set, case, todo, options, warmup, events, slot.token)
     rows = Pair{String, Vector{Any}}[]
@@ -112,12 +116,16 @@ function solve_on(slot, set, case, todo, chosen, options, warmup, limit)
         state === :solving && slot.token !== nothing && !isready(slot.token) && put!(slot.token, 1)
         restart(slot, chosen, options)
         finished = first.(rows)
+        COMPLETED[] += 1
+        slot.case, slot.state, slot.since = "", :idle, time()
         return [rows; [c => MadNLPBenchmark.failure_row(case, status, size) for c in todo if c ∉ finished]]
     end
     while true
         if isready(events)
             event = take!(events)
             if event === :done
+                COMPLETED[] += 1
+                slot.case, slot.state, slot.since = "", :idle, time()
                 failed = any(r -> last_status(r) == MadNLPBenchmark.ERROR_STATUS, rows)
                 # a device context can be unusable after an error, such as running out of memory
                 if resident_gb(slot.os_pid) > RSS_LIMIT_GB || (failed && DEVICE == :cuda)
@@ -134,6 +142,7 @@ function solve_on(slot, set, case, todo, chosen, options, warmup, limit)
             event === :waiting && (state = :waiting)
             event === :solve && (state = :solving)
             event === :released && (state = :working)
+            event in (:waiting, :solve, :released) && ((slot.state, slot.since) = (state, now))
             last = now
         elseif state !== :waiting && time() - last > limit   # waiting for a GPU is not a hang
             @warn "$case: no progress for $(round(Int, limit)) s, killing worker $(slot.pid)"
@@ -155,6 +164,22 @@ function solve_on(slot, set, case, todo, chosen, options, warmup, limit)
 end
 
 last_status(row) = last(row)[2]
+
+const COMPLETED = Ref(0)
+
+# What every worker is on, longest first, so that a stall shows in the log while it happens.
+function report_status(slots, total, started)
+    lines = ["status after $(round(Int, (time() - started) / 60)) min: $(COMPLETED[]) of $total instances done"]
+    for slot in sort(slots; by = s -> s.since)
+        slot.state === :idle && continue
+        push!(lines, "  worker $(slot.pid): $(slot.state) $(slot.case) for $(round(Int, time() - slot.since)) s, $(round(resident_gb(slot.os_pid); digits = 1)) GB")
+    end
+    idle = count(s -> s.state === :idle, slots)
+    idle > 0 && push!(lines, "  $idle idle")
+    push!(lines, "  machine: $(round(Sys.free_memory() / 2^30; digits = 1)) GB of memory free, load $(round(Sys.loadavg()[1]; digits = 1))")
+    @info join(lines, "\n")
+    return
+end
 
 function kill_worker(slot)
     run(ignorestatus(`kill -9 $(slot.os_pid)`))
@@ -218,6 +243,13 @@ function main()
     wall = options.max_wall_time
     limit = wall + parse(Float64, get(OPT, "margin", string(max(120.0, 0.2 * wall))))
     meta["watchdog_s"] = limit
+    started = time()
+    every = parse(Float64, get(OPT, "status-every", "300"))
+    total = sum(length ∘ last, sets)
+    reporter = @async while true
+        sleep(every)
+        report_status(slots, total, started)
+    end
     run_benchmark(
         sets, chosen; outdir, slots, meta, overwrite = "overwrite" in FLAGS, group = instance_group,
         meta_of = config -> Dict{String, Any}("config_options" => string(config_options[config])),

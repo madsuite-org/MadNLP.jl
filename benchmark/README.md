@@ -64,6 +64,7 @@ something new.
 | `--tol=1e-8` | `1e-8` | convergence tolerance |
 | `--wall=7200` | `7200` | wall limit of a solve, in seconds |
 | `--margin=S` | larger of 120 s and 20% of the limit | how far past the limit a worker is killed |
+| `--status-every=300` | `300` | seconds between status reports in the log |
 | `--no-warmup` | | skip the discarded solves (see the protocol) |
 | `--overwrite` | | start the result files afresh instead of resuming |
 | `--verbose` | | print MadNLP's iteration log |
@@ -84,6 +85,10 @@ or evaluation can overrun it. The coordinating process therefore kills a worker 
 or a solve has run for the wall limit plus a margin (`--margin`, by default the larger of
 120 s and 20% of the limit), records the instance with status `-100`, and starts a new worker. A worker that passes 40% of
 the machine's memory during a solve is treated the same way.
+
+**Status.** Every five minutes the log gives the instances done and, per worker, the instance,
+its state (`building`, `waiting` for a GPU, `solving`, `working`) and for how long, longest
+first, with its memory. In CI these lines appear live in the step's log on GitHub.
 
 **CUTEst.** On the host the problems are decoded once, before the workers start, and the
 decoded files stay in CUTEst.jl's directory for later runs.
