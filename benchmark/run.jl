@@ -98,6 +98,36 @@ function start_worker!(slot::Slot, chosen, options)
     return slot
 end
 
+# Decode the problems in one more process, one after the other, while the workers solve the
+# sets ahead of CUTEst. `decoded` collects the names as they become safe to load.
+function decode_in_background(names, decoded)
+    try
+        pid = only(addprocs(1; exeflags = ["--project=$(Base.active_project())", "--startup-file=no"]))
+        push!(WORKER_PIDS, remotecall_fetch(getpid, pid))
+        remotecall_wait(Core.eval, pid, Main, :(const DEVICE = $(QuoteNode(DEVICE)); const SET_NAMES = $SET_NAMES))
+        remotecall_wait(Core.eval, pid, Main, :(include($(joinpath(@__DIR__, "session.jl")))))
+        progress = RemoteChannel(() -> Channel{String}(Inf))
+        remote_do(Main.decode_cutest, pid, names, progress)
+        for name in progress
+            push!(decoded, name)
+        end
+    catch err
+        @warn "decoding stopped" exception = err
+    end
+    return
+end
+
+# Wait for a problem to be decoded, or for the decoding to end: a problem it could not decode
+# then fails to load and is recorded as an error.
+function wait_decoded(slot, name, decoded, decoder)
+    name in decoded && return
+    slot.case, slot.state, slot.since = name, :decoding, time()
+    while name ∉ decoded && !istaskdone(decoder)
+        sleep(1)
+    end
+    return
+end
+
 function resident_gb(os_pid)
     isfile("/proc/$os_pid/status") || return 0.0
     try
@@ -267,8 +297,11 @@ function main()
         @info "set $set: $(length(cases)) instances, configurations $(join(chosen, ", "))"
         set => cases
     end
+    decoded = Set{String}()
+    decoder = nothing
     if "cutest" in SET_NAMES && DEVICE == :cpu
-        decode_cutest(["HS15"; last(only(s for s in sets if first(s) == "cutest"))])
+        decode_cutest(["HS15"])   # the problem a worker warms up on
+        decoder = @async decode_in_background(last(only(s for s in sets if first(s) == "cutest")), decoded)
     end
     slots = start_workers(worker_count(), chosen, options)
     @info "$(length(slots)) worker(s), results in $outdir"
@@ -293,6 +326,7 @@ function main()
         sets, chosen; outdir, slots, meta, overwrite = "overwrite" in FLAGS, group = instance_group,
         meta_of = config -> Dict{String, Any}("config_options" => string(config_options[config])),
     ) do slot, set, case, todo
+        set == "cutest" && decoder !== nothing && wait_decoded(slot, case, decoded, decoder)
         solve_on(slot, set, case, todo, chosen, options, warmup, limit)
     end
     report_status(slots, total, started, outdir, wall)

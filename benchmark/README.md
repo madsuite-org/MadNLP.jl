@@ -92,8 +92,9 @@ first, with its memory, followed by the solved counts and mean times so far. The
 is written to `summary.md` beside the result files. In CI it appears live in the step's log on
 GitHub.
 
-**CUTEst.** On the host the problems are decoded once, before the workers start, and the
-decoded files stay in CUTEst.jl's directory for later runs.
+**CUTEst.** On the host one more process decodes the problems, one after the other, while the
+workers solve the sets ahead of CUTEst, so list `cutest` last. The decoded files stay in
+CUTEst.jl's directory for later runs.
 
 ## Protocol
 

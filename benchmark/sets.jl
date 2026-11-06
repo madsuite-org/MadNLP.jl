@@ -49,17 +49,19 @@ function cops_case((model, args))
 end
 
 # CUTEst.jl decodes and compiles a problem in one directory of its installation, which two
-# processes cannot do at once, so run.jl decodes the problems first and workers only load them.
+# processes cannot do at once, so one process of run.jl decodes them and workers only load them.
 cutest_host_model(name) = CUTEst.CUTEstModel{Float64}(name; decode = false)
 cutest_decoded(name) = all(isfile, joinpath.(CUTEst.libsif_path, ["lib$(name)_double.so", "OUTSDIF_$name.d"]))
-function decode_cutest(names)
-    for name in filter(!cutest_decoded, names)
-        try
+function decode_cutest(names, progress = nothing)
+    for name in names
+        cutest_decoded(name) || try
             finalize(CUTEst.CUTEstModel{Float64}(name))
         catch err
             @warn "$name: could not be decoded" exception = err
         end
+        progress === nothing || put!(progress, name)
     end
+    progress === nothing || close(progress)
     return
 end
 
