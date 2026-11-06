@@ -77,6 +77,7 @@ function main(args)
         "--once" in args && return
         sleep(every)
     end
+    return
 end
 
 main(ARGS)
