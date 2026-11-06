@@ -6,10 +6,10 @@ name: benchmark
 # at the same time.
 #
 # - A pull request is benchmarked on request: add the `benchmark` label. The run starts once
-#   the `build` workflow has succeeded on the head commit. A comment on the pull request then
-#   gives the table of instances solved and shifted geometric mean times, and the comparison
-#   with the archived results of the base commit. A push to a labeled pull request is
-#   benchmarked again when its `build` run succeeds.
+#   the required jobs of the `build` workflow have succeeded on the head commit. While it runs,
+#   a comment shows the results so far; at the end it gives the comparison with the archived
+#   results of the base commit. A push stops the benchmark, and the new commit is benchmarked
+#   when its `build` run succeeds.
 # - A commit on master is benchmarked when its `build` run succeeds, and archived on the
 #   `benchmark-results` branch under <hardware>/<commit>/, which is what a pull request is
 #   compared with.
@@ -27,7 +27,7 @@ on:
     workflows: [build]
     types: [completed]
   pull_request:
-    types: [labeled]
+    types: [labeled, synchronize]
   workflow_dispatch:
     inputs:
       sets:
@@ -52,6 +52,19 @@ env:
   WALL: 900
 
 jobs:
+  # A push to a labeled pull request stops its benchmark at once, through the concurrency group
+  # of the `run` job; the benchmark of the new commit starts when `build` has succeeded on it.
+  stop:
+    if: >-
+      github.event.action == 'synchronize' &&
+      contains(github.event.pull_request.labels.*.name, 'benchmark')
+    concurrency:
+      group: benchmark-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "A new commit replaces the running benchmark of this pull request."
+
   # Decide whether to benchmark, and which commit: the label and the result of `build` are
   # both required for a pull request, in either order.
   gate:
@@ -100,7 +113,7 @@ jobs:
                   if (p && labeled(p)) { run = true; pr = String(p.number); base = p.base.sha; }
                 }
               }
-            } else if (context.eventName === 'pull_request') {
+            } else if (context.eventName === 'pull_request' && context.payload.action === 'labeled') {
               const p = context.payload.pull_request;
               if (context.payload.label.name === 'benchmark' && p.head.repo.full_name === full) {
                 commit = p.head.sha;
@@ -154,6 +167,8 @@ jobs:
         run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.Registry.update(); Pkg.instantiate()'
       - name: Check the machine
         run: |
+          # results a cancelled or lost run left behind
+          find "$(dirname "$KEEP")" -mindepth 1 -maxdepth 1 -mtime +7 -exec rm -rf {} + 2>/dev/null || true
           free -g; df -h "$HOME" .; nproc; nvidia-smi -L
           unset CUDA_VISIBLE_DEVICES
           for device in cpu cuda; do

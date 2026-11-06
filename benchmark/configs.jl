@@ -41,9 +41,9 @@ function configs(device::Symbol)
     if device == :cpu
         push!(c, "ipopt" => (; solver = run_ipopt))
         push!(c, "condensed_cholmod" => (; CONDENSED..., linear_solver = MadNLP.CHOLMODSolver))
-        if MadNLPHSL.HSL.LIBHSL_isfunctional()   # the registry's HSL_jll carries no solver
-            push!(c, "augmented_ma27" => (; linear_solver = MadNLPHSL.Ma27Solver))
-            push!(c, "augmented_ma57" => (; linear_solver = MadNLPHSL.Ma57Solver))
+        if HSL.LIBHSL_isfunctional()   # the registry's HSL_jll carries no solver
+            push!(c, "augmented_ma27" => (; linear_solver = MadNLP.Ma27Solver))
+            push!(c, "augmented_ma57" => (; linear_solver = MadNLP.Ma57Solver))
         end
     elseif device == :cuda
         # Bunch-Kaufman pivoting needs cuDSS's matching, which reads the matrix values: the
@@ -51,7 +51,7 @@ function configs(device::Symbol)
         # iteration, and a solve rejected by iterative refinement redoes the analysis
         push!(
             c, "augmented_cudss" => (;
-                kkt_system = MadNLP.SparseKKTSystem, linear_solver = MadNLPGPU.CUDSSSolver,
+                kkt_system = MadNLP.SparseKKTSystem, linear_solver = cuMadNLP.CUDSSSolver,
                 cudss_pivoting = true, cudss_pivot_type = 'B', cudss_matching = true, cudss_matching_alg = "algo6",
                 cudss_deferred_analysis = true, cudss_refactorization = false, cudss_reanalyze_on_improve = true,
             ),

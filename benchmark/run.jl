@@ -265,7 +265,7 @@ function madnlp_commit()
     root = dirname(@__DIR__)
     try
         sha = readchomp(`git -C $root rev-parse HEAD`)
-        return isempty(readchomp(`git -C $root status --porcelain -- src lib ext`)) ? sha : sha * "-dirty"
+        return isempty(readchomp(`git -C $root status --porcelain -- MadCore MadCoreGPU MadNLP MadNLPCore cuMadNLP`)) ? sha : sha * "-dirty"
     catch
         return "unknown"
     end

@@ -5,7 +5,7 @@ sets with a chosen solver configuration, records every solve in a CSV file, and 
 results of two commits. Use it to measure a change to MadNLP, a new KKT system, a new linear
 solver or a new option set against the current state of the solver.
 
-The environment in `Project.toml` takes MadNLP, MadNLPGPU and MadNLPHSL from this checkout
+The environment in `Project.toml` takes MadNLP, its core packages and cuMadNLP from this checkout
 through `[sources]`, so a benchmark always measures the code in the working tree. The problem
 packages that are not registered are pinned to a commit there, and the registered ones are
 bounded in `[compat]`, so that the instances and the software around MadNLP are the same from
@@ -187,8 +187,8 @@ julia --project=benchmark benchmark/archive.jl                               # a
   has succeeded on the head commit, the four sets run with the default configuration on the
   host and on the CUDA device, with a wall limit of 900 s per solve. A comment on the pull
   request then compares the pull request with `master`: the machines, the instances solved
-  and the shifted geometric mean times of both. A push to a labeled pull request is
-  benchmarked again.
+  and the shifted geometric mean times of both. A push to a labeled pull request
+  stops the running benchmark, and the new commit is benchmarked once its `build` has passed.
   While it runs, the comment shows the results so far, updated every half hour.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
