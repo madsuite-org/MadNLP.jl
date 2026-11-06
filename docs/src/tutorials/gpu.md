@@ -23,7 +23,7 @@ using CUDA
 
 MadNLP has been designed to run entirely on the GPU, without data exchange between
 the host and the device. We recommend implementing the model
-with the modeler [ExaModels](https://github.com/exanauts/ExaModels.jl) whenever possible.
+with the modeler [ExaModels](https://github.com/madsuite-org/ExaModels.jl) whenever possible.
 
 We import ExaModels as:
 ```@example gpu

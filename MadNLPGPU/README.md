@@ -1,10 +1,2 @@
-## Install
-
-```julia
-pkg> add MadNLPGPU
-```
-
-## Build
-
-To use MadNLPGPU, a CUDA-capable GPU is necessary.
-See [CUDA.jl repository](https://github.com/JuliaGPU/CUDA.jl) for more details.
+MadNLPGPU is deprecated. Use `cuMadNLP` on NVIDIA GPUs and `rocMadNLP` on AMD GPUs.
+MadNLPGPU loads cuMadNLP and keeps its names resolving for one release.
