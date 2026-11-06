@@ -100,6 +100,7 @@ mutable struct MadNLPSolver{
     output::Dict
 end
 
+include("kernels.jl")
 include("restoration.jl")
 include("inertiacorrector.jl")
 include("barrier.jl")

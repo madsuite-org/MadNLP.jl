@@ -10,7 +10,7 @@ struct MyLDL end
     nlp = HS15Model()
 
     @testset "Solver fields match the MadCore getters" begin
-        @test fieldnames(MadNLPSolver) == MadNLPCore.MadCore.SOLVER_FIELDS
+        @test Set(fieldnames(MadNLPSolver)) == Set((MadNLPCore.MadCore.SOLVER_FIELDS..., MadNLPCore.FILTER_FIELDS...))
     end
 
     @testset "Default sparse solver is DummySolver" begin
