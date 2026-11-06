@@ -150,6 +150,10 @@ jobs:
                   println(join(m.captures, " "))
               end' > legs.txt
           test -s legs.txt
+          # a runner may be restricted to one GPU; a benchmark uses every GPU of the machine
+          echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"
+          unset CUDA_VISIBLE_DEVICES
+          nvidia-smi -L
           # the legs run side by side; the run fails if one of them does
           pids=()
           while read -r device sets config; do
