@@ -17,7 +17,9 @@ On AMD GPUs, install rocMadNLP:
 ```julia
 pkg> add rocMadNLP
 ```
-Both load MadNLP and set the default options for models whose data live on the GPU.
+Both load MadNLPCore and set the default options for models whose data live on the GPU.
+They do not load MadNLP, so they bring no CPU linear solver: load MadNLP as well to solve
+a model on the CPU or to use `MadNLP.Optimizer` with JuMP.
 MadNLPGPU is deprecated and loads cuMadNLP.
 
 ## HSL linear solvers

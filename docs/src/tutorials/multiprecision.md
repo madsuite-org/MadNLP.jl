@@ -22,7 +22,7 @@ arbitrary precision to get more accurate solution.
     leverage the flexibility offered by [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl).
     In particular, we recommend:
     - [CUTEst.jl](https://github.com/JuliaSmoothOptimizers/CUTEst.jl/): supports `Float32`, `Float64` and `Float128`.
-    - [ExaModels](https://github.com/exanauts/ExaModels.jl): supports `AbstractFloat`.
+    - [ExaModels](https://github.com/madsuite-org/ExaModels.jl): supports `AbstractFloat`.
 
 ## Defining a problem in arbitrary precision
 

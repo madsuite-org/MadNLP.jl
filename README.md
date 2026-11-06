@@ -45,11 +45,13 @@ MadNLP can be installed directly via the Julia package manager:
 ```julia
 pkg> add MadNLP
 ```
-For GPUs, install `cuMadNLP` (NVIDIA) or `rocMadNLP` (AMD). The HSL linear solvers are
+For GPUs, install `cuMadNLP` (NVIDIA) or `rocMadNLP` (AMD). They do not load MadNLP, so
+load it as well to solve a model on the CPU or to use JuMP. The HSL linear solvers are
 available in MadNLP once a licensed HSL library is installed; the Pardiso and Krylov.jl
 solvers become available when Pardiso.jl or Krylov.jl is loaded alongside MadNLP.
 
-This repository contains the packages:
+This repository contains the packages below. All of them except `MadNLPTests` share one
+version number and are released together.
 
 | Package | Role |
 |:---|:---|

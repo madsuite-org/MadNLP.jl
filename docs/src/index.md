@@ -27,7 +27,7 @@ No other structure is assumed _a priori_.
 
 MadNLP is built on top of [NLPModels.jl](https://github.com/JuliaSmoothOptimizers/NLPModels.jl/),
 a generic package to represent optimization models in Julia. In addition,
-MadNLP is interfaced with [ExaModels](https://github.com/exanauts/ExaModels.jl),
+MadNLP is interfaced with [ExaModels](https://github.com/madsuite-org/ExaModels.jl),
 [JuMP](https://github.com/jump-dev/JuMP.jl) and [Plasmo](https://github.com/zavalab/Plasmo.jl).
 
 
