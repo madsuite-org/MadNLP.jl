@@ -38,7 +38,9 @@ jobs:
         run: |
           using Pkg
           Pkg.Registry.update()
-          Pkg.test(coverage=true)
+          # coverage=true tracks MadNLP alone, but these tests are what exercise
+          # MadCore and MadNLPCore, so track the whole repository.
+          Pkg.test(coverage="@" * pwd())
       - uses: julia-actions/julia-processcoverage@v1
         with:
           directories: MadNLP/src,MadNLP/ext,MadCore/src,MadCore/ext,MadNLPCore/src
