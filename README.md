@@ -8,6 +8,7 @@
 [![build](https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml/badge.svg)](https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/madsuite-org/MadNLP.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/madsuite-org/MadNLP.jl)
 [![release](https://img.shields.io/github/v/release/madsuite-org/MadNLP.jl)](https://github.com/madsuite-org/MadNLP.jl/releases)
+[![arXiv](https://img.shields.io/badge/arXiv-2405.14236-b31b1b.svg)](https://arxiv.org/abs/2405.14236)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6335552.svg)](https://doi.org/10.5281/zenodo.6335552)
 
 ## Quickstart
