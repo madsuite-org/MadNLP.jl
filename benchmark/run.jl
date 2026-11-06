@@ -84,7 +84,8 @@ const TOKEN_TIME = Dict("waiting" => 0.0, "solving" => 0.0)
 
 # A worker does not reliably notice that this process has gone, so it is stopped on the way out.
 const WORKER_PIDS = Int[]
-atexit(() -> foreach(pid -> run(ignorestatus(`kill -9 $pid`)), WORKER_PIDS))
+# With a direct system call: `run` can hang here when the exit comes from a signal.
+atexit(() -> foreach(pid -> ccall(:kill, Cint, (Cint, Cint), pid, 9), WORKER_PIDS))
 
 function start_worker!(slot::Slot, chosen, options)
     slot.pid = only(addprocs(1; exeflags = ["--project=$(Base.active_project())", "--startup-file=no", "--heap-size-hint=$HEAP_HINT"]))
