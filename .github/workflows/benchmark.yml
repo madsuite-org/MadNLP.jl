@@ -128,7 +128,7 @@ jobs:
     concurrency:
       group: benchmark-${{ needs.gate.outputs.pr != '' && format('pr-{0}', needs.gate.outputs.pr) || github.event_name == 'workflow_run' && 'master' || github.run_id }}
       cancel-in-progress: ${{ needs.gate.outputs.pr != '' }}
-    runs-on: [self-hosted, benchmark]
+    runs-on: benchmark
     timeout-minutes: 1440
     steps:
       - uses: actions/checkout@v4
