@@ -14,7 +14,7 @@ end
 
 # Version info
 version() = string(pkgversion(@__MODULE__))
-introduce() = "\033[34mMad\033[31mN\033[32mL\033[35mP\033[0mCore version v$(version())"
+introduce() = "\033[34mMad\033[31mN\033[32mL\033[35mP\033[0m version v$(version())"
 
 include(joinpath("IPM", "IPM.jl"))
 include("precompile_models.jl")

@@ -1,6 +1,6 @@
 name = "cuMadNLP"
 uuid = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
-version = "0.1.0"
+version = "0.12.0"
 
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
@@ -23,9 +23,9 @@ MadNLPCore = {path = "../MadNLPCore"}
 CUDA = "6"
 CUDACore = "6"
 CUDSS = "1.0"
-MadCore = "0.1"
-MadCoreGPU = "0.1"
-MadNLPCore = "0.1"
+MadCore = "=0.12.0"
+MadCoreGPU = "=0.12.0"
+MadNLPCore = "=0.12.0"
 PrecompileTools = "1.2"
 cuBLAS = "6"
 cuSOLVER = "6"

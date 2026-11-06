@@ -1,6 +1,6 @@
 name = "MadCore"
 uuid = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
-version = "0.1.0"
+version = "0.12.0"
 
 [deps]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"

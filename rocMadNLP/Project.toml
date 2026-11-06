@@ -1,6 +1,6 @@
 name = "rocMadNLP"
 uuid = "ba41df3d-a82f-4c16-9206-08582776670d"
-version = "0.1.0"
+version = "0.12.0"
 
 [deps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
@@ -16,9 +16,9 @@ MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]
 AMDGPU = "2.10"
-MadCore = "0.1"
-MadCoreGPU = "0.1"
-MadNLPCore = "0.1"
+MadCore = "=0.12.0"
+MadCoreGPU = "=0.12.0"
+MadNLPCore = "=0.12.0"
 PrecompileTools = "1.2"
 Test = "1.10"
 julia = "1.10"

@@ -1,6 +1,6 @@
 name = "MadCoreGPU"
 uuid = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
-version = "0.1.0"
+version = "0.12.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
@@ -37,7 +37,7 @@ CUDSS = "1.0"
 GPUArraysCore = "0.2"
 KernelAbstractions = "0.10"
 LinearAlgebra = "1.10"
-MadCore = "0.1"
+MadCore = "=0.12.0"
 Metis = "1"
 SparseArrays = "1.10"
 cuBLAS = "6"
