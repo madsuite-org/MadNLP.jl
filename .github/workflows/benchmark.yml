@@ -126,8 +126,11 @@ jobs:
   run:
     needs: gate
     if: needs.gate.outputs.run == 'true'
+    # pull-requests: to post the results so far. The gate admits branches of this repository
+    # only, whose authors can write to it anyway.
     permissions:
       contents: read
+      pull-requests: write
     # One run at a time per pull request (a newer request replaces it) and one at a time for
     # master.
     concurrency:
@@ -161,6 +164,9 @@ jobs:
       - name: Run
         env:
           MATRIX: ${{ needs.gate.outputs.matrix }}
+          PROGRESS_TOKEN: ${{ github.token }}
+          PR: ${{ needs.gate.outputs.pr }}
+          COMMIT: ${{ needs.gate.outputs.commit }}
         run: |
           echo "$MATRIX" | julia --startup-file=no -e '
               for m in eachmatch(r"\{\"device\":\"([^\"]*)\",\"sets\":\"([^\"]*)\",\"config\":\"([^\"]*)\"\}", read(stdin, String))
@@ -171,6 +177,13 @@ jobs:
           echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"
           unset CUDA_VISIBLE_DEVICES
           nvidia-smi -L
+          # the results so far go to the pull request every half hour; only this process gets the token
+          mkdir -p "$KEEP"
+          if [ -n "$PR" ]; then
+            GH_TOKEN="$PROGRESS_TOKEN" julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --wall=$WALL < /dev/null &
+            progress=$!
+          fi
+          unset PROGRESS_TOKEN
           # the legs run side by side; the run fails if one of them does
           pids=()
           while read -r device sets config; do
@@ -180,6 +193,7 @@ jobs:
           done < legs.txt
           rc=0
           for pid in "${pids[@]}"; do wait "$pid" || rc=1; done
+          [ -z "${progress:-}" ] || kill "$progress"
           exit $rc
       - name: Collect the results
         if: always()
