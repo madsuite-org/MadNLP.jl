@@ -13,9 +13,13 @@ AbstractLinearSolver
 introduce
 factorize!
 solve_linear_system!
+is_factorized
 is_inertia
 inertia
 ```
+
+A new linear solver also implements [`create_linear_solver`](@ref), `default_options`,
+`input_type` and `is_supported`, which are called with its type.
 
 ## Selecting a linear solver
 The sparse linear solvers are implemented in package extensions. Each is selected

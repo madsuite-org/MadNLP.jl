@@ -1,4 +1,4 @@
-![logo](https://github.com/madsuite-org/MadNLP.jl/blob/master/logo-full.svg)
+# MadNLP.jl
 
 *A [nonlinear programming](https://en.wikipedia.org/wiki/Nonlinear_programming) solver based on the filter line-search [interior point method](https://en.wikipedia.org/wiki/Interior-point_method) (as in [Ipopt](https://github.com/coin-or/Ipopt)) that can handle/exploit diverse classes of data structures, either on [host](https://en.wikipedia.org/wiki/Central_processing_unit) or [device](https://en.wikipedia.org/wiki/Graphics_processing_unit) memories.*
 
@@ -45,11 +45,13 @@ MadNLP can be installed directly via the Julia package manager:
 ```julia
 pkg> add MadNLP
 ```
-For GPUs, install `cuMadNLP` (NVIDIA) or `rocMadNLP` (AMD). The HSL linear solvers are
+For GPUs, install `cuMadNLP` (NVIDIA) or `rocMadNLP` (AMD). They do not load MadNLP, so
+load it as well to solve a model on the CPU or to use JuMP. The HSL linear solvers are
 available in MadNLP once a licensed HSL library is installed; the Pardiso and Krylov.jl
 solvers become available when Pardiso.jl or Krylov.jl is loaded alongside MadNLP.
 
-This repository contains the packages:
+This repository contains the packages below. All of them except `MadNLPTests` share one
+version number and are released together.
 
 | Package | Role |
 |:---|:---|
