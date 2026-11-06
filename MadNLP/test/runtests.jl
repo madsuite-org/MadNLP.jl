@@ -29,4 +29,6 @@ import SparseArrays: sparse
         # MKL Pardiso was not tested in CI before; enable once its tests pass.
         # include("pardiso_test.jl")
     end
+
+    include("zero_compile_test.jl")
 end # @testset
