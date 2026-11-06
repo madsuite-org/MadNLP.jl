@@ -1,7 +1,7 @@
 # Post the results so far as a comment on a pull request, and keep updating that comment. The
 # publishing job of the workflow later replaces it with the final comparison, by the same marker.
 #
-#     julia --project=benchmark benchmark/progress.jl ROOT [--every=1800] [--wall=7200] [--once]
+#     julia --project=benchmark benchmark/progress.jl ROOT [--every=600] [--wall=7200] [--once]
 #
 # ROOT holds one directory of result files per machine. The environment gives PR, COMMIT,
 # GITHUB_REPOSITORY and GH_TOKEN. Runs until it is stopped; a failed update only skips a turn.
@@ -33,22 +33,29 @@ end
 
 # The id of an earlier comment of this workflow on the pull request, if any.
 function find_comment(repo, pr)
-    response = IOBuffer()
-    Downloads.request(
-        "$API/repos/$repo/issues/$pr/comments?per_page=100"; output = response,
-        headers = ["Authorization" => "Bearer $(ENV["GH_TOKEN"])", "Accept" => "application/vnd.github+json"],
-    )
-    text = String(take!(response))
-    at = findfirst(MARKER, text)
-    at === nothing && return nothing
-    ids = collect(eachmatch(r"\"id\":\s*([0-9]+),\s*\"node_id\":\s*\"IC_", text[1:first(at)]))
-    return isempty(ids) ? nothing : ids[end][1]
+    page = 1
+    while true
+        response = IOBuffer()
+        Downloads.request(
+            "$API/repos/$repo/issues/$pr/comments?per_page=100&page=$page"; output = response,
+            headers = ["Authorization" => "Bearer $(ENV["GH_TOKEN"])", "Accept" => "application/vnd.github+json"],
+        )
+        text = String(take!(response))
+        at = findfirst(MARKER, text)
+        if at !== nothing
+            ids = collect(eachmatch(r"\"id\":\s*([0-9]+),\s*\"node_id\":\s*\"IC_", text[1:first(at)]))
+            return isempty(ids) ? nothing : ids[end][1]
+        end
+        occursin("\"node_id\"", text) || return nothing
+        page += 1
+    end
+    return
 end
 
 function body(root, commit, wall)
     out = IOBuffer()
     println(out, MARKER)
-    println(out, "## MadNLP benchmark of `$commit`: in progress\n")
+    println(out, "## MadNLP benchmark of `$(first(commit, 8))`: in progress\n")
     println(out, "Results so far, updated ", Dates.format(now(UTC), "yyyy-mm-dd HH:MM"), " UTC. The counts cover the instances finished so far.\n")
     for dir in sort!(readdir(root; join = true))
         isdir(dir) && !isempty(result_files(dir)) && summarize(out, dir; wall)
@@ -59,7 +66,7 @@ end
 function main(args)
     root = first(args)
     opt(name, default) = (i = findfirst(startswith("--$name="), args); i === nothing ? default : parse(Float64, split(args[i], "=")[2]))
-    every, wall = opt("every", 1800.0), opt("wall", 7200.0)
+    every, wall = opt("every", 600.0), opt("wall", 7200.0)
     repo, pr, commit = ENV["GITHUB_REPOSITORY"], ENV["PR"], ENV["COMMIT"]
     while true
         try

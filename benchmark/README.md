@@ -56,7 +56,7 @@ something new.
 | option | default | meaning |
 |:---|:---|:---|
 | `--config=a,b` | `default` | the configurations to run |
-| `--device=cpu\|cuda` | `cpu` | where the models and the solver live |
+| `--device=cpu\|cuda\|cpu,cuda` | `cpu` | where the models and the solver live; `cpu,cuda` runs both side by side, each with its own result directory |
 | `--workers=auto\|N` | `auto` | the number of processes that solve; see below |
 | `--root=DIR` | `benchmark/results` | where the per-machine result directories go |
 | `--out=DIR` | `<root>/<hardware>` | where the result files go; `<hardware>` is the CPU model or the GPU name |
@@ -64,7 +64,7 @@ something new.
 | `--tol=1e-8` | `1e-8` | convergence tolerance |
 | `--wall=7200` | `7200` | wall limit of a solve, in seconds |
 | `--margin=S` | larger of 120 s and 20% of the limit | how far past the limit a worker is killed |
-| `--status-every=300` | `300` | seconds between status reports in the log |
+| `--status-every=600` | `600` | seconds between status reports |
 | `--no-warmup` | | skip the discarded solves (see the protocol) |
 | `--overwrite` | | start the result files afresh instead of resuming |
 | `--verbose` | | print MadNLP's iteration log |
@@ -73,9 +73,9 @@ A run that is interrupted is resumed by the same command: an instance already in
 file is skipped.
 
 **Workers.** The instances of all the requested sets form one queue, handed out to worker
-processes. On a CUDA device there is one worker per GPU, each with its own GPU. On the host,
-`auto` follows the size of the machine: 75% of the physical cores, limited to 3 GB per worker
-out of 75% of the memory. Workers that run side by side on the host share its
+processes. On a CUDA device there are two workers per GPU (`--workers-per-gpu`), of which one solves at a time while the other builds its next model. On the host,
+`auto` follows what the process may use, a batch job's allocation included: 75% of the physical
+cores, limited to 3 GB per worker out of 75% of the memory. Workers that run side by side on the host share its
 memory channels and slow each other down somewhat, so use `--workers=1` for the cleanest host
 timings. Each worker has a heap-size hint of 6 GB and is replaced between cases if it grows
 past 8 GB. The number of workers is recorded in the metadata.
@@ -86,9 +86,11 @@ or a solve has run for the wall limit plus a margin (`--margin`, by default the 
 120 s and 20% of the limit), records the instance with status `-100`, and starts a new worker. A worker that passes 40% of
 the machine's memory during a solve is treated the same way.
 
-**Status.** Every five minutes the log gives the instances done and, per worker, the instance,
+**Status.** Every ten minutes the log gives the instances done and, per worker, the instance,
 its state (`building`, `waiting` for a GPU, `solving`, `working`) and for how long, longest
-first, with its memory. In CI these lines appear live in the step's log on GitHub.
+first, with its memory, followed by the solved counts and mean times so far. The same report
+is written to `summary.md` beside the result files. In CI it appears live in the step's log on
+GitHub.
 
 **CUTEst.** On the host the problems are decoded once, before the workers start, and the
 decoded files stay in CUTEst.jl's directory for later runs.
@@ -168,14 +170,24 @@ julia --project=benchmark/plots benchmark/plots/profiles.jl benchmark/results/*/
 Everything CI does can be done from a checkout:
 
 ```sh
-julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest               # host
-julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cuda # device
+julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cpu,cuda   # host and device, side by side
 
 julia --project=benchmark benchmark/summary.jl                               # the tables
 julia --project=benchmark benchmark/compare.jl master benchmark/results > comparison.md
 gh pr comment <number> --body-file comparison.md                             # post it on a pull request
 
 julia --project=benchmark benchmark/archive.jl                               # archive (needs push access)
+```
+
+The command fills the machine as CI does: workers follow the cores, the memory and the GPUs the
+process can use, with the same limits, kills and resuming. In a batch job it follows the
+allocation, so that one script is enough, and resubmitting it resumes the run:
+
+```sh
+#!/bin/bash
+#SBATCH --nodes=1 --cpus-per-task=40 --mem=128G --gres=gpu:2 --time=24:00:00
+julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
+julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cpu,cuda
 ```
 
 ## CI
@@ -188,7 +200,7 @@ julia --project=benchmark benchmark/archive.jl                               # a
   request then compares the pull request with `master`: the machines, the instances solved
   and the shifted geometric mean times of both. A push to a labeled pull request
   stops the running benchmark and starts one on the new commit.
-  While it runs, the comment shows the results so far, updated every half hour.
+  While it runs, the comment shows the results so far, updated every ten minutes.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on

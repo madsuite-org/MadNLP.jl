@@ -19,6 +19,8 @@ using Printf, TOML
 const ARCHIVE_BRANCH = "benchmark-results"
 const ROOT = dirname(@__DIR__)
 git(args...) = readchomp(`git -C $ROOT $args`)
+# a full commit hash as it is shown; any other revision as it is
+short(rev) = occursin(r"^[0-9a-f]{40}$", rev) ? rev[1:8] : rev
 
 # The results of one side: per (device, set, config) the rows by case, the machines per
 # device, and what to call it.
@@ -72,7 +74,7 @@ function from_archive(rev; depth = 200)
     commits = unique!(sort!(collect(values(used))))
     label = join(
         map(commits) do sha
-            name = sha == target ? "`$(sha[1:8])`" : "`$(sha[1:8])`, the nearest archived ancestor of `$rev`"
+            name = sha == target ? "`$(sha[1:8])`" : "`$(sha[1:8])`, the nearest archived ancestor of `$(short(rev))`"
             length(commits) == 1 ? name : name * " (" * join(sort!([d for (d, c) in used if c == sha]), ", ") * ")"
         end, "; ",
     )
@@ -160,7 +162,7 @@ function main(args)
     cand === nothing && error("no results for $(pos[2])")
     if base === nothing
         println("## MadNLP benchmark\n")
-        println("Results of ", cand.label, ". The archive has no results for `", pos[1], "` or its ancestors to compare them with.\n")
+        println("Results of ", cand.label, ". The archive has no results for `", short(pos[1]), "` or its ancestors to compare them with.\n")
         report(stdout, cand; wall)
     else
         compare(stdout, base, cand; wall, threshold = parse(Float64, opt["threshold"]))

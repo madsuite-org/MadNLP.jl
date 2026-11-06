@@ -36,7 +36,7 @@ on:
         description: 'Configurations, comma-separated (see benchmark/configs.jl)'
         default: 'default'
       device:
-        description: 'cpu or cuda'
+        description: 'cpu, cuda, or cpu,cuda for both side by side'
         default: 'cuda'
       archive:
         description: 'Archive the results on the benchmark-results branch'
@@ -63,7 +63,9 @@ jobs:
       pr: ${{ steps.decide.outputs.pr }}
       base: ${{ steps.decide.outputs.base }}
       archive: ${{ steps.decide.outputs.archive }}
-      matrix: ${{ steps.decide.outputs.matrix }}
+      sets: ${{ steps.decide.outputs.sets }}
+      config: ${{ steps.decide.outputs.config }}
+      device: ${{ steps.decide.outputs.device }}
     steps:
       - id: decide
         uses: actions/github-script@v7
@@ -77,15 +79,11 @@ jobs:
             const { owner, repo } = context.repo;
             const full = `${owner}/${repo}`;
             let run = false, commit = '', pr = '', base = '', archive = false;
-            // the legs of a run, executed side by side
-            let matrix = [
-              { device: 'cpu', sets: 'acopf,cops,mittelmann,cutest', config: 'default' },
-              { device: 'cuda', sets: 'acopf,cops,mittelmann,cutest', config: 'default' },
-            ];
+            let sets = 'acopf,cops,mittelmann,cutest', config = 'default', device = 'cpu,cuda';
             const labeled = p => p.labels.some(l => l.name === 'benchmark');
             if (context.eventName === 'workflow_dispatch') {
               run = true; commit = context.sha; archive = process.env.INPUT_ARCHIVE === 'true';
-              matrix = [{ device: process.env.INPUT_DEVICE, sets: process.env.INPUT_SETS, config: process.env.INPUT_CONFIG }];
+              sets = process.env.INPUT_SETS; config = process.env.INPUT_CONFIG; device = process.env.INPUT_DEVICE;
             } else if (context.eventName === 'workflow_run') {
               const wr = context.payload.workflow_run;
               if (wr.conclusion === 'success' && wr.head_repository.full_name === full) {
@@ -104,7 +102,7 @@ jobs:
             core.info(`run=${run} commit=${commit} pr=${pr} base=${base} archive=${archive}`);
             core.setOutput('run', String(run)); core.setOutput('commit', commit); core.setOutput('pr', pr);
             core.setOutput('base', base); core.setOutput('archive', String(archive));
-            core.setOutput('matrix', JSON.stringify(matrix));
+            core.setOutput('sets', sets); core.setOutput('config', config); core.setOutput('device', device);
 
   run:
     needs: gate
@@ -148,36 +146,27 @@ jobs:
           done
       - name: Run
         env:
-          MATRIX: ${{ needs.gate.outputs.matrix }}
+          SETS: ${{ needs.gate.outputs.sets }}
+          CONFIG: ${{ needs.gate.outputs.config }}
+          DEVICE: ${{ needs.gate.outputs.device }}
           PROGRESS_TOKEN: ${{ github.token }}
           PR: ${{ needs.gate.outputs.pr }}
           COMMIT: ${{ needs.gate.outputs.commit }}
         run: |
-          echo "$MATRIX" | julia --startup-file=no -e '
-              for m in eachmatch(r"\{\"device\":\"([^\"]*)\",\"sets\":\"([^\"]*)\",\"config\":\"([^\"]*)\"\}", read(stdin, String))
-                  println(join(m.captures, " "))
-              end' > legs.txt
-          test -s legs.txt
           # a runner may be restricted to one GPU; a benchmark uses every GPU of the machine
           echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"
           unset CUDA_VISIBLE_DEVICES
           nvidia-smi -L
-          # the results so far go to the pull request every half hour; only this process gets the token
+          # the results so far go to the pull request every ten minutes; only this process gets the token
           mkdir -p "$KEEP"
           if [ -n "$PR" ]; then
             GH_TOKEN="$PROGRESS_TOKEN" julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --wall=$WALL < /dev/null &
             progress=$!
           fi
           unset PROGRESS_TOKEN
-          # the legs run side by side; the run fails if one of them does
-          pids=()
-          while read -r device sets config; do
-            julia --startup-file=no --project=benchmark benchmark/run.jl "$sets" \
-              --device="$device" --config="$config" --wall=$WALL --root="$KEEP" < /dev/null &
-            pids+=($!)
-          done < legs.txt
           rc=0
-          for pid in "${pids[@]}"; do wait "$pid" || rc=1; done
+          julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
+            --device="$DEVICE" --config="$CONFIG" --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
           [ -z "${progress:-}" ] || kill "$progress"
           exit $rc
       - name: Collect the results
@@ -241,7 +230,7 @@ jobs:
         # without archived results for the base, the comparison prints this run's table alone
         run: >-
           julia --startup-file=no --project=benchmark benchmark/compare.jl ${{ needs.gate.outputs.base }} results --wall=$WALL
-          --candidate-label="\`${{ needs.gate.outputs.commit }}\` (this pull request)" > comment.md
+          --candidate-label="\`$(echo ${{ needs.gate.outputs.commit }} | cut -c1-8)\` (this pull request)" > comment.md
       - name: Say if the run did not finish
         if: needs.gate.outputs.pr != '' && needs.run.result != 'success'
         run: sed -i '1a **The run did not finish; these are the instances it reached.**\n' comment.md
@@ -256,7 +245,7 @@ jobs:
             const marker = '<!-- madnlp-benchmark -->';
             const body = marker + '\n' + fs.readFileSync('comment.md', 'utf8').trimEnd();
             const issue_number = Number(process.env.PR);
-            const { data: comments } = await github.rest.issues.listComments({ ...context.repo, issue_number });
+            const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
             const existing = comments.find(c => c.body.startsWith(marker));
             if (existing) {
               await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });

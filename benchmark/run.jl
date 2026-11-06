@@ -8,8 +8,8 @@ using Distributed
 
 function parse_args(args)
     isempty(args) && error(
-        "usage: run.jl <set>[,<set>...] [--config=a,b] [--device=cpu|cuda] [--workers=auto|N] [--workers-per-gpu=2] [--root=DIR] [--out=DIR] " *
-            "[--only=case,...] [--tol=1e-8] [--wall=7200] [--margin=S] [--status-every=300] [--no-warmup] [--overwrite] [--verbose]"
+        "usage: run.jl <set>[,<set>...] [--config=a,b] [--device=cpu|cuda|cpu,cuda] [--workers=auto|N] [--workers-per-gpu=2] [--root=DIR] [--out=DIR] " *
+            "[--only=case,...] [--tol=1e-8] [--wall=7200] [--margin=S] [--status-every=600] [--no-warmup] [--overwrite] [--verbose]"
     )
     opt = Dict{String, String}("device" => "cpu", "config" => "default", "tol" => "1e-8", "wall" => "7200", "workers" => "auto")
     flags = Set{String}()
@@ -21,6 +21,21 @@ function parse_args(args)
     return String.(split(args[begin], ",")), opt, flags
 end
 const SET_NAMES, OPT, FLAGS = parse_args(ARGS)
+
+# Several devices: one run of this script per device, side by side, each sized on its own. The
+# run fails if one of them does.
+if occursin(',', OPT["device"])
+    haskey(OPT, "out") && error("--out names one directory; with several devices use --root")
+    args = filter(!startswith("--device="), ARGS)
+    legs = map(split(OPT["device"], ",")) do device
+        cmd = `$(Base.julia_cmd()) --project=$(Base.active_project()) $(@__FILE__) $args --device=$device`
+        run(pipeline(cmd; stdin = devnull, stdout, stderr); wait = false)
+    end
+    atexit(() -> foreach(kill, legs))
+    foreach(wait, legs)
+    exit(all(success, legs) ? 0 : 1)
+end
+
 const DEVICE = Symbol(OPT["device"])
 DEVICE in (:cpu, :cuda) || error("--device is cpu or cuda")
 
@@ -38,14 +53,15 @@ const RSS_LIMIT_GB = 8.0
 const KILL_MEMORY_FRACTION = 0.4
 
 # The number of processes that solve. On a CUDA device, `--workers-per-gpu` per GPU. On the host, `auto` follows
-# the size of the machine: 75% of the physical cores, as each solve is sequential and a device
-# leg may run beside this one, and 3 GB per worker out of 75% of the memory, as workers rarely
-# reach their limit at the same time.
+# what this process may use, the allocation of a batch job included: 75% of its physical cores,
+# as each solve is sequential and a device leg may run beside this one, and 3 GB per worker out
+# of 75% of the memory, as workers rarely reach their limit at the same time.
 function worker_count()
     requested = OPT["workers"] == "auto" ? nothing : parse(Int, OPT["workers"])
     requested === nothing || return requested
     DEVICE == :cuda && return parse(Int, get(OPT, "workers-per-gpu", "2")) * length(CUDA.devices())
-    cores = something(MadNLPBenchmark.physical_cores(), Sys.CPU_THREADS)
+    allowed = ccall(:uv_available_parallelism, Cuint, ()) / Sys.CPU_THREADS   # the share of the machine's threads
+    cores = allowed * something(MadNLPBenchmark.physical_cores(), Sys.CPU_THREADS)
     by_memory = floor(Int, 0.75 * Sys.total_memory() / 2^30 / 3)
     return requested === nothing ? max(1, min(floor(Int, 0.75 * cores), by_memory)) : requested
 end
@@ -66,12 +82,17 @@ end
 # far below the length of the run there are too few.
 const TOKEN_TIME = Dict("waiting" => 0.0, "solving" => 0.0)
 
+# A worker does not reliably notice that this process has gone, so it is stopped on the way out.
+const WORKER_PIDS = Int[]
+atexit(() -> foreach(pid -> run(ignorestatus(`kill -9 $pid`)), WORKER_PIDS))
+
 function start_worker!(slot::Slot, chosen, options)
     slot.pid = only(addprocs(1; exeflags = ["--project=$(Base.active_project())", "--startup-file=no", "--heap-size-hint=$HEAP_HINT"]))
+    slot.os_pid = remotecall_fetch(getpid, slot.pid)
+    push!(WORKER_PIDS, slot.os_pid)
     remotecall_wait(Core.eval, slot.pid, Main, :(const DEVICE = $(QuoteNode(DEVICE)); const SET_NAMES = $SET_NAMES))
     isempty(slot.gpu) || remotecall_wait(Core.eval, slot.pid, Main, :(ENV["CUDA_VISIBLE_DEVICES"] = $(slot.gpu)))
     remotecall_wait(Core.eval, slot.pid, Main, :(include($(joinpath(@__DIR__, "session.jl")))))
-    slot.os_pid = remotecall_fetch(getpid, slot.pid)
     remotecall_wait(Main.warm_up, slot.pid, chosen, options)
     return slot
 end
@@ -174,8 +195,9 @@ last_status(row) = last(row)[2]
 
 const COMPLETED = Ref(0)
 
-# What every worker is on, longest first, so that a stall shows in the log while it happens.
-function report_status(slots, total, started)
+# What every worker is on, longest first, so that a stall shows while it happens, and the
+# results so far: in the log and in `summary.md` beside the result files.
+function report_status(slots, total, started, outdir, wall)
     lines = ["status after $(round(Int, (time() - started) / 60)) min: $(COMPLETED[]) of $total instances done"]
     for slot in sort(slots; by = s -> s.since)
         slot.state === :idle && continue
@@ -184,7 +206,12 @@ function report_status(slots, total, started)
     idle = count(s -> s.state === :idle, slots)
     idle > 0 && push!(lines, "  $idle idle")
     push!(lines, "  machine: $(round(Sys.free_memory() / 2^30; digits = 1)) GB of memory free, load $(round(Sys.loadavg()[1]; digits = 1))")
-    @info join(lines, "\n")
+    status = join(lines, "\n")
+    tables = sprint(io -> summarize(io, outdir; wall))
+    @info status * "\n\n" * tables
+    path = joinpath(outdir, "summary.md")
+    write(path * ".tmp", "```\n", status, "\n```\n\n", tables)
+    mv(path * ".tmp", path; force = true)
     return
 end
 
@@ -251,11 +278,15 @@ function main()
     limit = wall + parse(Float64, get(OPT, "margin", string(max(120.0, 0.2 * wall))))
     meta["watchdog_s"] = limit
     started = time()
-    every = parse(Float64, get(OPT, "status-every", "300"))
+    every = parse(Float64, get(OPT, "status-every", "600"))
     total = sum(length ∘ last, sets)
     reporter = @async while true
         sleep(every)
-        report_status(slots, total, started)
+        try
+            report_status(slots, total, started, outdir, wall)
+        catch err
+            @warn "could not report the status" exception = err
+        end
     end
     run_benchmark(
         sets, chosen; outdir, slots, meta, overwrite = "overwrite" in FLAGS, group = instance_group,
@@ -263,6 +294,7 @@ function main()
     ) do slot, set, case, todo
         solve_on(slot, set, case, todo, chosen, options, warmup, limit)
     end
+    report_status(slots, total, started, outdir, wall)
     DEVICE == :cuda && @info "GPU time: $(round(Int, TOKEN_TIME["solving"])) s in timed solves, $(round(Int, TOKEN_TIME["waiting"])) s of workers waiting"
     return
 end
