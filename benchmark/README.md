@@ -44,10 +44,11 @@ something new.
 
 | configuration | device | KKT system | linear solver |
 |:---|:---|:---|:---|
-| `default` | cpu | MadNLP's default (`SparseKKTSystem`) | MadNLP's default (MUMPS) |
+| `default` | cpu | MadNLP's default (`SparseKKTSystem`) | MA57 with automatic scaling with a licensed HSL_jll, else MUMPS |
+| `augmented_mumps` | cpu | `SparseKKTSystem` | MUMPS |
 | `ipopt` | cpu | Ipopt's own | Ipopt's default (MUMPS), as a baseline; no time breakdown or factorization counts |
 | `condensed_cholmod` | cpu | `SparseCondensedKKTSystem` | CHOLMOD |
-| `augmented_ma27`, `augmented_ma57` | cpu | `SparseKKTSystem` | MA27, MA57; only with a licensed HSL_jll |
+| `augmented_ma27`, `augmented_ma57` | cpu | `SparseKKTSystem` | MA27, MA57 with automatic scaling; only with a licensed HSL_jll |
 | `default` | cuda | cuMadNLP's default (`SparseCondensedKKTSystem`) | cuDSS |
 | `augmented_cudss` | cuda | `SparseKKTSystem` | cuDSS with Bunch-Kaufman pivoting |
 
@@ -89,8 +90,8 @@ the machine's memory during a solve is treated the same way.
 **Status.** Every ten minutes the log gives the instances done and, per worker, the instance,
 its state (`building`, `waiting` for a GPU, `solving`, `working`) and for how long, longest
 first, with its memory, followed by the solved counts and mean times so far. The same report
-is written to `summary.md` beside the result files. In CI it appears live in the step's log on
-GitHub.
+is kept in `summary.md` beside the result files, rewritten every 15 s. In CI it appears live in
+the step's log on GitHub.
 
 **CUTEst.** On the host one more process decodes the problems, one after the other, while the
 workers solve the sets ahead of CUTEst, so list `cutest` last. The decoded files stay in
@@ -155,6 +156,17 @@ that their times are not comparable.
 `archive.jl [DIR]` archives the result files of `DIR` (default `benchmark/results`) under
 the commit recorded in their metadata.
 
+## Report
+
+`report.jl` writes a static site from result directories: the machines, the summary table, a
+Dolan-Moré performance profile per set over the instances that every solver has a result for,
+and a page per set with every instance and a link to its solver log. The log of a solve is
+in `logs/<set>/<instance>__<configuration>.txt` beside the result files.
+
+```sh
+julia --project=benchmark benchmark/report.jl benchmark/results report --base=master --wall=7200
+```
+
 ## Plots
 
 `benchmark/plots` is a separate environment, so that Plots stays out of a benchmark run. It
@@ -201,7 +213,10 @@ julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device
   request then compares the pull request with `master`: the machines, the instances solved
   and the shifted geometric mean times of both. A push to a labeled pull request
   stops the running benchmark and starts one on the new commit.
-  While it runs, the comment shows the results so far, updated every minute.
+  While it runs, the comment shows the results so far, updated every minute. With the
+  repository variable `BENCHMARK_REPORT_URL` set to where the runner's
+  `~/public_html/madnlp-benchmark` is served, the comment is instead a link to the report of the
+  pull request (see below), which is updated every 15 s while the benchmark runs.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on

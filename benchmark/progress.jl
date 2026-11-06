@@ -5,6 +5,10 @@
 #
 # ROOT holds one directory of result files per machine. The environment gives PR, COMMIT,
 # GITHUB_REPOSITORY and GH_TOKEN. Runs until it is stopped; a failed update only skips a turn.
+#
+# With REPORT_DIR and REPORT_URL in the environment, the benchmark report goes to that directory
+# every 15 s and the comment is a link to it. BASE then names the results to compare with, and
+# `--final` writes the finished report and stops.
 
 using MadNLP, Dates, Downloads
 using MadNLPBenchmark
@@ -56,6 +60,10 @@ function body(root, commit, wall)
     out = IOBuffer()
     println(out, MARKER)
     println(out, "## MadNLP benchmark of `$(first(commit, 8))`: in progress\n")
+    if haskey(ENV, "REPORT_URL")
+        println(out, "[Benchmark report](", ENV["REPORT_URL"], ")")
+        return String(take!(out))
+    end
     println(out, "Results so far, updated ", Dates.format(now(UTC), "yyyy-mm-dd HH:MM"), " UTC. The counts cover the instances finished so far.\n")
     for dir in sort!(readdir(root; join = true))
         isdir(dir) && !isempty(result_files(dir)) && summarize(out, dir; wall)
@@ -67,8 +75,34 @@ function main(args)
     root = first(args)
     opt(name, default) = (i = findfirst(startswith("--$name="), args); i === nothing ? default : parse(Float64, split(args[i], "=")[2]))
     every, wall = opt("every", 600.0), opt("wall", 7200.0)
-    repo, pr, commit = ENV["GITHUB_REPOSITORY"], ENV["PR"], ENV["COMMIT"]
+    repo, pr, commit = get(ENV, "GITHUB_REPOSITORY", ""), ENV["PR"], ENV["COMMIT"]
+    site = get(ENV, "REPORT_DIR", "")
+    base = nothing
+    if !isempty(site) && !isempty(get(ENV, "BASE", ""))
+        try
+            base = locate(ENV["BASE"], nothing)
+        catch err
+            @warn "could not read the results of the base" exception = err
+        end
+    end
+    title = "MadNLP benchmark of $(first(commit, 8)), pull request $pr"
+    finished = "--final" in args
+    updated = 0.0
     while true
+        if !isempty(site)
+            try
+                write_report(site, root; base, wall, title, finished)
+            catch err
+                @warn "could not update the report" exception = err
+            end
+        end
+        finished && return
+        # the comment of a report is a link, which does not change
+        if time() - updated < every || (updated > 0 && !isempty(site))
+            sleep(15)
+            continue
+        end
+        updated = time()
         try
             id = find_comment(repo, pr)
             text = body(root, commit, wall)
@@ -81,7 +115,7 @@ function main(args)
             @warn "could not update the comment" exception = err
         end
         "--once" in args && return
-        sleep(every)
+        sleep(isempty(site) ? every : 15)
     end
     return
 end

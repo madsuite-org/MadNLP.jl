@@ -31,8 +31,10 @@ function solve_here(set, case, config_names, options, warmup, events, token)
     end
     builds = get!(() -> Dict(SETS[set]()), CASES, set)
     chosen = [c for c in configs(DEVICE) if first(c) in config_names]
+    logs = mkpath(joinpath(LOG_DIR, set))
     solve_case(
         case, builds[case], chosen; options, warmup, report = event -> put!(events, event), prepare = compile_model, guard,
+        log = config -> joinpath(logs, "$(case)__$config.txt"),
         backend = DEVICE == :cuda ? CUDABackend() : nothing,
         release = set == "cutest" && DEVICE == :cpu ? finalize : (m -> nothing),
         reclaim = DEVICE == :cuda ? CUDA.reclaim : (() -> nothing),
@@ -55,9 +57,9 @@ function warm_up(config_names, options)
     chosen = [c for c in configs(DEVICE) if first(c) in config_names]
     backend = DEVICE == :cuda ? CUDABackend() : nothing
     for form in ACOPF_FORMS
-        solve_case("warm-up", last(acopf_case("case14_ieee", form)), chosen; backend, options, warmup = false, prepare = compile_model)
+        solve_case("warm-up", last(acopf_case("case14_ieee", form)), chosen; backend, options, warmup = false, prepare = compile_model, log = config -> "/dev/null")
     end
     "cutest" in SET_NAMES && DEVICE == :cpu &&
-        solve_case("warm-up", b -> cutest_host_model("HS15"), chosen; options, warmup = false, release = finalize)
+        solve_case("warm-up", b -> cutest_host_model("HS15"), chosen; options, warmup = false, release = finalize, log = config -> "/dev/null")
     return nothing
 end

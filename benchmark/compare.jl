@@ -14,78 +14,7 @@
 
 using MadNLP
 using MadNLPBenchmark
-using Printf, TOML
-
-const ARCHIVE_BRANCH = "benchmark-results"
-const ROOT = dirname(@__DIR__)
-git(args...) = readchomp(`git -C $ROOT $args`)
-# a full commit hash as it is shown; any other revision as it is
-short(rev) = occursin(r"^[0-9a-f]{40}$", rev) ? rev[1:8] : rev
-
-# The results of one side: per (device, set, config) the rows by case, the machines per
-# device, and what to call it.
-struct ResultSet
-    label::String
-    rows::Dict{Tuple{String, String, String}, Dict{String, Any}}
-    machines::Dict{String, Vector{String}}
-end
-
-function add!(rs::ResultSet, set, config, meta, rows)
-    device = meta["device"]
-    rs.rows[(device, set, config)] = Dict(string(r.case) => r for r in rows)
-    line = hardware_line(meta)
-    line in get!(rs.machines, device, String[]) || push!(rs.machines[device], line)
-    return rs
-end
-
-function from_directory(dir, label)
-    rs = ResultSet(label, Dict(), Dict())
-    for (root, _, _) in walkdir(dir), ((set, config), path) in result_files(root)
-        isfile(path * ".meta.toml") && add!(rs, set, config, read_meta(path), read_results(path))
-    end
-    return rs
-end
-
-# The archived results of `rev`: for every device, those of the nearest commit on the
-# first-parent history of `rev` that has results for that device. `nothing` if the archive
-# has none.
-function from_archive(rev; depth = 200)
-    remote = get(ENV, "MADNLP_BENCHMARK_REMOTE", "origin")
-    success(`git -C $ROOT fetch --quiet $remote $ARCHIVE_BRANCH`) || return nothing
-    paths = split(git("ls-tree", "-r", "--name-only", "FETCH_HEAD"), '\n'; keepempty = false)
-    show(path) = read(`git -C $ROOT show FETCH_HEAD:$path`, String)
-    by_commit = Dict{String, Vector{Tuple{String, String, String}}}()   # commit => (path, set, config)
-    for path in paths
-        m = match(r"^[^/]+/([0-9a-f]{40})/([a-z]+)_(.+)\.csv$", path)
-        m === nothing || push!(get!(by_commit, m[1], []), (String(path), m[2], m[3]))
-    end
-    rs = ResultSet("", Dict(), Dict())
-    used = Dict{String, String}()   # device => commit
-    for sha in split(git("rev-list", "--first-parent", "-n", string(depth), rev), '\n')
-        for (path, set, config) in get(by_commit, sha, [])
-            meta = TOML.parse(show(path * ".meta.toml"))
-            get!(used, meta["device"], sha) == sha || continue   # a nearer commit covers this device
-            add!(rs, set, config, meta, read_results(IOBuffer(show(path))))
-        end
-    end
-    isempty(used) && return nothing
-    target = git("rev-parse", rev)
-    # one entry per commit used; the devices are named only when they come from different commits
-    commits = unique!(sort!(collect(values(used))))
-    label = join(
-        map(commits) do sha
-            name = sha == target ? "`$(sha[1:8])`" : "`$(sha[1:8])`, the nearest archived ancestor of `$(short(rev))`"
-            length(commits) == 1 ? name : name * " (" * join(sort!([d for (d, c) in used if c == sha]), ", ") * ")"
-        end, "; ",
-    )
-    return ResultSet(label, rs.rows, rs.machines)
-end
-
-function locate(arg, label)
-    isdir(arg) && return from_directory(arg, something(label, "`$arg`"))
-    rs = from_archive(arg)
-    return rs === nothing || label === nothing ? rs : ResultSet(label, rs.rows, rs.machines)
-end
+using Printf
 
 # The results of one side on their own: used when there is nothing to compare them with.
 function report(io, rs::ResultSet; wall)

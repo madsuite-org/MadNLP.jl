@@ -126,13 +126,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.gate.outputs.commit }}
+          # the report looks up the archived results of an ancestor
+          fetch-depth: 0
       - uses: julia-actions/install-juliaup@v2
         with:
           channel: '1'
       - name: Instantiate
         env:
           JULIA_PKG_PRECOMPILE_AUTO: 0
-        run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.Registry.update(); Pkg.instantiate()'
+        # the licensed HSL_jll of the runner, as in the `test-hsl` job
+        run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.Registry.update(); Pkg.develop(path = "/home/action-runner/HSL_jll.jl.v2025.7.21"); Pkg.instantiate()'
       - name: Check the machine
         run: |
           # results a cancelled or lost run left behind
@@ -144,6 +147,7 @@ jobs:
               --only=case14_ieee_polar,catmix_100 --out="$RUNNER_TEMP/preflight-$device"
             grep -qE '^[^,]+,1,' "$RUNNER_TEMP/preflight-$device/smoke_default.csv"
           done
+          grep -q Ma57Solver "$RUNNER_TEMP/preflight-cpu/smoke_default.csv.meta.toml"
       - name: Run
         env:
           SETS: ${{ needs.gate.outputs.sets }}
@@ -152,6 +156,9 @@ jobs:
           PROGRESS_TOKEN: ${{ github.token }}
           PR: ${{ needs.gate.outputs.pr }}
           COMMIT: ${{ needs.gate.outputs.commit }}
+          BASE: ${{ needs.gate.outputs.base }}
+          # where the runner's ~/public_html/madnlp-benchmark is served; empty for no report
+          REPORT_BASE: ${{ vars.BENCHMARK_REPORT_URL }}
         run: |
           # a runner may be restricted to one GPU; a benchmark uses every GPU of the machine
           echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"
@@ -160,6 +167,11 @@ jobs:
           # the results so far go to the pull request every minute; only this process gets the token
           mkdir -p "$KEEP"
           if [ -n "$PR" ]; then
+            if [ -n "$REPORT_BASE" ]; then
+              export REPORT_DIR="$HOME/public_html/madnlp-benchmark/pr-$PR" REPORT_URL="$REPORT_BASE/pr-$PR/"
+              rm -rf "$REPORT_DIR"
+              mkdir -p "$REPORT_DIR"
+            fi
             GH_TOKEN="$PROGRESS_TOKEN" julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --every=60 --wall=$WALL < /dev/null &
             progress=$!
           fi
@@ -168,6 +180,7 @@ jobs:
           julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
             --device="$DEVICE" --config="$CONFIG" --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
           [ -z "${progress:-}" ] || kill "$progress"
+          [ -z "${REPORT_DIR:-}" ] || julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --wall=$WALL --final || true
           exit $rc
       - name: Collect the results
         if: always()
@@ -234,6 +247,14 @@ jobs:
       - name: Say if the run did not finish
         if: needs.gate.outputs.pr != '' && needs.run.result != 'success'
         run: sed -i '1a **The run did not finish; these are the instances it reached.**\n' comment.md
+      - name: Link the report instead
+        if: needs.gate.outputs.pr != '' && vars.BENCHMARK_REPORT_URL != ''
+        env:
+          URL: ${{ vars.BENCHMARK_REPORT_URL }}/pr-${{ needs.gate.outputs.pr }}/
+          OUTCOME: ${{ needs.run.result == 'success' && 'finished' || 'did not finish' }}
+          COMMIT: ${{ needs.gate.outputs.commit }}
+        run: |
+          printf '## MadNLP benchmark of `%s`: %s\n\n[Benchmark report](%s)\n' "${COMMIT::8}" "$OUTCOME" "$URL" > comment.md
       - name: Comment
         if: needs.gate.outputs.pr != ''
         uses: actions/github-script@v7

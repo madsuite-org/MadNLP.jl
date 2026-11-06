@@ -82,6 +82,9 @@ end
 # far below the length of the run there are too few.
 const TOKEN_TIME = Dict("waiting" => 0.0, "solving" => 0.0)
 
+# Where the solver logs go, one file per instance and configuration.
+const LOG_DIR = Ref("")
+
 # A worker does not reliably notice that this process has gone, so it is stopped on the way out.
 const WORKER_PIDS = Int[]
 # With a direct system call: `run` can hang here when the exit comes from a signal.
@@ -91,7 +94,7 @@ function start_worker!(slot::Slot, chosen, options)
     slot.pid = only(addprocs(1; exeflags = ["--project=$(Base.active_project())", "--startup-file=no", "--heap-size-hint=$HEAP_HINT"]))
     slot.os_pid = remotecall_fetch(getpid, slot.pid)
     push!(WORKER_PIDS, slot.os_pid)
-    remotecall_wait(Core.eval, slot.pid, Main, :(const DEVICE = $(QuoteNode(DEVICE)); const SET_NAMES = $SET_NAMES))
+    remotecall_wait(Core.eval, slot.pid, Main, :(const DEVICE = $(QuoteNode(DEVICE)); const SET_NAMES = $SET_NAMES; const LOG_DIR = $(LOG_DIR[])))
     isempty(slot.gpu) || remotecall_wait(Core.eval, slot.pid, Main, :(ENV["CUDA_VISIBLE_DEVICES"] = $(slot.gpu)))
     remotecall_wait(Core.eval, slot.pid, Main, :(include($(joinpath(@__DIR__, "session.jl")))))
     remotecall_wait(Main.warm_up, slot.pid, chosen, options)
@@ -227,8 +230,8 @@ last_status(row) = last(row)[2]
 const COMPLETED = Ref(0)
 
 # What every worker is on, longest first, so that a stall shows while it happens, and the
-# results so far: in the log and in `summary.md` beside the result files.
-function report_status(slots, total, started, outdir, wall)
+# results so far: in `summary.md` beside the result files and, with `log`, in the log.
+function report_status(slots, total, started, outdir, wall; log = true)
     lines = ["status after $(round(Int, (time() - started) / 60)) min: $(COMPLETED[]) of $total instances done"]
     for slot in sort(slots; by = s -> s.since)
         slot.state === :idle && continue
@@ -239,7 +242,7 @@ function report_status(slots, total, started, outdir, wall)
     push!(lines, "  machine: $(round(Sys.free_memory() / 2^30; digits = 1)) GB of memory free, load $(round(Sys.loadavg()[1]; digits = 1))")
     status = join(lines, "\n")
     tables = sprint(io -> summarize(io, outdir; wall))
-    @info status * "\n\n" * tables
+    log && @info status * "\n\n" * tables
     path = joinpath(outdir, "summary.md")
     write(path * ".tmp", "```\n", status, "\n```\n\n", tables)
     mv(path * ".tmp", path; force = true)
@@ -303,6 +306,7 @@ function main()
         decode_cutest(["HS15"])   # the problem a worker warms up on
         decoder = @async decode_in_background(last(only(s for s in sets if first(s) == "cutest")), decoded)
     end
+    LOG_DIR[] = joinpath(outdir, "logs")
     slots = start_workers(worker_count(), chosen, options)
     @info "$(length(slots)) worker(s), results in $outdir"
     # the threads a solve actually gets are those of a worker, not of this process
@@ -314,10 +318,13 @@ function main()
     started = time()
     every = parse(Float64, get(OPT, "status-every", "600"))
     total = sum(length ∘ last, sets)
+    logged = time()
     reporter = @async while true
-        sleep(every)
+        sleep(min(every, 15))
         try
-            report_status(slots, total, started, outdir, wall)
+            log = time() - logged >= every
+            log && (logged = time())
+            report_status(slots, total, started, outdir, wall; log)
         catch err
             @warn "could not report the status" exception = err
         end

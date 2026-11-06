@@ -35,15 +35,17 @@ end
 
 function configs(device::Symbol)
     c = Pair{String, NamedTuple}[]
-    # MadNLP's own choice for the model: the augmented system with MUMPS on the host, the
-    # condensed system with cuDSS on a CUDA device
-    push!(c, "default" => (;))
+    # The augmented system with MA57 on the host where a licensed HSL_jll is installed, else with
+    # MUMPS, and the condensed system with cuDSS on a CUDA device
+    ma57 = (; linear_solver = MadNLP.Ma57Solver, ma57_automatic_scaling = true)
+    push!(c, "default" => (device == :cpu && HSL.LIBHSL_isfunctional() ? ma57 : (;)))
     if device == :cpu
+        push!(c, "augmented_mumps" => (; linear_solver = MadNLP.MumpsSolver))
         push!(c, "ipopt" => (; solver = run_ipopt))
         push!(c, "condensed_cholmod" => (; CONDENSED..., linear_solver = MadNLP.CHOLMODSolver))
         if HSL.LIBHSL_isfunctional()   # the registry's HSL_jll carries no solver
             push!(c, "augmented_ma27" => (; linear_solver = MadNLP.Ma27Solver))
-            push!(c, "augmented_ma57" => (; linear_solver = MadNLP.Ma57Solver))
+            push!(c, "augmented_ma57" => ma57)
         end
     elseif device == :cuda
         # Bunch-Kaufman pivoting needs cuDSS's matching, which reads the matrix values: the
