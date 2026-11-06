@@ -2,25 +2,14 @@
 
 *A [nonlinear programming](https://en.wikipedia.org/wiki/Nonlinear_programming) solver based on the filter line-search [interior point method](https://en.wikipedia.org/wiki/Interior-point_method) (as in [Ipopt](https://github.com/coin-or/Ipopt)) that can handle/exploit diverse classes of data structures, either on [host](https://en.wikipedia.org/wiki/Central_processing_unit) or [device](https://en.wikipedia.org/wiki/Graphics_processing_unit) memories.*
 
----
-
-| **License** | **Documentation** | **Build Status** | **Coverage** | **DOI** |
-|:-----------:|:-----------------:|:----------------:|:------------:|:-------:|
-| [![License: MIT][license-img]][license-url] | [![docs-stable][docs-stable-img]][docs-stable-url] [![docs-dev][docs-dev-img]][docs-dev-url] | [![build-gh][build-gh-img]][build-gh-url] | [![codecov][codecov-img]][codecov-url] | [![doi][doi-img]][doi-url] |
-
-[license-img]: https://img.shields.io/badge/License-MIT-yellow.svg
-[license-url]: https://github.com/madsuite-org/MadNLP.jl/blob/master/LICENSE
-[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
-[docs-stable-url]: https://madsuite-org.github.io/MadNLP.jl/stable
-[docs-dev-img]: https://img.shields.io/badge/docs-dev-purple.svg
-[docs-dev-url]: https://madsuite-org.github.io/MadNLP.jl/dev
-[build-gh-img]: https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml/badge.svg
-[build-gh-url]: https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml
-[codecov-img]: https://codecov.io/gh/madsuite-org/MadNLP.jl/branch/master/graph/badge.svg
-[codecov-url]: https://codecov.io/gh/madsuite-org/MadNLP.jl
-[doi-img]: https://zenodo.org/badge/DOI/10.5281/zenodo.6335552.svg
-[doi-url]: https://doi.org/10.5281/zenodo.6335552
-
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/madsuite-org/MadNLP.jl/blob/master/LICENSE)
+[![docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://madsuite-org.github.io/MadNLP.jl/stable)
+[![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://madsuite-org.github.io/MadNLP.jl/dev)
+[![build](https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml/badge.svg)](https://github.com/madsuite-org/MadNLP.jl/actions/workflows/test.yml)
+[![codecov](https://codecov.io/gh/madsuite-org/MadNLP.jl/branch/master/graph/badge.svg)](https://codecov.io/gh/madsuite-org/MadNLP.jl)
+[![release](https://img.shields.io/github/v/release/madsuite-org/MadNLP.jl)](https://github.com/madsuite-org/MadNLP.jl/releases)
+[![arXiv](https://img.shields.io/badge/arXiv-2405.14236-b31b1b.svg)](https://arxiv.org/abs/2405.14236)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.6335552.svg)](https://doi.org/10.5281/zenodo.6335552)
 
 ## Quickstart
 
