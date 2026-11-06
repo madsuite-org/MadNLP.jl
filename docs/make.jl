@@ -1,5 +1,6 @@
 using Documenter
 using MadNLP
+import MadCore, MadNLPCore
 
 makedocs(
     sitename = "MadNLP.jl",
@@ -8,7 +9,10 @@ makedocs(
         prettyurls = Base.get(ENV, "CI", nothing) == "true",
         mathengine = Documenter.KaTeX()
     ),
-    modules = [MadNLP],
+    # The docstrings of the internals are defined in MadCore and MadNLPCore; only
+    # the exported names of MadNLP must appear in the manual.
+    modules = [MadNLP, MadNLPCore, MadCore],
+    checkdocs_ignored_modules = [MadNLPCore, MadCore],
     repo = "https://github.com/madsuite-org/MadNLP.jl/blob/{commit}{path}#{line}",
     checkdocs = :exports,
     clean=true,

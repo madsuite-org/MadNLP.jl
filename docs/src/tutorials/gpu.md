@@ -11,11 +11,10 @@ using MadNLP
 MadNLP supports the solution of large-scale optimization problems
 on the GPU, [with significant speedups reported on some instances](https://arxiv.org/html/2405.14236v2).
 In this tutorial, we show how to solve a nonlinear program on a NVIDIA GPU. We start
-by importing MadNLPGPU:
+by importing cuMadNLP:
 ```@example gpu
-using MadNLPGPU
+using cuMadNLP
 using CUDA
-using CUDSS
 
 ```
 
@@ -124,7 +123,7 @@ using HybridKKT
 
 results = madnlp(
     nlp;
-    linear_solver=MadNLPGPU.CUDSSSolver,
+    linear_solver=CUDSSSolver,
     kkt_system=HybridKKT.HybridCondensedKKTSystem,
     equality_treatment=MadNLP.EnforceEquality,
     fixed_variable_treatment=MadNLP.MakeParameter,
@@ -164,7 +163,7 @@ This is demonstrated in the following example:
 ```julia
 using CUDA
 using JuMP
-using MadNLP, MadNLPGPU
+using MadNLP, cuMadNLP
 
 model = Model(MadNLP.Optimizer)
 @variable(model, x1 <= 0.5)

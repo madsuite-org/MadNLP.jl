@@ -5,17 +5,22 @@ pkg> add MadNLP
 ```
 
 By default, MadNLP uses the sparse linear solver MUMPS.
-In addition the user can install the following extensions to use a specialized linear solver.
+The other linear solvers are package extensions: they are available as soon as the
+package they wrap is loaded alongside MadNLP.
 
 ## GPU support
-MadNLPGPU provides GPU support for MadNLP:
+On NVIDIA GPUs, install cuMadNLP:
 ```julia
-pkg> add MadNLPGPU
+pkg> add cuMadNLP
 ```
-MadNLPGPU automatically detects if you have a NVIDIA or an AMD GPU on your machine,
-and adapts in consequence.
+On AMD GPUs, install rocMadNLP:
+```julia
+pkg> add rocMadNLP
+```
+Both load MadNLP and set the default options for models whose data live on the GPU.
+MadNLPGPU is deprecated and loads cuMadNLP.
 
-## HSL linear solver
+## HSL linear solvers
 Obtain a license and download [HSL_jll.jl](https://licences.stfc.ac.uk/products/Software/HSL/LibHSL).
 Install the package into your current environment using:
 ```julia
@@ -30,23 +35,20 @@ simply override the path to the artifact by editing `~/.julia/artifacts/Override
 ecece3e2c69a413a0e935cf52e03a3ad5492e137 = "/usr/local"
 ```
 
-Once HSL_jll has been installed on your machine, you can install MadNLPHSL as
+Once HSL_jll has been installed on your machine, `Ma27Solver`, `Ma57Solver`, `Ma77Solver`,
+`Ma86Solver` and `Ma97Solver` are available in MadNLP, which loads HSL.jl.
+
+## Pardiso linear solvers
+The Pardiso solvers use [Pardiso.jl](https://github.com/JuliaSparse/Pardiso.jl):
 ```julia
-pkg> add MadNLPHSL
+pkg> add Pardiso
+julia> using MadNLP, Pardiso
 ```
+`PardisoMKLSolver` uses the Pardiso solver of Intel MKL.
+`PanuaPardisoSolver` uses [Panua Pardiso](https://panua.ch/), which needs a license;
+see the documentation of Pardiso.jl for its installation.
 
-## Pardiso linear solver
-
-To use Pardiso, the user needs to obtain the Pardiso shared libraries from
-<https://panua.ch/>, provide the absolute path to the shared library:
-```
-julia> ENV["JULIA_PARDISO"] = "/path/to/pardiso/lib/"
-```
-and place the license file in the home directory.
-After obtaining the library and the license file, run
-```julia
-pkg> add MadNLPPardiso
-pkg> build MadNLPPardiso
-```
-
-The build process requires a C compiler.
+## Krylov iterative refinement
+Loading [Krylov.jl](https://github.com/JuliaSmoothOptimizers/Krylov.jl) makes the option
+`iterator = KrylovIterator` available, which refines the solution of the KKT system
+with GMRES preconditioned by the factorized KKT system.

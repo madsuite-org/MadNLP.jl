@@ -45,11 +45,22 @@ MadNLP can be installed directly via the Julia package manager:
 ```julia
 pkg> add MadNLP
 ```
-Furthermore, MadNLP comes with several extensions:
+For GPUs, install `cuMadNLP` (NVIDIA) or `rocMadNLP` (AMD). The HSL linear solvers are
+available in MadNLP once a licensed HSL library is installed; the Pardiso and Krylov.jl
+solvers become available when Pardiso.jl or Krylov.jl is loaded alongside MadNLP.
 
-- `MadNLPGPU`: import GPU-accelerated linear solvers in MadNLP
-- `MadNLPHSL`: import the HSL linear solvers in MadNLP
-- `MadNLPPardiso`: import the Pardiso linear solver in MadNLP
+This repository contains the packages:
+
+| Package | Role |
+|:---|:---|
+| `MadCore` | Callbacks, KKT systems, linear solver interface, options and the helpers shared by the interior-point solvers |
+| `MadCoreGPU` | GPU KKT systems, kernels and the GPU linear solvers, as extensions |
+| `MadNLPCore` | The filter line-search interior-point method |
+| `MadNLP` | CPU entry point, with MUMPS as default linear solver |
+| `cuMadNLP` | NVIDIA entry point, with cuDSS as default linear solver |
+| `rocMadNLP` | AMD entry point, with rocSOLVER as default linear solver |
+| `MadNLPTests` | Test instances shared by the packages |
+| `MadNLPGPU` | Deprecated; loads `cuMadNLP` |
 
 ## Citing MadNLP.jl
 
