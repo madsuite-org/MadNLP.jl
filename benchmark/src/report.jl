@@ -5,7 +5,10 @@
 const COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 
 const STYLE = """
-body{font:14px/1.45 system-ui,sans-serif;color:#0b0b0b;background:#fcfcfb;max-width:110em;margin:2em auto;padding:0 1em}
+body{font:14px/1.45 system-ui,sans-serif;color:#0b0b0b;background:#fcfcfb;max-width:110em;margin:1em auto;padding:0 1em}
+.wide{overflow-x:auto;-webkit-overflow-scrolling:touch}
+svg{display:block;width:100%;max-width:620px;height:auto}
+@media(max-width:640px){body{font-size:13px;padding:0 .6em}td,th{padding:3px 6px}.prof{display:block;margin-right:0}input{width:100%;box-sizing:border-box}}
 h1{font-size:1.5em}h2{font-size:1.15em;margin-top:2em}a{color:#1c5fb0}
 table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 td,th{border-bottom:1px solid #e4e3df;padding:3px 10px;text-align:right;white-space:nowrap}
@@ -25,8 +28,8 @@ const d=JSON.parse(s.dataset.c);
 s.addEventListener('mousemove',e=>{const r=s.getBoundingClientRect(),x=(e.clientX-r.left)*d.w/r.width;
 if(x<d.l||x>d.r){t.style.display='none';l.style.display='none';return}
 const tau=Math.pow(2,(x-d.l)/(d.r-d.l)*d.x);
-t.innerHTML='within '+tau.toFixed(2)+'× of the fastest<br>'+d.s.map(c=>c[0]+': '+(100*c[1].filter(v=>v<=tau).length/d.n).toFixed(1)+'%').join('<br>');
-t.style.display='block';t.style.left=Math.min(e.clientX-r.left+12,r.width-220)+'px';t.style.top='8px';
+t.innerHTML='within '+tau.toFixed(2)+'× of the best<br>'+d.s.map(c=>c[0]+': '+(100*c[1].filter(v=>v<=tau).length/d.n).toFixed(1)+'%').join('<br>');
+t.style.display='block';t.style.left=Math.max(0,Math.min(e.clientX-r.left+12,r.width-200))+'px';t.style.top='8px';
 l.setAttribute('x1',x);l.setAttribute('x2',x);l.style.display='block'});
 s.addEventListener('mouseleave',()=>{t.style.display='none';l.style.display='none'})});
 const tb=document.querySelector('table.cases');
@@ -61,7 +64,7 @@ struct Side
 end
 
 function report_sides(cand, base)
-    label(key) = solver_name(key[1]) * (key[2] == "default" ? "" : " " * key[2])
+    label(key) = key[2] == "ipopt" ? "Ipopt" : solver_name(key[1]) * (key[2] == "default" ? "" : " " * key[2])
     keys_of(rs) = rs === nothing ? [] : sort!(unique!([(k[1], k[3]) for k in keys(rs.rows)]); by = k -> (k[1] != "cpu", k))
     sides = [(label(k), k, false) for k in keys_of(cand)]
     append!(sides, [(label(k) * " (base)", k, true) for k in keys_of(base)])
@@ -70,13 +73,16 @@ end
 
 side_rows(side, cand, base, set) = get((side.base ? base : cand).rows, (side.key[1], set, side.key[2]), Dict{String, Any}())
 
-# Per side the ratios to the fastest side on the instances that every side has a result for; a
+# What a performance profile compares, each on its own.
+const PROFILE_METRICS = ["Wall time" => (r -> max(r.t_total, 1.0e-3)), "Iterations" => (r -> max(r.iters, 1))]
+
+# Per side the ratios to the best side on the instances that every side has a result for; a
 # failure has no ratio.
-function profile(rows, wall)
+function profile(rows, value)
     cases = isempty(rows) ? Set{String}() : reduce(intersect, [Set(keys(r)) for r in rows])
     ratios = [Float64[] for _ in rows]
     for case in cases
-        times = [solved(r[case]) ? max(r[case].t_total, 1.0e-3) : Inf for r in rows]
+        times = [solved(r[case]) ? value(r[case]) : Inf for r in rows]
         best = minimum(times)
         isfinite(best) || continue
         for (i, t) in enumerate(times)
@@ -92,7 +98,7 @@ function profile_svg(io, title, sides, n, ratios)
     X(t) = left + (w - left - right) * min(log2(t), xmax) / xmax
     Y(f) = top + (h - top - bottom) * (1 - f)
     json = join(["[\"$(s.label)\",[$(join(round.(r; digits = 3), ","))]]" for (s, r) in zip(sides, ratios)], ",")
-    print(io, "<div class=\"prof\"><div class=\"tip\"></div><svg width=\"$w\" height=\"$h\" viewBox=\"0 0 $w $h\" role=\"img\" aria-label=\"$(escape_html(title))\" ")
+    print(io, "<div class=\"tip\"></div><svg viewBox=\"0 0 $w $h\" role=\"img\" aria-label=\"$(escape_html(title))\" ")
     print(io, "data-c='{\"w\":$w,\"l\":$left,\"r\":$(w - right),\"x\":$xmax,\"n\":$n,\"s\":[$json]}'>")
     for f in 0:0.25:1
         print(io, "<line x1=\"$left\" x2=\"$(w - right)\" y1=\"$(Y(f))\" y2=\"$(Y(f))\" stroke=\"#e4e3df\"/>")
@@ -102,7 +108,7 @@ function profile_svg(io, title, sides, n, ratios)
     for k in 0:step:Int(xmax)
         print(io, "<text x=\"$(X(2.0^k))\" y=\"$(h - bottom + 16)\" text-anchor=\"middle\">$(2^k)×</text>")
     end
-    print(io, "<text x=\"$((left + w - right) / 2)\" y=\"$(h - 4)\" text-anchor=\"middle\">within this factor of the fastest</text>")
+    print(io, "<text x=\"$((left + w - right) / 2)\" y=\"$(h - 4)\" text-anchor=\"middle\">within this factor of the best</text>")
     print(io, "<line class=\"x\" y1=\"$top\" y2=\"$(h - bottom)\" stroke=\"#8a8983\" style=\"display:none\"/>")
     ends = Float64[]
     for (s, r) in zip(sides, ratios)
@@ -122,21 +128,37 @@ function profile_svg(io, title, sides, n, ratios)
         y = max(ends[i] + 4, y + 15)
         print(io, "<text x=\"$(w - right + 6)\" y=\"$y\">$(escape_html(sides[i].label))</text>")
     end
-    println(io, "</svg></div>")
+    println(io, "</svg>")
     return
 end
 
+# One profile per device: a solver on the host and one on a GPU are never compared.
 function profile_section(io, set, sides, cand, base, wall)
+    for device in unique!([s.key[1] for s in sides])
+        device_profile(io, set, device, [s for s in sides if s.key[1] == device], cand, base, wall)
+    end
+    return
+end
+
+function device_profile(io, set, device, sides, cand, base, wall)
     rows = [side_rows(s, cand, base, set) for s in sides]
     kept = [i for i in eachindex(sides) if !isempty(rows[i])]
+    isempty(kept) && return
+    println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
     if length(kept) < 2
-        println(io, "<p class=\"m\">No profile yet: it needs results from two solvers.</p>")
+        println(io, "<p class=\"m\">No profile: there is one solver on this device, and no archived results to compare with.</p>")
         return
     end
-    n, ratios = profile(rows[kept], wall)
-    println(io, "<p class=\"m\">Over the $n instances that all of them have a result for. A curve gives the share of them solved within a factor of the fastest time.</p>")
+    n = length(reduce(intersect, [Set(keys(r)) for r in rows[kept]]))
+    println(io, "<p class=\"m\">Over the $n instances that all of them have a result for. A curve gives the share of them solved within a factor of the best.</p>")
     println(io, "<p>", join(["<span class=\"key\"><i style=\"background:$(s.color)\"></i>$(escape_html(s.label))</span>" for s in sides[kept]]), "</p>")
-    n > 0 && profile_svg(io, "Performance profile of $set", sides[kept], n, ratios)
+    n > 0 || return
+    for (name, value) in PROFILE_METRICS
+        _, ratios = profile(rows[kept], value)
+        println(io, "<div class=\"prof\"><p><b>", name, "</b></p>")
+        profile_svg(io, "$name profile of $set on $device", sides[kept], n, ratios)
+        println(io, "</div>")
+    end
     return
 end
 
@@ -144,6 +166,7 @@ function page(path, title, content; refresh = false)
     tmp = path * ".tmp"
     write(
         tmp, "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">",
+        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
         refresh ? "<meta http-equiv=\"refresh\" content=\"30\">" : "",
         "<title>", escape_html(title), "</title><style>", STYLE, "</style><body>", content, "<script>", SCRIPT, "</script></body></html>\n",
     )
@@ -153,7 +176,7 @@ function page(path, title, content; refresh = false)
 end
 
 function summary_table(io, sets, sides, cand, base, wall)
-    println(io, "<table><thead><tr><th>set</th><th class=\"l\">solver</th><th>instances</th><th>solved</th><th>SGM (s)</th><th>small</th><th>medium</th><th>large</th>", base === nothing ? "" : "<th>time vs base</th>", "</tr></thead><tbody>")
+    println(io, "<div class=\"wide\"><table><thead><tr><th>set</th><th class=\"l\">solver</th><th>instances</th><th>solved</th><th>SGM (s)</th><th>small</th><th>medium</th><th>large</th>", base === nothing ? "" : "<th>time vs base</th>", "</tr></thead><tbody>")
     for set in sets, s in sides
         rows = side_rows(s, cand, base, set)
         isempty(rows) && continue
@@ -177,7 +200,7 @@ function summary_table(io, sets, sides, cand, base, wall)
         end
         println(io, "</tr>")
     end
-    println(io, "</tbody></table>")
+    println(io, "</tbody></table></div>")
     return
 end
 
@@ -190,7 +213,9 @@ function set_page(site, set, sides, cand, base, wall, logs, heading; refresh)
     println(io, "<h2>Performance profile</h2>")
     profile_section(io, set, sides, cand, base, wall)
     println(io, "<h2>Instances</h2><input id=\"filter\" placeholder=\"Filter by name\">")
-    println(io, "<table class=\"cases\"><thead><tr><th class=\"s\" rowspan=\"2\">instance</th><th class=\"s\" rowspan=\"2\">variables</th><th class=\"s\" rowspan=\"2\">constraints</th>")
+    order = sortperm([(s.key[1] != "cpu", s.base) for s in sides])
+    sides, rows = sides[order], rows[order]
+    println(io, "<div class=\"wide\"><table class=\"cases\"><thead><tr><th class=\"s\" rowspan=\"2\">instance</th><th class=\"s\" rowspan=\"2\">variables</th><th class=\"s\" rowspan=\"2\">constraints</th>")
     foreach(s -> print(io, "<th colspan=\"6\" class=\"l\">", escape_html(s.label), "</th>"), sides)
     print(io, "</tr><tr>")
     foreach(_ -> print(io, "<th class=\"s l\">status</th><th class=\"s\">iterations</th><th class=\"s\">time (s)</th><th class=\"s\">objective</th><th class=\"s\">infeasibility</th><th>log</th>"), sides)
@@ -211,7 +236,7 @@ function set_page(site, set, sides, cand, base, wall, logs, heading; refresh)
         end
         println(io, "</tr>")
     end
-    println(io, "</tbody></table>")
+    println(io, "</tbody></table></div>")
     page(joinpath(site, "$set.html"), "$set: MadNLP benchmark", String(take!(io)); refresh)
     return
 end
@@ -230,7 +255,8 @@ function sync_data(site, root)
             to = joinpath(site, "data", relative)
             if !isfile(to) || mtime(to) < mtime(from)
                 mkpath(dirname(to))
-                cp(from, to; force = true)
+                # a solver log carries terminal colours
+                endswith(file, ".txt") ? write(to, replace(read(from, String), r"\e\[[0-9;]*m" => "")) : cp(from, to; force = true)
                 chmod(to, 0o644)
             end
             endswith(file, ".meta.toml") && device === nothing && (device = read_meta(from[1:(end - 10)])["device"])
@@ -281,7 +307,10 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
         end
     end
     println(io, "<h2>Summary</h2><p class=\"m\">SGM is the shifted geometric mean of the solve time (shift 10 s, a failure counts as ", round(Int, wall), " s). Size classes give solved / instances and SGM.</p>")
-    summary_table(io, sets, sides, cand, base, wall)
+    for device in unique!([s.key[1] for s in sides])
+        println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
+        summary_table(io, sets, [s for s in sides if s.key[1] == device], cand, base, wall)
+    end
     for set in sets
         println(io, "<h2><a href=\"$set.html\">", set, "</a></h2>")
         kept = [s for s in sides if !isempty(side_rows(s, cand, base, set))]

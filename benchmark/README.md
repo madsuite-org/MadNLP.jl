@@ -46,7 +46,7 @@ something new.
 |:---|:---|:---|:---|
 | `default` | cpu | MadNLP's default (`SparseKKTSystem`) | MA57 with automatic scaling with a licensed HSL_jll, else MUMPS |
 | `augmented_mumps` | cpu | `SparseKKTSystem` | MUMPS |
-| `ipopt` | cpu | Ipopt's own | Ipopt's default (MUMPS), as a baseline; no time breakdown or factorization counts |
+| `ipopt` | cpu | Ipopt's own | MA57 with automatic scaling with a licensed HSL_jll, else MUMPS, as a baseline; no time breakdown or factorization counts |
 | `condensed_cholmod` | cpu | `SparseCondensedKKTSystem` | CHOLMOD |
 | `augmented_ma27`, `augmented_ma57` | cpu | `SparseKKTSystem` | MA27, MA57 with automatic scaling; only with a licensed HSL_jll |
 | `default` | cuda | cuMadNLP's default (`SparseCondensedKKTSystem`) | cuDSS |
@@ -159,7 +159,8 @@ the commit recorded in their metadata.
 ## Report
 
 `report.jl` writes a static site from result directories: the machines, the summary table, a
-Dolan-Moré performance profile per set over the instances that every solver has a result for,
+Dolan-Moré performance profile of the wall time and of the iterations per set and device over the instances that every solver has a
+result for (a solver on the host and one on a GPU are never compared),
 and a page per set with every instance and a link to its solver log. The log of a solve is
 in `logs/<set>/<instance>__<configuration>.txt` beside the result files.
 

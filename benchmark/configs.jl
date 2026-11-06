@@ -19,9 +19,12 @@ const IPOPT_STATUS = Dict(
     :small_step => MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL, :infeasible => MadNLP.INFEASIBLE_PROBLEM_DETECTED,
     :max_iter => MadNLP.MAXIMUM_ITERATIONS_EXCEEDED, :max_time => MadNLP.MAXIMUM_WALLTIME_EXCEEDED,
 )
-function run_ipopt(m; tol, acceptable_tol, max_wall_time, _...)
+function run_ipopt(m; tol, acceptable_tol, max_wall_time, output_file = "", _...)
     NLPModels.reset!(m)
-    s = NLPModelsIpopt.ipopt(m; tol, acceptable_tol, max_wall_time, print_level = 0)
+    solver = HSL.LIBHSL_isfunctional() ?
+        (; linear_solver = "ma57", hsllib = HSL.HSL_jll.libhsl_path, ma57_automatic_scaling = "yes") : (;)
+    log = isempty(output_file) ? (;) : (; output_file, file_print_level = 5)
+    s = NLPModelsIpopt.ipopt(m; tol, acceptable_tol, max_wall_time, print_level = 0, solver..., log...)
     counters = (;
         factorization_cnt = 0, backsolve_cnt = 0, ir = 0, obj_cnt = NLPModels.neval_obj(m), obj_grad_cnt = NLPModels.neval_grad(m),
         con_cnt = NLPModels.neval_cons(m), con_jac_cnt = NLPModels.neval_jac(m), lag_hess_cnt = NLPModels.neval_hess(m),
