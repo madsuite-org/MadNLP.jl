@@ -11,8 +11,6 @@ PrecompileTools.@setup_workload begin
                 # GPU kernels, and only code compiled inside `@compile_workload` is kept.
                 wrapped = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
                 MadNLPCore.madnlp(wrapped; print_level = MadNLPCore.ERROR)
-                # The default linear solver on AMD GPUs factorizes the condensed KKT system
-                # densely, so the large size stays moderate (above one thread block).
                 MadNLPCore._precompile_solves(ROCVector{Float64}(undef, 0); sizes = (100, 4096))
             end
         catch err
