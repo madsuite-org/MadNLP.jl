@@ -43,6 +43,7 @@ const KILL_MEMORY_FRACTION = 0.4
 # reach their limit at the same time.
 function worker_count()
     requested = OPT["workers"] == "auto" ? nothing : parse(Int, OPT["workers"])
+    requested === nothing || return requested
     DEVICE == :cuda && return parse(Int, get(OPT, "workers-per-gpu", "2")) * length(CUDA.devices())
     cores = something(MadNLPBenchmark.physical_cores(), Sys.CPU_THREADS)
     by_memory = floor(Int, 0.75 * Sys.total_memory() / 2^30 / 3)
@@ -112,6 +113,12 @@ function solve_on(slot, set, case, todo, chosen, options, warmup, limit)
     state = :working   # :waiting for the GPU, :solving with it, or :working without it
     # the rows of the configurations a dead worker did not finish, and a new worker
     function replace_worker(status)
+        while isready(events)   # what the worker sent before it ended
+            event = take!(events)
+            event === :solve && (state = :solving)
+            event === :released && (state = :working)
+            event isa Pair && push!(rows, event)
+        end
         # a killed worker cannot hand back its token
         state === :solving && slot.token !== nothing && !isready(slot.token) && put!(slot.token, 1)
         restart(slot, chosen, options)

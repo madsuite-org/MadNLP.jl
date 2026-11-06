@@ -5,11 +5,10 @@ name: benchmark
 # Mittelmann, CUTEst) with MadNLP's default configuration, on the host and on the CUDA device
 # at the same time.
 #
-# - A pull request is benchmarked on request: add the `benchmark` label. The run starts once
-#   the required jobs of the `build` workflow have succeeded on the head commit. While it runs,
-#   a comment shows the results so far; at the end it gives the comparison with the archived
-#   results of the base commit. A push stops the benchmark, and the new commit is benchmarked
-#   when its `build` run succeeds.
+# - A pull request is benchmarked on request: add the `benchmark` label. The run starts at
+#   once, without waiting for `build`. While it runs, a comment shows the results so far; at the
+#   end it gives the comparison with the archived results of the base commit. A push to a
+#   labeled pull request replaces the running benchmark with one of the new commit.
 # - A commit on master is benchmarked when its `build` run succeeds, and archived on the
 #   `benchmark-results` branch under <hardware>/<commit>/, which is what a pull request is
 #   compared with.
@@ -52,21 +51,7 @@ env:
   WALL: 900
 
 jobs:
-  # A push to a labeled pull request stops its benchmark at once, through the concurrency group
-  # of the `run` job; the benchmark of the new commit starts when `build` has succeeded on it.
-  stop:
-    if: >-
-      github.event.action == 'synchronize' &&
-      contains(github.event.pull_request.labels.*.name, 'benchmark')
-    concurrency:
-      group: benchmark-pr-${{ github.event.pull_request.number }}
-      cancel-in-progress: true
-    runs-on: ubuntu-latest
-    steps:
-      - run: echo "A new commit replaces the running benchmark of this pull request."
-
-  # Decide whether to benchmark, and which commit: the label and the result of `build` are
-  # both required for a pull request, in either order.
+  # Decide whether to benchmark, and which commit.
   gate:
     runs-on: ubuntu-latest
     permissions:
@@ -107,28 +92,13 @@ jobs:
                 commit = wr.head_sha;
                 if (wr.event === 'push' && wr.head_branch === 'master') {
                   run = true; archive = true;
-                } else if (wr.event === 'pull_request') {
-                  const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({ owner, repo, commit_sha: commit });
-                  const p = data.find(p => p.state === 'open' && p.head.sha === commit && p.head.repo.full_name === full);
-                  if (p && labeled(p)) { run = true; pr = String(p.number); base = p.base.sha; }
                 }
               }
-            } else if (context.eventName === 'pull_request' && context.payload.action === 'labeled') {
+            } else if (context.eventName === 'pull_request') {
               const p = context.payload.pull_request;
-              if (context.payload.label.name === 'benchmark' && p.head.repo.full_name === full) {
-                commit = p.head.sha;
-                // the label came after `build`: run now if its required jobs have passed on this
-                // commit; otherwise the completion of `build` starts the benchmark. The AMD job
-                // may fail by design, and its runners should not hold up a benchmark.
-                const { data } = await github.rest.actions.listWorkflowRunsForRepo({ owner, repo, head_sha: commit, event: 'pull_request' });
-                const build = data.workflow_runs.filter(r => r.name === 'build').sort((a, b) => b.run_number - a.run_number)[0];
-                if (build) {
-                  const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, { owner, repo, run_id: build.id });
-                  const required = jobs.filter(j => !j.name.includes('amdgpu'));
-                  if (required.length > 0 && required.every(j => j.conclusion === 'success')) {
-                    run = true; pr = String(p.number); base = p.base.sha;
-                  }
-                }
+              const requested = context.payload.action === 'synchronize' || context.payload.label.name === 'benchmark';
+              if (requested && labeled(p) && p.head.repo.full_name === full) {
+                run = true; commit = p.head.sha; pr = String(p.number); base = p.base.sha;
               }
             }
             core.info(`run=${run} commit=${commit} pr=${pr} base=${base} archive=${archive}`);
@@ -174,7 +144,7 @@ jobs:
           for device in cpu cuda; do
             julia --startup-file=no --project=benchmark benchmark/run.jl smoke --device=$device --workers=1 --wall=120 \
               --only=case14_ieee_polar,catmix_100 --out="$RUNNER_TEMP/preflight-$device"
-            grep -q ',1,' "$RUNNER_TEMP/preflight-$device/smoke_default.csv"
+            grep -qE '^[^,]+,1,' "$RUNNER_TEMP/preflight-$device/smoke_default.csv"
           done
       - name: Run
         env:
@@ -229,7 +199,8 @@ jobs:
   # gate has restricted to branches of this repository.
   publish:
     needs: [gate, run]
-    if: needs.gate.outputs.run == 'true' && needs.run.result == 'success'
+    # also after a failed leg, so that the comment does not stay at "in progress"
+    if: always() && needs.gate.outputs.run == 'true' && needs.run.result != 'skipped' && needs.run.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -260,7 +231,7 @@ jobs:
       - name: Summarize
         run: julia --startup-file=no --project=benchmark benchmark/summary.jl results/*/ --wall=$WALL | tee -a "$GITHUB_STEP_SUMMARY"
       - name: Archive
-        if: needs.gate.outputs.archive == 'true'
+        if: needs.gate.outputs.archive == 'true' && needs.run.result == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -271,6 +242,9 @@ jobs:
         run: >-
           julia --startup-file=no --project=benchmark benchmark/compare.jl ${{ needs.gate.outputs.base }} results --wall=$WALL
           --candidate-label="\`${{ needs.gate.outputs.commit }}\` (this pull request)" > comment.md
+      - name: Say if the run did not finish
+        if: needs.gate.outputs.pr != '' && needs.run.result != 'success'
+        run: sed -i '1a **The run did not finish; these are the instances it reached.**\n' comment.md
       - name: Comment
         if: needs.gate.outputs.pr != ''
         uses: actions/github-script@v7

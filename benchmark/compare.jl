@@ -13,8 +13,7 @@
 # has nothing for BASE, the results of CANDIDATE are printed on their own.
 
 using MadNLP
-include(joinpath(@__DIR__, "src", "MadNLPBenchmark.jl"))
-using .MadNLPBenchmark
+using MadNLPBenchmark
 using Printf, TOML
 
 const ARCHIVE_BRANCH = "benchmark-results"

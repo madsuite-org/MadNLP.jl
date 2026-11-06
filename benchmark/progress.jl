@@ -7,8 +7,7 @@
 # GITHUB_REPOSITORY and GH_TOKEN. Runs until it is stopped; a failed update only skips a turn.
 
 using MadNLP, Dates, Downloads
-include(joinpath(@__DIR__, "src", "MadNLPBenchmark.jl"))
-using .MadNLPBenchmark
+using MadNLPBenchmark
 
 const MARKER = "<!-- madnlp-benchmark -->"
 const API = get(ENV, "GITHUB_API_URL", "https://api.github.com")

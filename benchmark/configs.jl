@@ -3,7 +3,7 @@
 # to benchmark another KKT system, linear solver or option set. Included by run.jl after the
 # solver packages are loaded.
 
-# The option set of the condensed KKT system on the host; on a CUDA device MadNLPGPU selects it.
+# The option set of the condensed KKT system on the host; on a CUDA device cuMadNLP selects it.
 const CONDENSED = (;
     kkt_system = MadNLP.SparseCondensedKKTSystem,
     equality_treatment = MadNLP.RelaxEquality,

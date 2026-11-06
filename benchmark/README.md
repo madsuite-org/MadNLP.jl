@@ -48,7 +48,7 @@ something new.
 | `ipopt` | cpu | Ipopt's own | Ipopt's default (MUMPS), as a baseline; no time breakdown or factorization counts |
 | `condensed_cholmod` | cpu | `SparseCondensedKKTSystem` | CHOLMOD |
 | `augmented_ma27`, `augmented_ma57` | cpu | `SparseKKTSystem` | MA27, MA57; only with a licensed HSL_jll |
-| `default` | cuda | MadNLPGPU's default (`SparseCondensedKKTSystem`) | cuDSS |
+| `default` | cuda | cuMadNLP's default (`SparseCondensedKKTSystem`) | cuDSS |
 | `augmented_cudss` | cuda | `SparseKKTSystem` | cuDSS with Bunch-Kaufman pivoting |
 
 ## Options of `run.jl`
@@ -183,12 +183,11 @@ julia --project=benchmark benchmark/archive.jl                               # a
 `.github/workflows/benchmark.yml` runs the benchmark on the self-hosted runner labeled
 `benchmark`:
 
-- **On request, for a pull request:** add the `benchmark` label. Once the `build` workflow
-  has succeeded on the head commit, the four sets run with the default configuration on the
+- **On request, for a pull request:** add the `benchmark` label. The four sets run with the default configuration on the
   host and on the CUDA device, with a wall limit of 900 s per solve. A comment on the pull
   request then compares the pull request with `master`: the machines, the instances solved
   and the shifted geometric mean times of both. A push to a labeled pull request
-  stops the running benchmark, and the new commit is benchmarked once its `build` has passed.
+  stops the running benchmark and starts one on the new commit.
   While it runs, the comment shows the results so far, updated every half hour.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.

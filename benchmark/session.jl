@@ -7,10 +7,9 @@ using MadNLP, HSL, ExaModels, ExaModelsPower, COPSBenchmark, ExaMittelmann, NLPM
 "cutest" in SET_NAMES && (DEVICE == :cuda ? (@eval using ExaCUTEst) : (@eval using CUTEst))
 DEVICE == :cuda && @eval using CUDA, cuMadNLP
 
-include(joinpath(@__DIR__, "src", "MadNLPBenchmark.jl"))
 include(joinpath(@__DIR__, "sets.jl"))
 include(joinpath(@__DIR__, "configs.jl"))
-using .MadNLPBenchmark
+using MadNLPBenchmark
 
 # set => (case => build), filled on first use
 const CASES = Dict{String, Dict{String, Function}}()

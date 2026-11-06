@@ -8,8 +8,7 @@
 # (`summary.md`). `--dry-run` prepares the commit and prints it without pushing.
 
 using MadNLP
-include(joinpath(@__DIR__, "src", "MadNLPBenchmark.jl"))
-using .MadNLPBenchmark
+using MadNLPBenchmark
 
 const ARCHIVE_BRANCH = "benchmark-results"
 const ROOT = dirname(@__DIR__)

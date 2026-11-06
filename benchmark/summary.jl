@@ -6,8 +6,7 @@
 # Without a directory, every directory under benchmark/results is summarized.
 
 using MadNLP
-include(joinpath(@__DIR__, "src", "MadNLPBenchmark.jl"))
-using .MadNLPBenchmark
+using MadNLPBenchmark
 
 function main(args)
     wall = 7200.0
