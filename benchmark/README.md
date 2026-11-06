@@ -61,7 +61,7 @@ something new.
 | `--root=DIR` | `benchmark/results` | where the per-machine result directories go |
 | `--out=DIR` | `<root>/<hardware>` | where the result files go; `<hardware>` is the CPU model or the GPU name |
 | `--only=case,...` | all | restrict a set to the named instances |
-| `--tol=1e-8` | `1e-8` | convergence tolerance |
+| `--tol=1e-8` | `1e-8` | convergence tolerance, and the acceptable tolerance |
 | `--wall=7200` | `7200` | wall limit of a solve, in seconds |
 | `--margin=S` | larger of 120 s and 20% of the limit | how far past the limit a worker is killed |
 | `--status-every=600` | `600` | seconds between status reports |
@@ -97,8 +97,8 @@ decoded files stay in CUTEst.jl's directory for later runs.
 
 ## Protocol
 
-- **Options.** MadNLP's defaults, apart from what the configuration sets, the tolerance and
-  the wall limit. A configuration that tunes other options says so in `configs.jl`.
+- **Options.** MadNLP's defaults, apart from what the configuration sets, the tolerance, which
+  is also the acceptable tolerance, and the wall limit. A configuration that tunes other options says so in `configs.jl`.
 - **Solved.** An instance is solved if MadNLP returns `SOLVE_SUCCEEDED` or
   `SOLVED_TO_ACCEPTABLE_LEVEL`. Every other exit, including the iteration limit with a good
   last iterate, is a failure.

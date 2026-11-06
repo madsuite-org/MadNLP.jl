@@ -244,7 +244,7 @@ function main()
     root = get(OPT, "root", joinpath(@__DIR__, "results"))
     outdir = get(OPT, "out", joinpath(root, MadNLPBenchmark.hardware_tag(device_name)))
     options = (;
-        tol = parse(Float64, OPT["tol"]), max_wall_time = parse(Float64, OPT["wall"]),
+        tol = parse(Float64, OPT["tol"]), acceptable_tol = parse(Float64, OPT["tol"]), max_wall_time = parse(Float64, OPT["wall"]),
         print_level = "verbose" in FLAGS ? MadNLP.INFO : MadNLP.ERROR, rethrow_error = false,
     )
     warmup = !("no-warmup" in FLAGS)
