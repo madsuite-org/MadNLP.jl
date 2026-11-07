@@ -1,12 +1,13 @@
 # Archive result files on the `benchmark-results` branch, under `<hardware>/<commit>/`.
 #
-#     julia --project=benchmark/format benchmark/format/archive.jl [DIR] [--commit=REV] [--wall=7200] [--dry-run]
+#     julia --project=benchmark/format benchmark/format/archive.jl [DIR] [--commit=REV] [--wall=7200] [--complete] [--dry-run]
 #     julia --project=benchmark/format benchmark/format/archive.jl DIR --ipopt-reference [--dry-run]
 #
 # DIR (default `benchmark/results`) holds one directory of result files per machine, as
 # run.jl writes them. The commit is the one recorded in the metadata of the result files;
 # `--commit` names it instead. A summary of each machine's results is archived with them
-# (`summary.md`). `--note=TEXT` adds a paragraph to the commit message. `--dry-run` prepares the
+# (`summary.md`). `--complete` archives only the sets a run has finished, so that it can run
+# while the others go on. `--note=TEXT` adds a paragraph to the commit message. `--dry-run` prepares the
 # commit and prints it without pushing.
 #
 # `--ipopt-reference` archives the `ipopt` result files of DIR, which holds them directly, as the
@@ -47,8 +48,13 @@ function main(args)
         for d in machines
             dest = mkpath(joinpath(tree, d, commit))
             for f in readdir(joinpath(dir, d); join = true)
+                endswith(f, ".complete") && continue
+                # with --complete, only the sets that have every instance
+                result = replace(f, r"\.meta\.toml$" => "")
+                "--complete" in flags && !isfile(result * ".complete") && continue
                 isfile(f) && cp(f, joinpath(dest, basename(f)); force = true)
             end
+            isempty(result_files(dest)) && (rm(dest; recursive = true); continue)
             open(io -> summarize(io, dest; wall = parse(Float64, opt["wall"])), joinpath(dest, "summary.md"), "w")
         end
         run(`git -C $tree add -A`)

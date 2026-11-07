@@ -9,7 +9,7 @@ using Distributed
 function parse_args(args)
     isempty(args) && error(
         "usage: run.jl <set>[,<set>...] [--config=a,b] [--device=cpu|cuda|cpu,cuda] [--workers=auto|N] [--workers-per-gpu=2] [--root=DIR] [--out=DIR] " *
-            "[--only=case,...] [--tol=1e-8] [--wall=7200] [--margin=S] [--status-every=600] [--no-warmup] [--overwrite] [--verbose]"
+            "[--only=case,...] [--tol=1e-8] [--wall=7200] [--cuda-wall=S] [--margin=S] [--status-every=600] [--no-warmup] [--overwrite] [--verbose]"
     )
     opt = Dict{String, String}("device" => "cpu", "config" => "default", "tol" => "1e-8", "wall" => "7200", "workers" => "auto")
     flags = Set{String}()
@@ -277,11 +277,14 @@ function main()
     root = get(OPT, "root", joinpath(@__DIR__, "results"))
     outdir = get(OPT, "out", joinpath(root, MadNLPBenchmark.hardware_tag(device_name)))
     options = (;
-        tol = parse(Float64, OPT["tol"]), acceptable_tol = parse(Float64, OPT["tol"]), max_wall_time = parse(Float64, OPT["wall"]),
+        tol = parse(Float64, OPT["tol"]), acceptable_tol = parse(Float64, OPT["tol"]), max_wall_time = parse(Float64, DEVICE == :cuda ? get(OPT, "cuda-wall", OPT["wall"]) : OPT["wall"]),
         print_level = "verbose" in FLAGS ? MadNLP.INFO : MadNLP.ERROR, rethrow_error = false,
     )
     warmup = !("no-warmup" in FLAGS)
-    meta = Dict{String, Any}("device" => String(DEVICE), "madnlp_commit" => madnlp_commit(), "options" => string(options))
+    meta = Dict{String, Any}(
+        "device" => String(DEVICE), "madnlp_commit" => madnlp_commit(), "options" => string(options),
+        "wall_limit_s" => options.max_wall_time,
+    )
     if DEVICE == :cuda
         merge!(
             meta, Dict(
