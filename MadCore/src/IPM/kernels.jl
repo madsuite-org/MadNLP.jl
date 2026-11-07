@@ -290,7 +290,7 @@ function adjust_boundary!(
     mu,
 ) where T
     c1 = eps(T)*mu
-    c2 = eps(T)^(3/4)
+    c2 = eps(T)^T(3 / 4)
     map!(
         (x_lr, xl_r) -> (x_lr-xl_r < c1) ? (xl_r - c2*max(1,abs(x_lr))) : xl_r,
         xl_r, x_lr, xl_r
