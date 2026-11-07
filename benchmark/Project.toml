@@ -41,7 +41,7 @@ NLPModelsIpopt = "0.11"
 
 [sources]
 BenchmarkFormat = {path = "format"}
-COPSBenchmark = {rev = "f0fb7f0ad427bb6c758ca416e5cf37453842a71a", url = "https://github.com/madsuite-org/COPSBenchmark.jl"}
+COPSBenchmark = {rev = "dcabe7c1146141814f6482fb03f4c1ea89964e38", url = "https://github.com/madsuite-org/COPSBenchmark.jl"}
 ExaCUTEst = {rev = "867ca0154bb979bc9d050dbb7601be69be4c1e26", url = "https://github.com/madsuite-org/ExaCUTEst.jl"}
 ExaMittelmann = {rev = "df3ecb57bca7542b27eb28dbd0c28b90974c1b59", url = "https://github.com/madsuite-org/ExaMittelmann.jl"}
 ExaModels = {rev = "4dec7cf9e004fcffcd3ecc8c565a91d8543eaaaf", url = "https://github.com/madsuite-org/ExaModels.jl"}
