@@ -132,6 +132,7 @@ function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     set_mu!(solver, get_opt(solver).barrier.mu_init)
     set_tau!(solver, max(get_opt(solver).tau_min,one(T)-get_opt(solver).barrier.mu_init))
     empty!(get_filter(solver))
+    get_RR(solver) === nothing || (get_RR(solver).n_feasible_returns = 0)
     push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
 
     return REGULAR
@@ -431,8 +432,8 @@ end
 # feasible point; after that, such a phase ends the solve as infeasible.
 const MAX_FEASIBLE_RETURNS = 5
 
-function return_to_regular!(solver::AbstractMadNLPSolver{T}) where T
-    @trace(get_logger(solver),"Going back to the regular phase.")
+function return_to_regular!(solver::AbstractMadNLPSolver{T}) where {T}
+    @trace(get_logger(solver), "Going back to the regular phase.")
     set_initial_rhs!(solver, get_kkt(solver))
     initialize!(get_kkt(solver))
 
@@ -440,14 +441,14 @@ function return_to_regular!(solver::AbstractMadNLPSolver{T}) where T
     solve_refine_wrapper!(
         get_d(solver), solver, get_p(solver), get__w4(solver)
     )
-    if norm(dual(get_d(solver)), Inf)>get_opt(solver).constr_mult_init_max
+    if norm(dual(get_d(solver)), Inf) > get_opt(solver).constr_mult_init_max
         fill!(get_y(solver), zero(T))
     else
         copyto!(get_y(solver), dual(get_d(solver)))
     end
 
-    get_cnt(solver).k+=1
-    get_cnt(solver).t+=1
+    get_cnt(solver).k += 1
+    get_cnt(solver).t += 1
     return
 end
 
@@ -483,7 +484,7 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
         print_iter(solver;is_resto=true)
         !(get_intermediate_callback(solver)(solver, UserCallbackRobust()) :: Bool) && return USER_REQUESTED_STOP
 
-        if max(RR.inf_pr_R,RR.inf_du_R,RR.inf_compl_R) <= get_opt(solver).tol
+        if max(RR.inf_pr_R, RR.inf_du_R, RR.inf_compl_R) <= get_opt(solver).tol
             # A feasible point is not evidence of infeasibility: the regular phase takes over,
             # with a filter that no longer blocks the point.
             if get_inf_pr(get_c(solver)) <= get_opt(solver).tol && RR.n_feasible_returns < MAX_FEASIBLE_RETURNS

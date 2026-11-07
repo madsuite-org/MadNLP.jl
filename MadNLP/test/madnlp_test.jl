@@ -471,15 +471,19 @@ end
 @testset "Restoration converged at a feasible point" begin
     # robust! entered at the solution of a feasible problem converges at a feasible point.
     function solved()
-        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0=[1.0, 1.0]); print_level=MadNLP.ERROR)
+        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
         @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
         solver.opt.max_iter = 2000
         return solver
     end
 
     solver = solved()
-    @test all(==(MadNLP.REGULAR), [MadNLP.robust!(solver) for _ in 1:6])
-    @test solver.RR.n_feasible_returns >= 1
+    @test MadNLP.robust!(solver) == MadNLP.REGULAR
+    @test solver.RR.n_feasible_returns == 1
+
+    # the limit applies to one solve
+    MadNLP.reinitialize!(solver)
+    @test solver.RR.n_feasible_returns == 0
 
     # past the limit, such a phase ends the solve
     solver = solved()
