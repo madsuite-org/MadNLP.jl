@@ -54,7 +54,8 @@ end
     summarize(io, dir; wall = 7200.0)
 
 Print, as Markdown, the machines of the runs in `dir` and, per set and configuration, the
-instances solved and the shifted geometric mean of the solve time by size class.
+instances solved and the shifted geometric mean of the solve time by size class. The wall limit
+recorded in the metadata takes precedence over `wall`.
 """
 function summarize(io::IO, dir::AbstractString; wall = 7200.0)
     files = result_files(dir)
@@ -62,6 +63,8 @@ function summarize(io::IO, dir::AbstractString; wall = 7200.0)
     solvers = unique!(sort!([solver_name(m["device"]) for m in metas]))
     println(io, "### ", join([solvers; basename(rstrip(dir, '/'))], ", ", " on "), "\n")
     machines = unique!([hardware_line(m) for m in metas])
+    limits = unique!([read_meta(f)["wall_limit_s"] for f in values(files) if isfile(f * ".meta.toml") && haskey(read_meta(f), "wall_limit_s")])
+    length(limits) == 1 && (wall = only(limits))
     foreach(m -> println(io, "- ", m), machines)
     isempty(machines) || println(io)
     for set in sort!(unique(first.(keys(files))))

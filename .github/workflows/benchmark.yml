@@ -1,7 +1,7 @@
 name: benchmark
 
 # Runs the benchmark of benchmark/ on the self-hosted runner labeled `benchmark` (a machine
-# with a CUDA device), with a wall limit of 2 hours per solve: the four sets (ACOPF, COPS,
+# with a CUDA device), with a wall limit of 2 hours per solve on the host and 10 minutes on the device: the four sets (ACOPF, COPS,
 # Mittelmann, CUTEst) with MadNLP's default configuration, on the host and on the CUDA device
 # at the same time.
 #
@@ -52,6 +52,8 @@ env:
   ARCHIVE_BRANCH: benchmark-results
   # wall limit of a solve in seconds; a failure is scored with it, so it is the same for every archived run
   WALL: 7200
+  # the same on a CUDA device, where a failure is scored with this
+  WALL_CUDA: 600
 
 jobs:
   # Decide whether to benchmark, and which commit.
@@ -152,8 +154,10 @@ jobs:
   run:
     needs: gate
     if: needs.gate.outputs.run == 'true'
+    # contents: for the archive of a set as soon as it is finished. Only the process that does it
+    # gets the token, and only on a run that is archived.
     permissions:
-      contents: read
+      contents: write
     # One run at a time per pull request (a newer request replaces it) and one at a time for
     # master.
     concurrency:
@@ -168,7 +172,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ needs.gate.outputs.commit }}
-          # the report looks up the archived results of an ancestor
+          persist-credentials: false
+          # the archive job of the run needs the history
           fetch-depth: 0
       - uses: julia-actions/install-juliaup@v2
         with:
@@ -200,6 +205,7 @@ jobs:
           COMMIT: ${{ needs.gate.outputs.commit }}
           BASE: ${{ needs.gate.outputs.base }}
           RESUME: ${{ needs.gate.outputs.resume }}
+          ARCHIVE_TOKEN: ${{ needs.gate.outputs.archive == 'true' && github.token || '' }}
           # where a server outside CI picks up the results to build the report; empty for none
           LIVE: ${{ vars.BENCHMARK_LIVE_DIR }}
         run: |
@@ -226,9 +232,30 @@ jobs:
             ( while true; do publish running; sleep 5; done ) &
             publisher=$!
           fi
+          # each set goes to the archive as soon as it is finished on a device
+          if [ -n "$ARCHIVE_TOKEN" ]; then
+            (
+              export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.https://github.com/.extraheader
+              GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$ARCHIVE_TOKEN" | base64 -w0)"
+              export GIT_CONFIG_VALUE_0
+              export GIT_AUTHOR_NAME="github-actions[bot]" GIT_COMMITTER_NAME="github-actions[bot]"
+              export GIT_AUTHOR_EMAIL="41898282+github-actions[bot]@users.noreply.github.com" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+              archived=0
+              while true; do
+                sleep 60
+                complete=$(find "$KEEP" -name '*.complete' | wc -l)
+                if [ "$complete" != "$archived" ] && julia --startup-file=no --project=benchmark/format \
+                    benchmark/format/archive.jl "$KEEP" --commit="$COMMIT" --wall=$WALL --complete; then
+                  archived=$complete
+                fi
+              done
+            ) &
+            archiver=$!
+          fi
+          unset ARCHIVE_TOKEN
           rc=0
           julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
-            --device="$DEVICE" --config="$CONFIG" --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
+            --device="$DEVICE" --config="$CONFIG" --wall=$WALL --cuda-wall=$WALL_CUDA --root="$KEEP" < /dev/null || rc=$?
           # the Ipopt reference of this version of the benchmark, if the archive has none
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' benchmark/Project.toml)
           git fetch --quiet origin "$ARCHIVE_BRANCH" || true
@@ -236,6 +263,7 @@ jobs:
             julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
               --device=cpu --config=ipopt --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
           fi
+          [ -z "${archiver:-}" ] || kill "$archiver"
           if [ -n "${publisher:-}" ]; then
             kill "$publisher"
             publish "$([ $rc = 0 ] && echo finished || echo failed)"
@@ -260,6 +288,8 @@ jobs:
   # repository.
   publish:
     needs: [gate, run]
+    # also after a failed or cancelled run: what it finished is kept, a partial set included
+    if: always() && needs.gate.outputs.run == 'true' && needs.run.result != 'skipped'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -289,5 +319,5 @@ jobs:
         if: needs.gate.outputs.archive == 'true'
         run: julia --startup-file=no --project=benchmark/format benchmark/format/archive.jl results --commit=${{ needs.gate.outputs.commit }} --wall=$WALL
       - name: Archive the Ipopt reference
-        if: hashFiles('results/*/*_ipopt.csv') != ''
+        if: needs.run.result == 'success' && hashFiles('results/*/*_ipopt.csv') != ''
         run: julia --startup-file=no --project=benchmark/format benchmark/format/archive.jl "$(dirname results/*/acopf_ipopt.csv)" --ipopt-reference
