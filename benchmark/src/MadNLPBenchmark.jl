@@ -412,7 +412,7 @@ function add!(rs::ResultSet, set, config, meta, rows)
     commit = abbreviate(get(meta, "madnlp_commit", "unknown"))
     haskey(meta, "first_commit") && (commit = abbreviate(meta["first_commit"]) * " to " * commit)
     rs.harness[(device, config)] = get(meta, "benchmark_version", BENCHMARK_VERSION)
-    rs.revs[(device, config)] = config == "ipopt" ? "Ipopt " * get(meta, "ipopt_version", "?") : commit
+    rs.revs[(device, config)] = config == "ipopt" ? get(meta, "ipopt_version", "?") : commit
     line = hardware_line(meta)
     line in get!(rs.machines, device, String[]) || push!(rs.machines[device], line)
     return rs

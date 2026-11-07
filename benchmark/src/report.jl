@@ -387,8 +387,8 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     push!(tools, "<a href=\"data/\">Raw data</a>")
     heading_title = replace(escape_html(title), r"^[^(]*[^( ]" => m -> "<a href=\"index.html\">" * m * "</a>")
     link === nothing || (heading_title = replace(heading_title, r"pr #\d+" => m -> "<a href=\"" * escape_html(link) * "\">" * m * "</a>"))
-    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"title\"><b>" * heading_title * "</b></div><nav>" * join(tools) * "<span class=\"m\">" * heading *
-        "</span></nav>" * join(menu.(devices)) * "</div></div>"
+    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"title\"><b>" * heading_title * "</b></div><div class=\"m\">" * heading *
+        "</div><nav class=\"mb-2\">" * join(tools) * "</nav>" * join(menu.(devices)) * "</div></div>"
     for device in devices, set in sets
         set_page(site, set, device, sides, cand, base, wall, logs, bar; refresh = !finished)
     end

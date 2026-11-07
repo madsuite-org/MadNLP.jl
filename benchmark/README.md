@@ -221,9 +221,9 @@ julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device
   host and on the CUDA device, with a wall limit of 2 hours per solve. A comment on the pull
   request then compares the pull request with `master`: the machines, the instances solved
   and the shifted geometric mean times of both. A push to a labeled pull request
-  stops the running benchmark and starts one on the new commit. With the `benchmark-continue`
-  label as well, the new commit keeps the results of the previous one and solves what is left:
-  use it for changes that do not affect the results, such as to the report. The revision in the
+  stops the running benchmark and starts one on the new commit. A commit with
+  `[benchmark-continue]` in its message keeps the results so far and solves what is left: use it
+  for changes that do not affect the results, such as to the report. The revision in the
   report then shows the first and the last commit.
   While it runs, the comment shows the results so far, updated every minute. With the
   repository variable `BENCHMARK_REPORT_URL` set to where the runner's
