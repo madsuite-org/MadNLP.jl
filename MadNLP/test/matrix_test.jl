@@ -35,5 +35,52 @@ MadNLPTests.test_linear_solver(LDLSolver,Float64)
 MadNLPTests.test_linear_solver(LDLSolver,Float128)
 MadNLPTests.test_linear_solver(UmfpackSolver,Float64)
 MadNLPTests.test_linear_solver(CHOLMODSolver,Float64)
+
+import SparseArrays
+
+@testset "CHOLMOD index width" begin
+    K = sparse(Int32[1, 3, 2, 3, 3], Int32[1, 1, 2, 2, 3], [4.0, 1.0, 3.0, 1.0, -2.0], 3, 3)
+    rhs = [1.0, 2.0, 3.0]
+    sol = [4.0 0.0 1.0; 0.0 3.0 1.0; 1.0 1.0 -2.0] \ rhs
+    for (max_lnz, Ti) in ((Inf, Int32), (0, Int64)), T in (Float32, Float64)
+        opt = MadNLP.default_options(CHOLMODSolver)
+        opt.cholmod_algorithm = MadNLP.LDL
+        A = SparseArrays.SparseMatrixCSC{T, Int32}(K)
+        M = MadNLP.create_linear_solver(CHOLMODSolver, A; opt, max_lnz_int32 = max_lnz)
+        @test typeof(M.inner).parameters[2] == Ti
+        MadNLP.factorize!(M)
+        @test MadNLP.inertia(M) == (2, 0, 1)
+        x = T.(rhs)
+        MadNLP.solve_linear_system!(M, x)
+        @test x ≈ sol rtol = sqrt(eps(T))
+        # New values reach CHOLMOD and the solve buffers are reused
+        A.nzval .*= 2
+        MadNLP.factorize!(M)
+        x = T.(rhs)
+        MadNLP.solve_linear_system!(M, x)
+        @test x ≈ sol / 2 rtol = sqrt(eps(T))
+    end
+    # Solves reuse their buffers, so a solve does not allocate vectors of length n
+    n = 10_000
+    D = SparseArrays.spdiagm(0 => ones(n))
+    M = MadNLP.create_linear_solver(CHOLMODSolver, SparseArrays.SparseMatrixCSC{Float64, Int32}(D))
+    MadNLP.factorize!(M)
+    x = ones(n)
+    MadNLP.solve_linear_system!(M, x)
+    # On Julia 1.10 this solve still allocates about four vectors of length n
+    VERSION >= v"1.11" && @test (@allocated MadNLP.solve_linear_system!(M, x)) < 1000
+    # A positive definite matrix goes through the supernodal Cholesky path
+    P = sparse(Int32[1, 2, 2], Int32[1, 1, 2], [2.0, 1.0, 3.0], 2, 2)
+    M = MadNLP.create_linear_solver(CHOLMODSolver, P)
+    MadNLP.factorize!(M)
+    @test MadNLP.inertia(M) == (2, 0, 0)
+    @test MadNLP.solve_linear_system!(M, [1.0, 1.0]) ≈ [2.0 1.0; 1.0 3.0] \ [1.0, 1.0]
+    # A failed Cholesky factorization leaves the right-hand side unchanged
+    M = MadNLP.create_linear_solver(CHOLMODSolver, K)
+    MadNLP.factorize!(M)
+    @test MadNLP.inertia(M) == (0, 3, 0)
+    @test MadNLP.solve_linear_system!(M, copy(rhs)) == rhs
+end
+
 MadNLPTests.test_linear_solver(LapackCPUSolver,Float32)
 MadNLPTests.test_linear_solver(LapackCPUSolver,Float64)
