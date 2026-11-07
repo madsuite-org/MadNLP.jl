@@ -5,6 +5,8 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
         @test LapackROCmSolver === MadCoreGPU.LapackROCmSolver
         @test SDSSolver <: MadCore.AbstractLinearSolver
         @test madnlp === MadNLPCore.madnlp
+        @test :ROCBackend in names(rocMadNLP)
+        @test rocMadNLP.ROCBackend === AMDGPU.ROCBackend
         # rocMadNLP loads AMDGPU, so the rocSOLVER solvers are available.
         @test MadCore.default_options(LapackROCmSolver) isa MadCore.AbstractOptions
         @test MadCore.default_options(SDSSolver) isa SDSSolverOptions
