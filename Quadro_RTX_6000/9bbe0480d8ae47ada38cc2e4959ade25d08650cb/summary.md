@@ -14,3 +14,9 @@
 |---|---|---|---|---|
 | default | 24 / 24, 1.72 | 21 / 21, 3.16 | 20 / 20, 5.16 | 65 / 65, 3.17 |
 
+**mittelmann** (solved, SGM in seconds; a failure counts as 600 s)
+
+| configuration | small | medium | large | total |
+|---|---|---|---|---|
+| default | 7 / 9, 17.47 | 10 / 15, 48.15 | 19 / 23, 29.20 | 36 / 47, 31.53 |
+
