@@ -385,11 +385,11 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     heading = (finished ? "Finished" : "In progress") * ", updated $stamp UTC."
     devices = unique!([s.key[1] for s in sides])
     # the bar pinned to the top of every page
-    families = ["<a href=\"index.html\">Summary</a>"; ["<a href=\"$set.html\">$(get(SET_TITLES, set, set))</a>" for set in sets]]
+    families = ["<a href=\"$set.html\">$(get(SET_TITLES, set, set))</a>" for set in sets]
     tools = String[]
     finished || push!(tools, "<a href=\"workers.html\">Workers</a>")
     push!(tools, "<a href=\"data/\">Files</a>")
-    heading_title = escape_html(title)
+    heading_title = replace(escape_html(title), r"^[^(]*[^( ]" => m -> "<a href=\"index.html\">" * m * "</a>")
     link === nothing || (heading_title = replace(heading_title, r"pr #\d+" => m -> "<a href=\"" * escape_html(link) * "\">" * m * "</a>"))
     bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"top\"><b>" * heading_title * "</b> <span class=\"m\">" * heading *
         "</span></div><nav>" * join(families) * "</nav><nav>" * join(tools) * "</nav></div></div>"
