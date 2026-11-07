@@ -52,13 +52,13 @@ using Random: MersenneTwister
 
         opt = MadNLP.default_options(CHOLMODSolver)
         opt.cholmod_algorithm = MadNLP.LDL
-        opt.cholmod_dbound = 1e-10
+        opt.cholmod_dbound = 1.0e-10
         M = MadNLP.create_linear_solver(CHOLMODSolver, copy(K); opt, max_lnz_int32 = max_lnz)
         MadNLP.factorize!(M)
         @test MadNLP.inertia(M) == (1, 0, 1)
         x = [1.0, 2.0]
         MadNLP.solve_linear_system!(M, x)
-        @test x ≈ [2.0, 1.0] rtol = 1e-6
+        @test x ≈ [2.0, 1.0] rtol = 1.0e-6
         @test SparseArrays.CHOLMOD.getcommon(Ti)[].dbound == 0.0
     end
 end
