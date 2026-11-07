@@ -55,10 +55,10 @@ end
 =#
 
 @kernel function _tril_to_full_kernel!(dense)
-    idx = @index(Global)
-    n = size(dense, 1)
-    i, j = getij(idx, n)
-    @inbounds dense[j, i] = dense[i, j]
+    i, j = @index(Global, NTuple)
+    @inbounds if i > j
+        dense[j, i] = dense[i, j]
+    end
 end
 
 #=
