@@ -9,7 +9,7 @@ module rocMadNLP
 
 import MadCore, MadCoreGPU, MadNLPCore
 import AMDGPU
-using AMDGPU: ROCVector
+using AMDGPU: ROCVector, ROCBackend
 import PrecompileTools
 import SparseDirectSolver
 
@@ -19,7 +19,7 @@ for name in names(MadNLPCore)
     @eval export $name
 end
 using MadCoreGPU: LapackROCmSolver
-export LapackROCmSolver, SDSSolver, SDSSolverOptions
+export LapackROCmSolver, SDSSolver, SDSSolverOptions, ROCBackend
 
 include("sds.jl")
 include("options.jl")

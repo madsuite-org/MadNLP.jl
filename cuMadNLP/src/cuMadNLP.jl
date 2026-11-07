@@ -9,7 +9,7 @@ module cuMadNLP
 
 import MadCore, MadCoreGPU, MadNLPCore
 import CUDA, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
-using CUDACore: CuVector
+using CUDACore: CuVector, CUDABackend
 import PrecompileTools
 
 using MadNLPCore
@@ -18,7 +18,7 @@ for name in names(MadNLPCore)
     @eval export $name
 end
 using MadCoreGPU: LapackCUDASolver, CUDSSSolver
-export LapackCUDASolver, CUDSSSolver
+export LapackCUDASolver, CUDSSSolver, CUDABackend
 
 include("options.jl")
 include("precompile.jl")
