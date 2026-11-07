@@ -61,6 +61,7 @@ jobs:
       actions: read
       contents: read
       pull-requests: write
+      statuses: write
     outputs:
       run: ${{ steps.decide.outputs.run }}
       commit: ${{ steps.decide.outputs.commit }}
@@ -113,6 +114,12 @@ jobs:
                   if (running.length > 0) {
                     run = false;
                     core.info(`leaving run ${running[0].id} as it is`);
+                    // the jobs of this workflow read as skipped: say on the commit where the benchmark is
+                    await github.rest.repos.createCommitStatus({
+                      owner, repo, sha: commit, state: 'success', context: 'benchmark continues',
+                      description: `Still running on ${running[0].head_sha.slice(0, 8)}`,
+                      target_url: running[0].html_url,
+                    });
                   }
                 }
               }
