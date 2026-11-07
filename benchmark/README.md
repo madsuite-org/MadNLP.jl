@@ -20,8 +20,6 @@ julia --project=benchmark benchmark/run.jl smoke                       # a funct
 julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest           # the four sets on the host
 julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cuda
 
-julia --project=benchmark benchmark/summary.jl                         # the machine, solved counts and mean times
-julia --project=benchmark benchmark/compare.jl master benchmark/results           # against the archived results of master
 ```
 
 ## Problem sets
@@ -124,8 +122,7 @@ CUTEst.jl's directory for later runs.
 - **Hardware.** Timings are comparable only on the same machine. Each result file has a
   metadata file beside it (`.meta.toml`) with the host, the CPU model, its cores and threads,
   the memory, the GPU with its memory, driver and CUDA runtime, the thread counts, the package
-  versions, the MadNLP commit and the options. `summary.jl` names the machine above its
-  tables.
+  versions, the MadNLP commit and the options. The report names the machines.
 
 ## Result files
 
@@ -138,102 +135,39 @@ t_compile, n_solves, viol_eq, viol_con, viol_var`
 `status` is MadNLP's status code; `-100` marks an instance whose worker was killed at the wall
 limit, and `-101` one whose model could not be built or whose solve threw.
 
-## Comparing and archiving
+## Results and archive
 
-`compare.jl BASE CANDIDATE` prints, as Markdown, the machines of both sides and, per device,
-set and configuration, the instances solved, the shifted geometric means and their ratio,
-the ratio of iteration counts, and every instance whose outcome changed. It flags a set and
-configuration with fewer instances solved or a time ratio above `--threshold` (1.1). BASE and
-CANDIDATE are each a directory of result files or a git revision.
+Solver logs are in `logs/<set>/<instance>__<configuration>.txt` beside the result files.
+`benchmark/format` is a small package with no solver among its dependencies: it reads and
+scores result files, and its `archive.jl` archives them. The website at
+https://madnlp.madsuite.org/benchmark/ is built from them by
+[benchmark-report](https://github.com/madsuite-org/benchmark-report), which can also be run by
+hand.
 
-Results are archived on the `benchmark-results` branch of the repository, one directory per
-machine and commit: `<hardware>/<commit>/<set>_<configuration>.csv`, with the metadata files
-and a summary. A revision given to `compare.jl` is looked up there; for a device the commit
-has no archived results for, its nearest archived ancestor is used and named in the output.
-Results from different machines can be compared: the output names both machines and says
-that their times are not comparable.
-
-`archive.jl [DIR]` archives the result files of `DIR` (default `benchmark/results`) under
-the commit recorded in their metadata.
+Results are archived on the `benchmark-results` branch, under `<hardware>/<commit>/`, with the
+metadata files and a summary. `archive.jl [DIR]` archives result files under the commit recorded
+in their metadata. Timings are comparable only on the same machine.
 
 **Ipopt reference.** Each version of this benchmark (`version` in `Project.toml`) has one Ipopt run,
 `ipopt/<version>/` on the same branch, and every report shows it as the reference, with a scaled
-mean of 1. The version fixes Ipopt (`Ipopt_jll` in `[compat]`) and the licensed HSL (`[benchmark]` in
-`Project.toml`, which `run.jl` and CI check), so bump it when the instances, the pins, these
-libraries or the protocol change, and run Ipopt once for the new version: CI does this by itself when the archive has no reference for the version.
-By hand: `run.jl ... --config=ipopt`, then `archive.jl DIR --ipopt-reference`.
-
-## Report
-
-`report.jl` writes a static site from result directories: the machines, the summary table, a
-Dolan-Moré performance profile of the wall time and of the iterations per set and device over the instances that every solver has a
-result, with Ipopt as the reference of every device (MadNLP on the host and a solver on a GPU
-are never compared),
-and a page per set with every instance and a link to its solver log. The log of a solve is
-in `logs/<set>/<instance>__<configuration>.txt` beside the result files.
-
-```sh
-julia --project=benchmark benchmark/report.jl benchmark/results report --base=master --wall=7200
-```
-
-The report is its own package, `benchmark/report`, with no solver among its dependencies.
-`report/serve.jl` is the server that builds the reports of running benchmarks: CI only copies
-results to a folder it watches and leaves a link on the pull request. Result files are treated as
-untrusted input, because the report is public; `report/test/runtests.jl` tests that.
-
-## Plots
-
-`benchmark/plots` is a separate environment, so that Plots stays out of a benchmark run. It
-draws one performance profile of the solve time per set, with a curve per directory and
-configuration:
-
-```sh
-julia --project=benchmark/plots -e 'using Pkg; Pkg.instantiate()'
-julia --project=benchmark/plots benchmark/plots/profiles.jl benchmark/results/*/ --out=profiles
-```
-
-## By hand
-
-Everything CI does can be done from a checkout:
-
-```sh
-julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cpu,cuda   # host and device, side by side
-
-julia --project=benchmark benchmark/summary.jl                               # the tables
-julia --project=benchmark benchmark/compare.jl master benchmark/results > comparison.md
-gh pr comment <number> --body-file comparison.md                             # post it on a pull request
-
-julia --project=benchmark benchmark/archive.jl                               # archive (needs push access)
-```
-
-The command fills the machine as CI does: workers follow the cores, the memory and the GPUs the
-process can use, with the same limits, kills and resuming. In a batch job it follows the
-allocation, so that one script is enough, and resubmitting it resumes the run:
-
-```sh
-#!/bin/bash
-#SBATCH --nodes=1 --cpus-per-task=40 --mem=128G --gres=gpu:2 --time=24:00:00
-julia --project=benchmark -e 'using Pkg; Pkg.instantiate()'
-julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device=cpu,cuda
-```
+mean of 1. The version fixes Ipopt (`Ipopt_jll` in `[compat]`) and the licensed HSL (`[benchmark]`
+in `Project.toml`, which `run.jl` and CI check), so bump it when the instances, the pins, these
+libraries or the protocol change. CI then runs Ipopt once for the new version. By hand:
+`run.jl ... --config=ipopt`, then `archive.jl DIR --ipopt-reference`.
 
 ## CI
 
 `.github/workflows/benchmark.yml` runs the benchmark on the self-hosted runner labeled
 `benchmark`:
 
-- **On request, for a pull request:** add the `benchmark` label. The four sets run with the default configuration on the
-  host and on the CUDA device, with a wall limit of 2 hours per solve. A comment on the pull
-  request then compares the pull request with `master`: the machines, the instances solved
-  and the shifted geometric mean times of both. A push to a labeled pull request
-  stops the running benchmark and starts one on the new commit. A commit with
+- **On request, for a pull request:** add the `benchmark` label. The four sets run with the default
+  configuration on the host and on the CUDA device, with a wall limit of 2 hours per solve, and
+  the pull request gets a link to its report. With the repository variables `BENCHMARK_LIVE_DIR`
+  and `BENCHMARK_REPORT_URL`, results are copied to the server every 5 s. A push to a labeled
+  pull request stops the running benchmark and starts one on the new commit. A commit with
   `[benchmark-continue]` in its message, for changes that do not affect the results, leaves a
   running benchmark as it is; with none running, it keeps the results so far and solves what is
-  left. The revision in the
-  report then shows the first and the last commit.
-  With the repository variables `BENCHMARK_LIVE_DIR` (a folder the server watches) and
-  `BENCHMARK_REPORT_URL`, results are copied there every 30 s and the comment is a link to the
-  report of the pull request (see below). Without them the comment is the comparison.
+  left.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on

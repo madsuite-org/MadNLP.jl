@@ -8,11 +8,11 @@ metadata file beside it. `benchmark/README.md` states the protocol.
 module MadNLPBenchmark
 
 using MadNLP, NLPModels
-using BenchmarkReport
-using BenchmarkReport: KILLED_STATUS, ERROR_STATUS
+using BenchmarkFormat
+using BenchmarkFormat: KILLED_STATUS, ERROR_STATUS
 using Dates, DelimitedFiles, LinearAlgebra, Printf, TOML
 
-export ResultSet, locate, HSL_VERSION, ipopt_reference, BENCHMARK_VERSION, short, write_report, run_benchmark, solve_case, read_results, read_meta, result_files, summarize, solver_name, hardware_line, solved, score_time, sgm, size_class
+export run_benchmark, solve_case, HSL_VERSION, read_results, summarize
 
 "The columns of a result file, in order."
 const HEADER = [

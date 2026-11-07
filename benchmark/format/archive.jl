@@ -1,7 +1,7 @@
 # Archive result files on the `benchmark-results` branch, under `<hardware>/<commit>/`.
 #
-#     julia --project=benchmark benchmark/archive.jl [DIR] [--commit=REV] [--wall=7200] [--dry-run]
-#     julia --project=benchmark benchmark/archive.jl DIR --ipopt-reference [--dry-run]
+#     julia --project=benchmark/format benchmark/format/archive.jl [DIR] [--commit=REV] [--wall=7200] [--dry-run]
+#     julia --project=benchmark/format benchmark/format/archive.jl DIR --ipopt-reference [--dry-run]
 #
 # DIR (default `benchmark/results`) holds one directory of result files per machine, as
 # run.jl writes them. The commit is the one recorded in the metadata of the result files;
@@ -12,11 +12,9 @@
 # `--ipopt-reference` archives the `ipopt` result files of DIR, which holds them directly, as the
 # Ipopt reference of this version of the benchmark, under `ipopt/<version>/`.
 
-using MadNLP
-using MadNLPBenchmark
+using BenchmarkFormat
 
-const ARCHIVE_BRANCH = "benchmark-results"
-const ROOT = dirname(@__DIR__)
+const ROOT = dirname(dirname(@__DIR__))
 git(args...) = readchomp(`git -C $ROOT $args`)
 
 function main(args)
@@ -26,7 +24,7 @@ function main(args)
         m = match(r"^--(commit|wall|note)=(.*)$", a)
         m !== nothing ? (opt[m[1]] = m[2]) : startswith(a, "--") ? push!(flags, a) : push!(pos, a)
     end
-    dir = isempty(pos) ? joinpath(@__DIR__, "results") : only(pos)
+    dir = isempty(pos) ? joinpath(dirname(@__DIR__), "results") : only(pos)
     "--ipopt-reference" in flags && return archive_reference(dir, flags, opt["note"])
     machines = [d for d in sort!(readdir(dir)) if isdir(joinpath(dir, d)) && !isempty(result_files(joinpath(dir, d)))]
     isempty(machines) && error("no result files under $dir")

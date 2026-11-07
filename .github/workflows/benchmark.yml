@@ -6,8 +6,7 @@ name: benchmark
 # at the same time.
 #
 # - A pull request is benchmarked on request: add the `benchmark` label. The run starts at
-#   once, without waiting for `build`. While it runs, a comment shows the results so far; at the
-#   end it gives the comparison with the archived results of the base commit. A push to a
+#   once, without waiting for `build`, and the pull request gets a link to its report. A push to a
 #   labeled pull request replaces the running benchmark with one of the new commit. A commit
 #   with `[benchmark-continue]` in its message, for changes that do not affect the results, leaves
 #   a running benchmark as it is; with none running, it takes over the results kept for the pull
@@ -21,8 +20,9 @@ name: benchmark
 # Same-repository branches only: code from a fork never runs on the self-hosted runner.
 # The `benchmark` label names the one runner that takes these jobs, so two benchmarks never
 # run at once; timings are comparable only while that runner stays on the same machine. The
-# job that runs the benchmark has a read-only token; the archive and the comment are written
-# by a separate job that runs the scripts of the default branch on the uploaded result files.
+# job that runs the benchmark has a read-only token; the archive is written by a separate job that
+# runs the scripts of the default branch on the uploaded result files. The report is not built
+# here: the job copies its results to a folder, and madsuite-org/benchmark-report builds it on a server.
 
 on:
   workflow_run:
@@ -214,7 +214,7 @@ jobs:
           fi
           mkdir -p "$KEEP"
           [ -z "$PR" ] || echo "$PR" > "$KEEP/.pr"
-          # the results so far go to the server every 30 s; run.json is replaced last, which marks a complete copy
+          # the results so far go to the server every 5 s; run.json is replaced last, which marks a complete copy
           publish() {
             rsync -a --exclude='*.tmp' --exclude=.pr --exclude=run.json "$KEEP"/ "$LIVE/pr-$PR"/
             printf '{"repository":"%s","pr":"%s","commit":"%s","base":"%s","run":"%s","state":"%s"}\n' \
@@ -223,7 +223,7 @@ jobs:
           }
           if [ -n "$PR" ] && [ -n "$LIVE" ]; then
             mkdir -p "$LIVE/pr-$PR"
-            ( while true; do publish running; sleep 30; done ) &
+            ( while true; do publish running; sleep 5; done ) &
             publisher=$!
           fi
           rc=0
@@ -253,28 +253,24 @@ jobs:
       - name: Remove the kept results
         run: rm -rf "$KEEP"
 
-  # Archive the results and comment on the pull request. Runs the scripts of the default
-  # branch on the result files of the `run` job, so that nothing from the benchmarked commit
-  # executes with this job's token. The one exception is the fallback step below, for a
-  # default branch without benchmark/: it runs the scripts of the benchmarked commit, which the
-  # gate has restricted to branches of this repository.
+  # Archive the results. Runs the scripts of the default branch on the result files of the `run`
+  # job, so that nothing from the benchmarked commit executes with this job's token. The one
+  # exception is the fallback step below, for a default branch without benchmark/: it runs the
+  # scripts of the benchmarked commit, which the gate has restricted to branches of this
+  # repository.
   publish:
     needs: [gate, run]
-    # also after a failed leg, so that the comment does not stay at "in progress"
-    if: always() && needs.gate.outputs.run == 'true' && needs.run.result != 'skipped' && needs.run.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      pull-requests: write
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.repository.default_branch }}
           fetch-depth: 0
-      # the pull request that adds benchmark/ is published with its own scripts
       - name: Use the scripts of the benchmarked commit if the default branch has none
         run: |
-          if [ ! -f benchmark/compare.jl ]; then
+          if [ ! -f benchmark/format/archive.jl ]; then
             git fetch --quiet origin ${{ needs.gate.outputs.commit }}
             git checkout --quiet ${{ needs.gate.outputs.commit }}
           fi
@@ -285,54 +281,13 @@ jobs:
       - uses: julia-actions/install-juliaup@v2
         with:
           channel: '1'
-      - name: Instantiate
-        env:
-          JULIA_PKG_PRECOMPILE_AUTO: 0
-        run: julia --startup-file=no --project=benchmark -e 'using Pkg; Pkg.instantiate()'
-      - name: Summarize
-        run: julia --startup-file=no --project=benchmark benchmark/summary.jl results/*/ --wall=$WALL | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Set the author of the archive commits
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
       - name: Archive
-        if: needs.gate.outputs.archive == 'true' && needs.run.result == 'success'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          julia --startup-file=no --project=benchmark benchmark/archive.jl results --commit=${{ needs.gate.outputs.commit }} --wall=$WALL
+        if: needs.gate.outputs.archive == 'true'
+        run: julia --startup-file=no --project=benchmark/format benchmark/format/archive.jl results --commit=${{ needs.gate.outputs.commit }} --wall=$WALL
       - name: Archive the Ipopt reference
-        if: needs.run.result == 'success' && hashFiles('results/*/*_ipopt.csv') != ''
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          julia --startup-file=no --project=benchmark benchmark/archive.jl "$(dirname results/*/acopf_ipopt.csv)" --ipopt-reference
-      - name: Compare with the base commit
-        if: needs.gate.outputs.pr != ''
-        # without archived results for the base, the comparison prints this run's table alone
-        run: >-
-          julia --startup-file=no --project=benchmark benchmark/compare.jl ${{ needs.gate.outputs.base }} results --wall=$WALL
-          --candidate-label="\`$(echo ${{ needs.gate.outputs.commit }} | cut -c1-8)\` (this pull request)" > comment.md
-      - name: Say if the run did not finish
-        if: needs.gate.outputs.pr != '' && needs.run.result != 'success'
-        run: sed -i '1a **The run did not finish; these are the instances it reached.**\n' comment.md
-      - name: Link the report
-        if: needs.gate.outputs.pr != '' && vars.BENCHMARK_REPORT_URL != ''
-        env:
-          URL: ${{ vars.BENCHMARK_REPORT_URL }}/pr-${{ needs.gate.outputs.pr }}/
-        run: |
-          printf '[Benchmark report](%s)\n' "$URL" > comment.md
-      - name: Comment
-        if: needs.gate.outputs.pr != ''
-        uses: actions/github-script@v7
-        env:
-          PR: ${{ needs.gate.outputs.pr }}
-        with:
-          script: |
-            const fs = require('fs');
-            const marker = '<!-- madnlp-benchmark -->';
-            const body = marker + '\n' + fs.readFileSync('comment.md', 'utf8').trimEnd();
-            const issue_number = Number(process.env.PR);
-            const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
-            const existing = comments.find(c => c.body.startsWith(marker));
-            if (existing) {
-              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
-            } else {
-              await github.rest.issues.createComment({ ...context.repo, issue_number, body });
-            }
+        if: hashFiles('results/*/*_ipopt.csv') != ''
+        run: julia --startup-file=no --project=benchmark/format benchmark/format/archive.jl "$(dirname results/*/acopf_ipopt.csv)" --ipopt-reference
