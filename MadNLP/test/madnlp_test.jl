@@ -467,3 +467,23 @@ end
     @test readline(pipe) == "The following options are ignored: "
     @test readline(pipe) == " - fake_option"
 end
+
+@testset "Restoration converged at a feasible point" begin
+    # robust! entered at the solution of a feasible problem converges at a feasible point.
+    function solved()
+        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0=[1.0, 1.0]); print_level=MadNLP.ERROR)
+        @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+        solver.opt.max_iter = 2000
+        return solver
+    end
+
+    solver = solved()
+    @test all(==(MadNLP.REGULAR), [MadNLP.robust!(solver) for _ in 1:6])
+    @test solver.RR.n_feasible_returns >= 1
+
+    # past the limit, such a phase ends the solve
+    solver = solved()
+    MadNLP.initialize_robust_restorer!(solver)
+    solver.RR.n_feasible_returns = MadNLP.MAX_FEASIBLE_RETURNS
+    @test MadNLP.robust!(solver) == MadNLP.INFEASIBLE_PROBLEM_DETECTED
+end

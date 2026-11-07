@@ -31,6 +31,8 @@ mutable struct RobustRestorer{T, VT}
     zeta::T
 
     filter::Vector{Tuple{T,T}}
+
+    n_feasible_returns::Int
 end
 
 abstract type AbstractInertiaCorrector end

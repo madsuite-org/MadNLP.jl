@@ -33,6 +33,7 @@ function RobustRestorer(solver::AbstractMadNLPSolver{T}) where {T}
         nn_trial, 
         zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), 
         Tuple{T, T}[], 
+        0,
     )
 end
 
