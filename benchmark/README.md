@@ -90,7 +90,7 @@ the machine's memory during a solve is treated the same way.
 **Status.** Every ten minutes the log gives the instances done and, per worker, the instance,
 its state (`building`, `waiting` for a GPU, `solving`, `working`) and for how long, longest
 first, with its memory, followed by the solved counts and mean times so far. The same report
-is kept in `summary.md` beside the result files, rewritten every 15 s. In CI it appears live in
+is kept in `summary.md` beside the result files, rewritten every 5 s. In CI it appears live in
 the step's log on GitHub.
 
 **CUTEst.** On the host one more process decodes the problems, one after the other, while the
@@ -156,11 +156,18 @@ that their times are not comparable.
 `archive.jl [DIR]` archives the result files of `DIR` (default `benchmark/results`) under
 the commit recorded in their metadata.
 
+**Ipopt reference.** Each version of this benchmark (`version` in `Project.toml`) has one Ipopt run,
+`ipopt/<version>/` on the same branch, and every report shows it as the reference, with a scaled
+mean of 1. The version fixes Ipopt (`Ipopt_jll` in `[compat]`) and the licensed HSL (`[benchmark]` in
+`Project.toml`, which `run.jl` and CI check), so bump it when the instances, the pins, these
+libraries or the protocol change, and run Ipopt once for the new version: `run.jl ... --config=ipopt`, then `archive.jl DIR --ipopt-reference`.
+
 ## Report
 
 `report.jl` writes a static site from result directories: the machines, the summary table, a
 Dolan-Moré performance profile of the wall time and of the iterations per set and device over the instances that every solver has a
-result for (a solver on the host and one on a GPU are never compared),
+result, with Ipopt as the reference of every device (MadNLP on the host and a solver on a GPU
+are never compared),
 and a page per set with every instance and a link to its solver log. The log of a solve is
 in `logs/<set>/<instance>__<configuration>.txt` beside the result files.
 
@@ -217,7 +224,7 @@ julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device
   While it runs, the comment shows the results so far, updated every minute. With the
   repository variable `BENCHMARK_REPORT_URL` set to where the runner's
   `~/public_html/madnlp-benchmark` is served, the comment is instead a link to the report of the
-  pull request (see below), which is updated every 15 s while the benchmark runs.
+  pull request (see below), which updates itself in place every 5 s while the benchmark runs.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on

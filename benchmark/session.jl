@@ -47,8 +47,23 @@ end
 # first launches, so this also evaluates them once at the starting point.
 compile_model(m) = m isa ExaModels.AbstractExaModel ? ExaModels.precompile_callbacks(m) : nothing
 
+# Ipopt_jll encodes the version of Ipopt as 100 times each of its parts.
+function ipopt_version()
+    v = pkgversion(NLPModelsIpopt.Ipopt.Ipopt_jll)
+    return join((v.major, v.minor, v.patch) .÷ 100, ".")
+end
+
+# The version of the HSL library, or "none" with the registry's HSL_jll, which carries no solver.
+function hsl_version()
+    HSL.LIBHSL_isfunctional() || return "none"
+    v = pkgversion(HSL.HSL_jll)
+    return "$(v.major).$(v.minor).$(v.patch)"
+end
+
 worker_threads() = Dict{String, Any}(
     "julia_threads" => Threads.nthreads(), "blas_threads" => MadNLPBenchmark.LinearAlgebra.BLAS.get_num_threads(),
+    "ipopt_version" => ipopt_version(),
+    "hsl_version" => hsl_version(),
 )
 
 # Compile the solve path of this process on tiny problems, so that the first real instance a

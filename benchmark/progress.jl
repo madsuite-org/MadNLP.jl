@@ -7,7 +7,7 @@
 # GITHUB_REPOSITORY and GH_TOKEN. Runs until it is stopped; a failed update only skips a turn.
 #
 # With REPORT_DIR and REPORT_URL in the environment, the benchmark report goes to that directory
-# every 15 s and the comment is a link to it. BASE then names the results to compare with, and
+# every 5 s and the comment is a link to it. BASE then names the results to compare with, and
 # `--final` writes the finished report and stops.
 
 using MadNLP, Dates, Downloads
@@ -85,13 +85,19 @@ function main(args)
             @warn "could not read the results of the base" exception = err
         end
     end
+    reference = isempty(site) ? nothing : try
+            ipopt_reference()
+    catch err
+            @warn "could not read the Ipopt reference" exception = err
+    end
     title = "MadNLP benchmark of $(first(commit, 8)), pull request $pr"
     finished = "--final" in args
     updated = 0.0
     while true
         if !isempty(site)
             try
-                write_report(site, root; base, wall, title, finished)
+                link = "https://github.com/$repo/pull/$pr"
+                write_report(site, root; base, wall, title, link, reference, finished)
             catch err
                 @warn "could not update the report" exception = err
             end
@@ -99,7 +105,7 @@ function main(args)
         finished && return
         # the comment of a report is a link, which does not change
         if time() - updated < every || (updated > 0 && !isempty(site))
-            sleep(15)
+            sleep(5)
             continue
         end
         updated = time()
@@ -115,7 +121,7 @@ function main(args)
             @warn "could not update the comment" exception = err
         end
         "--once" in args && return
-        sleep(isempty(site) ? every : 15)
+        sleep(isempty(site) ? every : 5)
     end
     return
 end

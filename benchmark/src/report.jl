@@ -9,9 +9,11 @@ body{font:14px/1.45 system-ui,sans-serif;color:#0b0b0b;background:#fcfcfb;max-wi
 .wide{overflow-x:auto;-webkit-overflow-scrolling:touch}
 svg{display:block;width:100%;max-width:620px;height:auto}
 @media(max-width:640px){body{font-size:13px;padding:0 .6em}td,th{padding:3px 6px}.prof{display:block;margin-right:0}input{width:100%;box-sizing:border-box}}
-h1{font-size:1.5em}h2{font-size:1.15em;margin-top:2em}a{color:#1c5fb0}
+h1{font-size:1.5em;margin-bottom:.2em}h2{font-size:1.15em;margin:1.8em 0 .3em}h3{font-size:1em;margin:1.4em 0 .3em}a{color:#1c5fb0;text-decoration:none}a:hover{text-decoration:underline}
+p{margin:.4em 0}.nav a{margin-right:1.4em}
+table.summary{min-width:26em}table.summary tr.set td{background:#f3f2ee;font-weight:600;border-bottom:0;padding-top:6px}table.summary tr.set .m{font-weight:400;margin-left:.6em}
 table{border-collapse:collapse;font-variant-numeric:tabular-nums}
-td,th{border-bottom:1px solid #e4e3df;padding:3px 10px;text-align:right;white-space:nowrap}
+td,th{border-bottom:1px solid #e4e3df;padding:2px 7px;text-align:right;white-space:nowrap}
 td:first-child,th:first-child,td.l,th.l{text-align:left}
 th{color:#52514e;font-weight:600;cursor:default}
 th.s{cursor:pointer}pre{background:#f3f2ee;padding:8px;overflow:auto}
@@ -23,6 +25,7 @@ input{font:inherit;padding:3px 6px;margin-bottom:8px;width:20em}
 """
 
 const SCRIPT = """
+function bind(){
 document.querySelectorAll('.prof').forEach(p=>{const s=p.querySelector('svg'),t=p.querySelector('.tip'),l=p.querySelector('.x');
 const d=JSON.parse(s.dataset.c);
 s.addEventListener('mousemove',e=>{const r=s.getBoundingClientRect(),x=(e.clientX-r.left)*d.w/r.width;
@@ -32,13 +35,22 @@ t.innerHTML='within '+tau.toFixed(2)+'× of the best<br>'+d.s.map(c=>c[0]+': '+(
 t.style.display='block';t.style.left=Math.max(0,Math.min(e.clientX-r.left+12,r.width-200))+'px';t.style.top='8px';
 l.setAttribute('x1',x);l.setAttribute('x2',x);l.style.display='block'});
 s.addEventListener('mouseleave',()=>{t.style.display='none';l.style.display='none'})});
-const tb=document.querySelector('table.cases');
-if(tb){const body=tb.tBodies[0];
-document.querySelector('#filter').addEventListener('input',e=>{const q=e.target.value.toLowerCase();
-for(const r of body.rows)r.style.display=r.cells[0].textContent.toLowerCase().includes(q)?'':'none'});
+const q=document.querySelector('#filter');
+document.querySelectorAll('table.cases').forEach(tb=>{const body=tb.tBodies[0];
+q.addEventListener('input',e=>{const v=e.target.value.toLowerCase();
+for(const r of body.rows)r.style.display=r.cells[0].textContent.toLowerCase().includes(v)?'':'none'});
 tb.querySelectorAll('th.s').forEach(h=>{let up=true;h.addEventListener('click',()=>{const i=h.cellIndex;up=!up;
 const key=r=>{const v=r.cells[i].textContent,n=parseFloat(v);return isNaN(n)?v:n};
-[...body.rows].sort((a,b)=>{const x=key(a),y=key(b),c=x<y?-1:x>y?1:0;return up?-c:c}).forEach(r=>body.append(r))})})}
+[...body.rows].sort((a,b)=>{const x=key(a),y=key(b),c=x<y?-1:x>y?1:0;return up?-c:c}).forEach(r=>body.append(r))})})})
+}
+bind();
+// while a run is going, take the page again every few seconds and swap its content in place
+if(document.querySelector('meta[name=live]'))setInterval(async()=>{
+const r=await fetch(location.href,{cache:'no-store'});if(!r.ok)return;
+const d=new DOMParser().parseFromString(await r.text(),'text/html'),q=document.querySelector('#filter')?.value;
+document.querySelector('#live').replaceWith(d.querySelector('#live'));bind();
+if(q){const f=document.querySelector('#filter');f.value=q;f.dispatchEvent(new Event('input'))}
+if(!d.querySelector('meta[name=live]'))document.querySelector('meta[name=live]').remove()},5000);
 """
 
 escape_html(s) = replace(string(s), "&" => "&amp;", "<" => "&lt;", ">" => "&gt;")
@@ -53,6 +65,15 @@ function status_name(code)
     catch
         string(code)
     end
+end
+
+# The letter of an outcome in the instance tables, as in Hans Mittelmann's tables.
+function status_letter(code)
+    code == Int(MadNLP.SOLVE_SUCCEEDED) && return "ok"
+    code == Int(MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL) && return "a"
+    (code == KILLED_STATUS || code == Int(MadNLP.MAXIMUM_WALLTIME_EXCEEDED)) && return "t"
+    code == Int(MadNLP.MAXIMUM_ITERATIONS_EXCEEDED) && return "i"
+    return "f"
 end
 
 # The columns of a report: one per solver and configuration of a side.
@@ -132,10 +153,14 @@ function profile_svg(io, title, sides, n, ratios)
     return
 end
 
-# One profile per device: a solver on the host and one on a GPU are never compared.
+# The solvers shown for a device: its own, with Ipopt as the reference of every device. MadNLP on
+# the host and a solver on a GPU are never compared.
+on_device(sides, device) = [s for s in sides if s.key[1] == device || s.key[2] == "ipopt"]
+
+# One profile per device.
 function profile_section(io, set, sides, cand, base, wall)
     for device in unique!([s.key[1] for s in sides])
-        device_profile(io, set, device, [s for s in sides if s.key[1] == device], cand, base, wall)
+        device_profile(io, set, device, on_device(sides, device), cand, base, wall)
     end
     return
 end
@@ -167,40 +192,100 @@ function page(path, title, content; refresh = false)
     write(
         tmp, "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">",
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
-        refresh ? "<meta http-equiv=\"refresh\" content=\"30\">" : "",
-        "<title>", escape_html(title), "</title><style>", STYLE, "</style><body>", content, "<script>", SCRIPT, "</script></body></html>\n",
+        refresh ? "<meta name=\"live\" content=\"1\">" : "",
+        "<title>", escape_html(title), "</title><style>", STYLE, "</style><body><div id=\"live\">", content, "</div><script>", SCRIPT, "</script></body></html>\n",
     )
     chmod(tmp, 0o644)
     mv(tmp, path; force = true)
     return
 end
 
+# The head of a table of Hans Mittelmann's benchmarks, per set: the scaled shifted geometric mean,
+# with the reference solver at 1, and the instances solved, over the instances all solvers have run.
 function summary_table(io, sets, sides, cand, base, wall)
-    println(io, "<div class=\"wide\"><table><thead><tr><th>set</th><th class=\"l\">solver</th><th>instances</th><th>solved</th><th>SGM (s)</th><th>small</th><th>medium</th><th>large</th>", base === nothing ? "" : "<th>time vs base</th>", "</tr></thead><tbody>")
-    for set in sets, s in sides
-        rows = side_rows(s, cand, base, set)
-        isempty(rows) && continue
-        all_rows = collect(values(rows))
-        cells = map((:small, :medium, :large)) do class
-            sel = [r for r in all_rows if size_class(r) == class]
-            isempty(sel) ? "–" : @sprintf("%d / %d, %.2f", count(solved, sel), length(sel), sgm(score_time.(sel, wall)))
-        end
-        print(io, "<tr><td><a href=\"$set.html\">$set</a></td><td class=\"l\">$(escape_html(s.label))</td><td>$(length(all_rows))</td><td>$(count(solved, all_rows))</td>")
-        @printf(io, "<td>%.2f</td>", sgm(score_time.(all_rows, wall)))
-        foreach(c -> print(io, "<td>", c, "</td>"), cells)
-        if base !== nothing
-            other = s.base ? nothing : get(base.rows, (s.key[1], set, s.key[2]), nothing)
-            common = other === nothing ? String[] : collect(intersect(keys(rows), keys(other)))
-            if isempty(common)
-                print(io, "<td>–</td>")
-            else
-                ga = sgm([score_time(other[c], wall) for c in common]); gb = sgm([score_time(rows[c], wall) for c in common])
-                @printf(io, "<td>%.2f</td>", (gb + 10) / (ga + 10))
+    kept = [s for s in sides if any(set -> !isempty(side_rows(s, cand, base, set)), sets)]
+    sort!(kept; by = s -> s.key[2] != "ipopt")
+    println(io, "<div class=\"wide\"><table class=\"summary\"><thead><tr><th></th>")
+    foreach(s -> print(io, "<th>", escape_html(s.label), "</th>"), kept)
+    println(io, "</tr></thead><tbody><tr class=\"m\"><td>rev</td>")
+    foreach(s -> print(io, "<td>", escape_html(get((s.base ? base : cand).revs, s.key, "–")), "</td>"), kept)
+    println(io, "</tr><tr class=\"m\"><td>benchmark</td>")
+    foreach(s -> print(io, "<td>", escape_html(get((s.base ? base : cand).harness, s.key, "–")), "</td>"), kept)
+    println(io, "</tr>")
+    blank = "<td></td>"
+    for set in sets
+        rows = [side_rows(s, cand, base, set) for s in kept]
+        have = findall(!isempty, rows)
+        isempty(have) && continue
+        cases = collect(reduce(intersect, [Set(keys(rows[i])) for i in have]))
+        isempty(cases) && continue
+        means = Dict(i => sgm([score_time(rows[i][c], wall) for c in cases]) + 10 for i in have)
+        # Ipopt is the reference where it has run, else the best solver
+        reference = findfirst(i -> kept[i].key[2] == "ipopt", have)
+        scale = reference === nothing ? minimum(values(means)) : means[have[reference]]
+        cell(f) = join([i in have ? "<td>" * f(i) * "</td>" : blank for i in eachindex(kept)])
+        println(io, "<tr class=\"set\"><td colspan=\"", length(kept) + 1, "\"><a href=\"$set.html\">$set</a> <span class=\"m\">$(length(cases)) problems</span></td></tr>")
+        println(io, "<tr><td>solved</td>", cell(i -> "$(count(c -> solved(rows[i][c]), cases))/$(length(cases))"), "</tr>")
+        println(io, "<tr><td>SGM (s)</td>", cell(i -> @sprintf("%.2f", means[i] - 10)), "</tr>")
+        println(io, "<tr><td>SSGM</td>", cell(i -> @sprintf("%.3g", means[i] / scale)), "</tr>")
+    end
+    println(io, "</tbody></table></div>")
+    return
+end
+
+# Where the time goes, over the instances with a breakdown. Ipopt reports none.
+function breakdown(io, sides, rows)
+    println(io, "<div class=\"wide\"><table><thead><tr><th>solver</th><th>total (s)</th><th>linear solver</th><th>evaluations</th><th>initialization</th><th>other</th></tr></thead><tbody>")
+    for (s, r) in zip(sides, rows)
+        known = [x for x in values(r) if isfinite(x.t_linsolve) && x.t_total > 0]
+        isempty(known) && continue
+        total = sum(x -> x.t_total, known)
+        share(f) = 100 * sum(f, known) / total
+        lin, eval, init = share(x -> x.t_linsolve), share(x -> x.t_eval), share(x -> x.t_init)
+        @printf(io, "<tr><td>%s</td><td>%.1f</td><td>%.1f%%</td><td>%.1f%%</td><td>%.1f%%</td><td>%.1f%%</td></tr>\n", escape_html(s.label), total, lin, eval, init, 100 - lin - eval - init)
+    end
+    println(io, "</tbody></table></div>")
+    return
+end
+
+function instance_table(io, set, sides, rows, logs)
+    println(io, "<div class=\"wide\"><table class=\"cases\"><thead><tr><th class=\"s\" rowspan=\"2\">instance</th><th class=\"s\" rowspan=\"2\">nv</th><th class=\"s\" rowspan=\"2\">nc</th>")
+    foreach(s -> print(io, "<th colspan=\"13\" class=\"l\">", escape_html(s.label), "</th>"), sides)
+    print(io, "</tr><tr>")
+    foreach(_ -> print(io, "<th class=\"s l\">st</th><th class=\"s\">it</th><th class=\"s\">t (s)</th><th class=\"s\">obj</th><th class=\"s\">inf</th><th class=\"s\">nfac</th><th class=\"s\">nsol</th><th class=\"s\">nf</th><th class=\"s\">ng</th><th class=\"s\">nc</th><th class=\"s\">nj</th><th class=\"s\">nh</th><th></th>"), sides)
+    println(io, "</tr></thead><tbody>")
+    for case in sort!(collect(reduce(union, [Set(keys(r)) for r in rows]; init = Set{String}())))
+        any_row = first(r[case] for r in rows if haskey(r, case))
+        print(io, "<tr><td>", escape_html(case), "</td><td>", any_row.nvar, "</td><td>", any_row.ncon, "</td>")
+        for (s, r) in zip(sides, rows)
+            if !haskey(r, case)
+                print(io, "<td class=\"l\">–</td>", "<td></td>"^12)
+                continue
             end
+            row = r[case]
+            link = s.base ? nothing : get(logs, (s.key[1], set, case, s.key[2]), nothing)
+            print(io, "<td class=\"l", solved(row) ? "" : " fail", "\" title=\"", status_name(row.status), "\">", status_letter(row.status), "</td><td>", row.iters, "</td>")
+            @printf(io, "<td>%.3f</td><td>%.6g</td><td>%.1e</td>", row.t_total, row.obj, row.primal_feas)
+            foreach(n -> print(io, "<td>", n, "</td>"), (row.n_fact, row.n_backsolve, row.n_obj, row.n_grad, row.n_con, row.n_jac, row.n_hess))
+            print(io, "<td>", link === nothing ? "" : "<a href=\"$link\">log</a>", "</td>")
         end
         println(io, "</tr>")
     end
     println(io, "</tbody></table></div>")
+    return
+end
+
+# What every worker is on.
+function workers_page(site, root, heading)
+    io = IOBuffer()
+    println(io, "<p class=\"nav\"><a href=\"index.html\">Summary</a></p><h1>Workers</h1><p class=\"m\">", heading, "</p>")
+    for dir in sort!(readdir(root; join = true))
+        file = joinpath(dir, "summary.md")
+        isfile(file) || continue
+        m = match(r"^```\n(.*?)\n```"s, read(file, String))
+        m === nothing || println(io, "<h2>", escape_html(basename(dir)), "</h2><pre>", escape_html(m[1]), "</pre>")
+    end
+    page(joinpath(site, "workers.html"), "Workers", String(take!(io)); refresh = true)
     return
 end
 
@@ -209,34 +294,21 @@ function set_page(site, set, sides, cand, base, wall, logs, heading; refresh)
     keep = [i for i in eachindex(sides) if !isempty(rows[i])]
     sides, rows = sides[keep], rows[keep]
     io = IOBuffer()
-    println(io, "<p><a href=\"index.html\">Benchmark report</a></p><h1>", escape_html(set), "</h1><p class=\"m\">", heading, "</p>")
+    println(io, "<p class=\"nav\"><a href=\"index.html\">Summary</a></p><h1>", escape_html(set), "</h1><p class=\"m\">", heading, "</p>")
     println(io, "<h2>Performance profile</h2>")
     profile_section(io, set, sides, cand, base, wall)
-    println(io, "<h2>Instances</h2><input id=\"filter\" placeholder=\"Filter by name\">")
-    order = sortperm([(s.key[1] != "cpu", s.base) for s in sides])
-    sides, rows = sides[order], rows[order]
-    println(io, "<div class=\"wide\"><table class=\"cases\"><thead><tr><th class=\"s\" rowspan=\"2\">instance</th><th class=\"s\" rowspan=\"2\">variables</th><th class=\"s\" rowspan=\"2\">constraints</th>")
-    foreach(s -> print(io, "<th colspan=\"6\" class=\"l\">", escape_html(s.label), "</th>"), sides)
-    print(io, "</tr><tr>")
-    foreach(_ -> print(io, "<th class=\"s l\">status</th><th class=\"s\">iterations</th><th class=\"s\">time (s)</th><th class=\"s\">objective</th><th class=\"s\">infeasibility</th><th>log</th>"), sides)
-    println(io, "</tr></thead><tbody>")
-    for case in sort!(collect(reduce(union, [Set(keys(r)) for r in rows]; init = Set{String}())))
-        any_row = first(r[case] for r in rows if haskey(r, case))
-        print(io, "<tr><td>", escape_html(case), "</td><td>", any_row.nvar, "</td><td>", any_row.ncon, "</td>")
-        for (s, r) in zip(sides, rows)
-            if !haskey(r, case)
-                print(io, "<td class=\"l\">–</td><td></td><td></td><td></td><td></td><td></td>")
-                continue
-            end
-            row = r[case]
-            link = s.base ? nothing : get(logs, (s.key[1], set, case, s.key[2]), nothing)
-            print(io, "<td class=\"l", solved(row) ? "" : " fail", "\">", status_name(row.status), "</td><td>", row.iters, "</td>")
-            @printf(io, "<td>%.3f</td><td>%.6g</td><td>%.1e</td>", row.t_total, row.obj, row.primal_feas)
-            print(io, "<td>", link === nothing ? "" : "<a href=\"$link\">log</a>", "</td>")
-        end
-        println(io, "</tr>")
+    println(io, "<h2>Time breakdown</h2>")
+    for device in unique!([s.key[1] for s in sides])
+        here = [i for i in eachindex(sides) if sides[i].key[1] == device]
+        println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
+        breakdown(io, sides[here], rows[here])
     end
-    println(io, "</tbody></table></div>")
+    println(io, "<h2>Instances</h2><p class=\"m\">nv, nc: variables, constraints. st: ok solved, a solved to the acceptable level, t time limit, i iteration limit, f other failure. it: iterations. inf: infeasibility. nfac, nsol: factorizations, linear solves. nf, ng, nc, nj, nh: evaluations of the objective, gradient, constraints, Jacobian, Hessian.</p><input id=\"filter\" placeholder=\"Filter by name\">")
+    for device in unique!([s.key[1] for s in sides])
+        here = [i for i in eachindex(sides) if sides[i].key[1] == device]
+        println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
+        instance_table(io, set, sides[here], rows[here], logs)
+    end
     page(joinpath(site, "$set.html"), "$set: MadNLP benchmark", String(take!(io)); refresh)
     return
 end
@@ -272,52 +344,47 @@ function sync_data(site, root)
 end
 
 """
-    write_report(site, root; base = nothing, wall = 7200.0, title, finished = false)
+    write_report(site, root; base = nothing, wall = 7200.0, title, link = nothing, reference = nothing, finished = false)
 
 Write the report of the result directories under `root` to the directory `site`. `base` is a
-`ResultSet` to compare with. While a run is `finished = false` the pages reload themselves and
-the front page shows what every worker is on.
+`ResultSet` to compare with, `reference` the Ipopt reference and `link` a page to link at the
+top, such as the pull request.
+While `finished = false` the pages update themselves in place and the front page shows what
+every worker is on.
 """
-function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP benchmark", finished::Bool = false)
+function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP benchmark", link = nothing, reference = nothing, finished::Bool = false)
     mkpath(site)
     chmod(site, 0o755)
     logs = sync_data(site, root)
     cand = from_directory(root, "this run")
+    if reference !== nothing
+        merge!(cand.rows, reference.rows)
+        merge!(cand.revs, reference.revs)
+        merge!(cand.harness, reference.harness)
+    end
     sides = report_sides(cand, base)
     sets = sort!(unique!([k[2] for k in keys(cand.rows)]))
     stamp = Dates.format(now(UTC), "yyyy-mm-dd HH:MM:SS")
     heading = (finished ? "Finished" : "In progress") * ", updated $stamp UTC."
-    io = IOBuffer()
-    println(io, "<h1>", escape_html(title), "</h1><p class=\"m\">", heading, "</p>")
-    println(io, "<h2>Machines</h2><ul>")
-    for device in sort!(collect(keys(cand.machines)))
-        println(io, "<li>", solver_name(device), ": ", escape_html(join(cand.machines[device], "; ")), "</li>")
-    end
-    if base !== nothing
-        println(io, "<li>Base, ", escape_html(base.label), ": ", escape_html(join(unique!(reduce(vcat, collect(values(base.machines)))), "; ")), "</li>")
-    end
-    println(io, "</ul>")
-    if !finished
-        println(io, "<h2>Workers</h2>")
-        for dir in sort!(readdir(root; join = true))
-            file = joinpath(dir, "summary.md")
-            isfile(file) || continue
-            m = match(r"^```\n(.*?)\n```"s, read(file, String))
-            m === nothing || println(io, "<p>", basename(dir), "</p><pre>", escape_html(m[1]), "</pre>")
-        end
-    end
-    println(io, "<h2>Summary</h2><p class=\"m\">SGM is the shifted geometric mean of the solve time (shift 10 s, a failure counts as ", round(Int, wall), " s). Size classes give solved / instances and SGM.</p>")
-    for device in unique!([s.key[1] for s in sides])
-        println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
-        summary_table(io, sets, [s for s in sides if s.key[1] == device], cand, base, wall)
-    end
+    devices = unique!([s.key[1] for s in sides])
     for set in sets
-        println(io, "<h2><a href=\"$set.html\">", set, "</a></h2>")
-        kept = [s for s in sides if !isempty(side_rows(s, cand, base, set))]
-        profile_section(io, set, kept, cand, base, wall)
         set_page(site, set, sides, cand, base, wall, logs, heading; refresh = !finished)
     end
-    println(io, "<h2>Files</h2><p><a href=\"data/\">Result files and solver logs</a></p>")
+    finished || workers_page(site, root, heading)
+    io = IOBuffer()
+    println(io, "<h1>", escape_html(title), "</h1><p class=\"m\">", heading, "</p><p class=\"nav\">")
+    link === nothing || print(io, "<a href=\"", escape_html(link), "\">Pull request</a>")
+    finished || print(io, "<a href=\"workers.html\">Workers</a>")
+    println(io, "<a href=\"data/\">Result files and logs</a></p>")
+    for device in devices
+        println(io, "<h2>", device == "cuda" ? "GPU" : "CPU", "</h2>")
+        machines = get(cand.machines, device, String[])
+        isempty(machines) || println(io, "<p class=\"m\">", escape_html(join(machines, "; ")), "</p>")
+        summary_table(io, sets, on_device(sides, device), cand, base, wall)
+    end
+    println(io, "<p class=\"m\">Benchmark $BENCHMARK_VERSION fixes the instances, the options, Ipopt and HSL $HSL_VERSION.</p>")
+    base === nothing || println(io, "<p class=\"m\">Base: ", escape_html(base.label), "</p>")
+    println(io, "<p class=\"m\">SGM: shifted geometric mean of the solve time, with a shift of 10 s and a failure counting as ", round(Int, wall), " s, over the problems that all solvers shown have run. SSGM: the SGM scaled so that Ipopt, or the best solver where Ipopt has not run, is 1.</p>")
     page(joinpath(site, "index.html"), title, String(take!(io)); refresh = !finished)
     return
 end

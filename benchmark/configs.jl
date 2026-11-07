@@ -19,16 +19,33 @@ const IPOPT_STATUS = Dict(
     :small_step => MadNLP.SEARCH_DIRECTION_BECOMES_TOO_SMALL, :infeasible => MadNLP.INFEASIBLE_PROBLEM_DETECTED,
     :max_iter => MadNLP.MAXIMUM_ITERATIONS_EXCEEDED, :max_time => MadNLP.MAXIMUM_WALLTIME_EXCEEDED,
 )
+# The evaluation counts Ipopt prints at the end of its log; the counters of an ExaModel do not
+# record them. `nothing` without a log.
+function ipopt_counts(path)
+    (isempty(path) || !isfile(path)) && return nothing
+    text = read(path, String)
+    count_of(what) = (m = match(Regex("Number of $what evaluations\\s*=\\s*(\\d+)"), text); m === nothing ? 0 : parse(Int, m[1]))
+    return (;
+        obj_cnt = count_of("objective function"), obj_grad_cnt = count_of("objective gradient"),
+        # Ipopt counts one evaluation of the constraints under both of its kinds
+        con_cnt = max(count_of("equality constraint"), count_of("inequality constraint")),
+        con_jac_cnt = max(count_of("equality constraint Jacobian"), count_of("inequality constraint Jacobian")),
+        lag_hess_cnt = count_of("Lagrangian Hessian"),
+    )
+end
+
 function run_ipopt(m; tol, acceptable_tol, max_wall_time, output_file = "", _...)
     NLPModels.reset!(m)
     solver = HSL.LIBHSL_isfunctional() ?
         (; linear_solver = "ma57", hsllib = HSL.HSL_jll.libhsl_path, ma57_automatic_scaling = "yes") : (;)
     log = isempty(output_file) ? (;) : (; output_file, file_print_level = 5)
     s = NLPModelsIpopt.ipopt(m; tol, acceptable_tol, max_wall_time, print_level = 0, solver..., log...)
+    logged = ipopt_counts(output_file)
     counters = (;
         factorization_cnt = 0, backsolve_cnt = 0, ir = 0, obj_cnt = NLPModels.neval_obj(m), obj_grad_cnt = NLPModels.neval_grad(m),
         con_cnt = NLPModels.neval_cons(m), con_jac_cnt = NLPModels.neval_jac(m), lag_hess_cnt = NLPModels.neval_hess(m),
         total_time = s.elapsed_time, linear_solver_time = NaN, eval_function_time = NaN, init_time = NaN,
+        something(logged, (;))...,
     )
     return (;
         status = get(IPOPT_STATUS, s.status, MadNLP.ERROR_IN_STEP_COMPUTATION), iter = s.iter, objective = s.objective,

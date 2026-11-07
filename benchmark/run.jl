@@ -311,6 +311,8 @@ function main()
     @info "$(length(slots)) worker(s), results in $outdir"
     # the threads a solve actually gets are those of a worker, not of this process
     merge!(meta, remotecall_fetch(Main.worker_threads, first(slots).pid))
+    meta["hsl_version"] in ("none", MadNLPBenchmark.HSL_VERSION) ||
+        @warn "this benchmark version uses HSL $(MadNLPBenchmark.HSL_VERSION), this run $(meta["hsl_version"]): its results are not comparable"
     # a build or a solve gets the wall limit and a margin for compilation and evaluation
     wall = options.max_wall_time
     limit = wall + parse(Float64, get(OPT, "margin", string(max(120.0, 0.2 * wall))))
@@ -320,7 +322,7 @@ function main()
     total = sum(length ∘ last, sets)
     logged = time()
     reporter = @async while true
-        sleep(min(every, 15))
+        sleep(min(every, 5))
         try
             log = time() - logged >= every
             log && (logged = time())

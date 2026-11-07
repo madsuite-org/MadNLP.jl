@@ -65,8 +65,8 @@ function decode_cutest(names, progress = nothing)
     return
 end
 
-# Instances of one COPS model share a compiled model type.
-instance_group(set, case) = set == "cops" ? replace(case, r"_[0-9x]+$" => "") : case
+# Instances of one COPS model share a compiled model type, and so do the meshes of one kind.
+instance_group(set, case) = set == "cops" ? replace(case, r"_[0-9x]+$|(?<=tetra|triangle)_.*$" => "") : case
 
 const SETS = Dict{String, Function}(
     "acopf" => () -> acopf_cases(ACOPF_CASES),

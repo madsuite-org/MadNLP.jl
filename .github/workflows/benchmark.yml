@@ -148,6 +148,7 @@ jobs:
             grep -qE '^[^,]+,1,' "$RUNNER_TEMP/preflight-$device/smoke_default.csv"
           done
           grep -q Ma57Solver "$RUNNER_TEMP/preflight-cpu/smoke_default.csv.meta.toml"
+          grep -q 'hsl_version = "2025.7.21"' "$RUNNER_TEMP/preflight-cpu/smoke_default.csv.meta.toml"
       - name: Run
         env:
           SETS: ${{ needs.gate.outputs.sets }}

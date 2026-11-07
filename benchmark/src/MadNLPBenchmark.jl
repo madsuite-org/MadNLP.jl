@@ -10,7 +10,7 @@ module MadNLPBenchmark
 using MadNLP, NLPModels
 using Dates, DelimitedFiles, LinearAlgebra, Printf, TOML
 
-export ResultSet, locate, short, write_report, run_benchmark, solve_case, read_results, read_meta, result_files, summarize, solver_name, hardware_line, solved, score_time, sgm, size_class
+export ResultSet, locate, HSL_VERSION, ipopt_reference, BENCHMARK_VERSION, short, write_report, run_benchmark, solve_case, read_results, read_meta, result_files, summarize, solver_name, hardware_line, solved, score_time, sgm, size_class
 
 "The columns of a result file, in order."
 const HEADER = [
@@ -31,6 +31,10 @@ const HEADER = [
 # Status recorded for an instance whose worker was killed for overrunning the wall limit, and
 # for one that could not be built or whose solve threw. MadNLP checks its wall limit between
 # iterations only, so a single long factorization or evaluation can run far past it.
+const BENCHMARK_VERSION, HSL_VERSION = let project = TOML.parsefile(joinpath(dirname(@__DIR__), "Project.toml"))
+    project["version"], project["benchmark"]["hsl"]
+end
+
 const KILLED_STATUS = -100
 const ERROR_STATUS = -101
 
@@ -92,6 +96,7 @@ function write_meta(path, fields)
         "timestamp" => string(Dates.now()),
         "host" => gethostname(),
         "julia_version" => string(VERSION),
+        "benchmark_version" => BENCHMARK_VERSION,
         "cpu_model" => String(strip(Sys.cpu_info()[1].model)),
         "cpu_threads" => Sys.CPU_THREADS,
         "memory_gb" => round(Sys.total_memory() / 2^30; digits = 1),
@@ -389,18 +394,23 @@ struct ResultSet
     label::String
     rows::Dict{Tuple{String, String, String}, Dict{String, Any}}
     machines::Dict{String, Vector{String}}
+    revs::Dict{Tuple{String, String}, String}      # (device, config) => what was run
+    harness::Dict{Tuple{String, String}, String}   # (device, config) => version of this benchmark
 end
 
 function add!(rs::ResultSet, set, config, meta, rows)
     device = meta["device"]
     rs.rows[(device, set, config)] = Dict(string(r.case) => r for r in rows)
+    commit = get(meta, "madnlp_commit", "unknown")
+    rs.harness[(device, config)] = get(meta, "benchmark_version", BENCHMARK_VERSION)
+    rs.revs[(device, config)] = config == "ipopt" ? "Ipopt " * get(meta, "ipopt_version", "?") : replace(commit, r"^([0-9a-f]{8})[0-9a-f]{32}" => s"\1")
     line = hardware_line(meta)
     line in get!(rs.machines, device, String[]) || push!(rs.machines[device], line)
     return rs
 end
 
 function from_directory(dir, label)
-    rs = ResultSet(label, Dict(), Dict())
+    rs = ResultSet(label, Dict(), Dict(), Dict(), Dict())
     for (root, _, _) in walkdir(dir), ((set, config), path) in result_files(root)
         isfile(path * ".meta.toml") && add!(rs, set, config, read_meta(path), read_results(path))
     end
@@ -420,7 +430,7 @@ function from_archive(rev; depth = 200)
         m = match(r"^[^/]+/([0-9a-f]{40})/([a-z]+)_(.+)\.csv$", path)
         m === nothing || push!(get!(by_commit, m[1], []), (String(path), m[2], m[3]))
     end
-    rs = ResultSet("", Dict(), Dict())
+    rs = ResultSet("", Dict(), Dict(), Dict(), Dict())
     used = Dict{String, String}()   # device => commit
     for sha in split(git("rev-list", "--first-parent", "-n", string(depth), rev), '\n')
         for (path, set, config) in get(by_commit, sha, [])
@@ -439,13 +449,28 @@ function from_archive(rev; depth = 200)
             length(commits) == 1 ? name : name * " (" * join(sort!([d for (d, c) in used if c == sha]), ", ") * ")"
         end, "; ",
     )
-    return ResultSet(label, rs.rows, rs.machines)
+    return ResultSet(label, rs.rows, rs.machines, rs.revs, rs.harness)
+end
+
+# The Ipopt reference of a version of this benchmark, `ipopt/<version>/` on the archive branch:
+# one run for all the machines and commits that are compared under that version. `nothing` if
+# it has not been archived.
+function ipopt_reference(version = BENCHMARK_VERSION)
+    remote = get(ENV, "MADNLP_BENCHMARK_REMOTE", "origin")
+    success(`git -C $ROOT fetch --quiet $remote $ARCHIVE_BRANCH`) || return nothing
+    show(path) = read(`git -C $ROOT show FETCH_HEAD:$path`, String)
+    rs = ResultSet("Ipopt reference", Dict(), Dict(), Dict(), Dict())
+    for path in split(git("ls-tree", "-r", "--name-only", "FETCH_HEAD", "ipopt/$version/"), '\n'; keepempty = false)
+        m = match(r"/([a-z]+)_ipopt\.csv$", path)
+        m === nothing || add!(rs, m[1], "ipopt", TOML.parse(show(path * ".meta.toml")), read_results(IOBuffer(show(path))))
+    end
+    return isempty(rs.rows) ? nothing : rs
 end
 
 function locate(arg, label)
     isdir(arg) && return from_directory(arg, something(label, "`$arg`"))
     rs = from_archive(arg)
-    return rs === nothing || label === nothing ? rs : ResultSet(label, rs.rows, rs.machines)
+    return rs === nothing || label === nothing ? rs : ResultSet(label, rs.rows, rs.machines, rs.revs, rs.harness)
 end
 
 include("report.jl")
