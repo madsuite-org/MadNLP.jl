@@ -176,6 +176,11 @@ in `logs/<set>/<instance>__<configuration>.txt` beside the result files.
 julia --project=benchmark benchmark/report.jl benchmark/results report --base=master --wall=7200
 ```
 
+The report is its own package, `benchmark/report`, with no solver among its dependencies.
+`report/serve.jl` is the server that builds the reports of running benchmarks: CI only copies
+results to a folder it watches and leaves a link on the pull request. Result files are treated as
+untrusted input, because the report is public; `report/test/runtests.jl` tests that.
+
 ## Plots
 
 `benchmark/plots` is a separate environment, so that Plots stays out of a benchmark run. It
@@ -225,10 +230,9 @@ julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device
   `[benchmark-continue]` in its message keeps the results so far and solves what is left: use it
   for changes that do not affect the results, such as to the report. The revision in the
   report then shows the first and the last commit.
-  While it runs, the comment shows the results so far, updated every minute. With the
-  repository variable `BENCHMARK_REPORT_URL` set to where the runner's
-  `~/public_html/madnlp-benchmark` is served, the comment is instead a link to the report of the
-  pull request (see below), which updates itself in place every 5 s while the benchmark runs.
+  With the repository variables `BENCHMARK_LIVE_DIR` (a folder the server watches) and
+  `BENCHMARK_REPORT_URL`, results are copied there every 30 s and the comment is a link to the
+  report of the pull request (see below). Without them the comment is the comparison.
 - **For every commit on `master`:** the same run once `build` has succeeded, archived on
   `benchmark-results` with its summary table.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on

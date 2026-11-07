@@ -60,26 +60,22 @@ if(q){const f=document.querySelector('#filter');f.value=q;f.dispatchEvent(new Ev
 if(!d.querySelector('meta[name=live]'))document.querySelector('meta[name=live]').remove()},5000);
 """
 
-escape_html(s) = replace(string(s), "&" => "&amp;", "<" => "&lt;", ">" => "&gt;")
+escape_html(s) = replace(string(s), "&" => "&amp;", "<" => "&lt;", ">" => "&gt;", "\"" => "&quot;", "'" => "&#39;")
 
 function status_name(code)
     code == KILLED_STATUS && return "killed at the limit"
     code == ERROR_STATUS && return "error"
-    code == Int(MadNLP.SOLVE_SUCCEEDED) && return "solved"
-    code == Int(MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL) && return "solved to acceptable level"
-    return try
-        lowercase(replace(string(MadNLP.Status(Int(code))), "_" => " "))
-    catch
-        string(code)
-    end
+    code == SOLVE_SUCCEEDED && return "solved"
+    code == SOLVED_TO_ACCEPTABLE_LEVEL && return "solved to acceptable level"
+    return get(STATUS_NAMES, code, "status $code")
 end
 
 # The letter of an outcome in the instance tables, as in Hans Mittelmann's tables.
 function status_letter(code)
-    code == Int(MadNLP.SOLVE_SUCCEEDED) && return "ok"
-    code == Int(MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL) && return "a"
-    (code == KILLED_STATUS || code == Int(MadNLP.MAXIMUM_WALLTIME_EXCEEDED)) && return "t"
-    code == Int(MadNLP.MAXIMUM_ITERATIONS_EXCEEDED) && return "i"
+    code == SOLVE_SUCCEEDED && return "ok"
+    code == SOLVED_TO_ACCEPTABLE_LEVEL && return "a"
+    (code == KILLED_STATUS || code == MAXIMUM_WALLTIME_EXCEEDED) && return "t"
+    code == MAXIMUM_ITERATIONS_EXCEEDED && return "i"
     return "f"
 end
 
@@ -295,7 +291,7 @@ function workers_page(site, root, bar)
             if w === nothing
                 println(io, "<p class=\"m\">", escape_html(strip(line)), "</p>")
             else
-                push!(workers, "<tr><td>$(w[1])</td><td class=\"l\">$(w[2])</td><td class=\"l\">$(escape_html(w[3]))</td><td>$(w[4])</td><td>$(w[5])</td></tr>")
+                push!(workers, "<tr><td>$(w[1])</td><td class=\"l\">$(escape_html(w[2]))</td><td class=\"l\">$(escape_html(w[3]))</td><td>$(w[4])</td><td>$(w[5])</td></tr>")
             end
         end
         isempty(workers) || println(io, "<div class=\"table-responsive\"><table class=\"table table-sm\"><thead><tr><th>worker</th><th class=\"l\">state</th><th class=\"l\">instance</th><th>for (s)</th><th>memory (GB)</th></tr></thead><tbody>", join(workers), "</tbody></table></div>")
@@ -326,6 +322,8 @@ function set_page(site, set, device, sides, cand, base, wall, logs, bar; refresh
     return
 end
 
+const MAX_FILE_SIZE = 64 * 2^20
+
 # Bring `data/` up to date with the result directories, and index the solver logs.
 function sync_data(site, root)
     logs = Dict{Tuple{String, String, String, String}, String}()
@@ -334,8 +332,9 @@ function sync_data(site, root)
         isdir(source) || continue
         device = nothing
         for (path, _, files) in walkdir(source), file in files
-            endswith(file, ".tmp") && continue
             from = joinpath(path, file)
+            # the files of a run are public: only the kinds a run writes, and no links out of it
+            (islink(from) || !occursin(r"\.(csv|toml|txt|md)$", file) || filesize(from) > MAX_FILE_SIZE) && continue
             relative = relpath(from, root)
             to = joinpath(site, "data", relative)
             if !isfile(to) || mtime(to) < mtime(from)
@@ -350,7 +349,7 @@ function sync_data(site, root)
         (device === nothing || !isdir(logdir)) && continue
         for set in readdir(logdir), file in readdir(joinpath(logdir, set))
             m = match(r"^(.*)__(.*)\.txt$", file)
-            m === nothing || (logs[(device, set, m[1], m[2])] = "data/$dir/logs/$set/$file")
+            m === nothing || !safe_name(dir) || !safe_name(set) || !safe_name(file) || (logs[(device, set, m[1], m[2])] = "data/$dir/logs/$set/$file")
         end
     end
     return logs
@@ -369,6 +368,12 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     mkpath(site)
     chmod(site, 0o755)
     logs = sync_data(site, root)
+    repository = link === nothing ? nothing : match(r"^(https://github\.com/[^/]+/[^/]+)/", link)
+    if reference !== nothing && repository !== nothing
+        for (key, path) in reference.logs
+            logs[key] = repository[1] * "/blob/$ARCHIVE_BRANCH/" * path
+        end
+    end
     cand = from_directory(root, "this run")
     if reference !== nothing
         merge!(cand.rows, reference.rows)
@@ -404,5 +409,48 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     base === nothing || println(io, "<p class=\"m\">Base: ", escape_html(base.label), "</p>")
     println(io, "<p class=\"m\">SGM: shifted geometric mean of the solve time, with a shift of 10 s and a failure counting as ", round(Int, wall), " s, over the problems that all solvers shown have run. SSGM: the SGM scaled so that Ipopt, or the best solver where Ipopt has not run, is 1.</p>")
     page(joinpath(site, "index.html"), title, String(take!(io)), bar; refresh = !finished)
+    # for a check outside this machine that the report is alive
+    write(joinpath(site, "status.json"), "{\"state\":\"$(finished ? "finished" : "running")\",\"updated\":\"$stamp\"}\n")
+    chmod(joinpath(site, "status.json"), 0o644)
+    return
+end
+
+"""
+    write_index(site, runs; repository)
+
+Write the list of benchmarks to `site/index.html`: the running pull requests, the finished ones
+and the archived results. `runs` holds `(; name, pr, commit, state, updated)` per pull request.
+"""
+function write_index(site, runs; repository)
+    code = "https://github.com/" * repository
+    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"title\"><b>MadNLP benchmarks</b></div></div></div>"
+    io = IOBuffer()
+    function run_table(title, selected)
+        isempty(selected) && return
+        println(io, "<h2>", title, "</h2><div class=\"table-responsive\"><table class=\"table table-sm\"><thead><tr><th>pull request</th><th class=\"l\">commit</th><th class=\"l\">state</th><th>updated</th></tr></thead><tbody>")
+        for r in sort(selected; by = r -> r.updated, rev = true)
+            println(io, "<tr><td><a href=\"", escape_html(r.name), "/\">#", escape_html(r.pr), "</a></td><td class=\"l\">", escape_html(first(r.commit, 8)), "</td><td class=\"l\">", escape_html(r.state), "</td><td>", escape_html(r.updated), "</td></tr>")
+        end
+        return println(io, "</tbody></table></div>")
+    end
+    run_table("Running", [r for r in runs if r.state == "running"])
+    run_table("Finished", [r for r in runs if r.state != "running"])
+    paths = split(git("ls-tree", "-r", "--name-only", "origin/$ARCHIVE_BRANCH"), '\n'; keepempty = false)
+    archived = [match(r"^([^/]+)/([0-9a-f]{40})/summary\.md$", p) for p in paths]
+    filter!(!isnothing, archived)
+    if !isempty(archived)
+        println(io, "<h2>Archived</h2><div class=\"table-responsive\"><table class=\"table table-sm\"><thead><tr><th>commit</th><th class=\"l\">machine</th></tr></thead><tbody>")
+        for m in archived
+            println(io, "<tr><td><a href=\"", code, "/tree/", ARCHIVE_BRANCH, "/", escape_html(m[1]), "/", m[2], "\">", first(m[2], 8), "</a></td><td class=\"l\">", escape_html(replace(m[1], "_" => " ")), "</td></tr>")
+        end
+        println(io, "</tbody></table></div>")
+    end
+    versions = unique!([m[1] for m in filter(!isnothing, [match(r"^ipopt/([^/]+)/", p) for p in paths])])
+    if !isempty(versions)
+        println(io, "<h2>Ipopt references</h2><ul>")
+        foreach(v -> println(io, "<li><a href=\"", code, "/tree/", ARCHIVE_BRANCH, "/ipopt/", escape_html(v), "\">benchmark ", escape_html(v), "</a></li>"), versions)
+        println(io, "</ul>")
+    end
+    page(joinpath(site, "index.html"), "MadNLP benchmarks", String(take!(io)), bar)
     return
 end

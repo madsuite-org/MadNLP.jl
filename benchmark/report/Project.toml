@@ -1,0 +1,10 @@
+name = "BenchmarkReport"
+uuid = "6d1f3b8e-42a7-4e1c-9a55-0f0f4c1d7e21"
+version = "0.1.0"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+DelimitedFiles = "8bb1440f-4735-579b-a4ab-409b98df4dab"
+FileWatching = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"

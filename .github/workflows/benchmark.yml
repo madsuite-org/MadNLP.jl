@@ -59,7 +59,7 @@ jobs:
     permissions:
       actions: read
       contents: read
-      pull-requests: read
+      pull-requests: write
     outputs:
       run: ${{ steps.decide.outputs.run }}
       commit: ${{ steps.decide.outputs.commit }}
@@ -110,15 +110,31 @@ jobs:
             core.setOutput('base', base); core.setOutput('archive', String(archive));
             core.setOutput('resume', String(resume));
             core.setOutput('sets', sets); core.setOutput('config', config); core.setOutput('device', device);
+      # the link to the report, as soon as a benchmark of a pull request starts
+      - name: Link the report
+        if: steps.decide.outputs.pr != '' && vars.BENCHMARK_REPORT_URL != ''
+        uses: actions/github-script@v7
+        env:
+          PR: ${{ steps.decide.outputs.pr }}
+          URL: ${{ vars.BENCHMARK_REPORT_URL }}
+        with:
+          script: |
+            const marker = '<!-- madnlp-benchmark -->';
+            const issue_number = Number(process.env.PR);
+            const body = `${marker}\n[Benchmark report](${process.env.URL}/pr-${issue_number}/)`;
+            const comments = await github.paginate(github.rest.issues.listComments, { ...context.repo, issue_number, per_page: 100 });
+            const existing = comments.find(c => c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ ...context.repo, issue_number, body });
+            }
 
   run:
     needs: gate
     if: needs.gate.outputs.run == 'true'
-    # pull-requests: to post the results so far. The gate admits branches of this repository
-    # only, whose authors can write to it anyway.
     permissions:
       contents: read
-      pull-requests: write
     # One run at a time per pull request (a newer request replaces it) and one at a time for
     # master.
     concurrency:
@@ -161,13 +177,12 @@ jobs:
           SETS: ${{ needs.gate.outputs.sets }}
           CONFIG: ${{ needs.gate.outputs.config }}
           DEVICE: ${{ needs.gate.outputs.device }}
-          PROGRESS_TOKEN: ${{ github.token }}
           PR: ${{ needs.gate.outputs.pr }}
           COMMIT: ${{ needs.gate.outputs.commit }}
           BASE: ${{ needs.gate.outputs.base }}
           RESUME: ${{ needs.gate.outputs.resume }}
-          # where the runner's ~/public_html/madnlp-benchmark is served; empty for no report
-          REPORT_BASE: ${{ vars.BENCHMARK_REPORT_URL }}
+          # where a server outside CI picks up the results to build the report; empty for none
+          LIVE: ${{ vars.BENCHMARK_LIVE_DIR }}
         run: |
           # a runner may be restricted to one GPU; a benchmark uses every GPU of the machine
           echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"
@@ -178,19 +193,20 @@ jobs:
             previous=$(grep -lx "$PR" "$(dirname "$KEEP")"/*/.pr 2>/dev/null | xargs -r ls -t | head -1)
             [ -z "$previous" ] || mv "$(dirname "$previous")" "$KEEP"
           fi
-          # the results so far go to the pull request every minute; only this process gets the token
           mkdir -p "$KEEP"
           [ -z "$PR" ] || echo "$PR" > "$KEEP/.pr"
-          if [ -n "$PR" ]; then
-            if [ -n "$REPORT_BASE" ]; then
-              export REPORT_DIR="$HOME/public_html/madnlp-benchmark/pr-$PR" REPORT_URL="$REPORT_BASE/pr-$PR/"
-              rm -rf "$REPORT_DIR"
-              mkdir -p "$REPORT_DIR"
-            fi
-            GH_TOKEN="$PROGRESS_TOKEN" julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --every=60 --wall=$WALL < /dev/null &
-            progress=$!
+          # the results so far go to the server every 30 s; run.json is replaced last, which marks a complete copy
+          publish() {
+            rsync -a --exclude='*.tmp' --exclude=.pr --exclude=run.json "$KEEP"/ "$LIVE/pr-$PR"/
+            printf '{"repository":"%s","pr":"%s","commit":"%s","base":"%s","run":"%s","state":"%s"}\n' \
+              "$GITHUB_REPOSITORY" "$PR" "$COMMIT" "$BASE" "$GITHUB_RUN_ID" "$1" > "$LIVE/pr-$PR/.run.json"
+            mv "$LIVE/pr-$PR/.run.json" "$LIVE/pr-$PR/run.json"
+          }
+          if [ -n "$PR" ] && [ -n "$LIVE" ]; then
+            mkdir -p "$LIVE/pr-$PR"
+            ( while true; do publish running; sleep 30; done ) &
+            publisher=$!
           fi
-          unset PROGRESS_TOKEN
           rc=0
           julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
             --device="$DEVICE" --config="$CONFIG" --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
@@ -201,8 +217,10 @@ jobs:
             julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
               --device=cpu --config=ipopt --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
           fi
-          [ -z "${progress:-}" ] || kill "$progress"
-          [ -z "${REPORT_DIR:-}" ] || julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --wall=$WALL --final || true
+          if [ -n "${publisher:-}" ]; then
+            kill "$publisher"
+            publish "$([ $rc = 0 ] && echo finished || echo failed)"
+          fi
           exit $rc
       - name: Collect the results
         if: always()
@@ -275,14 +293,12 @@ jobs:
       - name: Say if the run did not finish
         if: needs.gate.outputs.pr != '' && needs.run.result != 'success'
         run: sed -i '1a **The run did not finish; these are the instances it reached.**\n' comment.md
-      - name: Link the report instead
+      - name: Link the report
         if: needs.gate.outputs.pr != '' && vars.BENCHMARK_REPORT_URL != ''
         env:
           URL: ${{ vars.BENCHMARK_REPORT_URL }}/pr-${{ needs.gate.outputs.pr }}/
-          OUTCOME: ${{ needs.run.result == 'success' && 'finished' || 'did not finish' }}
-          COMMIT: ${{ needs.gate.outputs.commit }}
         run: |
-          printf '## MadNLP benchmark of `%s`: %s\n\n[Benchmark report](%s)\n' "${COMMIT::8}" "$OUTCOME" "$URL" > comment.md
+          printf '[Benchmark report](%s)\n' "$URL" > comment.md
       - name: Comment
         if: needs.gate.outputs.pr != ''
         uses: actions/github-script@v7

@@ -11,6 +11,9 @@ include(joinpath(@__DIR__, "sets.jl"))
 include(joinpath(@__DIR__, "configs.jl"))
 using MadNLPBenchmark
 
+# Every solve is sequential, MA57 included: the workers fill the machine.
+MadNLPBenchmark.LinearAlgebra.BLAS.set_num_threads(1)
+
 # set => (case => build), filled on first use
 const CASES = Dict{String, Dict{String, Function}}()
 

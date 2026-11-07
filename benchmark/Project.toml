@@ -3,6 +3,7 @@ uuid = "7e0eb29f-f940-47d4-861c-710d4e65cd52"
 version = "0.1.0"
 
 [deps]
+BenchmarkReport = "6d1f3b8e-42a7-4e1c-9a55-0f0f4c1d7e21"
 COPSBenchmark = "3c263af4-7bba-497b-afe4-00c59a0a48a5"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
@@ -39,6 +40,7 @@ NLPModels = "0.21.12"
 NLPModelsIpopt = "0.11"
 
 [sources]
+BenchmarkReport = {path = "report"}
 COPSBenchmark = {rev = "f0fb7f0ad427bb6c758ca416e5cf37453842a71a", url = "https://github.com/madsuite-org/COPSBenchmark.jl"}
 ExaCUTEst = {rev = "867ca0154bb979bc9d050dbb7601be69be4c1e26", url = "https://github.com/madsuite-org/ExaCUTEst.jl"}
 ExaMittelmann = {rev = "df3ecb57bca7542b27eb28dbd0c28b90974c1b59", url = "https://github.com/madsuite-org/ExaMittelmann.jl"}
