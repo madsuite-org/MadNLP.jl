@@ -37,6 +37,9 @@ MadNLPTests.test_linear_solver(UmfpackSolver,Float64)
 MadNLPTests.test_linear_solver(CHOLMODSolver,Float64)
 
 import SparseArrays
+import SparseArrays: CHOLMOD as SuiteSparseCHOLMOD
+using LinearAlgebra: I
+using Random: MersenneTwister
 
 @testset "CHOLMOD index width" begin
     K = sparse(Int32[1, 3, 2, 3, 3], Int32[1, 1, 2, 2, 3], [4.0, 1.0, 3.0, 1.0, -2.0], 3, 3)
@@ -59,6 +62,27 @@ import SparseArrays
         x = T.(rhs)
         MadNLP.solve_linear_system!(M, x)
         @test x ≈ sol / 2 rtol = sqrt(eps(T))
+    end
+    # A fill-reducing ordering that is not the identity, on both factorizations. The dense
+    # block makes CHOLMOD choose the supernodal path for Cholesky.
+    n = 300
+    W = SparseArrays.sprand(MersenneTwister(1), n, n, 0.05)
+    W[1:80, 1:80] .= 1.0
+    S = W'W + n * SparseArrays.sparse(1.0I, n, n)
+    rhs = collect(1.0:n)
+    for algorithm in (MadNLP.LDL, MadNLP.CHOLESKY)
+        opt = MadNLP.default_options(CHOLMODSolver)
+        opt.cholmod_algorithm = algorithm
+        A = SparseArrays.SparseMatrixCSC{Float64, Int32}(SparseArrays.tril(S))
+        M = MadNLP.create_linear_solver(CHOLMODSolver, A; opt)
+        @test M.perm != 1:n
+        @test (unsafe_load(SuiteSparseCHOLMOD.typedpointer(M.inner)).is_super != 0) == (algorithm == MadNLP.CHOLESKY)
+        MadNLP.factorize!(M)
+        @test MadNLP.inertia(M) == (n, 0, 0)
+        @test MadNLP.solve_linear_system!(M, copy(rhs)) ≈ Matrix(S) \ rhs
+        # CHOLMOD repacks the factor once, at the second factorization
+        MadNLP.factorize!(M)
+        @test (@allocated MadNLP.factorize!(M)) < 1000
     end
     # Solves reuse their buffers, so a solve does not allocate vectors of length n
     n = 10_000
