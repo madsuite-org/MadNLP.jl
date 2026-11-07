@@ -11,9 +11,9 @@ name: benchmark
 #   with `[benchmark-continue]` in its message, for changes that do not affect the results, leaves
 #   a running benchmark as it is; with none running, it takes over the results kept for the pull
 #   request and solves what is left.
-# - A commit on master is benchmarked when its `build` run succeeds, and archived on the
-#   `benchmark-results` branch under <hardware>/<commit>/, which is what a pull request is
-#   compared with.
+# - The results of a pull request are archived on the `benchmark-results` branch under
+#   <hardware>/<commit>/. Once it is merged, its run is the reference for master; master itself
+#   is not benchmarked separately.
 # - Any other set, configuration or revision is run, and optionally archived, by hand
 #   (workflow_dispatch).
 #
@@ -25,9 +25,6 @@ name: benchmark
 # here: the job copies its results to a folder, and madsuite-org/benchmark-report builds it on a server.
 
 on:
-  workflow_run:
-    workflows: [build]
-    types: [completed]
   pull_request:
     types: [labeled, synchronize]
   workflow_dispatch:
@@ -92,19 +89,11 @@ jobs:
             if (context.eventName === 'workflow_dispatch') {
               run = true; commit = context.sha; archive = process.env.INPUT_ARCHIVE === 'true';
               sets = process.env.INPUT_SETS; config = process.env.INPUT_CONFIG; device = process.env.INPUT_DEVICE;
-            } else if (context.eventName === 'workflow_run') {
-              const wr = context.payload.workflow_run;
-              if (wr.conclusion === 'success' && wr.head_repository.full_name === full) {
-                commit = wr.head_sha;
-                if (wr.event === 'push' && wr.head_branch === 'master') {
-                  run = true; archive = true;
-                }
-              }
             } else if (context.eventName === 'pull_request') {
               const p = context.payload.pull_request;
               const requested = context.payload.action === 'synchronize' || context.payload.label.name === 'benchmark';
               if (requested && labeled(p) && p.head.repo.full_name === full) {
-                run = true; commit = p.head.sha; pr = String(p.number); base = p.base.sha;
+                run = true; commit = p.head.sha; pr = String(p.number); base = p.base.sha; archive = true;
                 const { data: head } = await github.rest.repos.getCommit({ owner, repo, ref: commit });
                 resume = head.commit.message.includes('[benchmark-continue]');
                 // a benchmark of this pull request that is running goes on undisturbed
@@ -158,10 +147,9 @@ jobs:
     # gets the token, and only on a run that is archived.
     permissions:
       contents: write
-    # One run at a time per pull request (a newer request replaces it) and one at a time for
-    # master.
+    # One run at a time per pull request: a newer request replaces it.
     concurrency:
-      group: benchmark-${{ needs.gate.outputs.pr != '' && format('pr-{0}', needs.gate.outputs.pr) || github.event_name == 'workflow_run' && 'master' || github.run_id }}
+      group: benchmark-${{ needs.gate.outputs.pr != '' && format('pr-{0}', needs.gate.outputs.pr) || github.run_id }}
       cancel-in-progress: ${{ needs.gate.outputs.pr != '' }}
     runs-on: benchmark
     timeout-minutes: 4320
