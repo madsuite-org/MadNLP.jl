@@ -5,6 +5,8 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
         @test CUDSSSolver === MadCoreGPU.CUDSSSolver
         @test LapackCUDASolver === MadCoreGPU.LapackCUDASolver
         @test madnlp === MadNLPCore.madnlp
+        @test :CUDABackend in names(cuMadNLP)
+        @test cuMadNLP.CUDABackend === CUDA.CUDABackend
         # cuMadNLP loads CUDA and CUDSS, so the solvers of MadCoreGPU are available.
         @test MadCore.default_options(CUDSSSolver) isa MadCore.AbstractOptions
         @test MadCore.default_options(LapackCUDASolver) isa MadCore.AbstractOptions

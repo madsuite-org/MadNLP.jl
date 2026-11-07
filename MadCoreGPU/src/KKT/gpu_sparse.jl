@@ -264,16 +264,6 @@ function MadCore._first_and_last_col(sym2::AbstractGPUVector, ptr2)
 end
 
 #=
-    getij helper
-=#
-
-function getij(idx, n)
-    j = ceil(Int, ((2n + 1) - sqrt((2n + 1)^2 - 8 * idx)) / 2)
-    i = idx - div((j - 1) * (2n - j), 2)
-    return (i, j)
-end
-
-#=
     MadCore._set_colptr!
 =#
 
@@ -296,9 +286,8 @@ end
 =#
 
 function MadCore.tril_to_full!(dense::AbstractGPUMatrix{T}) where {T}
-    n = size(dense, 1)
     backend = get_backend(dense)
-    _tril_to_full_kernel!(backend)(dense; ndrange = div(n^2 + n, 2))
+    _tril_to_full_kernel!(backend)(dense; ndrange = size(dense))
     return
 end
 

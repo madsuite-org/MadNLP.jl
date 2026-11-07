@@ -1,6 +1,6 @@
 using CUDA
 using NLPModels
-using LinearAlgebra: norm
+using LinearAlgebra: mul!, norm
 
 # mul!(w, kkt, x, alpha, beta) of the condensed KKT system on the device must be
 # w = beta * w + alpha * K x for every beta, as on the host; the check is the
@@ -61,17 +61,17 @@ NLPModels.hess_coord!(nlp::CyclicQPGPU, x::AbstractVector, y::AbstractVector, V:
 
     # beta = 0: w = K x, whatever w held before
     copyto!(MadNLP.full(w), w0)
-    MadNLP.mul!(w, kkt, x, 1.0, 0.0)
+    mul!(w, kkt, x, 1.0, 0.0)
     kx = copy(MadNLP.full(w))
     copyto!(MadNLP.full(w), 2 .* w0 .+ 1)
-    MadNLP.mul!(w, kkt, x, 1.0, 0.0)
+    mul!(w, kkt, x, 1.0, 0.0)
     @test Array(MadNLP.full(w)) ≈ Array(kx) atol=1e-10
     # beta = 1: w = w0 + K x
     copyto!(MadNLP.full(w), w0)
-    MadNLP.mul!(w, kkt, x, 1.0, 1.0)
+    mul!(w, kkt, x, 1.0, 1.0)
     @test Array(MadNLP.full(w)) ≈ Array(w0 .+ kx) atol=1e-10
     # general alpha, beta
     copyto!(MadNLP.full(w), w0)
-    MadNLP.mul!(w, kkt, x, -2.0, 0.5)
+    mul!(w, kkt, x, -2.0, 0.5)
     @test Array(MadNLP.full(w)) ≈ Array(0.5 .* w0 .- 2.0 .* kx) atol=1e-10
 end
