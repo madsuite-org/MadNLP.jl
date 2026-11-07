@@ -5,7 +5,7 @@ mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, 
     sol::oneVector{T}
     tau::oneVector{T}
     Λ::oneVector{T}
-    info::oneVector{Cint}
+    info::Base.RefValue{Cint}
     ipiv::oneVector{Int64}
     scratchpad::oneVector{T}
     scratchpad_size::Int64
@@ -22,14 +22,6 @@ mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, 
             logger = MadCore.MadNLPLogger(),
             kwargs...,
         ) where {MT <: AbstractMatrix}
-        # Julia's GC does not see GPU memory pressure, so buffers and MKL handles of
-        # previous solvers accumulate. Synchronize first, so that the finalizers can free
-        # the buffers safely.
-        oneAPI.synchronize()
-        GC.gc(true)
-        oneAPI.oneL0._run_reclaim_callbacks()
-        GC.gc(true)
-        oneAPI.synchronize()
         MadCore.set_options!(opt, option_dict, kwargs...)
         T = eltype(A)
         m, n = size(A)
@@ -38,7 +30,7 @@ mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, 
         sol = oneVector{T}(undef, 0)
         tau = oneVector{T}(undef, 0)
         Λ = oneVector{T}(undef, 0)
-        info = oneAPI.zeros(Cint, 1)
+        info = Ref{Cint}(0)
         ipiv = oneVector{Int64}(undef, 0)
         scratchpad = oneVector{T}(undef, 0)
         queue = oneAPI.global_queue(oneAPI.context(fact), oneAPI.device(fact))
@@ -53,7 +45,6 @@ mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, 
 end
 
 MadCore.transfer_matrix!(M::LapackOneMKLState) = MadCoreGPU.gpu_transfer!(M.fact, M.A)
-MadCore._get_info(M::LapackOneMKLState) = sum(M.info)
 MadCore.default_options(::Type{LapackOneMKLState}) = MadCore.LapackOptions(MadCore.EVD)
 MadCore.introduce(M::LapackOneMKLState) = "oneMKL -- ($(M.opt.lapack_algorithm))"
 MadCore.solve!(M::LapackOneMKLState{T}, x::oneVector{T}) where {T} = MadCore._solve!(M, x)
@@ -73,7 +64,7 @@ for (potrf, potrf_buffer, potrs, potrs_buffer, T) in
         end
 
         function MadCore.factorize_cholesky!(M::LapackOneMKLState{$T})
-            Support.$potrf(
+            M.info[] = Support.$potrf(
                 M.device_queue,
                 'L',
                 M.n,
@@ -119,7 +110,7 @@ for (getrf, getrf_buffer, getrs, getrs_buffer, T) in
         end
 
         function MadCore.factorize_lu!(M::LapackOneMKLState{$T})
-            Support.$getrf(
+            M.info[] = Support.$getrf(
                 M.device_queue,
                 M.n,
                 M.n,
@@ -167,7 +158,7 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, T) in
         end
 
         function MadCore.factorize_qr!(M::LapackOneMKLState{$T})
-            Support.$geqrf(
+            M.info[] = Support.$geqrf(
                 M.device_queue,
                 M.n,
                 M.n,
@@ -219,7 +210,7 @@ for (syevd, syevd_buffer, gemv, T) in
         end
 
         function MadCore.factorize_evd!(M::LapackOneMKLState{$T})
-            Support.$syevd(
+            M.info[] = Support.$syevd(
                 M.device_queue,
                 'V',
                 'L',

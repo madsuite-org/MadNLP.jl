@@ -33,6 +33,10 @@ jobs:
         run: |
           julia --project=./MadCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
           julia --project=./MadNLPCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
+      - name: test oneMadNLP without a GPU
+        # loads the oneAPI extension of MadCoreGPU; the solves need an Intel GPU
+        if: matrix.os == 'ubuntu-latest'
+        run: julia --project=./oneMadNLP --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test()'
       - name: test MadNLP
         shell: julia --project=./MadNLP --color=yes {0}
         run: |
