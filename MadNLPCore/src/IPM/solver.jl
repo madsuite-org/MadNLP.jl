@@ -284,6 +284,7 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         if status != LINESEARCH_SUCCEEDED
             return status
         end
+        get_opt(solver).slack_reset && reset_slacks!(solver)
 
         @trace(get_logger(solver),"Updating primal-dual variables.")
         copyto!(full(get_x(solver)), full(get_x_trial(solver)))
