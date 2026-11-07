@@ -4,27 +4,27 @@
 
 const COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 
+const SET_TITLES = Dict("acopf" => "ACOPF", "cops" => "COPS", "cutest" => "CUTEst", "mittelmann" => "Mittelmann")
+
+const BOOTSTRAP = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+
 const STYLE = """
-body{font:14px/1.45 system-ui,sans-serif;color:#0b0b0b;background:#fcfcfb;max-width:110em;margin:1em auto;padding:0 1em}
-.wide{overflow-x:auto;-webkit-overflow-scrolling:touch}
-svg{display:block;width:100%;max-width:620px;height:auto}
-@media(max-width:640px){body{font-size:13px;padding:0 .6em}td,th{padding:3px 6px}.prof{display:block;margin-right:0}input{width:100%;box-sizing:border-box}}
-h1{font-size:1.5em;margin-bottom:.2em}h2{font-size:1.15em;margin:1.8em 0 .3em}h3{font-size:1em;margin:1.4em 0 .3em}a{color:#1c5fb0;text-decoration:none}a:hover{text-decoration:underline}
-p{margin:.4em 0}
-.bar{position:sticky;top:0;z-index:2;background:#fcfcfb;border-bottom:1px solid #d6d5cf;padding:.5em 0;margin-bottom:1em}
-.bar div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar b{font-size:1.05em;margin-right:.8em}.bar .m{font-size:.9em}
-.bar nav{display:flex;gap:1.1em;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
-table.summary{min-width:26em}table.summary tr.set td{background:#f3f2ee;font-weight:600;border-bottom:0;padding-top:6px}table.summary tr.set .m{font-weight:400;margin-left:.6em}
-table{border-collapse:collapse;font-variant-numeric:tabular-nums}
-td,th{border-bottom:1px solid #e4e3df;padding:2px 7px;text-align:right;white-space:nowrap}
-td:first-child,th:first-child,td.l,th.l{text-align:left}
-th{color:#52514e;font-weight:600;cursor:default}
-th.s{cursor:pointer}pre{background:#f3f2ee;padding:8px;overflow:auto}
+body{font-size:14px;background:#fcfcfb}
+h1{font-size:1.4em;margin-top:1em}h2{font-size:1.15em;margin:1.8em 0 .4em}h3{font-size:1em;margin:1.4em 0 .4em}
+a{text-decoration:none}a:hover{text-decoration:underline}
+table{font-variant-numeric:tabular-nums;width:auto!important}
+td,th{text-align:right;white-space:nowrap}td:first-child,th:first-child,td.l,th.l{text-align:left}
+th{color:#52514e;font-weight:600}th.s{cursor:pointer}
 .m{color:#52514e}.fail{font-weight:600}svg text{font:12px system-ui,sans-serif;fill:#52514e}
+svg{display:block;width:100%;max-width:620px;height:auto}
 .key{display:inline-block;margin-right:1.2em}.key i{display:inline-block;width:14px;height:3px;border-radius:2px;margin:0 6px 3px 0}
-.prof{position:relative;display:inline-block;vertical-align:top;margin:0 1.5em 1em 0}
+.prof{position:relative;display:inline-block;vertical-align:top;width:100%;max-width:620px;margin:0 1.5em 1em 0}
 .tip{position:absolute;display:none;pointer-events:none;background:#fff;border:1px solid #d6d5cf;border-radius:4px;padding:4px 8px;font-size:12px;white-space:nowrap}
-input{font:inherit;padding:3px 6px;margin-bottom:8px;width:20em}
+.bar{background:#fcfcfb;border-bottom:1px solid #d6d5cf;padding:.45em 0}
+.bar .top{display:flex;justify-content:space-between;gap:1em}.bar .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.bar .tools{display:flex;gap:.9em;flex:none;font-size:.9em}.bar b{font-size:1.05em;margin-right:.8em}.bar .m{font-size:.9em}
+.bar nav{display:flex;gap:1.1em;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+table.summary{min-width:26em}table.summary tr.set td{background:#f3f2ee;font-weight:600}table.summary tr.set .m{font-weight:400;margin-left:.6em}
 """
 
 const SCRIPT = """
@@ -190,13 +190,14 @@ function device_profile(io, set, device, sides, cand, base, wall)
     return
 end
 
-function page(path, title, content; refresh = false)
+function page(path, title, content, bar; refresh = false)
     tmp = path * ".tmp"
     write(
         tmp, "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">",
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">",
         refresh ? "<meta name=\"live\" content=\"1\">" : "",
-        "<title>", escape_html(title), "</title><style>", STYLE, "</style><body><div id=\"live\">", content, "</div><script>", SCRIPT, "</script></body></html>\n",
+        "<title>", escape_html(title), "</title><link rel=\"stylesheet\" href=\"", BOOTSTRAP, "\"><style>", STYLE, "</style><body><div id=\"live\">",
+        bar, "<main class=\"container\">", content, "</main></div><script>", SCRIPT, "</script></body></html>\n",
     )
     chmod(tmp, 0o644)
     mv(tmp, path; force = true)
@@ -208,7 +209,7 @@ end
 function summary_table(io, sets, sides, cand, base, wall)
     kept = [s for s in sides if any(set -> !isempty(side_rows(s, cand, base, set)), sets)]
     sort!(kept; by = s -> s.key[2] != "ipopt")
-    println(io, "<div class=\"wide\"><table class=\"summary\"><thead><tr><th></th>")
+    println(io, "<div class=\"table-responsive\"><table class=\"table table-sm summary\"><thead><tr><th></th>")
     foreach(s -> print(io, "<th>", escape_html(s.label), "</th>"), kept)
     println(io, "</tr></thead><tbody><tr class=\"m\"><td>rev</td>")
     foreach(s -> print(io, "<td>", escape_html(get((s.base ? base : cand).revs, s.key, "–")), "</td>"), kept)
@@ -238,7 +239,7 @@ end
 
 # Where the time goes, over the instances with a breakdown. Ipopt reports none.
 function breakdown(io, sides, rows)
-    println(io, "<div class=\"wide\"><table><thead><tr><th>solver</th><th>total (s)</th><th>linear solver</th><th>evaluations</th><th>initialization</th><th>other</th></tr></thead><tbody>")
+    println(io, "<div class=\"table-responsive\"><table class=\"table table-sm\"><thead><tr><th>solver</th><th>total (s)</th><th>linear solver</th><th>evaluations</th><th>initialization</th><th>other</th></tr></thead><tbody>")
     for (s, r) in zip(sides, rows)
         known = [x for x in values(r) if isfinite(x.t_linsolve) && x.t_total > 0]
         isempty(known) && continue
@@ -252,25 +253,24 @@ function breakdown(io, sides, rows)
 end
 
 function instance_table(io, set, sides, rows, logs)
-    println(io, "<div class=\"wide\"><table class=\"cases\"><thead><tr><th class=\"s\" rowspan=\"2\">instance</th><th class=\"s\" rowspan=\"2\">nv</th><th class=\"s\" rowspan=\"2\">nc</th>")
-    foreach(s -> print(io, "<th colspan=\"13\" class=\"l\">", escape_html(s.label), "</th>"), sides)
+    println(io, "<div class=\"table-responsive\"><table class=\"table table-sm table-hover cases\"><thead><tr><th class=\"s\" rowspan=\"2\">instance</th><th class=\"s\" rowspan=\"2\">nv</th><th class=\"s\" rowspan=\"2\">nc</th>")
+    foreach(s -> print(io, "<th colspan=\"12\" class=\"l\">", escape_html(s.label), "</th>"), sides)
     print(io, "</tr><tr>")
-    foreach(_ -> print(io, "<th class=\"s l\">st</th><th class=\"s\">it</th><th class=\"s\">t (s)</th><th class=\"s\">obj</th><th class=\"s\">inf</th><th class=\"s\">nfac</th><th class=\"s\">nsol</th><th class=\"s\">nf</th><th class=\"s\">ng</th><th class=\"s\">nc</th><th class=\"s\">nj</th><th class=\"s\">nh</th><th></th>"), sides)
+    foreach(_ -> print(io, "<th class=\"s l\">st</th><th class=\"s\">it</th><th class=\"s\">t (s)</th><th class=\"s\">obj</th><th class=\"s\">inf</th><th class=\"s\">nfac</th><th class=\"s\">nsol</th><th class=\"s\">nf</th><th class=\"s\">ng</th><th class=\"s\">nc</th><th class=\"s\">nj</th><th class=\"s\">nh</th>"), sides)
     println(io, "</tr></thead><tbody>")
     for case in sort!(collect(reduce(union, [Set(keys(r)) for r in rows]; init = Set{String}())))
         any_row = first(r[case] for r in rows if haskey(r, case))
         print(io, "<tr><td>", escape_html(case), "</td><td>", any_row.nvar, "</td><td>", any_row.ncon, "</td>")
         for (s, r) in zip(sides, rows)
             if !haskey(r, case)
-                print(io, "<td class=\"l\">–</td>", "<td></td>"^12)
+                print(io, "<td class=\"l\">–</td>", "<td></td>"^11)
                 continue
             end
             row = r[case]
             link = s.base ? nothing : get(logs, (s.key[1], set, case, s.key[2]), nothing)
-            print(io, "<td class=\"l", solved(row) ? "" : " fail", "\" title=\"", status_name(row.status), "\">", status_letter(row.status), "</td><td>", row.iters, "</td>")
+            print(io, "<td class=\"l", solved(row) ? "" : " fail", "\" title=\"", status_name(row.status), "\">", link === nothing ? status_letter(row.status) : "<a href=\"$link\">$(status_letter(row.status))</a>", "</td><td>", row.iters, "</td>")
             @printf(io, "<td>%.3f</td><td>%.6g</td><td>%.1e</td>", row.t_total, row.obj, row.primal_feas)
             foreach(n -> print(io, "<td>", n, "</td>"), (row.n_fact, row.n_backsolve, row.n_obj, row.n_grad, row.n_con, row.n_jac, row.n_hess))
-            print(io, "<td>", link === nothing ? "" : "<a href=\"$link\">log</a>", "</td>")
         end
         println(io, "</tr>")
     end
@@ -281,7 +281,7 @@ end
 # What every worker is on.
 function workers_page(site, root, bar)
     io = IOBuffer()
-    println(io, bar, "<h1>Workers</h1>")
+    println(io, "<h1>Workers</h1>")
     for dir in sort!(readdir(root; join = true))
         file = joinpath(dir, "summary.md")
         isfile(file) || continue
@@ -297,9 +297,9 @@ function workers_page(site, root, bar)
                 push!(workers, "<tr><td>$(w[1])</td><td class=\"l\">$(w[2])</td><td class=\"l\">$(escape_html(w[3]))</td><td>$(w[4])</td><td>$(w[5])</td></tr>")
             end
         end
-        isempty(workers) || println(io, "<div class=\"wide\"><table><thead><tr><th>worker</th><th class=\"l\">state</th><th class=\"l\">instance</th><th>for (s)</th><th>memory (GB)</th></tr></thead><tbody>", join(workers), "</tbody></table></div>")
+        isempty(workers) || println(io, "<div class=\"table-responsive\"><table class=\"table table-sm\"><thead><tr><th>worker</th><th class=\"l\">state</th><th class=\"l\">instance</th><th>for (s)</th><th>memory (GB)</th></tr></thead><tbody>", join(workers), "</tbody></table></div>")
     end
-    page(joinpath(site, "workers.html"), "Workers", String(take!(io)); refresh = true)
+    page(joinpath(site, "workers.html"), "Workers", String(take!(io)), bar; refresh = true)
     return
 end
 
@@ -308,7 +308,7 @@ function set_page(site, set, sides, cand, base, wall, logs, bar; refresh)
     keep = [i for i in eachindex(sides) if !isempty(rows[i])]
     sides, rows = sides[keep], rows[keep]
     io = IOBuffer()
-    println(io, bar, "<h1>", escape_html(set), "</h1>")
+    println(io, "<h1>", escape_html(set), "</h1>")
     println(io, "<h2>Performance profile</h2>")
     profile_section(io, set, sides, cand, base, wall)
     println(io, "<h2>Time breakdown</h2>")
@@ -317,13 +317,13 @@ function set_page(site, set, sides, cand, base, wall, logs, bar; refresh)
         println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
         breakdown(io, sides[here], rows[here])
     end
-    println(io, "<h2>Instances</h2><p class=\"m\">nv, nc: variables, constraints. st: ok solved, a solved to the acceptable level, t time limit, i iteration limit, f other failure. it: iterations. inf: infeasibility. nfac, nsol: factorizations, linear solves. nf, ng, nc, nj, nh: evaluations of the objective, gradient, constraints, Jacobian, Hessian.</p><input id=\"filter\" placeholder=\"Filter by name\">")
+    println(io, "<h2>Instances</h2><p class=\"m\">nv, nc: variables, constraints. st: ok solved, a solved to the acceptable level, t time limit, i iteration limit, f other failure; click it for the solver log. it: iterations. inf: infeasibility. nfac, nsol: factorizations, linear solves. nf, ng, nc, nj, nh: evaluations of the objective, gradient, constraints, Jacobian, Hessian.</p><input id=\"filter\" class=\"form-control form-control-sm mb-2\" style=\"max-width:20em\" placeholder=\"Filter by name\">")
     for device in unique!([s.key[1] for s in sides])
         here = [i for i in eachindex(sides) if sides[i].key[1] == device]
         println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
         instance_table(io, set, sides[here], rows[here], logs)
     end
-    page(joinpath(site, "$set.html"), "$set: MadNLP benchmark", String(take!(io)); refresh)
+    page(joinpath(site, "$set.html"), "$set: MadNLP benchmark", String(take!(io)), bar; refresh)
     return
 end
 
@@ -382,17 +382,18 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     heading = (finished ? "Finished" : "In progress") * ", updated $stamp UTC."
     devices = unique!([s.key[1] for s in sides])
     # the bar pinned to the top of every page
-    links = ["<a href=\"index.html\">Summary</a>"; ["<a href=\"$set.html\">$set</a>" for set in sets]]
-    finished || push!(links, "<a href=\"workers.html\">Workers</a>")
-    push!(links, "<a href=\"data/\">Files</a>")
-    link === nothing || push!(links, "<a href=\"" * escape_html(link) * "\">Pull request</a>")
-    bar = "<div class=\"bar\"><div><b>" * escape_html(title) * "</b><span class=\"m\">" * heading * "</span></div><nav>" * join(links) * "</nav></div>"
+    families = ["<a href=\"index.html\">Summary</a>"; ["<a href=\"$set.html\">$(get(SET_TITLES, set, set))</a>" for set in sets]]
+    tools = String[]
+    finished || push!(tools, "<a href=\"workers.html\">Workers</a>")
+    push!(tools, "<a href=\"data/\">Files</a>")
+    link === nothing || push!(tools, "<a href=\"" * escape_html(link) * "\">Pull request</a>")
+    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"top\"><span class=\"title\"><b>" * escape_html(title) * "</b><span class=\"m\">" * heading *
+        "</span></span><span class=\"tools\">" * join(tools) * "</span></div><nav>" * join(families) * "</nav></div></div>"
     for set in sets
         set_page(site, set, sides, cand, base, wall, logs, bar; refresh = !finished)
     end
     finished || workers_page(site, root, bar)
     io = IOBuffer()
-    println(io, bar)
     for device in devices
         println(io, "<h2>", device == "cuda" ? "GPU" : "CPU", "</h2>")
         machines = get(cand.machines, device, String[])
@@ -402,6 +403,6 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     println(io, "<p class=\"m\">Benchmark $BENCHMARK_VERSION fixes the instances, the options, Ipopt and HSL $HSL_VERSION.</p>")
     base === nothing || println(io, "<p class=\"m\">Base: ", escape_html(base.label), "</p>")
     println(io, "<p class=\"m\">SGM: shifted geometric mean of the solve time, with a shift of 10 s and a failure counting as ", round(Int, wall), " s, over the problems that all solvers shown have run. SSGM: the SGM scaled so that Ipopt, or the best solver where Ipopt has not run, is 1.</p>")
-    page(joinpath(site, "index.html"), title, String(take!(io)); refresh = !finished)
+    page(joinpath(site, "index.html"), title, String(take!(io)), bar; refresh = !finished)
     return
 end
