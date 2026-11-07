@@ -110,10 +110,10 @@ function MadNLP.create_kkt_system(
         Nonzeroes values for Hessian and Jacobian
     =#
     hess = VT(undef, cb.nnzh)
-    jac = MadNLP.madnlp_unsafe_wrap(V, n_jac+n_slack, n_hess+n_tot+1)
-    jac_callback = MadNLP.madnlp_unsafe_wrap(V, n_jac, n_hess+n_tot+1)
+    jac = MadNLP.madnlp_unsafe_wrap(V, n_jac + n_slack, n_hess + n_tot + 1)
+    jac_callback = MadNLP.madnlp_unsafe_wrap(V, n_jac, n_hess + n_tot + 1)
 
-    diag_hess = MadNLP.madnlp_unsafe_wrap(V, n_hess, n_tot+1)
+    diag_hess = MadNLP.madnlp_unsafe_wrap(V, n_hess, n_tot + 1)
 
     #=
         Build condensed matrix and Jacobian in COO format
@@ -203,7 +203,7 @@ function LinearAlgebra.mul!(
     mul!(dual(w), kkt.jac_com,  primal(x), alpha, beta)
 
     # Reduce KKT vector
-    MadNLP.kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    MadNLP.kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
 
