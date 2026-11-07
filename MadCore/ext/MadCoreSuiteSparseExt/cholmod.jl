@@ -11,7 +11,7 @@ const CHOLMOD_INT32_MAX_LNZ = typemax(Int32) / 3
 
 mutable struct CHOLMODState{T, Ti} <: AbstractLinearSolver{T}
     inner::CHOLMOD.Factor{Float64, Ti}
-    tril::SparseMatrixCSC{T,Int32}
+    tril::SparseMatrixCSC{T, Int32}
     tril_to_full_view::SubVector{T,Vector{T},Vector{Int}}
     # The matrix as CHOLMOD holds it, and its values. Updating them in place avoids a
     # conversion and a Hermitian check at every factorization.
@@ -37,29 +37,31 @@ _cholmod_free_dense(::Type{Int32}, args...) = cholmod_free_dense(args...)
 _cholmod_free_dense(::Type{Int64}, args...) = cholmod_l_free_dense(args...)
 
 function _cholmod_analyze(::Type{Ti}, full::SparseMatrixCSC{Float64}) where {Ti}
-    A = CHOLMOD.Sparse(SparseMatrixCSC{Float64,Ti}(
-        full.m,
-        full.n,
-        Vector{Ti}(full.colptr),
-        Vector{Ti}(full.rowval),
-        full.nzval,
-    ))
+    A = CHOLMOD.Sparse(
+        SparseMatrixCSC{Float64, Ti}(
+            full.m,
+            full.n,
+            Vector{Ti}(full.colptr),
+            Vector{Ti}(full.rowval),
+            full.nzval,
+        )
+    )
     inner = CHOLMOD.symbolic(A)
     return A, inner, CHOLMOD.getcommon(Ti)[].lnz
 end
 
 function CHOLMODState(
-    A::CHOLMOD.Sparse{Float64, Ti},
-    inner::CHOLMOD.Factor{Float64, Ti},
-    csc::SparseMatrixCSC{T},
-    tril_to_full_view,
-    opt,
-    logger,
-) where {T, Ti}
+        A::CHOLMOD.Sparse{Float64, Ti},
+        inner::CHOLMOD.Factor{Float64, Ti},
+        csc::SparseMatrixCSC{T},
+        tril_to_full_view,
+        opt,
+        logger,
+    ) where {T, Ti}
     s = unsafe_load(CHOLMOD.typedpointer(A))
-    Ax = unsafe_wrap(Array, Ptr{Float64}(s.x), length(tril_to_full_view); own=false)
+    Ax = unsafe_wrap(Array, Ptr{Float64}(s.x), length(tril_to_full_view); own = false)
     B = CHOLMOD.Dense(zeros(Float64, csc.n))
-    Bx = unsafe_wrap(Array, Ptr{Float64}(unsafe_load(pointer(B)).x), csc.n; own=false)
+    Bx = unsafe_wrap(Array, Ptr{Float64}(unsafe_load(pointer(B)).x), csc.n; own = false)
     null() = Ref(Ptr{cholmod_dense}(C_NULL))
     d = Vector{Float64}(undef, csc.n)
     M = CHOLMODState{T, Ti}(
@@ -70,8 +72,8 @@ end
 
 function CHOLMODState(
     csc::SparseMatrixCSC{T};
-    opt=CHOLMODOptions(), logger=MadNLPLogger(), max_lnz_int32=CHOLMOD_INT32_MAX_LNZ,
-) where T
+        opt = CHOLMODOptions(), logger = MadNLPLogger(), max_lnz_int32 = CHOLMOD_INT32_MAX_LNZ,
+    ) where {T}
     full, tril_to_full_view = get_tril_to_full(Float64, csc)
 
     if opt.cholmod_algorithm == LDL && VERSION <= v"1.9"
@@ -98,9 +100,9 @@ function factorize!(M::CHOLMODState)
     M.Ax .= M.tril_to_full_view
     # We check the factorization succeeded later in the backsolve
     if M.opt.cholmod_algorithm == LDL
-        CHOLMOD.ldlt!(M.inner, M.A; check=false)
+        CHOLMOD.ldlt!(M.inner, M.A; check = false)
     elseif M.opt.cholmod_algorithm == CHOLESKY
-        CHOLMOD.cholesky!(M.inner, M.A; check=false)
+        CHOLMOD.cholesky!(M.inner, M.A; check = false)
     end
     return M
 end
@@ -127,10 +129,10 @@ end
 # first entry of each column.
 function _get_diagonal!(F::CHOLMOD.Factor{T, Ti}, d::Vector{T}) where {T, Ti}
     s = unsafe_load(CHOLMOD.typedpointer(F))
-    colptr = unsafe_wrap(Array, Ptr{Ti}(s.p), s.n+1, own=false)
-    nzvals = unsafe_wrap(Array, Ptr{T}(s.x), s.nzmax, own=false)
+    colptr = unsafe_wrap(Array, Ptr{Ti}(s.p), s.n + 1, own = false)
+    nzvals = unsafe_wrap(Array, Ptr{T}(s.x), s.nzmax, own = false)
     for j in 1:s.n
-        d[j] = nzvals[colptr[j]+1]
+        d[j] = nzvals[colptr[j] + 1]
     end
     return d
 end
