@@ -90,7 +90,7 @@ function main(args)
     catch err
             @warn "could not read the Ipopt reference" exception = err
     end
-    title = "MadNLP benchmark of $(first(commit, 8)), pull request $pr"
+    title = "MadNLP benchmark report (pr #$pr)"
     finished = "--final" in args
     updated = 0.0
     while true
