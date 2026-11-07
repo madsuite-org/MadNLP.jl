@@ -524,4 +524,6 @@ end
     @test MadNLP.get_mu(1.0e-9, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) ≈ 1.0e-8 / 11
     @test MadNLP.get_mu(1.0e-9, 1.0e-6, 0.2, 1.5, 1.0e-8, 10.0) == 1.0e-6
     @test MadNLP.get_mu(1.0, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) == 0.2
+    # with a loose tol, the floor stays at the default mu_min
+    @test MadNLP.get_mu(1.0e-6, 1.0e-11, 0.2, 1.5, 1.0e-3, 10.0) ≈ 1.0e-4 / 11
 end
