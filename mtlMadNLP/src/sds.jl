@@ -9,11 +9,17 @@ Options of [`SDSSolver`](@ref).
 
 * `sds_factorization`: `:ldl` factors the KKT matrix as symmetric indefinite without pivoting
   and reports the inertia from the signs of `D`; `:cholesky` as symmetric positive definite.
+  `:cholesky` needs a positive definite matrix, so dense Jacobian rows kept as a border by
+  `SparseCondensedKKTSystem` make it fail.
 * `sds_pivot_epsilon`: `:ldl` only, pivots below this magnitude are replaced.
+
+The KKT system sets `n_primal` and `n_dual`, the sizes of the primal and dual blocks.
 """
 MadCore.@kwdef mutable struct SDSSolverOptions <: MadCore.AbstractOptions
     sds_factorization::Symbol = :ldl
     sds_pivot_epsilon::Float64 = 1.0e-10
+    n_primal::Int = -1
+    n_dual::Int = 0
 end
 
 """
@@ -42,8 +48,8 @@ function SDSSolver(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger(
         SDS.setparam!(inner, "pivot_type", 'N')
         SDS.setparam!(inner, "pivot_pairs", "none")
         SDS.setparam!(inner, "pivot_epsilon", opt.sds_pivot_epsilon)
-        # Every row of the condensed matrix is primal.
-        SDS.setparam!(inner, "pivot_sign", ones(Int8, n))
+        n_primal = opt.n_primal < 0 ? n : opt.n_primal
+        SDS.setparam!(inner, "pivot_sign", vcat(ones(Int8, n_primal), fill(Int8(-1), n - n_primal)))
     end
     x = similar(csc.nzVal, n)
     b = similar(csc.nzVal, n)

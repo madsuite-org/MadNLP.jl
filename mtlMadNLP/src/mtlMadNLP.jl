@@ -8,6 +8,7 @@ and SparseDirectSolver.jl. Models on `MtlVector` are solved with the condensed K
 module mtlMadNLP
 
 import MadCore, MadCoreGPU, MadNLPCore
+# GPUArrays is a trigger of MadCoreGPUMetalExt, which defines the sparse matrix type.
 import GPUArrays, Metal
 using Metal: MtlVector, MetalBackend
 import SparseDirectSolver

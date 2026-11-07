@@ -1,4 +1,4 @@
-using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal
+using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, SparseArrays
 
 @testset "mtlMadNLP" begin
     @testset "Exports" begin
@@ -17,6 +17,37 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal
             @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+            # The local minimum reached from the origin. Float32 and the relaxed bounds of
+            # the condensed KKT system shift the result slightly.
+            @test stats.objective ≈ 360.38f0 rtol = 1.0f-2
+            @test Array(stats.solution) ≈ Float32[-0.7921, -1.2624] rtol = 1.0f-2
+        end
+        @testset "MtlSparseMatrixCSC products" begin
+            A = sprand(Float32, 40, 25, 0.2)
+            dA = MadCore._get_sparse_csc(size(A), MtlVector(Int32.(A.colptr)), MtlVector(Int32.(A.rowval)), MtlVector(A.nzval))
+            @test SparseMatrixCSC(dA) == A
+            x, y = rand(Float32, 25), rand(Float32, 40)
+            dy = MtlVector(y)
+            mul!(dy, dA, MtlVector(x), 2.0f0, 3.0f0)
+            @test Array(dy) ≈ 2 .* (A * x) .+ 3 .* y
+            mul!(dy, dA, MtlVector(x), 2.0f0, 0.0f0)
+            @test Array(dy) ≈ 2 .* (A * x)
+            dx = MtlVector(x)
+            mul!(dx, dA', MtlVector(y), 2.0f0, 3.0f0)
+            @test Array(dx) ≈ 2 .* (A' * y) .+ 3 .* x
+            mul!(dx, dA', MtlVector(y), 1.0f0, 0.0f0)
+            @test Array(dx) ≈ A' * y
+        end
+        @testset "Host sort of tuples" begin
+            v = [(3, 1), (1, 2), (2, 3)]
+            dv = MtlVector(v)
+            sort!(dv)
+            @test Array(dv) == sort(v)
+            @test Array(sortperm(MtlVector(v))) == sortperm(v)
+            w = Float32[1, 2, 3]
+            dw = MtlVector(w)
+            permute!(dw, MtlVector([3, 1, 2]))
+            @test Array(dw) == w[[3, 1, 2]]
         end
     end
 end
