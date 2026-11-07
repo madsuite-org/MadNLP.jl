@@ -472,7 +472,7 @@ function is_sufficient_progress(theta_trial::T, theta, gamma_theta, varphi_trial
 end
 
 function augment_filter!(filter, theta, varphi, gamma_theta, gamma_phi)
-    push!(filter, ((1-gamma_theta)*theta, varphi-gamma_phi*theta))
+    return push!(filter, ((1 - gamma_theta) * theta, varphi - gamma_phi * theta))
 end
 
 function is_filter_acceptable(filter, theta, varphi)
