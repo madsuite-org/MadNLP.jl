@@ -4,7 +4,7 @@
 ######################################################
 
 # Scatter COO values into CSC nonzeros, accumulating duplicates (matches the CPU
-# `_transfer!`: `nzval[map[k]] += V[k]`). The augmented KKT's COO has duplicate
+# `transfer_values!`: `nzval[map[k]] += V[k]`). The augmented KKT's COO has duplicate
 # (i,i) entries (primal-dual diagonal + Hessian diagonal) that must be summed, so
 # a plain non-accumulating scatter (copyto!) would drop one of each pair.
 #

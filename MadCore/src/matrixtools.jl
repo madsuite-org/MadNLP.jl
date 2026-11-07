@@ -76,7 +76,7 @@ function _get_coo_to_csc(I,J,cscind,map)
         @inbounds map[i] = cscind[I[i],J[i]]
     end
 end
-function _transfer!(vec1, vec2, map)
+function transfer_values!(vec1, vec2, map)
     T = eltype(vec1)
     fill!(vec1, zero(T))
     for i=1:length(map)
@@ -85,7 +85,7 @@ function _transfer!(vec1, vec2, map)
 end
 
 function transfer!(dest::SparseMatrixCSC, src::SparseMatrixCOO, map::Vector{Int})
-    _transfer!(dest.nzval, src.V, map)
+    transfer_values!(dest.nzval, src.V, map)
 end
 
 function get_mapping(dest::SparseMatrixCSC{Tv1,Ti1}, src::SparseMatrixCOO{Tv2,Ti2}) where {Tv1,Tv2,Ti1,Ti2}

@@ -97,15 +97,15 @@ end
 
 # solving KKT system
 """
-    _kktmul!(w, x, reg, du_diag, l_lower, u_lower, l_diag, u_diag, alpha, beta)
+    kktmul!(w, x, reg, du_diag, l_lower, u_lower, l_diag, u_diag, alpha, beta)
 
 Add to `w` the contribution of the diagonal blocks of the unreduced KKT matrix to the
 product with `x`. It completes the `mul!` of a KKT system, after the products with the
 Hessian and the Jacobian.
 """
-function _kktmul! end
+function kktmul! end
 
-@inbounds function _kktmul!(
+@inbounds function kktmul!(
     w::AbstractKKTVector,
     x::AbstractKKTVector,
     reg,

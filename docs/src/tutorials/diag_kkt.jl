@@ -63,7 +63,7 @@ function MadNLP.create_kkt_system(
     =#
     jac_sparsity_I = MadNLP.create_array(cb, Int32, cb.nnzj)
     jac_sparsity_J = MadNLP.create_array(cb, Int32, cb.nnzj)
-    MadNLP._jac_sparsity_wrapper!(cb, jac_sparsity_I, jac_sparsity_J)
+    MadNLP.jac_sparsity_callback!(cb, jac_sparsity_I, jac_sparsity_J)
 
     #=
         Determine size of condensed KKT system
@@ -98,7 +98,7 @@ function MadNLP.create_kkt_system(
     #=
         Diagonal matrices.
     =#
-    pr_diag = MadNLP._madnlp_unsafe_wrap(V, n_tot)
+    pr_diag = MadNLP.madnlp_unsafe_wrap(V, n_tot)
     du_diag = VT(undef, m)
     reg = VT(undef, n_tot)
     l_diag = VT(undef, nlb)
@@ -110,10 +110,10 @@ function MadNLP.create_kkt_system(
         Nonzeroes values for Hessian and Jacobian
     =#
     hess = VT(undef, cb.nnzh)
-    jac = MadNLP._madnlp_unsafe_wrap(V, n_jac+n_slack, n_hess+n_tot+1)
-    jac_callback = MadNLP._madnlp_unsafe_wrap(V, n_jac, n_hess+n_tot+1)
+    jac = MadNLP.madnlp_unsafe_wrap(V, n_jac+n_slack, n_hess+n_tot+1)
+    jac_callback = MadNLP.madnlp_unsafe_wrap(V, n_jac, n_hess+n_tot+1)
 
-    diag_hess = MadNLP._madnlp_unsafe_wrap(V, n_hess, n_tot+1)
+    diag_hess = MadNLP.madnlp_unsafe_wrap(V, n_hess, n_tot+1)
 
     #=
         Build condensed matrix and Jacobian in COO format
@@ -203,7 +203,7 @@ function LinearAlgebra.mul!(
     mul!(dual(w), kkt.jac_com,  primal(x), alpha, beta)
 
     # Reduce KKT vector
-    MadNLP._kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    MadNLP.kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
     return w
 end
 

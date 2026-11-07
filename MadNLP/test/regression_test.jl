@@ -207,6 +207,6 @@ end
     ]
     x = collect(1.0:n+ns+m)
     y = zeros(n + ns + m)
-    MadNLP.MadCore._mul_expanded!(y, kkt, x)
+    MadNLP._mul_expanded!(y, kkt, x)
     @test y ≈ K * x
 end

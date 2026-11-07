@@ -7,6 +7,7 @@ for name in MadCore.public_names()
 end
 import Base: @kwdef, copyto!, size
 import LinearAlgebra: ldiv!, mul!, norm
+import MadCore: AbstractIterator, solve_refine!
 import Printf: @sprintf
 
 include("krylov.jl")

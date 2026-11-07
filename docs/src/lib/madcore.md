@@ -5,9 +5,9 @@ CurrentModule = MadCore
 # MadCore public API
 
 MadCore provides the KKT systems, the callbacks and the linear solvers on which the
-interior-point solvers of MadSuite are built. A package built on MadCore should only use
-the names returned by [`public_names`](@ref). Other names are internal and can change in
-any release.
+interior-point solvers of MadSuite are built. Its public API is what a solver or a linear
+solver built on MadCore needs: the exported names and those returned by
+[`public_names`](@ref). Other names are internal and can change in any release.
 
 ```@docs
 public_names
@@ -27,8 +27,8 @@ build_hessian_structure
 build_condensed_aug_symbolic
 build_condensed_aug_coord!
 mul_hess_blk!
-_kktmul!
-_madnlp_unsafe_wrap
+kktmul!
+madnlp_unsafe_wrap
 diag_add!
 getptr
 nzval
@@ -43,17 +43,16 @@ slack
 
 ## Callbacks
 
-Functions with a leading underscore act on the callback only. They return values scaled by
-the callback.
+The following functions act on the callback only, and return values scaled by the callback.
 
 ```@docs
-_eval_f_wrapper
-_eval_cons_wrapper!
-_eval_grad_f_wrapper!
-_eval_jac_wrapper!
-_eval_lag_hess_wrapper!
-_jac_sparsity_wrapper!
-_hess_sparsity_wrapper!
+eval_f_callback
+eval_cons_callback!
+eval_grad_f_callback!
+eval_jac_callback!
+eval_lag_hess_callback!
+jac_sparsity_callback!
+hess_sparsity_callback!
 ```
 
 The following functions take the solver, record the evaluation in its counters, and check

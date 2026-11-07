@@ -7,7 +7,7 @@ for name in MadCore.public_names()
 end
 import Base: @kwdef, size
 import LinearAlgebra: ldiv!
-import MadCore: SubVector
+import MadCore: get_tril_to_full, nzval
 import SparseArrays: SparseMatrixCSC
 
 include("ldl.jl")

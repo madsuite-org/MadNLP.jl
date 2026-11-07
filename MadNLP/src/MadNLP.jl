@@ -5,9 +5,8 @@ import NLPModels
 import HSL, LDLFactorizations, MUMPS_seq_jll, OpenBLAS32_jll, SuiteSparse
 
 # MadNLP bundles MadNLPCore with the CPU linear solvers. For backward compatibility,
-# the public names of MadCore and
-# every name of MadNLPCore also resolve as `MadNLP.name`.
-for name in MadCore.public_names()
+# every name of MadCore and MadNLPCore also resolves as `MadNLP.name`.
+for name in MadCore.defined_names(MadCore)
     @eval import MadCore: $name
 end
 for name in MadCore.defined_names(MadNLPCore)

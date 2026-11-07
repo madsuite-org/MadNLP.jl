@@ -252,10 +252,10 @@ function set_con_scale_sparse!(
     max_gradient,
 ) where {T,VT<:AbstractVector{T}}
     fill!(con_scale, one(T))
-    _set_con_scale_sparse!(con_scale, jac_I, jac_buffer)
+    update_con_scale_sparse!(con_scale, jac_I, jac_buffer)
     return map!(x -> min(one(T), max_gradient / x), con_scale, con_scale)
 end
-function _set_con_scale_sparse!(con_scale, jac_I, jac_buffer)
+function update_con_scale_sparse!(con_scale, jac_I, jac_buffer)
     @inbounds @simd for i in 1:length(jac_I)
         row = jac_I[i]
         con_scale[row] = max(con_scale[row], abs(jac_buffer[i]))
@@ -660,7 +660,7 @@ function initialize!(
     set_initial_bounds!(lvar, uvar, tol)
     initialize_variables!(x0, lvar, uvar, bound_push, bound_fac)
 
-    _eval_cons_wrapper!(cb, x0, con_buffer)
+    eval_cons_callback!(cb, x0, con_buffer)
 
     slack(xl) .= view(lcon, ind_ineq)
     slack(xu) .= view(ucon, ind_ineq)
@@ -749,7 +749,7 @@ function get_uvar(cb::SparseCallback{T, VT, VI, NLP, FH}) where {T, VT, VI, NLP,
     return xu[free]
 end
 function unpack_x!(x_full, cb::SparseCallback{T, VT, VI, NLP, FH}, x) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full .= cb.fixed_handler.x_full
 end
 function unpack_z!(z_full, cb::SparseCallback{T, VT, VI, NLP, FH}, z) where {T, VT, VI, NLP, FH<:MakeParameter}
@@ -785,11 +785,11 @@ function set_scaling!(
 
     # Set scaling
     jac = similar(con_buffer, cb.nnzj)
-    _eval_jac_wrapper!(cb, x0, jac)
+    eval_jac_callback!(cb, x0, jac)
     set_con_scale_sparse!(con_scale, cb.jac_I, jac, nlp_scaling_max_gradient)
     set_jac_scale_sparse!(jac_scale, con_scale, cb.jac_I)
 
-    _eval_grad_f_wrapper!(cb, x0, grad_buffer)
+    eval_grad_f_callback!(cb, x0, grad_buffer)
     set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
 
     con_scale_slk = @view(con_scale[ind_ineq])
@@ -843,32 +843,32 @@ end
 =#
 
 """
-    _eval_f_wrapper(cb::AbstractCallback, x)
+    eval_f_callback(cb::AbstractCallback, x)
 
 Return the scaled objective at `x`. It does not count the evaluation or apply the sign of
 the objective; [`eval_f_wrapper`](@ref) does.
 """
-function _eval_f_wrapper(cb::AbstractCallback, x::AbstractVector)
+function eval_f_callback(cb::AbstractCallback, x::AbstractVector)
     return NLPModels.obj(cb.nlp, x) * cb.obj_scale[]
 end
 
 """
-    _eval_cons_wrapper!(cb::AbstractCallback, x, c)
+    eval_cons_callback!(cb::AbstractCallback, x, c)
 
 Store in `c` the scaled constraints at `x`.
 """
-function _eval_cons_wrapper!(cb::AbstractCallback, x::AbstractVector, c::AbstractVector)
+function eval_cons_callback!(cb::AbstractCallback, x::AbstractVector, c::AbstractVector)
     NLPModels.cons!(cb.nlp, x, c)
     c .*= cb.con_scale
     return c
 end
 
 """
-    _eval_grad_f_wrapper!(cb::AbstractCallback, x, grad)
+    eval_grad_f_callback!(cb::AbstractCallback, x, grad)
 
 Store in `grad` the scaled objective gradient at `x`.
 """
-function _eval_grad_f_wrapper!(
+function eval_grad_f_callback!(
     cb::AbstractCallback{T},
     x::AbstractVector,
     grad::AbstractVector,
@@ -895,34 +895,34 @@ end
 =#
 
 """
-    _jac_sparsity_wrapper!(cb::SparseCallback, I, J)
+    jac_sparsity_callback!(cb::SparseCallback, I, J)
 
 Store in `I` and `J` the row and column indices of the Jacobian.
 """
-function _jac_sparsity_wrapper!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
+function jac_sparsity_callback!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
     copyto!(I, cb.jac_I)
     copyto!(J, cb.jac_J)
     return
 end
 
 """
-    _hess_sparsity_wrapper!(cb::SparseCallback, I, J)
+    hess_sparsity_callback!(cb::SparseCallback, I, J)
 
 Store in `I` and `J` the row and column indices of the Hessian of the Lagrangian.
 """
-function _hess_sparsity_wrapper!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
+function hess_sparsity_callback!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
     copyto!(I, cb.hess_I)
     copyto!(J, cb.hess_J)
     return
 end
 
 """
-    _eval_jac_wrapper!(cb::AbstractCallback, x, jac)
+    eval_jac_callback!(cb::AbstractCallback, x, jac)
 
 Store in `jac` the scaled Jacobian at `x`: its nonzeros for a [`SparseCallback`](@ref), the
 matrix for a [`DenseCallback`](@ref).
 """
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractVector,
@@ -932,13 +932,13 @@ function _eval_jac_wrapper!(
     return jac
 end
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::SparseCallback{T},
     x::AbstractVector,
     jac::AbstractMatrix,
 ) where {T}
     jac_buffer = view(cb.jac_buffer, 1:cb.nnzj)
-    _eval_jac_wrapper!(cb, x, jac_buffer)
+    eval_jac_callback!(cb, x, jac_buffer)
     fill!(jac, zero(T))
     @inbounds @simd for k in 1:length(cb.jac_I)
         i, j = cb.jac_I[k], cb.jac_J[k]
@@ -948,12 +948,12 @@ function _eval_jac_wrapper!(
 end
 
 """
-    _eval_lag_hess_wrapper!(cb::AbstractCallback, x, y, hess; obj_weight = 1)
+    eval_lag_hess_callback!(cb::AbstractCallback, x, y, hess; obj_weight = 1)
 
 Store in `hess` the scaled Hessian of the Lagrangian at `(x, y)`: its nonzeros for a
 [`SparseCallback`](@ref), the matrix for a [`DenseCallback`](@ref).
 """
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,
@@ -972,7 +972,7 @@ function _eval_lag_hess_wrapper!(
     return hess
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::SparseCallback{T},
     x::AbstractVector,
     y::AbstractVector,
@@ -981,7 +981,7 @@ function _eval_lag_hess_wrapper!(
 ) where {T}
     hess_buffer = view(cb.hess_buffer, 1:cb.nnzh)
     # N.B.: the objective scaling is applied inside the vector callback
-    _eval_lag_hess_wrapper!(cb, x, y, hess_buffer; obj_weight = obj_weight)
+    eval_lag_hess_callback!(cb, x, y, hess_buffer; obj_weight = obj_weight)
     fill!(hess, zero(T))
     @inbounds @simd for k in 1:length(cb.hess_I)
         i, j = cb.hess_I[k], cb.hess_J[k]
@@ -997,7 +997,7 @@ end
     Callback: DenseCallback
 =#
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractMatrix,
@@ -1007,7 +1007,7 @@ function _eval_jac_wrapper!(
     return jac
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,
@@ -1022,7 +1022,7 @@ end
     Callback for SparseCallback+MakeParameter
 =#
 
-function _update_x!(fixed_handler::MakeParameter, x::AbstractVector)
+function update_x!(fixed_handler::MakeParameter, x::AbstractVector)
     idx = norm(x, 2)
     if fixed_handler.hash_x[] == idx
         return
@@ -1034,33 +1034,33 @@ function _update_x!(fixed_handler::MakeParameter, x::AbstractVector)
     return
 end
 
-function _eval_f_wrapper(
+function eval_f_callback(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     return NLPModels.obj(cb.nlp, x_full) * cb.obj_scale[]
 end
 
-function _eval_cons_wrapper!(
+function eval_cons_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     c::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     NLPModels.cons!(cb.nlp, x_full, c)
     c .*= cb.con_scale
     return c
 end
 
-function _eval_grad_f_wrapper!(
+function eval_grad_f_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     grad::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     g_full = cb.fixed_handler.g_full
     NLPModels.grad!(cb.nlp, x_full, g_full)
@@ -1069,12 +1069,12 @@ function _eval_grad_f_wrapper!(
     return grad
 end
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     nnzj_orig = get_nnzj(cb.nlp.meta)
     jac_full = cb.jac_buffer
     x_full = cb.fixed_handler.x_full
@@ -1091,7 +1091,7 @@ function _eval_jtprod_wrapper!(
     v::AbstractVector,
     jvt::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     jvt_full = cb.fixed_handler.g_full
     y = cb.con_buffer
@@ -1101,14 +1101,14 @@ function _eval_jtprod_wrapper!(
     return jvt
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,
     hess::AbstractVector;
     obj_weight = one(T),
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     nnzh_orig = get_nnzh(cb.nlp.meta)
     hess_full = cb.hess_buffer
@@ -1129,7 +1129,7 @@ end
     Callback for DenseCallback+MakeParameter
 =#
 
-function _eval_grad_f_wrapper!(
+function eval_grad_f_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     grad::AbstractVector,
@@ -1145,7 +1145,7 @@ function _eval_grad_f_wrapper!(
     return grad
 end
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractMatrix,
@@ -1155,7 +1155,7 @@ function _eval_jac_wrapper!(
     return jac[:, cb.fixed_handler.fixed] .= zero(T)
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,

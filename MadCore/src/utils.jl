@@ -107,12 +107,12 @@ end
 
 # unsafe wrap
 """
-    _madnlp_unsafe_wrap(vec, n, shift = 1)
+    madnlp_unsafe_wrap(vec, n, shift = 1)
 
 Return an array of length `n` that shares memory with `vec`, starting at index `shift`.
 The caller must keep `vec` alive.
 """
-function _madnlp_unsafe_wrap(vec::VT, n, shift=1) where VT
+function madnlp_unsafe_wrap(vec::VT, n, shift=1) where VT
     return unsafe_wrap(VT, pointer(vec,shift), n)
 end
 

@@ -7,6 +7,7 @@ for name in MadCore.public_names()
     @eval import MadCore: $name
 end
 import Base: @kwdef, finalize
+import MadCore: FactorizationException, SymbolicException, findIJ
 import SparseArrays: SparseMatrixCSC, nnz
 
 include("mumps.jl")

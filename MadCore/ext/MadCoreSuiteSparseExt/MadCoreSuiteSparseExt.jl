@@ -7,7 +7,8 @@ for name in MadCore.public_names()
 end
 import Base: @kwdef, copyto!, size
 import LinearAlgebra: issuccess
-import MadCore: SubVector
+import MadCore: CHOLESKY, InertiaException, LDL, LinearFactorization,
+    get_tril_to_full, nzval
 import SparseArrays: SparseMatrixCSC
 
 # UMFPACK and CHOLMOD are only available if Julia was built with the GPL libraries.

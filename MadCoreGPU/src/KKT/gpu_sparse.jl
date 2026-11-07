@@ -50,7 +50,7 @@ function MadCore.mul!(
     MadCore.mul!(wz, kkt.jt_csc', xx, alpha, beta)
     MadCore.axpy!(-alpha, xs, wz)
     ws .= beta .* ws .- alpha .* xz
-    return MadCore._kktmul!(
+    return MadCore.kktmul!(
         w,
         x,
         kkt.reg,
@@ -102,7 +102,7 @@ function MadCore.mul!(
     MadCore.mul!(wx, kkt.jac_com', xz, alpha, one(T))
     MadCore.mul!(wz, kkt.jac_com, xx, alpha, beta)
 
-    return MadCore._kktmul!(
+    return MadCore.kktmul!(
         w,
         x,
         kkt.reg,
@@ -304,10 +304,10 @@ function MadCore.force_lower_triangular!(I::AbstractGPUVector{T}, J) where {T}
 end
 
 #=
-    MadCore._set_con_scale_sparse!
+    MadCore.update_con_scale_sparse!
 =#
 
-function MadCore._set_con_scale_sparse!(
+function MadCore.update_con_scale_sparse!(
         con_scale::VT,
         jac_I,
         jac_buffer,

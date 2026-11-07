@@ -147,7 +147,7 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     mD = num_border_rows(b)
 
     # Decompose buffers
-    wx = _madnlp_unsafe_wrap(full(w), n)
+    wx = madnlp_unsafe_wrap(full(w), n)
     ws = view(full(w), (n + 1):(n + m))
     wz = view(full(w), (n + m + 1):(n + 2 * m))
     Σs = view(kkt.pr_diag, (n + 1):(n + m))
@@ -259,7 +259,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::Union{SparseKKTSystem{T,VT,MT,QN},Sp
     mul!(primal(w), Symmetric(kkt.hess_com, :L), primal(x), alpha, beta)
     mul!(primal(w), kkt.jac_com', dual(x), alpha, one(T))
     mul!(dual(w), kkt.jac_com,  primal(x), alpha, beta)
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
     return w
 end
 
@@ -299,7 +299,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::Union{SparseKKTSystem{T,VT,MT,QN},Sp
     end
     mul!(primal_dual(w), qn.E, vx, alpha, one(T))
 
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
 end
 
 function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::AbstractKKTVector, alpha, beta) where T
@@ -312,7 +312,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::Abstrac
     xz = view(full(x), n+m+1:n+2*m)
 
     # Decompose buffers
-    wx = _madnlp_unsafe_wrap(full(w), n)
+    wx = madnlp_unsafe_wrap(full(w), n)
     ws = view(full(w), n+1:n+m)
     wz = view(full(w), n+m+1:n+2*m)
 
@@ -323,7 +323,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::Abstrac
     axpy!(-alpha, xs, wz)
     ws .= beta.*ws .- alpha.* xz
 
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
     return w
 end
 
@@ -346,7 +346,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::AbstractDenseKKTSystem, x::AbstractK
     end
     ws .= beta.*ws .- alpha.* xz
     wz .-= alpha.* xs
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
     return w
 end
 

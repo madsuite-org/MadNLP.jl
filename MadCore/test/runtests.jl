@@ -44,8 +44,8 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         names = MadCore.public_names()
         @test allunique(names)
         @test all(name -> isdefined(MadCore, name), names)
-        # Each accessor of SOLVER_FIELDS is public.
-        @test :get_kkt in names && :set_kkt! in names
+        @test !any(startswith("_"), string.(names))
+        @test !(:set_kkt! in names)
         @test !(:defined_names in names)
         if VERSION >= v"1.11"
             @test all(name -> Base.ispublic(MadCore, name), names)

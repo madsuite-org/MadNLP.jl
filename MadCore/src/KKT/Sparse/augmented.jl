@@ -54,7 +54,7 @@ function create_kkt_system(
     # Evaluate sparsity pattern
     jac_sparsity_I = create_array(cb, Int32, cb.nnzj)
     jac_sparsity_J = create_array(cb, Int32, cb.nnzj)
-    _jac_sparsity_wrapper!(cb,jac_sparsity_I, jac_sparsity_J)
+    jac_sparsity_callback!(cb,jac_sparsity_I, jac_sparsity_J)
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
     hess_sparsity_I, hess_sparsity_J = build_hessian_structure(cb, hessian_approximation)
@@ -93,8 +93,8 @@ function create_kkt_system(
     J[n_tot+n_hess+n_jac+1:n_tot+n_hess+n_jac+n_slack] .= (n+1:n+n_slack)
     J[n_tot+n_hess+n_jac+n_slack+1:offset] .= (n_tot+1:n_tot+m)
 
-    pr_diag = _madnlp_unsafe_wrap(V, n_tot)
-    du_diag = _madnlp_unsafe_wrap(V, m, n_jac+n_slack+n_hess+n_tot+1)
+    pr_diag = madnlp_unsafe_wrap(V, n_tot)
+    du_diag = madnlp_unsafe_wrap(V, m, n_jac+n_slack+n_hess+n_tot+1)
 
     reg = VT(undef, n_tot)
     l_diag = VT(undef, nlb)
@@ -102,9 +102,9 @@ function create_kkt_system(
     l_lower = VT(undef, nlb)
     u_lower = VT(undef, nub)
 
-    hess = _madnlp_unsafe_wrap(V, n_hess, n_tot+1)
-    jac = _madnlp_unsafe_wrap(V, n_jac+n_slack, n_hess+n_tot+1)
-    jac_callback = _madnlp_unsafe_wrap(V, n_jac, n_hess+n_tot+1)
+    hess = madnlp_unsafe_wrap(V, n_hess, n_tot+1)
+    jac = madnlp_unsafe_wrap(V, n_jac+n_slack, n_hess+n_tot+1)
+    jac_callback = madnlp_unsafe_wrap(V, n_jac, n_hess+n_tot+1)
 
     aug_raw = SparseMatrixCOO(aug_vec_length,aug_vec_length,I,J,V)
     jac_raw = SparseMatrixCOO(

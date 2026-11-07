@@ -142,23 +142,23 @@ using MadNLPTests
 
         # Happy case: ns=2, nv=1, nd=1, nc=1 → var_scen [1, 2, 0], con_scen [1, 2]
         ok = (; ns = 2, var_scenario = [1, 2, 0], con_scenario = [1, 2])
-        @test MadNLP.MadCore._resolve_schur_dims(mkcb(ok), 3, 2, 0, 0, 0, 0) == (2, 1, 1, 1)
+        @test MadNLP._resolve_schur_dims(mkcb(ok), 3, 2, 0, 0, 0, 0) == (2, 1, 1, 1)
 
         # Out-of-range variable tag
         bad_tag = (; ns = 2, var_scenario = [1, 5, 0], con_scenario = [1, 2])
-        @test_throws ErrorException MadNLP.MadCore._resolve_schur_dims(mkcb(bad_tag), 3, 2, 0, 0, 0, 0)
+        @test_throws ErrorException MadNLP._resolve_schur_dims(mkcb(bad_tag), 3, 2, 0, 0, 0, 0)
 
         # Non-uniform per-scenario variable count: scenario 2 has 2 vars, scenario 1 has 1.
         nu_var = (; ns = 2, var_scenario = [1, 2, 2, 0], con_scenario = [1, 2])
-        @test_throws ErrorException MadNLP.MadCore._resolve_schur_dims(mkcb(nu_var), 4, 2, 0, 0, 0, 0)
+        @test_throws ErrorException MadNLP._resolve_schur_dims(mkcb(nu_var), 4, 2, 0, 0, 0, 0)
 
         # Non-uniform per-scenario constraint count.
         nu_con = (; ns = 2, var_scenario = [1, 2, 0], con_scenario = [1, 2, 2])
-        @test_throws ErrorException MadNLP.MadCore._resolve_schur_dims(mkcb(nu_con), 3, 3, 0, 0, 0, 0)
+        @test_throws ErrorException MadNLP._resolve_schur_dims(mkcb(nu_con), 3, 3, 0, 0, 0, 0)
 
         # Design-only constraint (con tag 0) is rejected.
         d_only = (; ns = 2, var_scenario = [1, 2, 0], con_scenario = [1, 2, 0])
-        @test_throws ErrorException MadNLP.MadCore._resolve_schur_dims(mkcb(d_only), 3, 3, 0, 0, 0, 0)
+        @test_throws ErrorException MadNLP._resolve_schur_dims(mkcb(d_only), 3, 3, 0, 0, 0, 0)
     end
 
     @testset "Layout validation" begin
@@ -172,7 +172,7 @@ using MadNLPTests
         jac_I_ok  = Int32[1, 1, 2, 2]; jac_J_ok = Int32[1, 3, 2, 3]
         ind_eq    = Int32[1, 2]
         ind_ineq  = Int32[]
-        @test MadNLP.MadCore._build_schur_symbolic(
+        @test MadNLP._build_schur_symbolic(
             Float64, n, m, ns, nv, nd, nc,
             hess_I_ok, hess_J_ok, jac_I_ok, jac_J_ok, ind_eq, ind_ineq,
         ) isa NamedTuple
@@ -180,7 +180,7 @@ using MadNLPTests
         # Cross-scenario Hessian coupling: entry at (row=2, col=1) couples scenarios 1 and 2.
         hess_I_bad = Int32[1, 2, 3, 2]
         hess_J_bad = Int32[1, 2, 3, 1]
-        @test_throws ErrorException MadNLP.MadCore._build_schur_symbolic(
+        @test_throws ErrorException MadNLP._build_schur_symbolic(
             Float64, n, m, ns, nv, nd, nc,
             hess_I_bad, hess_J_bad, jac_I_ok, jac_J_ok, ind_eq, ind_ineq,
         )
@@ -188,13 +188,13 @@ using MadNLPTests
         # Cross-scenario Jacobian coupling: c_1 reaches v_2 (scenario 2's variable).
         jac_I_bad = Int32[1, 1, 1, 2, 2]
         jac_J_bad = Int32[1, 2, 3, 2, 3]
-        @test_throws ErrorException MadNLP.MadCore._build_schur_symbolic(
+        @test_throws ErrorException MadNLP._build_schur_symbolic(
             Float64, n, m, ns, nv, nd, nc,
             hess_I_ok, hess_J_ok, jac_I_bad, jac_J_bad, ind_eq, ind_ineq,
         )
 
         # Non-uniform eq/ineq counts: c_1 is equality, c_2 is inequality.
-        @test_throws ErrorException MadNLP.MadCore._build_schur_symbolic(
+        @test_throws ErrorException MadNLP._build_schur_symbolic(
             Float64, n, m, ns, nv, nd, nc,
             hess_I_ok, hess_J_ok, jac_I_ok, jac_J_ok, Int32[1], Int32[2],
         )
@@ -211,7 +211,7 @@ using MadNLPTests
         hess_J_nu = Int32[1, 2, 3, 4, 3, 5]
         jac_I_nu  = Int32[1, 1, 1, 2, 2, 2]
         jac_J_nu  = Int32[1, 2, 5, 3, 4, 5]
-        @test_throws ErrorException MadNLP.MadCore._build_schur_symbolic(
+        @test_throws ErrorException MadNLP._build_schur_symbolic(
             Float64, n2, m2, ns2, nv2, nd2, nc2,
             hess_I_nu, hess_J_nu, jac_I_nu, jac_J_nu, Int32[1, 2], Int32[],
         )
