@@ -490,6 +490,7 @@ end
     MadNLP.initialize_robust_restorer!(solver)
     solver.RR.n_feasible_returns = MadNLP.MAX_FEASIBLE_RETURNS
     @test MadNLP.robust!(solver) == MadNLP.INFEASIBLE_PROBLEM_DETECTED
+end
 
 @testset "Slack reset" begin
     nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])

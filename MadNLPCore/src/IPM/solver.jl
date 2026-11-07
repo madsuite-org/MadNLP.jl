@@ -284,6 +284,8 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         if status != LINESEARCH_SUCCEEDED
             return status
         end
+        # After the line search: the filter holds the trial point before the reset, which only
+        # makes it more permissive.
         get_opt(solver).slack_reset && reset_slacks!(solver)
 
         @trace(get_logger(solver),"Updating primal-dual variables.")
