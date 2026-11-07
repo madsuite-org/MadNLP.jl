@@ -15,7 +15,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
     end
     if AMDGPU.functional()
         @testset "Option presets for ROCVector models" begin
-            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            nlp = MadCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
             @test opt.linear_solver === SDSSolver
             @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem
@@ -25,7 +25,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
         @testset "SDSSolver: $(factorization), $(pivoting)" for (factorization, pivoting) in (
                 (:cholesky, :none), (:ldl, :none), (:ldl, :bk),
             )
-            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            nlp = MadCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
             stats = madnlp(
                 nlp; print_level = MadNLPCore.ERROR,
                 sds_factorization = factorization, sds_pivoting = pivoting,

@@ -188,7 +188,7 @@ function MadCore.create_kkt_system(
     # --- Get sparsity patterns on CPU ---
     jac_sparsity_I = Vector{Int32}(undef, cb.nnzj)
     jac_sparsity_J = Vector{Int32}(undef, cb.nnzj)
-    MadCore._jac_sparsity_wrapper!(cb, jac_sparsity_I, jac_sparsity_J)
+    MadCore.jac_sparsity_callback!(cb, jac_sparsity_I, jac_sparsity_J)
 
     hess_sparsity_I_gpu, hess_sparsity_J_gpu = MadCore.build_hessian_structure(cb, hessian_approximation)
     # Convert to CPU for construction-time classification loops
@@ -688,7 +688,7 @@ function MadCore.mul!(
     end
     ws .= beta .* ws .- alpha .* xz
     @view(MadCore.dual(w)[kkt.ind_ineq]) .-= alpha .* xs
-    MadCore._kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
+    MadCore.kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
 

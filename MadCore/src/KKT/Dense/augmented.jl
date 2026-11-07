@@ -109,6 +109,11 @@ function get_jacobian(kkt::DenseKKTSystem)
     return view(kkt.jac, :, 1:n)
 end
 
+"""
+    diag_add!(dest, d1, d2)
+
+Set the diagonal of `dest` to `d1 + d2`.
+"""
 function diag_add!(dest::AbstractMatrix, d1::AbstractVector, d2::AbstractVector)
     n = length(d1)
     @inbounds for i in 1:n

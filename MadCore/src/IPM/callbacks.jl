@@ -1,3 +1,9 @@
+"""
+    eval_f_wrapper(solver::AbstractMadNLPSolver, x::PrimalVector)
+
+Return the objective at `x` as a minimization objective, with its scaling, and record the
+evaluation in the counters of `solver`.
+"""
 function eval_f_wrapper(solver::AbstractMadNLPSolver{T}, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
@@ -7,7 +13,7 @@ function eval_f_wrapper(solver::AbstractMadNLPSolver{T}, x::PrimalVector{T}) whe
         # are the same, between min and max. when showing the objective value
         # to the user (in MadNLPExecutionStats) we flip it back (#517).
         sense = (get_minimize(nlp) ? one(T) : -one(T))
-        obj_val = sense * _eval_f_wrapper(get_cb(solver), variable(x))
+        obj_val = sense * eval_f_callback(get_cb(solver), variable(x))
     end
     cnt.obj_cnt += 1
     if cnt.obj_cnt == 1 && !is_valid(obj_val)
@@ -16,11 +22,16 @@ function eval_f_wrapper(solver::AbstractMadNLPSolver{T}, x::PrimalVector{T}) whe
     return obj_val
 end
 
+"""
+    eval_grad_f_wrapper!(solver::AbstractMadNLPSolver, f::PrimalVector, x::PrimalVector)
+
+Store in `f` the gradient of the objective of [`eval_f_wrapper`](@ref) at `x`.
+"""
 function eval_grad_f_wrapper!(solver::AbstractMadNLPSolver, f::PrimalVector{T}, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
     @trace(get_logger(solver),"Evaluating objective gradient.")
-    @timed_region cnt :eval_function_time _eval_grad_f_wrapper!(
+    @timed_region cnt :eval_function_time eval_grad_f_callback!(
         get_cb(solver),
         variable(x),
         variable(f),
@@ -36,11 +47,16 @@ function eval_grad_f_wrapper!(solver::AbstractMadNLPSolver, f::PrimalVector{T}, 
     return f
 end
 
+"""
+    eval_cons_wrapper!(solver::AbstractMadNLPSolver, c, x::PrimalVector)
+
+Store in `c` the residual of the constraints at `x`, including the slacks and the right-hand side.
+"""
 function eval_cons_wrapper!(solver::AbstractMadNLPSolver, c::AbstractVector{T}, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
     @trace(get_logger(solver), "Evaluating constraints.")
-    @timed_region cnt :eval_function_time _eval_cons_wrapper!(
+    @timed_region cnt :eval_function_time eval_cons_callback!(
         get_cb(solver),
         variable(x),
         c,
@@ -54,13 +70,18 @@ function eval_cons_wrapper!(solver::AbstractMadNLPSolver, c::AbstractVector{T}, 
     return c
 end
 
+"""
+    eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector)
+
+Evaluate the Jacobian at `x` and store it in `kkt`.
+"""
 function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector{T}) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
     ns = length(get_ind_ineq(solver))
     @trace(get_logger(solver), "Evaluating constraint Jacobian.")
     jac = get_jacobian(kkt)
-    @timed_region cnt :eval_function_time _eval_jac_wrapper!(
+    @timed_region cnt :eval_function_time eval_jac_callback!(
         get_cb(solver),
         variable(x),
         jac,
@@ -74,13 +95,19 @@ function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem,
     return jac
 end
 
+"""
+    eval_lag_hess_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector, l; is_resto = false)
+
+Evaluate the Hessian of the Lagrangian at `(x, l)` and store it in `kkt`. With
+`is_resto = true`, the objective is dropped, as in the restoration phase.
+"""
 function eval_lag_hess_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, x::PrimalVector{T},l::AbstractVector{T};is_resto=false) where T
     nlp = get_nlp(solver)
     cnt = get_cnt(solver)
     @trace(get_logger(solver),"Evaluating Lagrangian Hessian.")
     hess = get_hessian(kkt)
     scale = (get_minimize(nlp) ? one(T) : -one(T)) * (is_resto ? zero(T) : one(T))
-    @timed_region cnt :eval_function_time _eval_lag_hess_wrapper!(
+    @timed_region cnt :eval_function_time eval_lag_hess_callback!(
         get_cb(solver),
         variable(x),
         l,
@@ -101,7 +128,7 @@ function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractDenseKKTSy
     ns = length(get_ind_ineq(solver))
     @trace(get_logger(solver), "Evaluating constraint Jacobian.")
     jac = get_jacobian(kkt)
-    @timed_region cnt :eval_function_time _eval_jac_wrapper!(
+    @timed_region cnt :eval_function_time eval_jac_callback!(
         get_cb(solver),
         variable(x),
         jac,
@@ -127,7 +154,7 @@ function eval_lag_hess_wrapper!(
     @trace(get_logger(solver),"Evaluating Lagrangian Hessian.")
     hess = get_hessian(kkt)
     scale = is_resto ? zero(T) : get_minimize(nlp) ? one(T) : -one(T)
-    @timed_region cnt :eval_function_time _eval_lag_hess_wrapper!(
+    @timed_region cnt :eval_function_time eval_lag_hess_callback!(
         get_cb(solver),
         variable(x),
         l,

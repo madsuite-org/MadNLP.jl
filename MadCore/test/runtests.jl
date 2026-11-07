@@ -39,4 +39,17 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         @test A * x ≈ b
         @test MadCore.inertia(solver) == (2, 0, 1)
     end
+
+    @testset "Public API" begin
+        names = MadCore.public_names()
+        @test allunique(names)
+        @test all(name -> isdefined(MadCore, name), names)
+        @test !any(startswith("_"), string.(names))
+        @test !(:set_kkt! in names)
+        @test !(:defined_names in names)
+        if VERSION >= v"1.11"
+            @test all(name -> Base.ispublic(MadCore, name), names)
+            @test !Base.ispublic(MadCore, :defined_names)
+        end
+    end
 end

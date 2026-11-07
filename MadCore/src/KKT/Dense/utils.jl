@@ -1,5 +1,10 @@
 
 # For templating
+"""
+    AbstractDenseKKTSystem
+
+Union of the KKT systems that store dense matrices.
+"""
 const AbstractDenseKKTSystem{T, VT, MT, QN} = Union{
     DenseKKTSystem{T, VT, MT, QN},
     DenseCondensedKKTSystem{T, VT, MT, QN},

@@ -129,7 +129,7 @@ function create_kkt_system(
     # Evaluate sparsity pattern
     jac_sparsity_I = create_array(cb, Int32, cb.nnzj)
     jac_sparsity_J = create_array(cb, Int32, cb.nnzj)
-    _jac_sparsity_wrapper!(cb,jac_sparsity_I, jac_sparsity_J)
+    jac_sparsity_callback!(cb, jac_sparsity_I, jac_sparsity_J)
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
     hess_sparsity_I, hess_sparsity_J = build_hessian_structure(cb, hessian_approximation)
@@ -312,6 +312,12 @@ function _factors_indefinite(opt::AbstractOptions)
     return true
 end
 
+"""
+    get_sparse_condensed_ext(::Type{VT}, args...)
+
+Return the data of [`SparseCondensedKKTSystem`](@ref) specific to the array type `VT`.
+GPU backends add a method; the default is `nothing`.
+"""
 get_sparse_condensed_ext(::Type{Vector{T}},args...) where T = nothing
 
 num_variables(kkt::SparseCondensedKKTSystem) = length(kkt.pr_diag)
@@ -374,6 +380,12 @@ function _build_condensed_aug_symbolic_jt(Jt, sym, sym2)
     end
 end
 
+"""
+    getptr(array; by = (x, y) -> x != y)
+
+Return the indices at which a new group starts in `array`, followed by `length(array) + 1`.
+Two consecutive entries `x` and `y` are in different groups when `by(x, y)` holds.
+"""
 function getptr(array; by = (x,y)->x != y)
     bitarray = similar(array, Bool, length(array)+1)
     fill!(bitarray, true)
@@ -381,7 +393,20 @@ function getptr(array; by = (x,y)->x != y)
     findall(bitarray)
 end
 
+"""
+    nzval(H)
+
+Return the vector of nonzeros of the sparse matrix `H`.
+"""
 nzval(H) = H.nzval
+
+"""
+    build_condensed_aug_symbolic(H, Jt)
+
+Return the sparsity pattern of the condensed matrix `H + Jt * D * Jt'` and the maps used by
+[`build_condensed_aug_coord!`](@ref) to update its values.
+"""
+function build_condensed_aug_symbolic end
 
 @inbounds function build_condensed_aug_symbolic(H::AbstractSparseMatrix{Tv,Ti}, Jt) where {Tv, Ti}
     nnzjtsj = _sym_length(Jt)
@@ -536,6 +561,11 @@ function _build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem{T,VT,MT}, a
     _build_condensed_aug_coord!(aug, kkt.pr_diag, kkt.hess_com, Jt, D, kkt.dptr, kkt.hptr, kkt.jptr)
 end
 
+"""
+    build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem)
+
+Update the values of the condensed matrix of `kkt` from its Hessian, Jacobian and diagonals.
+"""
 build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_aug_coord!(kkt, kkt.aug_com, kkt.jt_csc, kkt.diag_buffer)
 
 function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
