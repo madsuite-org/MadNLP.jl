@@ -17,12 +17,13 @@ MadNLPCore = {path = "../MadNLPCore"}
 SparseDirectSolver = {url = "https://github.com/exanauts/SparseDirectSolver.jl", rev = "compat/madnlp-0.12"}
 
 [compat]
-GPUArrays = "11.2, 12"
+GPUArrays = "11.3, 12"
 LinearAlgebra = "1.10"
 MadCore = "=0.12.0"
 MadCoreGPU = "=0.12.0"
 MadNLPCore = "=0.12.0"
 Metal = "1.11"
+NLPModels = "0.21"
 SparseArrays = "1.10"
 SparseDirectSolver = "0.2"
 Test = "1.10"
@@ -30,8 +31,9 @@ julia = "1.13"
 
 [extras]
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["LinearAlgebra", "SparseArrays", "Test"]
+test = ["LinearAlgebra", "NLPModels", "SparseArrays", "Test"]

@@ -28,6 +28,12 @@ function MtlSparseMatrixCSC(colptr::AbstractVector, rowval::AbstractVector, nzva
     )
 end
 
+function MtlSparseMatrixCSC{Tv, Ti}(colptr, rowval, nzval, dims) where {Tv, Ti}
+    return MtlSparseMatrixCSC(Ti.(Array(colptr)), Ti.(Array(rowval)), MtlVector{Tv}(nzval), dims)
+end
+MtlSparseMatrixCSC{Tv, Ti}(A::SparseMatrixCSC) where {Tv, Ti} =
+    MtlSparseMatrixCSC{Tv, Ti}(A.colptr, A.rowval, A.nzval, size(A))
+
 Base.size(A::MtlSparseMatrixCSC) = A.dims
 SparseArrays.nnz(A::MtlSparseMatrixCSC) = length(A.nzVal)
 SparseArrays.nonzeros(A::MtlSparseMatrixCSC) = A.nzVal
@@ -80,4 +86,4 @@ end
 # Metal sorts plain numbers only. The symbolic setup sorts vectors of tuples once, on the host.
 Base.sort!(v::MtlVector{<:Tuple}; kw...) = (length(v) > 0 && copyto!(v, sort!(Array(v); kw...)); v)
 Base.sortperm(v::MtlVector{<:Tuple}; kw...) = MtlVector(sortperm(Array(v); kw...))
-Base.permute!(v::MtlVector, p::MtlVector) = (length(v) > 0 && copyto!(v, v[p]); v)
+Base.permute!(v::MtlVector{<:Tuple}, p::MtlVector) = (length(v) > 0 && copyto!(v, v[p]); v)

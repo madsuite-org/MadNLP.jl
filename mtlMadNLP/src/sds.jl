@@ -3,7 +3,7 @@
 const SDS = SparseDirectSolver
 
 """
-    SDSSolverOptions(; sds_factorization = :ldl, sds_pivot_epsilon = 1.0e-10)
+    SDSSolverOptions(; sds_factorization = :ldl, sds_pivot_epsilon = nothing)
 
 Options of [`SDSSolver`](@ref).
 
@@ -11,13 +11,14 @@ Options of [`SDSSolver`](@ref).
   and reports the inertia from the signs of `D`; `:cholesky` as symmetric positive definite.
   `:cholesky` needs a positive definite matrix, so dense Jacobian rows kept as a border by
   `SparseCondensedKKTSystem` make it fail.
-* `sds_pivot_epsilon`: `:ldl` only, pivots below this magnitude are replaced.
+* `sds_pivot_epsilon`: `:ldl` only, pivots below this magnitude are replaced; `nothing` keeps
+  the default of SparseDirectSolver.
 
 The KKT system sets `n_primal` and `n_dual`, the sizes of the primal and dual blocks.
 """
 MadCore.@kwdef mutable struct SDSSolverOptions <: MadCore.AbstractOptions
     sds_factorization::Symbol = :ldl
-    sds_pivot_epsilon::Float64 = 1.0e-10
+    sds_pivot_epsilon::Union{Nothing, Float64} = nothing
     n_primal::Int = -1
     n_dual::Int = 0
 end
@@ -43,11 +44,13 @@ function SDSSolver(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger(
     T = eltype(csc.nzVal)
     n = size(csc, 1)
     ldl = opt.sds_factorization === :ldl
+    !ldl && opt.n_dual > 0 &&
+        throw(ArgumentError("sds_factorization = :cholesky cannot factor a matrix with dense rows kept as a border"))
     inner = SDS.DirectSolver(csc.colPtr, csc.rowVal, csc.nzVal, ldl ? "S" : "SPD", 'U')
     if ldl
         SDS.setparam!(inner, "pivot_type", 'N')
         SDS.setparam!(inner, "pivot_pairs", "none")
-        SDS.setparam!(inner, "pivot_epsilon", opt.sds_pivot_epsilon)
+        opt.sds_pivot_epsilon === nothing || SDS.setparam!(inner, "pivot_epsilon", opt.sds_pivot_epsilon)
         n_primal = opt.n_primal < 0 ? n : opt.n_primal
         SDS.setparam!(inner, "pivot_sign", vcat(ones(Int8, n_primal), fill(Int8(-1), n - n_primal)))
     end
@@ -83,7 +86,8 @@ function MadCore.inertia(M::SDSSolver)
     return (Int(npos), n - Int(npos) - Int(nneg), Int(nneg))
 end
 MadCore.improve!(::SDSSolver) = false
-MadCore.introduce(::SDSSolver) = "SparseDirectSolver.jl (LDLᵀ without pivoting)"
+MadCore.introduce(M::SDSSolver) = M.opt.sds_factorization === :ldl ?
+    "SparseDirectSolver.jl (LDLᵀ without pivoting)" : "SparseDirectSolver.jl (Cholesky)"
 
 MadCore.create_linear_solver(::Type{SDSSolver}, A; kwargs...) = SDSSolver(A; kwargs...)
 MadCore.default_options(::Type{SDSSolver}) = SDSSolverOptions()

@@ -44,10 +44,10 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
             sort!(dv)
             @test Array(dv) == sort(v)
             @test Array(sortperm(MtlVector(v))) == sortperm(v)
-            w = Float32[1, 2, 3]
-            dw = MtlVector(w)
-            permute!(dw, MtlVector([3, 1, 2]))
-            @test Array(dw) == w[[3, 1, 2]]
+            dv = MtlVector(v)
+            permute!(dv, MtlVector([3, 1, 2]))
+            @test Array(dv) == v[[3, 1, 2]]
         end
+        include("border.jl")
     end
 end
