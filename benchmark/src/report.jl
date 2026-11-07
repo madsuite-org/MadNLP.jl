@@ -12,7 +12,8 @@ svg{display:block;width:100%;max-width:620px;height:auto}
 h1{font-size:1.5em;margin-bottom:.2em}h2{font-size:1.15em;margin:1.8em 0 .3em}h3{font-size:1em;margin:1.4em 0 .3em}a{color:#1c5fb0;text-decoration:none}a:hover{text-decoration:underline}
 p{margin:.4em 0}
 .bar{position:sticky;top:0;z-index:2;background:#fcfcfb;border-bottom:1px solid #d6d5cf;padding:.5em 0;margin-bottom:1em}
-.bar b{display:block;font-size:1.05em}.bar a{margin-right:1.1em;white-space:nowrap}.bar .m{font-size:.9em}
+.bar div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar b{font-size:1.05em;margin-right:.8em}.bar .m{font-size:.9em}
+.bar nav{display:flex;gap:1.1em;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
 table.summary{min-width:26em}table.summary tr.set td{background:#f3f2ee;font-weight:600;border-bottom:0;padding-top:6px}table.summary tr.set .m{font-weight:400;margin-left:.6em}
 table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 td,th{border-bottom:1px solid #e4e3df;padding:2px 7px;text-align:right;white-space:nowrap}
@@ -385,7 +386,7 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     finished || push!(links, "<a href=\"workers.html\">Workers</a>")
     push!(links, "<a href=\"data/\">Files</a>")
     link === nothing || push!(links, "<a href=\"" * escape_html(link) * "\">Pull request</a>")
-    bar = "<div class=\"bar\"><b>" * escape_html(title) * "</b>" * join(links) * " <span class=\"m\">" * heading * "</span></div>"
+    bar = "<div class=\"bar\"><div><b>" * escape_html(title) * "</b><span class=\"m\">" * heading * "</span></div><nav>" * join(links) * "</nav></div>"
     for set in sets
         set_page(site, set, sides, cand, base, wall, logs, bar; refresh = !finished)
     end
