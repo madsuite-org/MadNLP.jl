@@ -320,6 +320,13 @@ function main()
     started = time()
     every = parse(Float64, get(OPT, "status-every", "600"))
     total = sum(length ∘ last, sets)
+    # a resumed run counts what it starts with
+    if !("overwrite" in FLAGS)
+        COMPLETED[] = sum(sets) do (set, cases)
+            file = joinpath(outdir, "$(set)_$(first(chosen)).csv")
+            isfile(file) && filesize(file) > 0 ? count(r -> string(r.case) in cases, read_results(file)) : 0
+        end
+    end
     logged = time()
     reporter = @async while true
         sleep(min(every, 5))
