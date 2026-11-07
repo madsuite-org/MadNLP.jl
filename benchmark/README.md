@@ -160,7 +160,8 @@ the commit recorded in their metadata.
 `ipopt/<version>/` on the same branch, and every report shows it as the reference, with a scaled
 mean of 1. The version fixes Ipopt (`Ipopt_jll` in `[compat]`) and the licensed HSL (`[benchmark]` in
 `Project.toml`, which `run.jl` and CI check), so bump it when the instances, the pins, these
-libraries or the protocol change, and run Ipopt once for the new version: `run.jl ... --config=ipopt`, then `archive.jl DIR --ipopt-reference`.
+libraries or the protocol change, and run Ipopt once for the new version: CI does this by itself when the archive has no reference for the version.
+By hand: `run.jl ... --config=ipopt`, then `archive.jl DIR --ipopt-reference`.
 
 ## Report
 

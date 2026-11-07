@@ -180,6 +180,13 @@ jobs:
           rc=0
           julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
             --device="$DEVICE" --config="$CONFIG" --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
+          # the Ipopt reference of this version of the benchmark, if the archive has none
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' benchmark/Project.toml)
+          git fetch --quiet origin "$ARCHIVE_BRANCH" || true
+          if [ -z "$(git ls-tree FETCH_HEAD "ipopt/$version/" 2>/dev/null)" ]; then
+            julia --startup-file=no --project=benchmark benchmark/run.jl "$SETS" \
+              --device=cpu --config=ipopt --wall=$WALL --root="$KEEP" < /dev/null || rc=$?
+          fi
           [ -z "${progress:-}" ] || kill "$progress"
           [ -z "${REPORT_DIR:-}" ] || julia --startup-file=no --project=benchmark benchmark/progress.jl "$KEEP" --wall=$WALL --final || true
           exit $rc
@@ -239,6 +246,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           julia --startup-file=no --project=benchmark benchmark/archive.jl results --commit=${{ needs.gate.outputs.commit }} --wall=$WALL
+      - name: Archive the Ipopt reference
+        if: needs.run.result == 'success' && hashFiles('results/*/*_ipopt.csv') != ''
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          julia --startup-file=no --project=benchmark benchmark/archive.jl "$(dirname results/*/acopf_ipopt.csv)" --ipopt-reference
       - name: Compare with the base commit
         if: needs.gate.outputs.pr != ''
         # without archived results for the base, the comparison prints this run's table alone

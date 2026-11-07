@@ -9,20 +9,20 @@ const SET_TITLES = Dict("acopf" => "ACOPF", "cops" => "COPS", "cutest" => "CUTEs
 const BOOTSTRAP = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
 
 const STYLE = """
-body{font-size:14px;background:#fcfcfb}
-h1{font-size:1.4em;margin-top:1em}h2{font-size:1.15em;margin:1.8em 0 .4em}h3{font-size:1em;margin:1.4em 0 .4em}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body,table,input,.form-control{font-size:14px;background:#fcfcfb}
+h1,h2,h3{font-size:14px;font-weight:600}h1{margin-top:1em}h2{margin:1.8em 0 .4em}h3{margin:1.2em 0 .4em;color:#52514e}
 a{text-decoration:none}a:hover{text-decoration:underline}
 table{font-variant-numeric:tabular-nums;width:auto!important}
 td,th{text-align:right;white-space:nowrap}td:first-child,th:first-child,td.l,th.l{text-align:left}
 th{color:#52514e;font-weight:600}th.s{cursor:pointer}
-.m{color:#52514e}.fail{font-weight:600}svg text{font:12px system-ui,sans-serif;fill:#52514e}
+.m{color:#52514e}.fail{font-weight:600}svg text{font-size:14px;fill:#52514e}
 svg{display:block;width:100%;max-width:620px;height:auto}
 .key{display:inline-block;margin-right:1.2em}.key i{display:inline-block;width:14px;height:3px;border-radius:2px;margin:0 6px 3px 0}
 .prof{position:relative;display:inline-block;vertical-align:top;width:100%;max-width:620px;margin:0 1.5em 1em 0}
-.tip{position:absolute;display:none;pointer-events:none;background:#fff;border:1px solid #d6d5cf;border-radius:4px;padding:4px 8px;font-size:12px;white-space:nowrap}
+.tip{position:absolute;display:none;pointer-events:none;background:#fff;border:1px solid #d6d5cf;border-radius:4px;padding:4px 8px;white-space:nowrap}
 .bar{background:#fcfcfb;border-bottom:1px solid #d6d5cf;padding:.45em 0}
-.bar .top{display:flex;justify-content:space-between;gap:1em}.bar .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
-.bar .tools{display:flex;gap:.9em;flex:none;font-size:.9em}.bar b{font-size:1.05em;margin-right:.8em}.bar .m{font-size:.9em}
+.bar .top{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar nav{display:flex;gap:1.1em;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
 table.summary{min-width:26em}table.summary tr.set td{background:#f3f2ee;font-weight:600}table.summary tr.set .m{font-weight:400;margin-left:.6em}
 """
@@ -87,11 +87,14 @@ struct Side
     base::Bool
 end
 
+# Per device the columns are Ipopt, master and the current results.
 function report_sides(cand, base)
-    label(key) = key[2] == "ipopt" ? "Ipopt" : solver_name(key[1]) * (key[2] == "default" ? "" : " " * key[2])
+    suffix(key) = key[2] == "default" ? "" : " " * key[2]
+    label(key, name) = key[2] == "ipopt" ? "Ipopt" : name * suffix(key)
     keys_of(rs) = rs === nothing ? [] : sort!(unique!([(k[1], k[3]) for k in keys(rs.rows)]); by = k -> (k[1] != "cpu", k))
-    sides = [(label(k), k, false) for k in keys_of(cand)]
-    append!(sides, [(label(k) * " (base)", k, true) for k in keys_of(base)])
+    sides = [(label(k, "master"), k, true) for k in keys_of(base) if k[2] != "ipopt"]
+    append!(sides, [(label(k, "current"), k, false) for k in keys_of(cand)])
+    sort!(sides; by = s -> s[2][2] != "ipopt")
     return [Side(l, COLORS[mod1(i, length(COLORS))], k, b) for (i, (l, k, b)) in enumerate(sides)]
 end
 
@@ -387,15 +390,15 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     finished || push!(tools, "<a href=\"workers.html\">Workers</a>")
     push!(tools, "<a href=\"data/\">Files</a>")
     link === nothing || push!(tools, "<a href=\"" * escape_html(link) * "\">Pull request</a>")
-    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"top\"><span class=\"title\"><b>" * escape_html(title) * "</b><span class=\"m\">" * heading *
-        "</span></span><span class=\"tools\">" * join(tools) * "</span></div><nav>" * join(families) * "</nav></div></div>"
+    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"top\"><b>" * escape_html(title) * "</b> <span class=\"m\">" * heading *
+        "</span></div><nav>" * join(families) * "</nav><nav>" * join(tools) * "</nav></div></div>"
     for set in sets
         set_page(site, set, sides, cand, base, wall, logs, bar; refresh = !finished)
     end
     finished || workers_page(site, root, bar)
     io = IOBuffer()
     for device in devices
-        println(io, "<h2>", device == "cuda" ? "GPU" : "CPU", "</h2>")
+        println(io, "<h2>", solver_name(device), device == "cuda" ? " (GPU)" : " (CPU)", "</h2>")
         machines = get(cand.machines, device, String[])
         isempty(machines) || println(io, "<p class=\"m\">", escape_html(join(machines, "; ")), "</p>")
         summary_table(io, sets, on_device(sides, device), cand, base, wall)
