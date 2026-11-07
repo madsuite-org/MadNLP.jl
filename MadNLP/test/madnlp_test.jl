@@ -518,3 +518,10 @@ end
     MadNLP.reset_slacks!(solver)
     @test xs == s0
 end
+
+@testset "Barrier parameter floor" begin
+    # μ stops at tol / (barrier_tol_factor + 1) when mu_min is smaller
+    @test MadNLP.get_mu(1.0e-9, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) ≈ 1.0e-8 / 11
+    @test MadNLP.get_mu(1.0e-9, 1.0e-6, 0.2, 1.5, 1.0e-8, 10.0) == 1.0e-6
+    @test MadNLP.get_mu(1.0, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) == 0.2
+end

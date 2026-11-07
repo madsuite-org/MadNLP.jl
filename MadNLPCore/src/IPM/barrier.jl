@@ -23,6 +23,7 @@ function _update_monotone!(
             (barrier.mu_linear_decrease_factor::T),
             (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
         set_mu!(solver, mu_new)
         set_tau!(solver, get_tau(mu_new, get_opt(solver).tau_min))
@@ -65,6 +66,7 @@ function _update_monotone_RR!(
             (barrier.mu_linear_decrease_factor::T),
             (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
         inf_compl_mu_R = get_inf_compl_R(
             get_x_lr(solver),
