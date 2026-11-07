@@ -147,7 +147,7 @@ hand.
 
 Results are archived on the `benchmark-results` branch, under `<hardware>/<commit>/`, with the
 metadata files and a summary. `archive.jl [DIR]` archives result files under the commit recorded
-in their metadata; on a run of `master`, CI archives each set on each device as soon as it is
+in their metadata; on a run of a pull request, CI archives each set on each device as soon as it is
 finished, marked by a `.complete` file beside its results, and a run that is stopped still
 archives what it reached. Timings are comparable only on the same
 machine.
@@ -173,7 +173,7 @@ libraries or the protocol change. CI then runs Ipopt once for the new version. B
   `[benchmark-continue]` in its message, for changes that do not affect the results, leaves a
   running benchmark as it is; with none running, it keeps the results so far and solves what is
   left.
-- **For every commit on `master`:** the same run once `build` has succeeded, archived on
-  `benchmark-results` with its summary table.
+- **After a merge:** the run of the merged pull request is the reference for `master`, which is not
+  benchmarked separately.
 - **By hand:** the workflow can be dispatched with any sets, configurations and device, on
   any branch, and can archive its results.
