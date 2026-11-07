@@ -159,34 +159,12 @@ function print_init(solver::AbstractMadNLPSolver)
     return
 end
 
-function print_iter(solver::AbstractMadNLPSolver; is_resto=false)
-    obj_scale = get_cb(solver).obj_scale[]
-    mod(get_cnt(solver).k,10)==0&& @info(get_logger(solver),@sprintf(
-        "iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls"))
-    if is_resto
-        RR = get_RR(solver)::RobustRestorer
-        inf_du = RR.inf_du_R
-        inf_pr = RR.inf_pr_R
-        inf_compl = RR.inf_compl_R
-        mu = log10(RR.mu_R)
-    else
-        inf_du = get_inf_du(solver)
-        inf_pr = get_inf_pr(solver)
-        inf_compl = get_inf_compl(solver)
-        mu = log10(get_mu(solver))
-    end
-    @info(get_logger(solver),@sprintf(
-        "%4i%s% 10.7e %6.2e %6.2e %7.2e %5.1f  %s  %6.2e %2i %2i%s",
-        get_cnt(solver).k,is_resto ? "r" : " ",get_obj_val(solver)/obj_scale,
-        inf_pr, inf_du, inf_compl, mu,
-        # get_cnt(solver).k == 0 ? 0. : norm(primal(get_d(solver)),Inf),
-        get_del_w(solver) == 0 ? "   - " : @sprintf("%5.1f",log(10,get_del_w(solver))),
-        get_alpha(solver),
-        get_cnt(solver).ir,
-        get_cnt(solver).l,
-        get_ftype(solver),))
-    return
-end
+"""
+    print_iter(solver; options...)
+
+Log the current iterate. Each solver built on MadCore adds its own method.
+"""
+function print_iter end
 
 function print_summary(solver::AbstractMadNLPSolver)
     # TODO inquire this from nlpmodel wrapper

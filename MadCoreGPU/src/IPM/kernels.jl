@@ -1,21 +1,6 @@
 # NOTE: All of these could probably be made more efficient via custom kernels or nonallocating mapreduce.
 #       For now we just use the standard mapreduce functionality which may allocate.
 
-function get_varphi(
-    obj_val,
-    x_lr::VT,
-    xl_r::VT,
-    xu_r::VT,
-    x_ur::VT,
-    mu
-) where {T, VT <: AbstractGPUVectorOrSubVector{T}}
-    return obj_val + mapreduce(
-        (x1,x2) -> _get_varphi(x1,x2,mu), +, x_lr, xl_r
-    ) + mapreduce(
-        (x1,x2) -> _get_varphi(x1,x2,mu), +, xu_r, x_ur
-    )
-end
-
 function get_inf_du(f::VT, zl::VT, zu::VT, jacl::VT, sd) where {VT <: AbstractGPUVectorOrSubVector}
     return mapreduce((f,zl,zu,jacl) -> abs(f-zl+zu+jacl), max, f, zl, zu, jacl; init = zero(eltype(f))) / sd
 end
@@ -49,22 +34,6 @@ function get_min_complementarity(
     cc_lb = mapreduce((x_l, xl, zl) -> (x_l-xl)*zl, min, x_lr, xl_r, zl_r, init=T(Inf))
     cc_ub = mapreduce((x_u, xu, zu) -> (xu-x_u)*zu, min, x_ur, xu_r, zu_r, init=T(Inf))
     return min(cc_lb,cc_ub)
-end
-
-function get_varphi_d(
-    f::AbstractGPUVectorOrSubVector{T},
-    x::AbstractGPUVectorOrSubVector{T},
-    xl::AbstractGPUVectorOrSubVector{T},
-    xu::AbstractGPUVectorOrSubVector{T},
-    dx::AbstractGPUVectorOrSubVector{T},
-    mu,
-) where T
-    return mapreduce(
-        (f,x,xl,xu,dx)-> (f - mu/(x-xl) + mu/(xu-x)) * dx,
-        +,
-        f, x, xl, xu, dx;
-        init = zero(T)
-    )
 end
 
 function get_alpha_max(
@@ -111,13 +80,5 @@ function get_alpha_z(
             zu_r, dzu,
             init = one(T)
         )
-    )
-end
-
-function get_rel_search_norm(x::AbstractGPUVectorOrSubVector{T}, dx::AbstractGPUVectorOrSubVector{T}) where T
-    return mapreduce(
-        (x,dx) -> abs(dx) / (one(T) + abs(x)),
-        max,
-        x, dx
     )
 end
