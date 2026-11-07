@@ -8,3 +8,9 @@
 |---|---|---|---|---|
 | default | 56 / 58, 2.09 | 50 / 51, 4.49 | 18 / 23, 25.61 | 124 / 132, 5.65 |
 
+**cops** (solved, SGM in seconds; a failure counts as 600 s)
+
+| configuration | small | medium | large | total |
+|---|---|---|---|---|
+| default | 24 / 24, 1.72 | 21 / 21, 3.16 | 20 / 20, 5.16 | 65 / 65, 3.17 |
+
