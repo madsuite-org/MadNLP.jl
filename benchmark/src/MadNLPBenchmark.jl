@@ -243,7 +243,11 @@ function run_benchmark(
     )
     mkpath(outdir)
     file(set, config) = joinpath(outdir, "$(set)_$(config).csv")
+    # beside a result file once it holds every instance of its set
+    cases_of = Dict(sets)
+    mark_complete(set, config) = size(rows[(set, config)], 1) - 1 >= length(cases_of[set]) && touch(file(set, config) * ".complete")
     rows = Dict{Tuple{String, String}, Matrix{Any}}()
+    overwrite && foreach(rm, filter(endswith(".complete"), readdir(outdir; join = true)))
     queue = Channel{Vector{Tuple{String, String, Vector{String}}}}(Inf)
     for (set, cases) in sets
         done = Dict{String, Set{String}}()
@@ -264,6 +268,7 @@ function run_benchmark(
                 first_commit = get(old, "first_commit", get(old, "madnlp_commit", ""))
                 first_commit == get(meta, "madnlp_commit", "") || (started["first_commit"] = first_commit)
             end
+            mark_complete(set, config)
             write_meta(
                 path * ".meta.toml",
                 merge(Dict{String, Any}("set" => set, "config" => config, "workers" => length(slots)), meta, meta_of(config), started),
@@ -295,6 +300,7 @@ function run_benchmark(
                     @info @sprintf("%-11s %-32s %-22s status %4d  iter %5d  time %10.3f s", set, case, config, row[2], row[3], row[T_TOTAL])
                     rows[(set, config)] = vcat(rows[(set, config)], permutedims(row))
                     writedlm(file(set, config), rows[(set, config)], ',')
+                    mark_complete(set, config)
                 end
             end
         end

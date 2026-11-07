@@ -62,6 +62,7 @@ something new.
 | `--only=case,...` | all | restrict a set to the named instances |
 | `--tol=1e-8` | `1e-8` | convergence tolerance, and the acceptable tolerance |
 | `--wall=7200` | `7200` | wall limit of a solve, in seconds |
+| `--cuda-wall=S` | as `--wall` | the same on a CUDA device |
 | `--margin=S` | larger of 120 s and 20% of the limit | how far past the limit a worker is killed |
 | `--status-every=600` | `600` | seconds between status reports |
 | `--no-warmup` | | skip the discarded solves (see the protocol) |
@@ -146,7 +147,10 @@ hand.
 
 Results are archived on the `benchmark-results` branch, under `<hardware>/<commit>/`, with the
 metadata files and a summary. `archive.jl [DIR]` archives result files under the commit recorded
-in their metadata. Timings are comparable only on the same machine.
+in their metadata; on a run of `master`, CI archives each set on each device as soon as it is
+finished, marked by a `.complete` file beside its results, and a run that is stopped still
+archives what it reached. Timings are comparable only on the same
+machine.
 
 **Ipopt reference.** Each version of this benchmark (`version` in `Project.toml`) has one Ipopt run,
 `ipopt/<version>/` on the same branch, and every report shows it as the reference, with a scaled
@@ -161,7 +165,8 @@ libraries or the protocol change. CI then runs Ipopt once for the new version. B
 `benchmark`:
 
 - **On request, for a pull request:** add the `benchmark` label. The four sets run with the default
-  configuration on the host and on the CUDA device, with a wall limit of 2 hours per solve, and
+  configuration on the host and on the CUDA device, with a wall limit of 2 hours per solve on the host
+  and 10 minutes on the device, and
   the pull request gets a link to its report. With the repository variables `BENCHMARK_LIVE_DIR`
   and `BENCHMARK_REPORT_URL`, results are copied to the server every 5 s. A push to a labeled
   pull request stops the running benchmark and starts one on the new commit. A commit with
