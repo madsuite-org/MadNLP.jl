@@ -716,7 +716,7 @@ function inertia_correction!(
         get_d(solver), solver, get_p(solver), get__w4(solver),
     )
     copyto!(t,dx)
-    axpy!(-1.,n,t)
+    axpy!(-one(eltype(t)), n, t)
 
     while !curv_test(t,n,g,get_kkt(solver),wx,get_opt(solver).inertia_free_tol) || !solve_status
         @debug(get_logger(solver),"Primal-dual perturbed.")
@@ -744,7 +744,7 @@ function inertia_correction!(
             get_d(solver), solver, get_p(solver), get__w4(solver)
         )
         copyto!(t,dx)
-        axpy!(-1.,n,t)
+        axpy!(-one(eltype(t)), n, t)
 
         n_trial += 1
     end

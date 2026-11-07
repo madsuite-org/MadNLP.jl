@@ -37,6 +37,10 @@ jobs:
         # loads the oneAPI extension of MadCoreGPU; the solves need an Intel GPU
         if: matrix.os == 'ubuntu-latest'
         run: julia --project=./oneMadNLP --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test()'
+      - name: test mtlMadNLP without a GPU
+        # loads the Metal extension of MadCoreGPU; the solves need an Apple GPU
+        if: matrix.os == 'ubuntu-latest'
+        run: julia --project=./mtlMadNLP --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test()'
       - name: test MadNLP
         shell: julia --project=./MadNLP --color=yes {0}
         run: |

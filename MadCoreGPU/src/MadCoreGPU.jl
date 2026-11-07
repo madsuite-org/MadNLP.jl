@@ -87,7 +87,7 @@ export LapackCUDASolver, CUDSSSolver, LapackROCmSolver, LapackOneMKLSolver
 function MadCore._get_sparse_csc(dims, colptr::AbstractGPUVector, rowval, nzval)
     error(
         "MadCoreGPU: cannot build a GPU sparse KKT system because the GPU backend " *
-        "extension is not loaded. Load the GPU package (CUDA or AMDGPU) before " *
+        "extension is not loaded. Load the GPU package (CUDA, AMDGPU, oneAPI or Metal) before " *
         "solving a model with GPU arrays.",
     )
 end

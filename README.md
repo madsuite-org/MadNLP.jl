@@ -34,7 +34,7 @@ MadNLP can be installed directly via the Julia package manager:
 ```julia
 pkg> add MadNLP
 ```
-For NVIDIA GPUs, install `cuMadNLP`. `rocMadNLP` (AMD GPUs) and `oneMadNLP` (Intel GPUs) are not registered yet, see the
+For NVIDIA GPUs, install `cuMadNLP`. `rocMadNLP` (AMD GPUs), `oneMadNLP` (Intel GPUs) and `mtlMadNLP` (Apple GPUs) are not registered yet, see the
 [installation page](https://madsuite-org.github.io/MadNLP.jl/dev/installation/). They do
 not load MadNLP, so load it as well to solve a model on the CPU or to use JuMP. The HSL
 linear solvers are available in MadNLP once a licensed HSL library is installed; the
@@ -53,6 +53,7 @@ version number and are released together.
 | `cuMadNLP` | NVIDIA entry point, with cuDSS as default linear solver |
 | `rocMadNLP` | AMD entry point, with SparseDirectSolver.jl as default linear solver; not registered |
 | `oneMadNLP` | Intel entry point, with SparseDirectSolver.jl as default linear solver; not registered |
+| `mtlMadNLP` | Apple entry point, with SparseDirectSolver.jl as linear solver; `Float32` only; not registered |
 | `MadNLPTests` | Test instances shared by the packages |
 | `MadNLPGPU` | Deprecated; loads `cuMadNLP` |
 
