@@ -10,7 +10,9 @@ body{font:14px/1.45 system-ui,sans-serif;color:#0b0b0b;background:#fcfcfb;max-wi
 svg{display:block;width:100%;max-width:620px;height:auto}
 @media(max-width:640px){body{font-size:13px;padding:0 .6em}td,th{padding:3px 6px}.prof{display:block;margin-right:0}input{width:100%;box-sizing:border-box}}
 h1{font-size:1.5em;margin-bottom:.2em}h2{font-size:1.15em;margin:1.8em 0 .3em}h3{font-size:1em;margin:1.4em 0 .3em}a{color:#1c5fb0;text-decoration:none}a:hover{text-decoration:underline}
-p{margin:.4em 0}.nav a{margin-right:1.4em}
+p{margin:.4em 0}
+.bar{position:sticky;top:0;z-index:2;background:#fcfcfb;border-bottom:1px solid #d6d5cf;padding:.5em 0;margin-bottom:1em}
+.bar b{display:block;font-size:1.05em}.bar a{margin-right:1.1em;white-space:nowrap}.bar .m{font-size:.9em}
 table.summary{min-width:26em}table.summary tr.set td{background:#f3f2ee;font-weight:600;border-bottom:0;padding-top:6px}table.summary tr.set .m{font-weight:400;margin-left:.6em}
 table{border-collapse:collapse;font-variant-numeric:tabular-nums}
 td,th{border-bottom:1px solid #e4e3df;padding:2px 7px;text-align:right;white-space:nowrap}
@@ -276,25 +278,36 @@ function instance_table(io, set, sides, rows, logs)
 end
 
 # What every worker is on.
-function workers_page(site, root, heading)
+function workers_page(site, root, bar)
     io = IOBuffer()
-    println(io, "<p class=\"nav\"><a href=\"index.html\">Summary</a></p><h1>Workers</h1><p class=\"m\">", heading, "</p>")
+    println(io, bar, "<h1>Workers</h1>")
     for dir in sort!(readdir(root; join = true))
         file = joinpath(dir, "summary.md")
         isfile(file) || continue
         m = match(r"^```\n(.*?)\n```"s, read(file, String))
-        m === nothing || println(io, "<h2>", escape_html(basename(dir)), "</h2><pre>", escape_html(m[1]), "</pre>")
+        m === nothing && continue
+        println(io, "<h2>", escape_html(basename(dir)), "</h2>")
+        workers = String[]
+        for line in split(m[1], '\n')
+            w = match(r"worker (\d+): (\S+) (\S*) for (\d+) s, ([\d.]+) GB", line)
+            if w === nothing
+                println(io, "<p class=\"m\">", escape_html(strip(line)), "</p>")
+            else
+                push!(workers, "<tr><td>$(w[1])</td><td class=\"l\">$(w[2])</td><td class=\"l\">$(escape_html(w[3]))</td><td>$(w[4])</td><td>$(w[5])</td></tr>")
+            end
+        end
+        isempty(workers) || println(io, "<div class=\"wide\"><table><thead><tr><th>worker</th><th class=\"l\">state</th><th class=\"l\">instance</th><th>for (s)</th><th>memory (GB)</th></tr></thead><tbody>", join(workers), "</tbody></table></div>")
     end
     page(joinpath(site, "workers.html"), "Workers", String(take!(io)); refresh = true)
     return
 end
 
-function set_page(site, set, sides, cand, base, wall, logs, heading; refresh)
+function set_page(site, set, sides, cand, base, wall, logs, bar; refresh)
     rows = [side_rows(s, cand, base, set) for s in sides]
     keep = [i for i in eachindex(sides) if !isempty(rows[i])]
     sides, rows = sides[keep], rows[keep]
     io = IOBuffer()
-    println(io, "<p class=\"nav\"><a href=\"index.html\">Summary</a></p><h1>", escape_html(set), "</h1><p class=\"m\">", heading, "</p>")
+    println(io, bar, "<h1>", escape_html(set), "</h1>")
     println(io, "<h2>Performance profile</h2>")
     profile_section(io, set, sides, cand, base, wall)
     println(io, "<h2>Time breakdown</h2>")
@@ -367,15 +380,18 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     stamp = Dates.format(now(UTC), "yyyy-mm-dd HH:MM:SS")
     heading = (finished ? "Finished" : "In progress") * ", updated $stamp UTC."
     devices = unique!([s.key[1] for s in sides])
+    # the bar pinned to the top of every page
+    links = ["<a href=\"index.html\">Summary</a>"; ["<a href=\"$set.html\">$set</a>" for set in sets]]
+    finished || push!(links, "<a href=\"workers.html\">Workers</a>")
+    push!(links, "<a href=\"data/\">Files</a>")
+    link === nothing || push!(links, "<a href=\"" * escape_html(link) * "\">Pull request</a>")
+    bar = "<div class=\"bar\"><b>" * escape_html(title) * "</b>" * join(links) * " <span class=\"m\">" * heading * "</span></div>"
     for set in sets
-        set_page(site, set, sides, cand, base, wall, logs, heading; refresh = !finished)
+        set_page(site, set, sides, cand, base, wall, logs, bar; refresh = !finished)
     end
-    finished || workers_page(site, root, heading)
+    finished || workers_page(site, root, bar)
     io = IOBuffer()
-    println(io, "<h1>", escape_html(title), "</h1><p class=\"m\">", heading, "</p><p class=\"nav\">")
-    link === nothing || print(io, "<a href=\"", escape_html(link), "\">Pull request</a>")
-    finished || print(io, "<a href=\"workers.html\">Workers</a>")
-    println(io, "<a href=\"data/\">Result files and logs</a></p>")
+    println(io, bar)
     for device in devices
         println(io, "<h2>", device == "cuda" ? "GPU" : "CPU", "</h2>")
         machines = get(cand.machines, device, String[])
