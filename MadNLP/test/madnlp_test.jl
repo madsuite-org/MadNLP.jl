@@ -518,3 +518,17 @@ end
     MadNLP.reset_slacks!(solver)
     @test xs == s0
 end
+
+@testset "Refinement stops when it stalls" begin
+    function passes(factor)
+        solver = MadNLPSolver(
+            MadNLPTests.HS15Model(; x0 = [1.0, 1.0]);
+            print_level = MadNLP.ERROR, max_iter = 1,
+            richardson_tol = 0.0, richardson_improvement_factor = factor,
+        )
+        MadNLP.solve!(solver)
+        return solver.cnt.ir
+    end
+    @test passes(0.0) == 2
+    @test passes(Inf) == 10
+end
