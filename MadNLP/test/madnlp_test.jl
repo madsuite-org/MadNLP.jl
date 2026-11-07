@@ -504,4 +504,12 @@ end
     @test con_scale ≈ [1.0e-8, 0.1]
     MadNLP.set_con_scale_dense!(con_scale, [1.0e12 0.0; 1.0e3 0.0], 100.0, 1.0e-8)
     @test con_scale ≈ [1.0e-8, 0.1]
+
+    # the option reaches the solver: at x0 = (-1e3, 0) the objective gradient of HS15 is about 4e11
+    nlp = MadNLPTests.HS15Model(; x0 = [-1.0e3, 0.0])
+    for (min_value, expected) in ((1.0e-8, 1.0e-8), (1.0e-12, 100.0 / 4.0e11))
+        solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, nlp_scaling_min_value = min_value)
+        MadNLP.initialize!(solver)
+        @test solver.cb.obj_scale[] ≈ expected rtol = 1.0e-2
+    end
 end

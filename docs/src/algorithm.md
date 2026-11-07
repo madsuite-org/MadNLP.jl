@@ -105,6 +105,7 @@ Once the problem has been reformulated, MadNLP scales the objective
 and the constraints to ensure that the gradient and the rows of the Jacobian
 have all a norm being less than `nlp_scaling_max_gradient` (by default equal to `100.0`).
 The lower the value of `nlp_scaling_max_gradient`, the more aggressive the scaling gets.
+No scaling factor goes below `nlp_scaling_min_value` (by default equal to `1e-8`).
 
 The scaling can be deactivated by setting `nlp_scaling=false`.
 
