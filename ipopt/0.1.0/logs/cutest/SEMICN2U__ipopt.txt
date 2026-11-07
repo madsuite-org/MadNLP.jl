@@ -1,0 +1,81 @@
+This is Ipopt version 3.14.19, running with linear solver ma57.
+
+Number of nonzeros in equality constraint Jacobian...:    14998
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:     5000
+
+Total number of variables............................:     5000
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:     5000
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  0.0000000e+00 1.40e+02 0.00e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  0.0000000e+00 8.73e-02 0.00e+00  -1.0 1.37e+02    -  1.00e+00 1.00e+00h  1
+   2  0.0000000e+00 3.55e-03 0.00e+00  -2.5 1.27e+02    -  1.00e+00 1.00e+00h  1
+Warning: SOC step rejected due to evaluation error
+   3  0.0000000e+00 3.11e-03 0.00e+00  -3.8 5.22e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+   4  0.0000000e+00 2.72e-03 0.00e+00  -3.8 6.33e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+   5  0.0000000e+00 2.38e-03 0.00e+00  -3.8 6.74e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+   6  0.0000000e+00 2.08e-03 0.00e+00  -3.8 6.72e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+   7  0.0000000e+00 1.82e-03 0.00e+00  -3.8 6.45e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+   8  0.0000000e+00 1.59e-03 0.00e+00  -3.8 6.04e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+   9  0.0000000e+00 1.40e-03 0.00e+00  -3.8 5.55e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  0.0000000e+00 1.22e-03 0.00e+00  -5.7 5.04e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+  11  0.0000000e+00 1.07e-03 0.00e+00  -5.7 4.54e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+  12  0.0000000e+00 9.35e-04 0.00e+00  -5.7 4.06e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+  13  0.0000000e+00 8.18e-04 0.00e+00  -5.7 3.61e+01    -  1.00e+00 1.25e-01h  4
+Warning: SOC step rejected due to evaluation error
+  14  0.0000000e+00 1.52e-03 0.00e+00  -5.7 3.21e+01    -  1.00e+00 2.50e-01h  3
+Warning: SOC step rejected due to evaluation error
+  15  0.0000000e+00 1.15e-03 0.00e+00  -5.7 2.41e+01    -  1.00e+00 2.50e-01h  3
+Warning: SOC step rejected due to evaluation error
+  16  0.0000000e+00 8.72e-04 0.00e+00  -5.7 1.88e+01    -  1.00e+00 2.50e-01h  3
+Warning: SOC step rejected due to evaluation error
+  17  0.0000000e+00 1.23e-03 0.00e+00  -5.7 1.47e+01    -  1.00e+00 5.00e-01h  2
+  18  0.0000000e+00 6.55e-04 0.00e+00  -5.7 8.06e+00    -  1.00e+00 1.00e+00h  1
+  19  0.0000000e+00 1.35e-04 0.00e+00  -5.7 2.07e+00    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  0.0000000e+00 7.00e-05 0.00e+00  -5.7 1.12e+00    -  1.00e+00 1.00e+00h  1
+  21  0.0000000e+00 2.57e-05 0.00e+00  -5.7 4.97e-01    -  1.00e+00 1.00e+00h  1
+  22  0.0000000e+00 4.39e-06 0.00e+00  -5.7 1.47e-01    -  1.00e+00 1.00e+00h  1
+  23  0.0000000e+00 1.39e-07 0.00e+00  -8.6 1.94e-02    -  1.00e+00 1.00e+00h  1
+  24  0.0000000e+00 1.30e-10 0.00e+00  -8.6 4.82e-04    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 24
+
+                                   (scaled)                 (unscaled)
+Objective...............:   0.0000000000000000e+00    0.0000000000000000e+00
+Dual infeasibility......:   0.0000000000000000e+00    0.0000000000000000e+00
+Constraint violation....:   1.3004401736368834e-10    1.3004401736368834e-10
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   1.3004401736368834e-10    1.3004401736368834e-10
+
+
+Number of objective function evaluations             = 53
+Number of objective gradient evaluations             = 25
+Number of equality constraint evaluations            = 80
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 25
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 24
+Total seconds in IPOPT                               = 0.236
+
+EXIT: Optimal Solution Found.

@@ -1,0 +1,282 @@
+This is Ipopt version 3.14.19, running with linear solver ma57.
+
+Number of nonzeros in equality constraint Jacobian...:        9
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:        3
+
+Total number of variables............................:        3
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        3
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  0.0000000e+00 1.79e-01 0.00e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+Warning: SOC step rejected due to evaluation error
+   1  0.0000000e+00 1.25e-01 0.00e+00  -2.5 1.37e+00    -  1.00e+00 1.25e-01h  4
+   2  0.0000000e+00 6.57e-02 0.00e+00  -2.5 3.33e-01    -  1.00e+00 1.00e+00h  1
+Warning: SOC step rejected due to evaluation error
+   3  0.0000000e+00 6.57e-02 0.00e+00  -2.5 5.26e+00    -  1.00e+00 4.88e-04h 12
+Warning: SOC step rejected due to evaluation error
+   4  0.0000000e+00 6.57e-02 0.00e+00  -2.5 5.23e+00    -  1.00e+00 4.88e-04h 12
+Warning: SOC step rejected due to evaluation error
+   5  0.0000000e+00 6.57e-02 0.00e+00  -2.5 5.19e+00    -  1.00e+00 4.88e-04h 12
+Warning: SOC step rejected due to evaluation error
+   6  0.0000000e+00 6.57e-02 0.00e+00  -2.5 5.51e+00    -  1.00e+00 4.88e-04h 12
+Warning: SOC step rejected due to evaluation error
+   7  0.0000000e+00 6.57e-02 0.00e+00  -2.5 5.92e+00    -  1.00e+00 4.88e-04h 12
+Warning: SOC step rejected due to evaluation error
+   8  0.0000000e+00 6.57e-02 0.00e+00  -2.5 6.38e+00    -  1.00e+00 4.88e-04h 12
+Warning: SOC step rejected due to evaluation error
+   9  0.0000000e+00 6.57e-02 0.00e+00  -2.5 6.89e+00    -  1.00e+00 4.88e-04h 12
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  0.0000000e+00 6.56e-02 0.00e+00  -2.5 7.47e+00    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  11  0.0000000e+00 6.56e-02 0.00e+00  -2.5 7.79e+00    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  12  0.0000000e+00 6.56e-02 0.00e+00  -2.5 8.12e+00    -  1.00e+00 2.44e-04h 13
+  13  0.0000000e+00 2.34e+07 0.00e+00  -2.5 8.49e+00    -  1.00e+00 1.00e+00w  1
+  14  0.0000000e+00 1.00e+01 0.00e+00  -2.5 8.57e+00    -  1.00e+00 1.00e+00w  1
+  15  0.0000000e+00 3.67e+00 0.00e+00  -2.5 3.31e-01    -  1.00e+00 1.00e+00w  1
+  16  0.0000000e+00 6.56e-02 0.00e+00  -2.5 6.41e-01    -  1.00e+00 2.44e-04h 12
+Warning: SOC step rejected due to evaluation error
+  17  0.0000000e+00 6.56e-02 0.00e+00  -2.5 8.87e+00    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  18  0.0000000e+00 6.56e-02 0.00e+00  -2.5 9.28e+00    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  19  0.0000000e+00 6.56e-02 0.00e+00  -2.5 9.73e+00    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20  0.0000000e+00 6.56e-02 0.00e+00  -2.5 1.02e+01    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  21  0.0000000e+00 6.56e-02 0.00e+00  -2.5 1.07e+01    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  22  0.0000000e+00 6.56e-02 0.00e+00  -2.5 1.13e+01    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  23  0.0000000e+00 6.56e-02 0.00e+00  -2.5 1.19e+01    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  24  0.0000000e+00 6.56e-02 0.00e+00  -2.5 1.25e+01    -  1.00e+00 2.44e-04h 13
+Warning: SOC step rejected due to evaluation error
+  25  0.0000000e+00 6.56e-02 0.00e+00  -2.5 1.32e+01    -  1.00e+00 2.44e-04h 13
+  26  0.0000000e+00 2.55e+07 0.00e+00  -2.5 1.40e+01    -  1.00e+00 1.00e+00w  1
+  27  0.0000000e+00 8.73e+00 0.00e+00  -2.5 1.41e+01    -  1.00e+00 1.00e+00w  1
+  28  0.0000000e+00 3.19e+00 0.00e+00  -2.5 3.31e-01    -  1.00e+00 1.00e+00w  1
+  29  0.0000000e+00 6.55e-02 0.00e+00  -2.5 6.39e-01    -  1.00e+00 2.44e-04h 12
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.48e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  31  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.52e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  32  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.57e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  33  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.62e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  34  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.67e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  35  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.72e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  36  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.78e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  37  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.83e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  38  0.0000000e+00 6.55e-02 0.00e+00  -2.5 1.90e+01    -  1.00e+00 1.22e-04h 14
+  39  0.0000000e+00 2.86e+07 0.00e+00  -2.5 1.96e+01    -  1.00e+00 1.00e+00w  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40  0.0000000e+00 8.09e+00 0.00e+00  -2.5 1.97e+01    -  1.00e+00 1.00e+00w  1
+  41  0.0000000e+00 2.96e+00 0.00e+00  -2.5 3.31e-01    -  1.00e+00 1.00e+00w  1
+  42  0.0000000e+00 6.55e-02 0.00e+00  -2.5 6.39e-01    -  1.00e+00 1.22e-04h 13
+Warning: SOC step rejected due to evaluation error
+  43  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.03e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  44  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.10e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  45  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.17e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  46  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.25e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  47  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.34e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  48  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.43e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  49  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.52e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.62e+01    -  1.00e+00 1.22e-04h 14
+Warning: SOC step rejected due to evaluation error
+  51  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.72e+01    -  1.00e+00 1.22e-04h 14
+  52  0.0000000e+00 3.42e+07 0.00e+00  -2.5 2.84e+01    -  1.00e+00 1.00e+00w  1
+  53  0.0000000e+00 7.60e+00 0.00e+00  -2.5 2.85e+01    -  1.00e+00 1.00e+00w  1
+  54  0.0000000e+00 2.78e+00 0.00e+00  -2.5 3.30e-01    -  1.00e+00 1.00e+00w  1
+  55  0.0000000e+00 6.55e-02 0.00e+00  -2.5 6.38e-01    -  1.00e+00 6.10e-05h 14
+Warning: SOC step rejected due to evaluation error
+  56  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.89e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  57  0.0000000e+00 6.55e-02 0.00e+00  -2.5 2.95e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  58  0.0000000e+00 6.55e-02 0.00e+00  -2.5 3.02e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  59  0.0000000e+00 6.55e-02 0.00e+00  -2.5 3.08e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60  0.0000000e+00 6.55e-02 0.00e+00  -2.5 3.15e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  61  0.0000000e+00 6.55e-02 0.00e+00  -2.5 3.22e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  62  0.0000000e+00 6.55e-02 0.00e+00  -2.5 3.29e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  63  0.0000000e+00 6.54e-02 0.00e+00  -2.5 3.36e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  64  0.0000000e+00 6.54e-02 0.00e+00  -2.5 3.44e+01    -  1.00e+00 6.10e-05h 15
+  65  0.0000000e+00 3.83e+07 0.00e+00  -2.5 3.51e+01    -  1.00e+00 1.00e+00w  1
+  66  0.0000000e+00 7.34e+00 0.00e+00  -2.5 3.53e+01    -  1.00e+00 1.00e+00w  1
+  67  0.0000000e+00 2.68e+00 0.00e+00  -2.5 3.30e-01    -  1.00e+00 1.00e+00w  1
+  68  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.37e-01    -  1.00e+00 6.10e-05h 14
+Warning: SOC step rejected due to evaluation error
+  69  0.0000000e+00 6.54e-02 0.00e+00  -2.5 3.59e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70  0.0000000e+00 6.54e-02 0.00e+00  -2.5 3.68e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  71  0.0000000e+00 6.54e-02 0.00e+00  -2.5 3.76e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  72  0.0000000e+00 6.54e-02 0.00e+00  -2.5 3.85e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  73  0.0000000e+00 6.54e-02 0.00e+00  -2.5 3.95e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  74  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.04e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  75  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.14e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  76  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.25e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  77  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.36e+01    -  1.00e+00 6.10e-05h 15
+  78  0.0000000e+00 4.42e+07 0.00e+00  -2.5 4.47e+01    -  1.00e+00 1.00e+00w  1
+  79  0.0000000e+00 7.11e+00 0.00e+00  -2.5 4.49e+01    -  1.00e+00 1.00e+00w  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80  0.0000000e+00 2.60e+00 0.00e+00  -2.5 3.30e-01    -  1.00e+00 1.00e+00w  1
+  81  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.37e-01    -  1.00e+00 6.10e-05h 14
+Warning: SOC step rejected due to evaluation error
+  82  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.58e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  83  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.71e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  84  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.83e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  85  0.0000000e+00 6.54e-02 0.00e+00  -2.5 4.96e+01    -  1.00e+00 6.10e-05h 15
+Warning: SOC step rejected due to evaluation error
+  86  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.10e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+  87  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.17e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+  88  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.24e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+  89  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.31e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.39e+01    -  1.00e+00 3.05e-05h 16
+  91  0.0000000e+00 5.04e+07 0.00e+00  -2.5 5.47e+01    -  1.00e+00 1.00e+00w  1
+  92  0.0000000e+00 6.94e+00 0.00e+00  -2.5 5.49e+01    -  1.00e+00 1.00e+00w  1
+  93  0.0000000e+00 2.54e+00 0.00e+00  -2.5 3.30e-01    -  1.00e+00 1.00e+00w  1
+  94  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.37e-01    -  1.00e+00 3.05e-05h 15
+Warning: SOC step rejected due to evaluation error
+  95  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.54e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+  96  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.62e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+  97  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.71e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+  98  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.79e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+  99  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.87e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100  0.0000000e+00 6.54e-02 0.00e+00  -2.5 5.96e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 101  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.05e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 102  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.14e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 103  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.23e+01    -  1.00e+00 3.05e-05h 16
+ 104  0.0000000e+00 5.55e+07 0.00e+00  -2.5 6.33e+01    -  1.00e+00 1.00e+00w  1
+ 105  0.0000000e+00 6.83e+00 0.00e+00  -2.5 6.35e+01    -  1.00e+00 1.00e+00w  1
+ 106  0.0000000e+00 2.49e+00 0.00e+00  -2.5 3.30e-01    -  1.00e+00 1.00e+00w  1
+ 107  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.37e-01    -  1.00e+00 3.05e-05h 15
+Warning: SOC step rejected due to evaluation error
+ 108  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.43e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 109  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.53e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 110  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.63e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 111  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.73e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 112  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.84e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 113  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.95e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 114  0.0000000e+00 6.54e-02 0.00e+00  -2.5 7.06e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 115  0.0000000e+00 6.54e-02 0.00e+00  -2.5 7.18e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 116  0.0000000e+00 6.54e-02 0.00e+00  -2.5 7.30e+01    -  1.00e+00 3.05e-05h 16
+ 117  0.0000000e+00 6.20e+07 0.00e+00  -2.5 7.42e+01    -  1.00e+00 1.00e+00w  1
+ 118  0.0000000e+00 6.72e+00 0.00e+00  -2.5 7.44e+01    -  1.00e+00 1.00e+00w  1
+ 119  0.0000000e+00 2.45e+00 0.00e+00  -2.5 3.30e-01    -  1.00e+00 1.00e+00w  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 120  0.0000000e+00 6.54e-02 0.00e+00  -2.5 6.36e-01    -  1.00e+00 3.05e-05h 15
+Warning: SOC step rejected due to evaluation error
+ 121  0.0000000e+00 6.54e-02 0.00e+00  -2.5 7.54e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 122  0.0000000e+00 6.54e-02 0.00e+00  -2.5 7.67e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 123  0.0000000e+00 6.54e-02 0.00e+00  -2.5 7.80e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 124  0.0000000e+00 6.54e-02 0.00e+00  -2.5 7.93e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 125  0.0000000e+00 6.54e-02 0.00e+00  -2.5 8.07e+01    -  1.00e+00 3.05e-05h 16
+Warning: SOC step rejected due to evaluation error
+ 126  0.0000000e+00 6.54e-02 0.00e+00  -2.5 8.21e+01    -  1.00e+00 1.53e-05h 17
+Warning: SOC step rejected due to evaluation error
+ 127  0.0000000e+00 6.54e-02 0.00e+00  -2.5 8.28e+01    -  1.00e+00 1.53e-05h 17
+Warning: SOC step rejected due to evaluation error
+ 128r 0.0000000e+00 6.54e-02 9.99e+02  -1.2 0.00e+00    -  0.00e+00 4.77e-07R 22
+ 129r 0.0000000e+00 2.01e-02 7.73e+02  -1.2 6.81e+01    -  1.00e+00 1.37e-03f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 130r 0.0000000e+00 1.49e+01 2.40e+03  -1.2 2.76e+00    -  1.00e+00 6.72e-01f  1
+ 131r 0.0000000e+00 1.97e+00 3.08e+02  -1.2 2.15e+00    -  1.00e+00 8.66e-01h  1
+ 132r 0.0000000e+00 4.30e-02 2.09e+01  -1.2 2.89e-01    -  1.00e+00 1.00e+00h  1
+ 133r 0.0000000e+00 3.41e-02 4.37e+02  -1.2 1.05e-02    -  1.00e+00 2.04e-01f  1
+ 134r 0.0000000e+00 4.14e-03 4.61e+01  -1.2 8.51e-02    -  1.00e+00 1.00e+00f  1
+ 135r 0.0000000e+00 1.43e-04 1.14e+01  -1.2 3.15e-02    -  1.00e+00 1.00e+00h  1
+ 136r 0.0000000e+00 4.81e-06 9.20e-02  -1.2 2.22e-03    -  1.00e+00 1.00e+00h  1
+ 137r 0.0000000e+00 7.14e-08 1.49e-01  -4.2 1.06e-04    -  1.00e+00 1.00e+00f  1
+ 138r 0.0000000e+00 5.07e-11 6.56e-05  -4.2 7.48e-06    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 138
+
+                                   (scaled)                 (unscaled)
+Objective...............:   0.0000000000000000e+00    0.0000000000000000e+00
+Dual infeasibility......:   0.0000000000000000e+00    0.0000000000000000e+00
+Constraint violation....:   5.0732640310968691e-11    5.0732640310968691e-11
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   5.0732640310968691e-11    5.0732640310968691e-11
+
+
+Number of objective function evaluations             = 1335
+Number of objective gradient evaluations             = 130
+Number of equality constraint evaluations            = 1594
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 140
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 138
+Total seconds in IPOPT                               = 0.043
+
+EXIT: Optimal Solution Found.

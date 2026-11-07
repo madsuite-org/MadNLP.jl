@@ -1,0 +1,47 @@
+This is Ipopt version 3.14.19, running with linear solver ma57.
+
+Number of nonzeros in equality constraint Jacobian...:       11
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:       15
+
+Reallocating memory for MA57: lfact (153)
+Total number of variables............................:        5
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        5
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        3
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  3.3546263e-04 4.00e+00 2.27e-04  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  4.3006916e-02 3.38e-01 1.49e-01  -1.0 4.05e-01    -  6.97e-01 1.00e+00h  1
+   2  4.7119941e-02 1.29e-01 4.62e-02  -1.0 2.70e-01    -  9.90e-01 1.00e+00h  1
+   3  5.3890728e-02 1.12e-03 2.26e-03  -2.5 2.81e-02    -  1.00e+00 1.00e+00h  1
+   4  5.3941964e-02 1.42e-04 2.51e-05  -3.8 9.22e-03    -  1.00e+00 1.00e+00h  1
+   5  5.3949817e-02 5.53e-07 8.91e-08  -5.7 5.83e-04    -  1.00e+00 1.00e+00h  1
+   6  5.3949848e-02 7.78e-11 1.08e-11  -8.6 6.83e-06    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 6
+
+                                   (scaled)                 (unscaled)
+Objective...............:   5.3949847765938336e-02    5.3949847765938336e-02
+Dual infeasibility......:   1.0775911515464797e-11    1.0775911515464797e-11
+Constraint violation....:   7.7792550179367481e-11    7.7792550179367481e-11
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   2.5179321872348103e-09    2.5179321872348103e-09
+Overall NLP error.......:   2.5179321872348103e-09    2.5179321872348103e-09
+
+
+Number of objective function evaluations             = 7
+Number of objective gradient evaluations             = 7
+Number of equality constraint evaluations            = 7
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 7
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 6
+Total seconds in IPOPT                               = 0.004
+
+EXIT: Optimal Solution Found.

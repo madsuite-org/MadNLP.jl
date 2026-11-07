@@ -1,0 +1,2111 @@
+This is Ipopt version 3.14.19, running with linear solver ma57.
+
+Number of nonzeros in equality constraint Jacobian...:     1978
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:      692
+
+Total number of variables............................:      711
+                     variables with only lower bounds:      683
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      450
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  0.0000000e+00 8.46e+04 1.00e+00  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  0.0000000e+00 8.45e+04 1.25e+05  -1.0 2.89e+03    -  9.34e-04 9.82e-04h  1
+   2  0.0000000e+00 8.45e+04 1.25e+05  -1.0 4.65e+03    -  9.41e-04 8.85e-05h  1
+   3  0.0000000e+00 8.43e+04 1.24e+05  -1.0 4.72e+03    -  1.03e-03 2.46e-03h  1
+   4  0.0000000e+00 8.42e+04 1.24e+05  -1.0 3.42e+03    -  1.20e-03 1.65e-03h  1
+   5  0.0000000e+00 8.40e+04 1.24e+05  -1.0 1.09e+04    -  8.94e-04 2.48e-03h  1
+   6  0.0000000e+00 8.39e+04 1.24e+05  -1.0 2.60e+04    -  8.53e-04 9.72e-04h  1
+   7  0.0000000e+00 8.38e+04 1.24e+05  -1.0 8.70e+03    -  1.14e-03 9.80e-04h  1
+   8  0.0000000e+00 8.38e+04 1.24e+05  -1.0 1.38e+04    -  1.54e-03 4.23e-04h  1
+   9  0.0000000e+00 8.37e+04 1.24e+05  -1.0 2.31e+04    -  1.40e-03 5.89e-04h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  0.0000000e+00 8.37e+04 1.24e+05  -1.0 4.57e+04    -  3.71e-04 2.88e-04h  1
+  11  0.0000000e+00 8.37e+04 1.24e+05  -1.0 6.92e+04    -  4.45e-04 9.11e-05h  1
+  12  0.0000000e+00 8.37e+04 1.24e+05  -1.0 7.71e+04    -  2.43e-04 2.72e-04h  1
+  13r 0.0000000e+00 8.37e+04 9.99e+02   4.1 0.00e+00    -  0.00e+00 4.23e-07R  8
+  14r 0.0000000e+00 8.31e+04 4.51e+03   4.1 6.66e+03    -  6.45e-03 7.01e-04f  1
+  15r 0.0000000e+00 2.65e+04 3.63e+03   2.1 1.34e+03    -  3.59e-01 1.04e-01f  1
+  16r 0.0000000e+00 2.07e+04 3.16e+04   2.1 1.47e+02    -  3.21e-01 2.20e-01f  1
+  17r 0.0000000e+00 5.87e+04 3.57e+07   2.1 2.92e+01    -  3.66e-01 3.46e-01f  1
+  18r 0.0000000e+00 3.92e+04 2.38e+07   2.1 2.37e+01    -  4.42e-01 4.13e-01f  1
+  19r 0.0000000e+00 3.64e+04 2.21e+07   2.1 6.15e+01    -  1.89e-01 7.53e-02f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20r 0.0000000e+00 2.04e+04 1.24e+07   2.1 5.41e+00    -  5.81e-01 5.98e-01f  1
+  21r 0.0000000e+00 1.89e+04 1.15e+07   2.1 9.55e+00   2.0 7.61e-01 7.56e-02f  1
+  22r 0.0000000e+00 1.41e+04 7.91e+06   2.1 2.05e+01    -  3.75e-01 3.81e-01f  1
+  23r 0.0000000e+00 1.41e+04 3.07e+06   2.1 8.41e-01   3.3 1.00e+00 1.00e+00f  1
+  24r 0.0000000e+00 1.41e+04 1.74e+06   2.1 7.94e-01   2.9 1.00e+00 5.84e-01f  1
+  25r 0.0000000e+00 1.41e+04 1.09e+06   2.1 1.49e+00   2.4 8.87e-01 4.77e-01f  1
+  26r 0.0000000e+00 1.41e+04 4.66e+05   2.1 1.02e+00   2.8 1.00e+00 8.94e-01f  1
+  27r 0.0000000e+00 1.41e+04 3.03e+05   2.1 3.55e+00   2.3 3.08e-01 4.42e-01f  1
+  28r 0.0000000e+00 1.41e+04 2.56e+05   2.1 9.65e+00   1.8 5.99e-01 1.67e-01f  1
+  29r 0.0000000e+00 1.41e+04 1.41e+05   2.1 1.23e+01    -  9.86e-01 6.18e-01f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  30r 0.0000000e+00 1.41e+04 5.43e+04   2.1 3.17e+00    -  7.71e-01 1.00e+00h  1
+  31r 0.0000000e+00 1.41e+04 2.08e+04   2.1 6.69e-01    -  5.58e-01 1.00e+00h  1
+  32r 0.0000000e+00 1.41e+04 7.86e+03   2.1 4.13e-01    -  5.41e-01 1.00e+00h  1
+  33r 0.0000000e+00 1.41e+04 2.82e+03   2.1 3.07e-01    -  5.94e-01 1.00e+00h  1
+  34r 0.0000000e+00 1.41e+04 1.73e+03   1.4 9.03e+00    -  9.60e-01 4.06e-01f  1
+  35r 0.0000000e+00 1.41e+04 5.50e+02   1.4 2.17e+00    -  1.00e+00 8.21e-01f  1
+  36r 0.0000000e+00 1.41e+04 5.13e+02   0.7 8.95e+00    -  2.27e-01 6.25e-01f  1
+  37r 0.0000000e+00 1.41e+04 1.73e+04   0.7 1.58e+00    -  1.52e-01 4.46e-01f  1
+  38r 0.0000000e+00 1.41e+04 1.94e+04   0.7 2.82e-01   5.9 1.37e-01 1.20e-02h  1
+  39r 0.0000000e+00 1.41e+04 1.91e+04   0.7 3.42e-01   5.4 1.57e-01 1.24e-01h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  40r 0.0000000e+00 1.41e+04 6.37e+04   0.7 3.03e-01   5.8 3.36e-01 7.11e-02h  1
+  41r 0.0000000e+00 1.41e+04 1.16e+05   0.7 2.86e-01   6.3 2.67e-01 1.26e-01h  1
+  42r 0.0000000e+00 1.41e+04 1.25e+05   0.7 3.45e-01   5.8 3.90e-01 3.93e-01h  1
+  43r 0.0000000e+00 1.41e+04 2.42e+05   0.7 2.59e-01   6.2 4.42e-01 3.98e-01h  1
+  44r 0.0000000e+00 1.41e+04 1.00e+05   0.7 1.86e-01   5.7 1.00e+00 1.00e+00h  1
+  45r 0.0000000e+00 1.41e+04 8.97e+02   0.7 5.00e-03   5.3 1.00e+00 1.00e+00f  1
+  46r 0.0000000e+00 1.41e+04 1.05e+03   0.7 1.99e+00    -  9.97e-01 1.40e-01f  1
+  47r 0.0000000e+00 1.41e+04 2.88e+03   0.7 1.68e+00    -  1.00e+00 1.00e+00f  1
+  48r 0.0000000e+00 1.41e+04 1.84e+03   0.7 4.03e-02   4.8 1.00e+00 8.77e-01h  1
+  49r 0.0000000e+00 1.41e+04 3.41e+04   0.7 4.52e-01    -  1.85e-01 8.16e-03f  2
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  50r 0.0000000e+00 1.41e+04 8.30e+03   0.7 3.46e-01    -  1.00e+00 1.00e+00F  1
+  51r 0.0000000e+00 1.41e+04 1.61e+03   0.7 1.20e-02   5.2 1.00e+00 1.64e-01h  2
+  52r 0.0000000e+00 1.41e+04 6.47e+03   0.7 4.76e-03   4.7 1.00e+00 1.00e+00F  1
+  53r 0.0000000e+00 1.41e+04 4.37e+04   0.7 1.26e-02   4.2 4.16e-01 1.00e+00F  1
+  54r 0.0000000e+00 1.41e+04 4.02e+03   0.7 3.90e-03   5.6 1.00e+00 2.82e-01h  2
+  55r 0.0000000e+00 1.41e+04 1.79e+04   0.7 1.59e-03   5.1 1.00e+00 3.63e-01h  2
+  56r 0.0000000e+00 1.41e+04 2.95e+04   0.7 7.95e-04   5.5 1.00e+00 1.00e+00h  1
+  57r 0.0000000e+00 1.41e+04 4.03e+04   0.7 1.91e-02   5.0 2.77e-01 1.25e-01h  4
+  58r 0.0000000e+00 1.41e+04 1.20e+04   0.7 8.58e-03   5.5 1.00e+00 5.00e-01h  2
+  59r 0.0000000e+00 1.41e+04 9.56e+03   0.7 1.60e-03   5.0 6.75e-01 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  60r 0.0000000e+00 1.41e+04 1.69e+02   0.7 6.37e-04   5.4 1.00e+00 1.00e+00f  1
+  61r 0.0000000e+00 1.41e+04 2.50e+05  -0.0 4.98e+00    -  9.25e-01 7.76e-02f  1
+  62r 0.0000000e+00 1.41e+04 2.57e+05  -0.0 2.99e-03   5.9 1.71e-01 8.78e-01f  1
+  63r 0.0000000e+00 1.41e+04 2.08e+05  -0.0 4.20e-03   6.3 1.00e+00 1.00e+00f  1
+  64r 0.0000000e+00 1.41e+04 1.38e+05  -0.0 2.53e-03   6.7 3.60e-01 1.00e+00f  1
+  65r 0.0000000e+00 1.41e+04 1.54e+05  -0.0 5.95e-02   6.2 6.05e-01 1.00e+00f  1
+  66r 0.0000000e+00 1.41e+04 7.25e+04  -0.0 1.99e-02   7.6 1.13e-01 1.53e-01f  1
+  67r 0.0000000e+00 1.41e+04 6.84e+04  -0.0 1.69e-02   7.1 8.47e-03 2.16e-02h  1
+  68r 0.0000000e+00 1.41e+04 3.94e+04  -0.0 1.47e-02   6.6 1.00e+00 5.54e-01f  1
+  69r 0.0000000e+00 1.41e+04 1.23e+04  -0.0 9.25e-03   6.1 5.79e-01 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  70r 0.0000000e+00 1.41e+04 1.48e+04  -0.0 4.55e+00    -  5.55e-02 1.46e-02f  1
+  71r 0.0000000e+00 1.41e+04 2.78e+03  -0.0 2.67e-03   5.6 1.00e+00 1.00e+00f  1
+  72r 0.0000000e+00 1.41e+04 1.71e+05  -0.0 5.10e-03   5.2 1.00e+00 7.63e-01f  1
+  73r 0.0000000e+00 1.41e+04 7.75e+06  -0.0 8.24e-02   4.7 3.63e-01 3.51e-02f  1
+  74r 0.0000000e+00 1.41e+04 7.62e+06  -0.0 1.21e-03   6.0 7.78e-01 6.51e-01f  1
+  75r 0.0000000e+00 1.41e+04 3.80e+06  -0.0 4.55e-03   5.5 4.23e-01 1.00e+00f  1
+  76r 0.0000000e+00 1.41e+04 1.55e+07  -0.0 8.67e-03   5.1 1.00e+00 3.15e-01f  1
+  77r 0.0000000e+00 1.41e+04 8.18e+06  -0.0 3.94e-03   5.5 1.00e+00 5.91e-01f  1
+  78r 0.0000000e+00 1.41e+04 5.12e+07  -0.0 7.21e-03   5.0 9.29e-01 6.74e-01f  1
+  79r 0.0000000e+00 1.41e+04 1.87e+07  -0.0 9.53e-04   6.3 1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  80r 0.0000000e+00 1.41e+04 1.79e+07  -0.0 5.55e-03   5.9 1.42e-01 1.00e+00f  1
+  81r 0.0000000e+00 1.41e+04 1.57e+07  -0.0 9.70e-04   7.2 6.63e-01 5.31e-01h  1
+  82r 0.0000000e+00 1.41e+04 1.40e+07  -0.0 9.23e-03   6.7 1.00e+00 2.50e-01f  3
+  83r 0.0000000e+00 1.41e+04 1.05e+07  -0.0 3.05e-03   7.1 3.12e-01 1.00e+00h  1
+  84r 0.0000000e+00 1.41e+04 5.63e+06  -0.0 1.24e-03   7.6 1.00e+00 1.00e+00h  1
+  85r 0.0000000e+00 1.41e+04 2.90e+06  -0.0 3.61e-03   7.1 5.86e-01 1.00e+00h  1
+  86r 0.0000000e+00 1.41e+04 7.09e+05  -0.0 4.23e-04   7.5 1.00e+00 1.00e+00f  1
+  87r 0.0000000e+00 1.41e+04 1.82e+04  -0.0 7.82e-05   7.0 1.00e+00 1.00e+00f  1
+  88r 0.0000000e+00 1.41e+04 3.44e+04  -0.0 3.31e-04   6.6 1.00e+00 1.00e+00f  1
+  89r 0.0000000e+00 1.41e+04 3.61e+05  -0.0 6.91e-04   6.1 1.00e+00 1.00e+00f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  90r 0.0000000e+00 1.41e+04 6.79e+06  -0.0 2.02e-03   5.6 1.00e+00 1.00e+00f  1
+Warning: Cutting back alpha due to evaluation error
+  91r 0.0000000e+00 1.41e+04 1.00e+08  -0.0 1.41e-02   5.1 9.37e-01 6.19e-02f  2
+  92r 0.0000000e+00 1.41e+04 7.22e+07  -0.0 4.60e+00    -  4.58e-01 7.97e-02f  1
+  93r 0.0000000e+00 1.41e+04 1.10e+08  -0.0 3.77e+00    -  1.00e+00 1.60e-01f  1
+Warning: Cutting back alpha due to evaluation error
+  94r 0.0000000e+00 1.41e+04 2.76e+06  -0.0 1.62e-03   5.6 1.00e+00 5.00e-01f  2
+  95r 0.0000000e+00 1.41e+04 4.33e+07  -0.0 2.06e-03   6.0 1.00e+00 1.00e+00f  1
+  96r 0.0000000e+00 1.41e+04 4.38e+07  -0.0 1.83e-01   5.5 3.02e-02 2.10e-03h  6
+  97r 0.0000000e+00 1.41e+04 5.64e+08  -0.0 6.20e-03   5.9 1.00e+00 1.00e+00h  1
+  98r 0.0000000e+00 1.41e+04 3.47e+08  -0.0 1.74e-03   6.4 5.63e-01 1.00e+00f  1
+Warning: Cutting back alpha due to evaluation error
+  99r 0.0000000e+00 1.41e+04 7.62e+08  -0.0 1.16e-03   5.9 1.00e+00 5.00e-01f  2
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 100r 0.0000000e+00 1.41e+04 5.33e+08  -0.0 2.62e-02   5.4 2.98e-01 1.64e-01f  2
+ 101r 0.0000000e+00 1.41e+04 9.44e+08  -0.0 2.26e-03   5.8 1.00e+00 1.00e+00f  1
+ 102r 0.0000000e+00 1.41e+04 3.24e+09  -0.0 4.57e-04   6.3 1.00e+00 1.00e+00f  1
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 103r 0.0000000e+00 1.41e+04 1.24e+09  -0.0 1.36e-03   5.8 1.00e+00 2.50e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 104r 0.0000000e+00 1.41e+04 1.15e+09  -0.0 8.05e-03   5.3 1.00e+00 6.39e-02f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 105r 0.0000000e+00 1.41e+04 5.68e+08  -0.0 1.51e-03   5.7 1.00e+00 2.50e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 106r 0.0000000e+00 1.41e+04 5.30e+08  -0.0 1.49e-02   5.3 5.67e-01 5.55e-02f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 107r 0.0000000e+00 1.41e+04 4.92e+08  -0.0 4.72e-03   5.7 1.00e+00 6.25e-02f  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 108r 0.0000000e+00 1.41e+04 4.02e+08  -0.0 4.93e-03   5.2 1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 109r 0.0000000e+00 1.41e+04 4.06e+08  -0.0 2.71e+00    -  3.04e-01 2.81e-02f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 110r 0.0000000e+00 1.41e+04 4.04e+08  -0.0 2.58e+00    -  1.00e+00 5.89e-02f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 111r 0.0000000e+00 1.41e+04 3.33e+08  -0.0 2.30e+00    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 112r 0.0000000e+00 1.41e+04 2.99e+08  -0.0 2.04e+00    -  1.00e+00 8.60e-02f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 113r 0.0000000e+00 1.41e+04 2.54e+08  -0.0 1.88e+00    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 114r 0.0000000e+00 1.41e+04 1.93e+09  -0.0 1.67e+00    -  1.00e+00 2.37e-02f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 115r 0.0000000e+00 1.41e+04 2.14e+08  -0.0 1.63e+00    -  1.00e+00 1.25e-01f  4
+ 116r 0.0000000e+00 1.41e+04 2.67e+08  -0.0 2.41e-04   6.5 1.00e+00 1.00e+00f  1
+Warning: Cutting back alpha due to evaluation error
+ 117r 0.0000000e+00 1.41e+04 8.50e+08  -0.0 7.10e-04   6.1 1.00e+00 5.00e-01f  2
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 118r 0.0000000e+00 1.41e+04 7.01e+08  -0.0 2.71e-03   5.6 1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 119r 0.0000000e+00 1.41e+04 6.82e+08  -0.0 1.20e-02   5.1 7.87e-01 2.49e-02f  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 120r 0.0000000e+00 1.41e+04 5.67e+08  -0.0 2.23e-03   5.5 1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 121r 0.0000000e+00 1.41e+04 5.48e+08  -0.0 1.34e+00    -  9.51e-01 3.10e-02f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 122r 0.0000000e+00 1.41e+04 4.53e+08  -0.0 1.26e+00    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 123r 0.0000000e+00 1.41e+04 3.84e+08  -0.0 1.14e+00    -  1.00e+00 1.15e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 124r 0.0000000e+00 1.41e+04 3.23e+08  -0.0 1.04e+00    -  1.00e+00 1.22e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 125r 0.0000000e+00 1.41e+04 2.76e+08  -0.0 9.40e-01    -  1.00e+00 1.20e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 126r 0.0000000e+00 1.41e+04 2.37e+08  -0.0 8.50e-01    -  1.00e+00 1.22e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 127r 0.0000000e+00 1.41e+04 2.05e+08  -0.0 7.67e-01    -  1.00e+00 1.22e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 128r 0.0000000e+00 1.41e+04 1.80e+08  -0.0 6.90e-01    -  1.00e+00 1.23e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 129r 0.0000000e+00 1.41e+04 1.60e+08  -0.0 6.19e-01    -  1.00e+00 1.23e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 130r 0.0000000e+00 1.41e+04 1.44e+08  -0.0 5.54e-01    -  1.00e+00 1.24e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 131r 0.0000000e+00 1.41e+04 1.31e+08  -0.0 4.95e-01    -  1.00e+00 1.24e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 132r 0.0000000e+00 1.41e+04 1.22e+08  -0.0 4.42e-01    -  1.00e+00 1.24e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 133r 0.0000000e+00 1.41e+04 1.14e+08  -0.0 3.93e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 134r 0.0000000e+00 1.41e+04 1.08e+08  -0.0 3.49e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 135r 0.0000000e+00 1.41e+04 1.03e+08  -0.0 3.09e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 136r 0.0000000e+00 1.41e+04 9.91e+07  -0.0 2.74e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 137r 0.0000000e+00 1.41e+04 9.61e+07  -0.0 2.42e-01    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 138r 0.0000000e+00 1.41e+04 9.37e+07  -0.0 2.14e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 139r 0.0000000e+00 1.41e+04 9.18e+07  -0.0 1.89e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 140r 0.0000000e+00 1.41e+04 9.02e+07  -0.0 1.66e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 141r 0.0000000e+00 1.41e+04 8.90e+07  -0.0 1.46e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 142r 0.0000000e+00 1.41e+04 8.81e+07  -0.0 1.29e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 143r 0.0000000e+00 1.41e+04 8.73e+07  -0.0 1.13e-01    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 144r 0.0000000e+00 1.41e+04 8.67e+07  -0.0 9.97e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 145r 0.0000000e+00 1.41e+04 8.63e+07  -0.0 8.76e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 146r 0.0000000e+00 1.41e+04 8.59e+07  -0.0 7.69e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 147r 0.0000000e+00 1.41e+04 8.56e+07  -0.0 6.75e-02    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 148r 0.0000000e+00 1.41e+04 8.54e+07  -0.0 5.92e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 149r 0.0000000e+00 1.41e+04 8.52e+07  -0.0 5.20e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 150r 0.0000000e+00 1.41e+04 8.50e+07  -0.0 4.56e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 151r 0.0000000e+00 1.41e+04 8.49e+07  -0.0 3.99e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 152r 0.0000000e+00 1.41e+04 8.48e+07  -0.0 3.50e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 153r 0.0000000e+00 1.41e+04 8.47e+07  -0.0 3.07e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 154r 0.0000000e+00 1.41e+04 8.47e+07  -0.0 2.69e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 155r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 2.35e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 156r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 2.06e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 157r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 1.81e-02    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 158r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 1.58e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 159r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 1.38e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 160r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 1.21e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 161r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 1.06e-02    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 162r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 9.29e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 163r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 8.13e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 164r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 7.12e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 165r 0.0000000e+00 1.41e+04 8.43e+07  -0.0 6.23e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 166r 0.0000000e+00 1.41e+04 1.20e+08  -0.0 5.46e-03    -  1.00e+00 1.11e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 167r 0.0000000e+00 1.41e+04 1.67e+08  -0.0 4.86e-03    -  1.00e+00 1.10e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 168r 0.0000000e+00 1.41e+04 3.48e+08  -0.0 5.06e-03    -  1.00e+00 1.29e-01f  3
+ 169r 0.0000000e+00 1.41e+04 2.98e+08  -0.0 9.57e-04   6.0 1.00e+00 1.00e+00f  1
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 170r 0.0000000e+00 1.41e+04 2.78e+08  -0.0 9.03e-03    -  1.00e+00 6.12e-02f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 171r 0.0000000e+00 1.41e+04 2.66e+08  -0.0 7.44e-03    -  1.00e+00 4.00e-02f  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 172r 0.0000000e+00 1.41e+04 2.28e+08  -0.0 3.80e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 173r 0.0000000e+00 1.41e+04 1.99e+08  -0.0 3.20e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 174r 0.0000000e+00 1.41e+04 1.75e+08  -0.0 2.73e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 175r 0.0000000e+00 1.41e+04 1.56e+08  -0.0 2.39e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 176r 0.0000000e+00 1.41e+04 1.41e+08  -0.0 2.09e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 177r 0.0000000e+00 1.41e+04 1.30e+08  -0.0 1.83e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 178r 0.0000000e+00 1.41e+04 1.20e+08  -0.0 1.60e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 179r 0.0000000e+00 1.41e+04 1.13e+08  -0.0 1.50e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 180r 0.0000000e+00 1.41e+04 1.07e+08  -0.0 1.48e-03    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 181r 0.0000000e+00 1.41e+04 1.02e+08  -0.0 1.45e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 182r 0.0000000e+00 1.41e+04 9.86e+07  -0.0 1.43e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 183r 0.0000000e+00 1.41e+04 9.57e+07  -0.0 1.41e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 184r 0.0000000e+00 1.41e+04 9.33e+07  -0.0 1.39e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 185r 0.0000000e+00 1.41e+04 9.15e+07  -0.0 1.38e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 186r 0.0000000e+00 1.41e+04 9.00e+07  -0.0 1.37e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 187r 0.0000000e+00 1.41e+04 8.89e+07  -0.0 1.36e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 188r 0.0000000e+00 1.41e+04 8.80e+07  -0.0 1.35e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 189r 0.0000000e+00 1.41e+04 8.72e+07  -0.0 1.35e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 190r 0.0000000e+00 1.41e+04 8.67e+07  -0.0 1.35e-03    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 191r 0.0000000e+00 1.41e+04 8.62e+07  -0.0 1.36e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 192r 0.0000000e+00 1.41e+04 8.59e+07  -0.0 1.37e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 193r 0.0000000e+00 1.41e+04 8.56e+07  -0.0 1.39e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 194r 0.0000000e+00 1.41e+04 8.53e+07  -0.0 1.42e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 195r 0.0000000e+00 1.41e+04 8.52e+07  -0.0 1.47e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 196r 0.0000000e+00 1.41e+04 8.50e+07  -0.0 1.53e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 197r 0.0000000e+00 1.41e+04 8.49e+07  -0.0 1.61e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 198r 0.0000000e+00 1.41e+04 8.48e+07  -0.0 1.73e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 199r 0.0000000e+00 1.41e+04 8.47e+07  -0.0 1.91e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 200r 0.0000000e+00 1.41e+04 9.27e+07  -0.0 2.20e-03    -  1.00e+00 1.19e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 201r 0.0000000e+00 1.41e+04 1.37e+08  -0.0 2.56e-03    -  1.00e+00 1.09e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 202r 0.0000000e+00 1.41e+04 2.30e+08  -0.0 3.23e-03    -  1.00e+00 9.48e-02f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 203r 0.0000000e+00 1.41e+04 3.88e+08  -0.0 4.01e-03    -  1.00e+00 8.72e-02f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 204r 0.0000000e+00 1.41e+04 1.54e+09  -0.0 1.42e-02    -  1.00e+00 5.85e-02f  3
+ 205r 0.0000000e+00 1.41e+04 5.14e+08  -0.0 3.60e-05   6.4 9.47e-01 1.00e+00h  1
+ 206r 0.0000000e+00 1.41e+04 1.01e+09  -0.0 7.64e-05   6.8 1.00e+00 1.00e+00f  1
+ 207r 0.0000000e+00 1.41e+04 1.91e+09  -0.0 3.89e-04   6.3 1.00e+00 1.00e+00f  1
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 208r 0.0000000e+00 1.41e+04 1.84e+09  -0.0 1.96e-02    -  1.00e+00 3.30e-02f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 209r 0.0000000e+00 1.41e+04 1.50e+09  -0.0 4.71e-03    -  1.00e+00 1.20e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 210r 0.0000000e+00 1.41e+04 1.21e+09  -0.0 3.04e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 211r 0.0000000e+00 1.41e+04 9.74e+08  -0.0 2.71e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 212r 0.0000000e+00 1.41e+04 7.90e+08  -0.0 2.39e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 213r 0.0000000e+00 1.41e+04 6.44e+08  -0.0 2.09e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 214r 0.0000000e+00 1.41e+04 5.28e+08  -0.0 1.83e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 215r 0.0000000e+00 1.41e+04 4.36e+08  -0.0 1.60e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 216r 0.0000000e+00 1.41e+04 3.63e+08  -0.0 1.40e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 217r 0.0000000e+00 1.41e+04 3.05e+08  -0.0 1.23e-03    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 218r 0.0000000e+00 1.41e+04 2.60e+08  -0.0 1.07e-03    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 219r 0.0000000e+00 1.41e+04 2.23e+08  -0.0 9.39e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 220r 0.0000000e+00 1.41e+04 1.95e+08  -0.0 8.22e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 221r 0.0000000e+00 1.41e+04 1.72e+08  -0.0 7.19e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 222r 0.0000000e+00 1.41e+04 1.54e+08  -0.0 6.29e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 223r 0.0000000e+00 1.41e+04 1.39e+08  -0.0 5.51e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 224r 0.0000000e+00 1.41e+04 1.28e+08  -0.0 4.82e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 225r 0.0000000e+00 1.41e+04 1.19e+08  -0.0 4.22e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 226r 0.0000000e+00 1.41e+04 1.12e+08  -0.0 3.69e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 227r 0.0000000e+00 1.41e+04 1.06e+08  -0.0 3.23e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 228r 0.0000000e+00 1.41e+04 1.02e+08  -0.0 2.82e-04    -  1.00e+00 1.25e-01f  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 229r 0.0000000e+00 1.41e+04 9.81e+07  -0.0 2.47e-04    -  1.00e+00 1.25e-01f  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 230r 0.0000000e+00 1.41e+04 9.53e+07  -0.0 2.16e-04    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 231r 0.0000000e+00 1.41e+04 9.30e+07  -0.0 1.89e-04    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 232r 0.0000000e+00 1.41e+04 9.13e+07  -0.0 1.66e-04    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 233r 0.0000000e+00 1.41e+04 8.99e+07  -0.0 1.45e-04    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 234r 0.0000000e+00 1.41e+04 8.87e+07  -0.0 1.27e-04    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 235r 0.0000000e+00 1.41e+04 8.79e+07  -0.0 1.11e-04    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 236r 0.0000000e+00 1.41e+04 8.72e+07  -0.0 9.70e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 237r 0.0000000e+00 1.41e+04 8.66e+07  -0.0 8.49e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 238r 0.0000000e+00 1.41e+04 8.62e+07  -0.0 7.43e-05    -  1.00e+00 1.25e-01h  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 239r 0.0000000e+00 1.41e+04 8.58e+07  -0.0 6.50e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 240r 0.0000000e+00 1.41e+04 8.55e+07  -0.0 5.69e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 241r 0.0000000e+00 1.41e+04 8.53e+07  -0.0 4.98e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 242r 0.0000000e+00 1.41e+04 8.51e+07  -0.0 4.35e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 243r 0.0000000e+00 1.41e+04 8.50e+07  -0.0 3.81e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 244r 0.0000000e+00 1.41e+04 8.49e+07  -0.0 3.33e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 245r 0.0000000e+00 1.41e+04 8.48e+07  -0.0 2.92e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 246r 0.0000000e+00 1.41e+04 8.47e+07  -0.0 2.55e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 247r 0.0000000e+00 1.41e+04 8.47e+07  -0.0 2.23e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 248r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 1.95e-05    -  1.00e+00 1.25e-01h  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 249r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 1.71e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 250r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 1.50e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 251r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 1.31e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 252r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 1.15e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 253r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 1.00e-05    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 254r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 8.77e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 255r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 7.68e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 256r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 6.72e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 257r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 5.88e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 258r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 5.14e-06    -  1.00e+00 1.25e-01h  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 259r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 4.50e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 260r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 3.94e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 261r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 3.44e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 262r 0.0000000e+00 1.41e+04 8.45e+07  -0.0 3.01e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 263r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 2.64e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 264r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 2.31e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 265r 0.0000000e+00 1.41e+04 8.46e+07  -0.0 2.02e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 266r 0.0000000e+00 1.41e+04 8.47e+07  -0.0 1.77e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 267r 0.0000000e+00 1.41e+04 8.48e+07  -0.0 1.55e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 268r 0.0000000e+00 1.41e+04 8.49e+07  -0.0 1.35e-06    -  1.00e+00 1.25e-01h  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 269r 0.0000000e+00 1.41e+04 8.50e+07  -0.0 1.18e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 270r 0.0000000e+00 1.41e+04 8.51e+07  -0.0 1.04e-06    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 271r 0.0000000e+00 1.41e+04 8.52e+07  -0.0 9.06e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 272r 0.0000000e+00 1.41e+04 8.55e+07  -0.0 7.93e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 273r 0.0000000e+00 1.41e+04 8.55e+07  -0.0 6.94e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 274r 0.0000000e+00 1.41e+04 8.60e+07  -0.0 6.07e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 275r 0.0000000e+00 1.41e+04 8.65e+07  -0.0 5.31e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 276r 0.0000000e+00 1.41e+04 8.71e+07  -0.0 4.65e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 277r 0.0000000e+00 1.41e+04 8.76e+07  -0.0 4.07e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 278r 0.0000000e+00 1.41e+04 8.79e+07  -0.0 3.56e-07    -  1.00e+00 1.25e-01h  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 279r 0.0000000e+00 1.41e+04 8.87e+07  -0.0 3.11e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 280r 0.0000000e+00 1.41e+04 9.10e+07  -0.0 2.72e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 281r 0.0000000e+00 1.41e+04 9.41e+07  -0.0 2.38e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 282r 0.0000000e+00 1.41e+04 9.50e+07  -0.0 2.09e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 283r 0.0000000e+00 1.41e+04 9.44e+07  -0.0 1.83e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 284r 0.0000000e+00 1.41e+04 9.68e+07  -0.0 1.60e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 285r 0.0000000e+00 1.41e+04 1.11e+08  -0.0 1.40e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 286r 0.0000000e+00 1.41e+04 1.12e+08  -0.0 1.22e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 287r 0.0000000e+00 1.41e+04 1.27e+08  -0.0 1.07e-07    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 288r 0.0000000e+00 1.41e+04 1.82e+08  -0.0 9.36e-08    -  1.00e+00 1.25e-01h  3
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 289r 0.0000000e+00 1.41e+04 3.07e+08  -0.0 8.19e-08    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 290r 0.0000000e+00 1.41e+04 2.92e+08  -0.0 7.17e-08    -  1.00e+00 6.25e-02h  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 291r 0.0000000e+00 1.41e+04 3.96e+08  -0.0 6.72e-08    -  1.00e+00 1.25e-01h  4
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 292r 0.0000000e+00 1.41e+04 4.57e+08  -0.0 5.88e-08    -  1.00e+00 6.25e-02h  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 293r 0.0000000e+00 1.41e+04 4.57e+08  -0.0 5.51e-08    -  1.00e+00 6.25e-02h  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 294r 0.0000000e+00 1.41e+04 4.64e+08  -0.0 5.17e-08    -  1.00e+00 6.25e-02h  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 295r 0.0000000e+00 1.41e+04 5.30e+08  -0.0 4.84e-08    -  1.00e+00 6.25e-02h  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 296r 0.0000000e+00 1.41e+04 5.66e+08  -0.0 4.54e-08    -  1.00e+00 3.12e-02h  6
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 297r 0.0000000e+00 1.41e+04 9.10e+08  -0.0 4.40e-08    -  1.00e+00 3.12e-02h  6
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 298r 0.0000000e+00 1.41e+04 1.10e+09  -0.0 4.26e-08    -  1.00e+00 3.12e-02h  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 299r 0.0000000e+00 1.41e+04 1.17e+09  -0.0 4.13e-08    -  1.00e+00 6.25e-02h  5
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 300r 0.0000000e+00 1.41e+04 1.21e+09  -0.0 3.87e-08    -  1.00e+00 7.81e-03h  8
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 301r 0.0000000e+00 1.41e+04 1.26e+09  -0.0 3.84e-08    -  1.00e+00 7.81e-03h  8
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 302r 0.0000000e+00 1.41e+04 1.31e+09  -0.0 3.81e-08    -  1.00e+00 7.81e-03h  8
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 303r 0.0000000e+00 1.41e+04 1.50e+09  -0.0 3.78e-08    -  1.00e+00 3.12e-02h  6
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 304r 0.0000000e+00 1.41e+04 1.03e+10  -0.0 3.66e-08    -  1.00e+00 7.81e-03h  8
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 305r 0.0000000e+00 1.41e+04 1.22e+10  -0.0 3.63e-08    -  1.00e+00 3.91e-03h  9
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 306r 0.0000000e+00 1.41e+04 1.29e+10  -0.0 3.62e-08    -  1.00e+00 1.95e-03h 10
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 307r 0.0000000e+00 1.41e+04 1.35e+10  -0.0 3.61e-08    -  1.00e+00 1.95e-03h 10
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 308r 0.0000000e+00 1.41e+04 2.60e+10  -0.0 3.61e-08    -  1.00e+00 3.91e-03h  8
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 309r 0.0000000e+00 1.41e+04 9.24e+10  -0.0 3.59e-08    -  1.00e+00 1.95e-03h 10
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 310r 0.0000000e+00 1.41e+04 1.03e+11  -0.0 3.58e-08    -  1.00e+00 9.77e-04h 11
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 311r 0.0000000e+00 1.41e+04 1.08e+11  -0.0 3.58e-08    -  1.00e+00 4.88e-04h 12
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 312r 0.0000000e+00 1.41e+04 8.39e+11  -0.0 3.58e-08    -  1.00e+00 1.95e-03h 10
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 313r 0.0000000e+00 1.41e+04 9.00e+11  -0.0 3.57e-08    -  1.00e+00 2.44e-04h 13
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 314r 0.0000000e+00 1.41e+04 2.91e+12  -0.0 3.57e-08    -  1.00e+00 4.88e-04h 12
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 315r 0.0000000e+00 1.41e+04 3.03e+12  -0.0 3.57e-08    -  1.00e+00 1.22e-04h 14
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 316r 0.0000000e+00 1.41e+04 5.67e+12  -0.0 3.57e-08    -  1.00e+00 2.44e-04h 13
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 317r 0.0000000e+00 1.41e+04 6.06e+12  -0.0 3.57e-08    -  1.00e+00 6.10e-05h 15
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 318r 0.0000000e+00 1.41e+04 6.62e+12  -0.0 3.57e-08    -  1.00e+00 6.10e-05h 14
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 319r 0.0000000e+00 1.41e+04 7.58e+12  -0.0 3.57e-08    -  1.00e+00 6.10e-05h 15
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 320r 0.0000000e+00 1.41e+04 9.73e+12  -0.0 3.57e-08    -  1.00e+00 6.10e-05h 15
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 321r 0.0000000e+00 1.41e+04 3.55e+13  -0.0 3.57e-08    -  1.00e+00 6.10e-05h 15
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 322r 0.0000000e+00 1.41e+04 4.51e+13  -0.0 3.57e-08    -  1.00e+00 3.05e-05h 16
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 323r 0.0000000e+00 1.41e+04 4.32e+14  -0.0 3.57e-08    -  1.00e+00 3.05e-05h 16
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 324r 0.0000000e+00 1.41e+04 4.51e+14  -0.0 3.57e-08    -  1.00e+00 7.63e-06h 18
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 325r 0.0000000e+00 1.41e+04 4.80e+14  -0.0 3.57e-08    -  1.00e+00 7.63e-06h 18
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 326r 0.0000000e+00 1.41e+04 5.27e+14  -0.0 3.57e-08    -  1.00e+00 7.63e-06h 18
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 327r 0.0000000e+00 1.41e+04 6.25e+14  -0.0 3.57e-08    -  1.00e+00 7.63e-06h 18
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 328r 0.0000000e+00 1.41e+04 1.15e+15  -0.0 3.57e-08    -  1.00e+00 7.63e-06h 17
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 329r 0.0000000e+00 1.41e+04 1.27e+15  -0.0 3.57e-08    -  1.00e+00 3.81e-06h 19
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 330r 0.0000000e+00 1.41e+04 1.62e+15  -0.0 3.57e-08    -  1.00e+00 3.81e-06h 19
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 331r 0.0000000e+00 1.41e+04 1.69e+15  -0.0 3.57e-08    -  1.00e+00 1.91e-06h 20
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 332r 0.0000000e+00 1.41e+04 1.80e+15  -0.0 3.57e-08    -  1.00e+00 1.91e-06h 20
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 333r 0.0000000e+00 1.41e+04 2.02e+15  -0.0 3.57e-08    -  1.00e+00 1.91e-06h 20
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 334r 0.0000000e+00 1.41e+04 2.69e+15  -0.0 3.57e-08    -  1.00e+00 1.91e-06h 20
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 335r 0.0000000e+00 1.41e+04 2.83e+15  -0.0 3.57e-08    -  1.00e+00 9.54e-07h 21
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 336r 0.0000000e+00 1.41e+04 3.08e+15  -0.0 3.57e-08    -  1.00e+00 9.54e-07h 21
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 337r 0.0000000e+00 1.41e+04 3.62e+15  -0.0 3.57e-08    -  1.00e+00 9.54e-07h 21
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 338r 0.0000000e+00 1.41e+04 7.12e+15  -0.0 3.57e-08    -  1.00e+00 9.54e-07h 20
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 339r 0.0000000e+00 1.41e+04 8.14e+15  -0.0 3.57e-08    -  1.00e+00 4.77e-07h 22
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 340r 0.0000000e+00 1.41e+04 1.22e+16  -0.0 3.57e-08    -  1.00e+00 4.77e-07h 22
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 341r 0.0000000e+00 1.41e+04 1.32e+16  -0.0 3.57e-08    -  1.00e+00 2.38e-07h 23
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 342r 0.0000000e+00 1.41e+04 1.51e+16  -0.0 3.57e-08    -  1.00e+00 2.38e-07h 23
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 343r 0.0000000e+00 1.41e+04 2.31e+16  -0.0 3.57e-08    -  1.00e+00 2.38e-07h 23
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 344r 0.0000000e+00 1.41e+04 2.50e+16  -0.0 3.57e-08    -  1.00e+00 1.19e-07h 24
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 345r 0.0000000e+00 1.41e+04 2.91e+16  -0.0 3.57e-08    -  1.00e+00 1.19e-07h 24
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 346r 0.0000000e+00 1.41e+04 4.95e+16  -0.0 3.57e-08    -  1.00e+00 1.19e-07h 24
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 347r 0.0000000e+00 1.41e+04 5.47e+16  -0.0 3.57e-08    -  1.00e+00 5.96e-08h 25
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 348r 0.0000000e+00 1.41e+04 6.85e+16  -0.0 3.57e-08    -  1.00e+00 5.96e-08h 24
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 349r 0.0000000e+00 1.41e+04 7.14e+16  -0.0 3.57e-08    -  1.00e+00 2.98e-08h 26
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 350r 0.0000000e+00 1.41e+04 7.58e+16  -0.0 3.57e-08    -  1.00e+00 2.98e-08h 26
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 351r 0.0000000e+00 1.41e+04 8.40e+16  -0.0 3.57e-08    -  1.00e+00 2.98e-08h 26
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 352r 0.0000000e+00 1.41e+04 1.06e+17  -0.0 3.57e-08    -  1.00e+00 2.98e-08h 26
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Evaluation error during soft restoration phase step.
+Warning: Evaluation error during soft restoration phase step.
+Warning: Evaluation error during soft restoration phase step.
+ 353r 0.0000000e+00 1.41e+04 1.06e+17  -0.0 3.57e-08    -  0.00e+00 1.49e-08R 27
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 354r 0.0000000e+00 1.41e+04 1.18e+17  -0.0 4.80e-10    -  1.00e+00 1.49e-08f 27
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 355r 0.0000000e+00 1.41e+04 1.50e+17  -0.0 4.80e-10    -  1.00e+00 1.49e-08h 27
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 356r 0.0000000e+00 1.41e+04 1.57e+17  -0.0 4.80e-10    -  1.00e+00 7.45e-09h 28
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 357r 0.0000000e+00 1.41e+04 1.68e+17  -0.0 4.80e-10    -  1.00e+00 7.45e-09h 28
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 358r 0.0000000e+00 1.41e+04 1.90e+17  -0.0 4.80e-10    -  1.00e+00 7.45e-09h 28
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+ 359r 0.0000000e+00 1.41e+04 2.60e+17  -0.0 4.80e-10    -  1.00e+00 7.45e-09h 28
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+Warning: Cutting back alpha due to evaluation error
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+ 360r 0.0000000e+00 1.41e+04 2.75e+17  -0.0 4.80e-10    -  1.00e+00 3.73e-09h 29
+Reallocating memory for MA57: lfact (25580)
+Reallocating memory for MA57: lfact (39698)
+Reallocating memory for MA57: lfact (58134)
+Reallocating memory for MA57: lfact (81400)
+Reallocating memory for MA57: lfact (108983)
+Reallocating memory for MA57: lfact (169051)
+Reallocating memory for MA57: lfact (254065)
+Reallocating memory for MA57: lfact (357374)
+Reallocating memory for MA57: lfact (478979)
+Reallocating memory for MA57: lfact (679323)
+Reallocating memory for MA57: lfact (933709)
+Reallocating memory for MA57: lfact (1311223)
+Reallocating memory for MA57: lfact (1718556)
+Reallocating memory for MA57: lfact (1829877)
+WARNING: Problem in step computation; switching to emergency mode.
+Cannot call restoration phase at point that is almost feasible for the restoration NLP (violation 1.776357e-15).
+Abort in line search due to no other fall back.
+Step computation in the restoration phase failed.
+
+Number of Iterations....: 360
+
+                                   (scaled)                 (unscaled)
+Objective...............:   0.0000000000000000e+00    0.0000000000000000e+00
+Dual infeasibility......:   2.7484454076737501e+17    2.7484454076737501e+17
+Constraint violation....:   1.4086789788503074e+04    1.4086789788503074e+04
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   9.0155478057951433e-01    9.0155478057951433e-01
+Overall NLP error.......:   5.7267491466862219e+13    2.7484454076737501e+17
+
+
+Number of objective function evaluations             = 397
+Number of objective gradient evaluations             = 15
+Number of equality constraint evaluations            = 2051
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 362
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 361
+Total seconds in IPOPT                               = 1.749
+
+EXIT: Restoration Failed!

@@ -1,0 +1,41 @@
+This is Ipopt version 3.14.19, running with linear solver ma57.
+
+Number of nonzeros in equality constraint Jacobian...:  1164338
+Number of nonzeros in inequality constraint Jacobian.:        0
+Number of nonzeros in Lagrangian Hessian.............:   647194
+
+Total number of variables............................:   130050
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:    65025
+Total number of inequality constraints...............:        0
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        0
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  1.2267853e-02 1.12e-07 2.08e-07  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  1.1372506e-02 3.56e-17 1.17e-17  -8.6 1.18e+00    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 1
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.1372506247078274e-02    1.1372506247078274e-02
+Dual infeasibility......:   1.1650091156535647e-17    1.1650091156535647e-17
+Constraint violation....:   3.5645687519302721e-17    3.5645687519302721e-17
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   0.0000000000000000e+00    0.0000000000000000e+00
+Overall NLP error.......:   3.5645687519302721e-17    3.5645687519302721e-17
+
+
+Number of objective function evaluations             = 2
+Number of objective gradient evaluations             = 2
+Number of equality constraint evaluations            = 2
+Number of inequality constraint evaluations          = 0
+Number of equality constraint Jacobian evaluations   = 2
+Number of inequality constraint Jacobian evaluations = 0
+Number of Lagrangian Hessian evaluations             = 1
+Total seconds in IPOPT                               = 5.829
+
+EXIT: Optimal Solution Found.

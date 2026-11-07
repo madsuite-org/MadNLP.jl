@@ -1,0 +1,65 @@
+This is Ipopt version 3.14.19, running with linear solver ma57.
+
+Number of nonzeros in equality constraint Jacobian...:        0
+Number of nonzeros in inequality constraint Jacobian.:        5
+Number of nonzeros in Lagrangian Hessian.............:       28
+
+Total number of variables............................:        7
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        7
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:        3
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:        3
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0 -8.2754489e+02 0.00e+00 6.67e-01  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1 -8.2914787e+02 0.00e+00 4.52e-01  -1.7 3.80e-02    -  1.00e+00 9.95e-03f  1
+   2 -8.2579785e+02 0.00e+00 2.90e-07  -1.7 1.75e-01    -  1.00e+00 1.00e+00f  1
+   3 -8.2579983e+02 0.00e+00 1.50e-09  -3.8 3.88e-04    -  1.00e+00 1.00e+00f  1
+   4 -8.2580327e+02 0.00e+00 1.84e-11  -5.7 6.10e-04    -  1.00e+00 1.00e+00h  1
+   5 -8.2581787e+02 0.00e+00 1.80e-07  -8.6 9.55e-04    -  9.96e-01 1.00e+00h  1
+   6 -8.2605768e+02 0.00e+00 1.66e-07  -8.6 1.66e-03  -4.0 1.00e+00 1.00e+00h  1
+   7 -8.2660308e+02 0.00e+00 2.02e-07  -8.6 6.05e-03  -4.5 1.00e+00 1.00e+00h  1
+   8 -8.2990644e+02 0.00e+00 6.28e-07  -8.6 4.32e-02  -5.0 1.00e+00 1.00e+00h  1
+   9 -8.5912149e+02 0.00e+00 2.01e+00  -8.6 2.78e-01  -4.5 3.10e-01 7.41e-02f  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10 -8.6010609e+02 0.00e+00 3.32e+01  -8.6 1.60e-08   9.3 1.00e+00 1.00e+00f  1
+  11 -8.6042829e+02 0.00e+00 6.16e-01  -8.6 8.44e-10   8.8 1.00e+00 1.00e+00H  1
+  12 -8.6120603e+02 0.00e+00 3.09e+00  -8.6 1.68e-09   9.3 1.00e+00 1.00e+00h  1
+  13 -8.6184150e+02 0.00e+00 4.69e+00  -8.6 9.55e-10   9.7 1.00e+00 1.00e+00h  1
+  14 -8.6223893e+02 0.00e+00 6.02e+00  -8.6 4.60e-10  10.1 1.00e+00 1.00e+00h  1
+  15 -8.6652803e+02 0.00e+00 6.81e+01  -8.6 4.68e-09   9.6 1.00e+00 5.00e-01f  2
+  16 -8.6652803e+02 0.00e+00 6.81e+01  -8.6 6.39e-10  11.9 1.00e+00 9.31e-10h 31
+  17 -8.6649563e+02 0.00e+00 6.58e+01  -8.6 2.05e-09  11.4 1.00e+00 1.95e-03h 10
+  18 -8.6649563e+02 0.00e+00 6.58e+01  -8.6 1.46e-09  11.8 1.00e+00 2.98e-08h 26
+  19 -8.6649563e+02 0.00e+00 6.58e+01  -8.6 5.74e-11  12.2 1.00e+00 9.54e-07h 21
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  20 -8.6649563e+02 0.00e+00 6.58e+01  -8.6 1.61e-11  12.7 1.00e+00 1.49e-08h 27
+  21 -8.6620216e+02 0.00e+00 6.18e+01  -8.6 3.94e-11  12.2 1.00e+00 1.00e+00s 59
+Cannot call restoration phase at point that is almost feasible (violation 0.000000e+00).
+Abort in line search due to no other fall back.
+
+Number of Iterations....: 21
+
+                                   (scaled)                 (unscaled)
+Objective...............:  -8.6620215807152229e-06   -8.6620215807152226e+02
+Dual infeasibility......:   6.1798348340477141e+01    6.1798348340477142e+09
+Constraint violation....:   0.0000000000000000e+00    0.0000000000000000e+00
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   2.5059035596800667e-09    2.5059035596800666e-01
+Overall NLP error.......:   6.1798348340477141e+01    6.1798348340477142e+09
+
+
+Number of objective function evaluations             = 208
+Number of objective gradient evaluations             = 23
+Number of equality constraint evaluations            = 0
+Number of inequality constraint evaluations          = 208
+Number of equality constraint Jacobian evaluations   = 0
+Number of inequality constraint Jacobian evaluations = 23
+Number of Lagrangian Hessian evaluations             = 22
+Total seconds in IPOPT                               = 0.022
+
+EXIT: Error in step computation!
