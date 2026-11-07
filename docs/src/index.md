@@ -55,11 +55,11 @@ LapackCPUSolver         | dense  | CPU
 LDLSolver               | sparse | CPU
 CHOLMODSolver           | sparse | CPU
 ||
-__cuMadNLP / rocMadNLP / oneMadNLP__||
+__cuMadNLP / rocMadNLP / oneMadNLP / mtlMadNLP__||
 ||
 CUDSSSolver             | sparse | CUDA
 LapackCUDASolver         | dense  | CUDA
-SDSSolver               | sparse | AMD, Intel GPU
+SDSSolver               | sparse | AMD, Intel, Apple GPU
 LapackROCmSolver         | dense  | AMD GPU
 LapackOneMKLSolver       | dense  | Intel GPU
 ||
