@@ -138,7 +138,7 @@ function HS15Model(;T = Float64, x0=zeros(T,2), y0=zeros(T,2))
 end
 
 function NLPModels.obj(nlp::HS15Model, x::AbstractVector)
-    return 100.0 * (x[2] - x[1]^2)^2 + (1.0 - x[1])^2
+    return 100 * (x[2] - x[1]^2)^2 + (1 - x[1])^2
 end
 
 function NLPModels.grad!(nlp::HS15Model, x::AbstractVector, g::AbstractVector)
