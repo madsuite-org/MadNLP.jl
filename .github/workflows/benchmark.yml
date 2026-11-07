@@ -9,8 +9,9 @@ name: benchmark
 #   once, without waiting for `build`. While it runs, a comment shows the results so far; at the
 #   end it gives the comparison with the archived results of the base commit. A push to a
 #   labeled pull request replaces the running benchmark with one of the new commit. A commit
-#   with `[benchmark-continue]` in its message takes over the results kept for the pull request
-#   and solves what is left, for changes that do not affect the results.
+#   with `[benchmark-continue]` in its message, for changes that do not affect the results, leaves
+#   a running benchmark as it is; with none running, it takes over the results kept for the pull
+#   request and solves what is left.
 # - A commit on master is benchmarked when its `build` run succeeds, and archived on the
 #   `benchmark-results` branch under <hardware>/<commit>/, which is what a pull request is
 #   compared with.
@@ -103,6 +104,17 @@ jobs:
                 run = true; commit = p.head.sha; pr = String(p.number); base = p.base.sha;
                 const { data: head } = await github.rest.repos.getCommit({ owner, repo, ref: commit });
                 resume = head.commit.message.includes('[benchmark-continue]');
+                // a benchmark of this pull request that is running goes on undisturbed
+                if (resume) {
+                  const { data: active } = await github.rest.actions.listWorkflowRuns({
+                    owner, repo, workflow_id: 'benchmark.yml', branch: p.head.ref, status: 'in_progress',
+                  });
+                  const running = active.workflow_runs.filter(r => r.id !== context.runId);
+                  if (running.length > 0) {
+                    run = false;
+                    core.info(`leaving run ${running[0].id} as it is`);
+                  }
+                }
               }
             }
             core.info(`run=${run} commit=${commit} pr=${pr} base=${base} archive=${archive}`);

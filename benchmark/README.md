@@ -227,8 +227,9 @@ julia --project=benchmark benchmark/run.jl acopf,cops,mittelmann,cutest --device
   request then compares the pull request with `master`: the machines, the instances solved
   and the shifted geometric mean times of both. A push to a labeled pull request
   stops the running benchmark and starts one on the new commit. A commit with
-  `[benchmark-continue]` in its message keeps the results so far and solves what is left: use it
-  for changes that do not affect the results, such as to the report. The revision in the
+  `[benchmark-continue]` in its message, for changes that do not affect the results, leaves a
+  running benchmark as it is; with none running, it keeps the results so far and solves what is
+  left. The revision in the
   report then shows the first and the last commit.
   With the repository variables `BENCHMARK_LIVE_DIR` (a folder the server watches) and
   `BENCHMARK_REPORT_URL`, results are copied there every 30 s and the comment is a link to the
