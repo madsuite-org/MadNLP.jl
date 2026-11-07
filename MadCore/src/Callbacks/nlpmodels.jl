@@ -366,7 +366,7 @@ function create_sparse_fixed_handler(
     return fixed_handler, n, get_nnzj(nlp.meta), get_nnzh(nlp.meta)
 end
 
-function _parse_indexes(lvar, uvar, lcon, ucon, equality_treatment)
+function _parse_indexes(lvar::AbstractVector{T}, uvar, lcon, ucon, equality_treatment) where {T}
     m = length(lcon)
     if m > 0
         if equality_treatment == EnforceEquality
@@ -386,12 +386,12 @@ function _parse_indexes(lvar, uvar, lcon, ucon, equality_treatment)
         xu = uvar
     end
 
-    is_upper_unbounded = uvar .== Inf
-    is_lower_unbounded = lvar .==-Inf
+    is_upper_unbounded = uvar .== T(Inf)
+    is_lower_unbounded = lvar .== -T(Inf)
     ind_llb = findall((.~is_lower_unbounded) .* is_upper_unbounded)
     ind_uub = findall((is_lower_unbounded) .* (.~is_upper_unbounded))
-    ind_lb = findall(xl .!= -Inf)
-    ind_ub = findall(xu .!= Inf)
+    ind_lb = findall(xl .!= -T(Inf))
+    ind_ub = findall(xu .!= T(Inf))
 
     return (
         xl=xl,
@@ -540,8 +540,8 @@ function create_callback(
     ind_fixed = findall(lvar .== uvar)
     if length(ind_fixed) > 0 && fixed_variable_treatment == MakeParameter
         # Keep fixed variables but remove them from lb/ub
-        ind_lb = findall((indexes.xl .!= -Inf) .* (indexes.xl .!= indexes.xu))
-        ind_ub = findall((indexes.xu .!= Inf) .* (indexes.xl .!= indexes.xu))
+        ind_lb = findall((indexes.xl .!= -T(Inf)) .* (indexes.xl .!= indexes.xu))
+        ind_ub = findall((indexes.xu .!= T(Inf)) .* (indexes.xl .!= indexes.xu))
     else
         ind_lb = indexes.ind_lb
         ind_ub = indexes.ind_ub
@@ -592,8 +592,8 @@ function _treat_fixed_variable_initialize!(
     uvar,
 )  where {T, VT, VI, NLP, FH<:MakeParameter}
     x0[cb.fixed_handler.fixed] .= lvar[cb.fixed_handler.fixed]
-    lvar[cb.fixed_handler.fixed] .= -Inf
-    uvar[cb.fixed_handler.fixed] .=  Inf
+    lvar[cb.fixed_handler.fixed] .= -T(Inf)
+    uvar[cb.fixed_handler.fixed] .=  T(Inf)
     return
 end
 
