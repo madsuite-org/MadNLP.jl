@@ -68,7 +68,16 @@ extension loaded by AMDGPU.
 struct LapackROCmSolver end
 MadCore.backend_package(::Type{LapackROCmSolver}) = "AMDGPU"
 
-export LapackCUDASolver, CUDSSSolver, LapackROCmSolver
+"""
+    LapackOneMKLSolver
+
+Select the dense factorizations of oneMKL on Intel GPUs. Implemented in the
+extension loaded by oneAPI.
+"""
+struct LapackOneMKLSolver end
+MadCore.backend_package(::Type{LapackOneMKLSolver}) = "oneAPI"
+
+export LapackCUDASolver, CUDSSSolver, LapackROCmSolver, LapackOneMKLSolver
 
 # Fallback that fires when a GPU array reaches sparse-matrix construction but no
 # backend extension is active. The real overrides (CuSparseMatrixCSC /

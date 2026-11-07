@@ -1,0 +1,26 @@
+"""
+    oneMadNLP
+
+Entry point of MadNLP on Intel GPUs. Loads MadNLPCore with the GPU KKT systems of
+MadCoreGPU, the oneMKL solvers and SparseDirectSolver.jl. Models on `oneVector` are solved
+with the condensed KKT system and [`SDSSolver`](@ref) by default.
+"""
+module oneMadNLP
+
+import MadCore, MadCoreGPU, MadNLPCore
+import oneAPI
+using oneAPI: oneVector, oneAPIBackend
+import SparseDirectSolver
+
+using MadNLPCore
+for name in names(MadNLPCore)
+    name === :MadNLPCore && continue
+    @eval export $name
+end
+using MadCoreGPU: LapackOneMKLSolver
+export LapackOneMKLSolver, SDSSolver, SDSSolverOptions, oneAPIBackend
+
+include("sds.jl")
+include("options.jl")
+
+end # module
