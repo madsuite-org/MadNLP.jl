@@ -129,7 +129,7 @@ function create_kkt_system(
     # Evaluate sparsity pattern
     jac_sparsity_I = create_array(cb, Int32, cb.nnzj)
     jac_sparsity_J = create_array(cb, Int32, cb.nnzj)
-    jac_sparsity_callback!(cb,jac_sparsity_I, jac_sparsity_J)
+    jac_sparsity_callback!(cb, jac_sparsity_I, jac_sparsity_J)
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
     hess_sparsity_I, hess_sparsity_J = build_hessian_structure(cb, hessian_approximation)

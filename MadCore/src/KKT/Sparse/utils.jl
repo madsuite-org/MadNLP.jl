@@ -18,7 +18,7 @@ approximation only stores the diagonal.
 function build_hessian_structure(cb::SparseCallback, ::Type{<:ExactHessian})
     hess_I = create_array(cb, Int32, cb.nnzh)
     hess_J = create_array(cb, Int32, cb.nnzh)
-    hess_sparsity_callback!(cb,hess_I,hess_J)
+    hess_sparsity_callback!(cb, hess_I, hess_J)
     return hess_I, hess_J
 end
 # NB. Quasi-Newton methods require only the sparsity pattern

@@ -85,7 +85,7 @@ function transfer_values!(vec1, vec2, map)
 end
 
 function transfer!(dest::SparseMatrixCSC, src::SparseMatrixCOO, map::Vector{Int})
-    transfer_values!(dest.nzval, src.V, map)
+    return transfer_values!(dest.nzval, src.V, map)
 end
 
 function get_mapping(dest::SparseMatrixCSC{Tv1,Ti1}, src::SparseMatrixCOO{Tv2,Ti2}) where {Tv1,Tv2,Ti1,Ti2}
