@@ -11,7 +11,7 @@ const BOOTSTRAP = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstr
 const STYLE = """
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body,table,input,.form-control{font-size:14px;background:#fcfcfb}
-h1,h2,h3{font-size:14px;font-weight:600}h1{margin-top:1em}h2{margin:1.8em 0 .4em}h3{margin:1.2em 0 .4em;color:#52514e}
+h1,h2,h3{font-weight:600}h1{font-size:24px;margin:1em 0 .4em}h2{font-size:19px;margin:1.6em 0 .4em}h3{font-size:16px;margin:1.2em 0 .4em;color:#52514e}
 a{text-decoration:none}a:hover{text-decoration:underline}
 table{font-variant-numeric:tabular-nums;width:auto!important}
 td,th{text-align:right;white-space:nowrap}td:first-child,th:first-child,td.l,th.l{text-align:left}
@@ -22,9 +22,13 @@ svg{display:block;width:100%;max-width:620px;height:auto}
 .prof{position:relative;display:inline-block;vertical-align:top;width:100%;max-width:620px;margin:0 1.5em 1em 0}
 .tip{position:absolute;display:none;pointer-events:none;background:#fff;border:1px solid #d6d5cf;border-radius:4px;padding:4px 8px;white-space:nowrap}
 .bar{background:#fcfcfb;border-bottom:1px solid #d6d5cf;padding:.45em 0}
-.bar .top{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar .title{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bar .title b{font-size:20px}.bar .title b a[href="index.html"]{color:#0b0b0b}
+.tag{min-width:3.4em;text-align:center}
 .bar nav{display:flex;gap:1.1em;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
-table.summary{min-width:26em}table.summary tr.set td{background:#f3f2ee;font-weight:600}table.summary tr.set .m{font-weight:400;margin-left:.6em}
+table.cases td.l,table.cases th.l{border-left:2px solid #b8b7b1}
+table.summary{min-width:26em}table.summary tr.set td{font-weight:600}table.summary tr.cpu td{background:#e3eefb}table.summary tr.cuda td{background:#dff3e8}
+.cpu a,a.cpu{color:#1c5fb0}.cuda a,a.cuda{color:#0f7b4f}
+.tag{border-radius:3px;padding:0 6px;font-weight:600;flex:none}.tag.cpu{background:#e3eefb;color:#1c5fb0}.tag.cuda{background:#dff3e8;color:#0f7b4f}table.summary tr.set .m{font-weight:400;margin-left:.6em}
 """
 
 const SCRIPT = """
@@ -95,7 +99,9 @@ function report_sides(cand, base)
     sides = [(label(k, "master"), k, true) for k in keys_of(base) if k[2] != "ipopt"]
     append!(sides, [(label(k, "current"), k, false) for k in keys_of(cand)])
     sort!(sides; by = s -> s[2][2] != "ipopt")
-    return [Side(l, COLORS[mod1(i, length(COLORS))], k, b) for (i, (l, k, b)) in enumerate(sides)]
+    # Ipopt is black everywhere; the colours follow the columns of a device
+    color(i, k) = k[2] == "ipopt" ? "#0b0b0b" : COLORS[mod1(i, length(COLORS))]
+    return [Side(l, color(i, k), k, b) for (i, (l, k, b)) in enumerate(sides)]
 end
 
 side_rows(side, cand, base, set) = get((side.base ? base : cand).rows, (side.key[1], set, side.key[2]), Dict{String, Any}())
@@ -160,22 +166,13 @@ function profile_svg(io, title, sides, n, ratios)
 end
 
 # The solvers shown for a device: its own, with Ipopt as the reference of every device. MadNLP on
-# the host and a solver on a GPU are never compared.
+# the host and a solver on a device are never compared.
 on_device(sides, device) = [s for s in sides if s.key[1] == device || s.key[2] == "ipopt"]
-
-# One profile per device.
-function profile_section(io, set, sides, cand, base, wall)
-    for device in unique!([s.key[1] for s in sides])
-        device_profile(io, set, device, on_device(sides, device), cand, base, wall)
-    end
-    return
-end
 
 function device_profile(io, set, device, sides, cand, base, wall)
     rows = [side_rows(s, cand, base, set) for s in sides]
     kept = [i for i in eachindex(sides) if !isempty(rows[i])]
     isempty(kept) && return
-    println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
     if length(kept) < 2
         println(io, "<p class=\"m\">No profile: there is one solver on this device, and no archived results to compare with.</p>")
         return
@@ -209,32 +206,33 @@ end
 
 # The head of a table of Hans Mittelmann's benchmarks, per set: the scaled shifted geometric mean,
 # with the reference solver at 1, and the instances solved, over the instances all solvers have run.
-function summary_table(io, sets, sides, cand, base, wall)
-    kept = [s for s in sides if any(set -> !isempty(side_rows(s, cand, base, set)), sets)]
-    sort!(kept; by = s -> s.key[2] != "ipopt")
+function summary_table(io, blocks, sides, cand, base, wall)
+    # a column per label: Ipopt, master, current
+    labels = unique!([s.label for (set, device) in blocks for s in on_device(sides, device) if !isempty(side_rows(s, cand, base, set))])
+    sort!(labels; by = l -> something(findfirst(==(l), ["Ipopt", "master", "current"]), 4))
+    first_side(label) = first(s for s in sides if s.label == label)
+    info(field) = (s -> get(getfield(s.base ? base : cand, field), s.key, "–"))
     println(io, "<div class=\"table-responsive\"><table class=\"table table-sm summary\"><thead><tr><th></th>")
-    foreach(s -> print(io, "<th>", escape_html(s.label), "</th>"), kept)
-    println(io, "</tr></thead><tbody><tr class=\"m\"><td>rev</td>")
-    foreach(s -> print(io, "<td>", escape_html(get((s.base ? base : cand).revs, s.key, "–")), "</td>"), kept)
-    println(io, "</tr><tr class=\"m\"><td>benchmark</td>")
-    foreach(s -> print(io, "<td>", escape_html(get((s.base ? base : cand).harness, s.key, "–")), "</td>"), kept)
+    foreach(l -> print(io, "<th>", escape_html(l), "</th>"), labels)
+    print(io, "</tr></thead><tbody><tr class=\"m\"><td>rev</td>")
+    foreach(l -> print(io, "<td>", escape_html(info(:revs)(first_side(l))), "</td>"), labels)
+    print(io, "</tr><tr class=\"m\"><td>benchmark</td>")
+    foreach(l -> print(io, "<td>", escape_html(info(:harness)(first_side(l))), "</td>"), labels)
     println(io, "</tr>")
-    blank = "<td></td>"
-    for set in sets
-        rows = [side_rows(s, cand, base, set) for s in kept]
-        have = findall(!isempty, rows)
+    for (set, device) in blocks
+        here = Dict(s.label => side_rows(s, cand, base, set) for s in on_device(sides, device))
+        have = [l for l in labels if !isempty(get(here, l, Dict()))]
         isempty(have) && continue
-        cases = collect(reduce(intersect, [Set(keys(rows[i])) for i in have]))
+        cases = collect(reduce(intersect, [Set(keys(here[l])) for l in have]))
         isempty(cases) && continue
-        means = Dict(i => sgm([score_time(rows[i][c], wall) for c in cases]) + 10 for i in have)
+        means = Dict(l => sgm([score_time(here[l][c], wall) for c in cases]) + 10 for l in have)
         # Ipopt is the reference where it has run, else the best solver
-        reference = findfirst(i -> kept[i].key[2] == "ipopt", have)
-        scale = reference === nothing ? minimum(values(means)) : means[have[reference]]
-        cell(f) = join([i in have ? "<td>" * f(i) * "</td>" : blank for i in eachindex(kept)])
-        println(io, "<tr class=\"set\"><td colspan=\"", length(kept) + 1, "\"><a href=\"$set.html\">$set</a> <span class=\"m\">$(length(cases)) problems</span></td></tr>")
-        println(io, "<tr><td>solved</td>", cell(i -> "$(count(c -> solved(rows[i][c]), cases))/$(length(cases))"), "</tr>")
-        println(io, "<tr><td>SGM (s)</td>", cell(i -> @sprintf("%.2f", means[i] - 10)), "</tr>")
-        println(io, "<tr><td>SSGM</td>", cell(i -> @sprintf("%.3g", means[i] / scale)), "</tr>")
+        scale = haskey(means, "Ipopt") ? means["Ipopt"] : minimum(values(means))
+        cell(f) = join([l in have ? "<td>" * f(l) * "</td>" : "<td></td>" for l in labels])
+        println(io, "<tr class=\"set $device\"><td colspan=\"", length(labels) + 1, "\"><a href=\"$(page_name(device, set))\">$(get(SET_TITLES, set, set)), $(uppercase(device))</a> <span class=\"m\">$(length(cases)) problems</span></td></tr>")
+        println(io, "<tr><td>solved</td>", cell(l -> string(count(c -> solved(here[l][c]), cases))), "</tr>")
+        println(io, "<tr><td>SGM (s)</td>", cell(l -> @sprintf("%.2f", means[l] - 10)), "</tr>")
+        println(io, "<tr><td>SSGM</td>", cell(l -> @sprintf("%.3g", means[l] / scale)), "</tr>")
     end
     println(io, "</tbody></table></div>")
     return
@@ -284,7 +282,7 @@ end
 # What every worker is on.
 function workers_page(site, root, bar)
     io = IOBuffer()
-    println(io, "<h1>Workers</h1>")
+    println(io, "<h1>Worker status</h1>")
     for dir in sort!(readdir(root; join = true))
         file = joinpath(dir, "summary.md")
         isfile(file) || continue
@@ -306,27 +304,25 @@ function workers_page(site, root, bar)
     return
 end
 
-function set_page(site, set, sides, cand, base, wall, logs, bar; refresh)
+page_name(device, set) = "$device-$set.html"
+device_tag(device) = "<span class=\"tag $device\">$(uppercase(device))</span>"
+
+# The page of a set on a device.
+function set_page(site, set, device, sides, cand, base, wall, logs, bar; refresh)
+    sides = on_device(sides, device)
     rows = [side_rows(s, cand, base, set) for s in sides]
     keep = [i for i in eachindex(sides) if !isempty(rows[i])]
     sides, rows = sides[keep], rows[keep]
     io = IOBuffer()
-    println(io, "<h1>", escape_html(set), "</h1>")
-    println(io, "<h2>Performance profile</h2>")
-    profile_section(io, set, sides, cand, base, wall)
+    println(io, "<h1>", get(SET_TITLES, set, set), " ", device_tag(device), "</h1>")
+    summary_table(io, [(set, device)], sides, cand, base, wall)
+    println(io, "<h2>Performance profiles</h2>")
+    device_profile(io, set, device, sides, cand, base, wall)
     println(io, "<h2>Time breakdown</h2>")
-    for device in unique!([s.key[1] for s in sides])
-        here = [i for i in eachindex(sides) if sides[i].key[1] == device]
-        println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
-        breakdown(io, sides[here], rows[here])
-    end
+    breakdown(io, sides, rows)
     println(io, "<h2>Instances</h2><p class=\"m\">nv, nc: variables, constraints. st: ok solved, a solved to the acceptable level, t time limit, i iteration limit, f other failure; click it for the solver log. it: iterations. inf: infeasibility. nfac, nsol: factorizations, linear solves. nf, ng, nc, nj, nh: evaluations of the objective, gradient, constraints, Jacobian, Hessian.</p><input id=\"filter\" class=\"form-control form-control-sm mb-2\" style=\"max-width:20em\" placeholder=\"Filter by name\">")
-    for device in unique!([s.key[1] for s in sides])
-        here = [i for i in eachindex(sides) if sides[i].key[1] == device]
-        println(io, "<h3>", device == "cuda" ? "GPU" : "CPU", "</h3>")
-        instance_table(io, set, sides[here], rows[here], logs)
-    end
-    page(joinpath(site, "$set.html"), "$set: MadNLP benchmark", String(take!(io)), bar; refresh)
+    instance_table(io, set, sides, rows, logs)
+    page(joinpath(site, page_name(device, set)), "$set on $device: MadNLP benchmark", String(take!(io)), bar; refresh)
     return
 end
 
@@ -383,26 +379,26 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     sets = sort!(unique!([k[2] for k in keys(cand.rows)]))
     stamp = Dates.format(now(UTC), "yyyy-mm-dd HH:MM:SS")
     heading = (finished ? "Finished" : "In progress") * ", updated $stamp UTC."
-    devices = unique!([s.key[1] for s in sides])
     # the bar pinned to the top of every page
-    families = ["<a href=\"$set.html\">$(get(SET_TITLES, set, set))</a>" for set in sets]
+    devices = unique!([s.key[1] for s in sides if s.key[2] != "ipopt"])
+    menu(device) = "<nav class=\"$device\">" * device_tag(device) * join(["<a href=\"$(page_name(device, set))\">$(get(SET_TITLES, set, set))</a>" for set in sets]) * "</nav>"
     tools = String[]
-    finished || push!(tools, "<a href=\"workers.html\">Workers</a>")
-    push!(tools, "<a href=\"data/\">Files</a>")
+    finished || push!(tools, "<a href=\"workers.html\">Worker status</a>")
+    push!(tools, "<a href=\"data/\">Raw data</a>")
     heading_title = replace(escape_html(title), r"^[^(]*[^( ]" => m -> "<a href=\"index.html\">" * m * "</a>")
     link === nothing || (heading_title = replace(heading_title, r"pr #\d+" => m -> "<a href=\"" * escape_html(link) * "\">" * m * "</a>"))
-    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"top\"><b>" * heading_title * "</b> <span class=\"m\">" * heading *
-        "</span></div><nav>" * join(families) * "</nav><nav>" * join(tools) * "</nav></div></div>"
-    for set in sets
-        set_page(site, set, sides, cand, base, wall, logs, bar; refresh = !finished)
+    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"title\"><b>" * heading_title * "</b></div><nav>" * join(tools) * "<span class=\"m\">" * heading *
+        "</span></nav>" * join(menu.(devices)) * "</div></div>"
+    for device in devices, set in sets
+        set_page(site, set, device, sides, cand, base, wall, logs, bar; refresh = !finished)
     end
     finished || workers_page(site, root, bar)
     io = IOBuffer()
+    println(io, "<h1>Summary</h1>")
+    summary_table(io, [(set, device) for device in devices for set in sets], sides, cand, base, wall)
     for device in devices
-        println(io, "<h2>", solver_name(device), device == "cuda" ? " (GPU)" : " (CPU)", "</h2>")
         machines = get(cand.machines, device, String[])
-        isempty(machines) || println(io, "<p class=\"m\">", escape_html(join(machines, "; ")), "</p>")
-        summary_table(io, sets, on_device(sides, device), cand, base, wall)
+        isempty(machines) || println(io, "<p class=\"m\">", uppercase(device), ": ", escape_html(join(machines, "; ")), "</p>")
     end
     println(io, "<p class=\"m\">Benchmark $BENCHMARK_VERSION fixes the instances, the options, Ipopt and HSL $HSL_VERSION.</p>")
     base === nothing || println(io, "<p class=\"m\">Base: ", escape_html(base.label), "</p>")

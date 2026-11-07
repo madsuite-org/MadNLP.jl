@@ -262,9 +262,16 @@ function run_benchmark(
                 rows[(set, config)] = old
                 union!(done[config], string.(old[2:end, 1]))
             end
+            # results resumed from another commit say where they started
+            started = Dict{String, Any}()
+            if !overwrite && isfile(path * ".meta.toml") && length(rows[(set, config)][:, 1]) > 1
+                old = TOML.parsefile(path * ".meta.toml")
+                first_commit = get(old, "first_commit", get(old, "madnlp_commit", ""))
+                first_commit == get(meta, "madnlp_commit", "") || (started["first_commit"] = first_commit)
+            end
             write_meta(
                 path * ".meta.toml",
-                merge(Dict{String, Any}("set" => set, "config" => config, "workers" => length(slots)), meta, meta_of(config)),
+                merge(Dict{String, Any}("set" => set, "config" => config, "workers" => length(slots)), meta, meta_of(config), started),
             )
         end
         groups = Dict{Any, Vector{Tuple{String, String, Vector{String}}}}()
@@ -401,9 +408,11 @@ end
 function add!(rs::ResultSet, set, config, meta, rows)
     device = meta["device"]
     rs.rows[(device, set, config)] = Dict(string(r.case) => r for r in rows)
-    commit = get(meta, "madnlp_commit", "unknown")
+    abbreviate(commit) = replace(commit, r"^([0-9a-f]{8})[0-9a-f]{32}" => s"\1")
+    commit = abbreviate(get(meta, "madnlp_commit", "unknown"))
+    haskey(meta, "first_commit") && (commit = abbreviate(meta["first_commit"]) * " to " * commit)
     rs.harness[(device, config)] = get(meta, "benchmark_version", BENCHMARK_VERSION)
-    rs.revs[(device, config)] = config == "ipopt" ? "Ipopt " * get(meta, "ipopt_version", "?") : replace(commit, r"^([0-9a-f]{8})[0-9a-f]{32}" => s"\1")
+    rs.revs[(device, config)] = config == "ipopt" ? "Ipopt " * get(meta, "ipopt_version", "?") : commit
     line = hardware_line(meta)
     line in get!(rs.machines, device, String[]) || push!(rs.machines[device], line)
     return rs

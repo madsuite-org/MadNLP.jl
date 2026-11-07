@@ -8,7 +8,9 @@ name: benchmark
 # - A pull request is benchmarked on request: add the `benchmark` label. The run starts at
 #   once, without waiting for `build`. While it runs, a comment shows the results so far; at the
 #   end it gives the comparison with the archived results of the base commit. A push to a
-#   labeled pull request replaces the running benchmark with one of the new commit.
+#   labeled pull request replaces the running benchmark with one of the new commit. With the
+#   `benchmark-continue` label as well, the new commit takes over the results of the previous
+#   one and solves what is left, for changes that do not affect the results.
 # - A commit on master is benchmarked when its `build` run succeeds, and archived on the
 #   `benchmark-results` branch under <hardware>/<commit>/, which is what a pull request is
 #   compared with.
@@ -63,6 +65,7 @@ jobs:
       pr: ${{ steps.decide.outputs.pr }}
       base: ${{ steps.decide.outputs.base }}
       archive: ${{ steps.decide.outputs.archive }}
+      continue_from: ${{ steps.decide.outputs.continue_from }}
       sets: ${{ steps.decide.outputs.sets }}
       config: ${{ steps.decide.outputs.config }}
       device: ${{ steps.decide.outputs.device }}
@@ -78,7 +81,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const full = `${owner}/${repo}`;
-            let run = false, commit = '', pr = '', base = '', archive = false;
+            let run = false, commit = '', pr = '', base = '', archive = false, continue_from = '';
             let sets = 'acopf,cops,mittelmann,cutest', config = 'default', device = 'cpu,cuda';
             const labeled = p => p.labels.some(l => l.name === 'benchmark');
             if (context.eventName === 'workflow_dispatch') {
@@ -97,11 +100,15 @@ jobs:
               const requested = context.payload.action === 'synchronize' || context.payload.label.name === 'benchmark';
               if (requested && labeled(p) && p.head.repo.full_name === full) {
                 run = true; commit = p.head.sha; pr = String(p.number); base = p.base.sha;
+                if (context.payload.action === 'synchronize' && p.labels.some(l => l.name === 'benchmark-continue')) {
+                  continue_from = context.payload.before;
+                }
               }
             }
             core.info(`run=${run} commit=${commit} pr=${pr} base=${base} archive=${archive}`);
             core.setOutput('run', String(run)); core.setOutput('commit', commit); core.setOutput('pr', pr);
             core.setOutput('base', base); core.setOutput('archive', String(archive));
+            core.setOutput('continue_from', continue_from);
             core.setOutput('sets', sets); core.setOutput('config', config); core.setOutput('device', device);
 
   run:
@@ -158,6 +165,7 @@ jobs:
           PR: ${{ needs.gate.outputs.pr }}
           COMMIT: ${{ needs.gate.outputs.commit }}
           BASE: ${{ needs.gate.outputs.base }}
+          CONTINUE_FROM: ${{ needs.gate.outputs.continue_from }}
           # where the runner's ~/public_html/madnlp-benchmark is served; empty for no report
           REPORT_BASE: ${{ vars.BENCHMARK_REPORT_URL }}
         run: |
@@ -165,6 +173,11 @@ jobs:
           echo "CUDA_VISIBLE_DEVICES=${CUDA_VISIBLE_DEVICES-unset}"
           unset CUDA_VISIBLE_DEVICES
           nvidia-smi -L
+          # `benchmark-continue`: take over the results of the previous commit of the pull request
+          previous="$(dirname "$KEEP")/$CONTINUE_FROM"
+          if [ -n "$CONTINUE_FROM" ] && [ -d "$previous" ] && [ ! -e "$KEEP" ]; then
+            mv "$previous" "$KEEP"
+          fi
           # the results so far go to the pull request every minute; only this process gets the token
           mkdir -p "$KEEP"
           if [ -n "$PR" ]; then
