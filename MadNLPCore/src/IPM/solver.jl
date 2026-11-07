@@ -65,7 +65,8 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
             get_y(solver),
             get_rhs(solver),
             get_ind_ineq(solver),
-            opt.nlp_scaling_max_gradient
+            opt.nlp_scaling_max_gradient,
+            opt.nlp_scaling_min_value,
         )
     end
 

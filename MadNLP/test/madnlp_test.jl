@@ -491,3 +491,17 @@ end
     solver.RR.n_feasible_returns = MadNLP.MAX_FEASIBLE_RETURNS
     @test MadNLP.robust!(solver) == MadNLP.INFEASIBLE_PROBLEM_DETECTED
 end
+
+@testset "Scaling factor floor" begin
+    obj_scale = Ref(0.0)
+    MadNLP.set_obj_scale!(obj_scale, [1.0e12], 100.0, 1.0e-8)
+    @test obj_scale[] == 1.0e-8
+    MadNLP.set_obj_scale!(obj_scale, [1.0e3], 100.0, 1.0e-8)
+    @test obj_scale[] ≈ 0.1
+
+    con_scale = zeros(2)
+    MadNLP.set_con_scale_sparse!(con_scale, [1, 2], [1.0e12, 1.0e3], 100.0, 1.0e-8)
+    @test con_scale ≈ [1.0e-8, 0.1]
+    MadNLP.set_con_scale_dense!(con_scale, [1.0e12 0.0; 1.0e3 0.0], 100.0, 1.0e-8)
+    @test con_scale ≈ [1.0e-8, 0.1]
+end

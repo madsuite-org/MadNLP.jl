@@ -222,8 +222,8 @@ create_array(cb::AbstractCallback, args...) = similar(get_x0(cb.nlp), args...)
 #=
     Scaling
 =#
-function set_obj_scale!(obj_scale, f::VT, max_gradient) where {T,VT<:AbstractVector{T}}
-    return obj_scale[] = min(one(T), max_gradient / norm(f, Inf))
+function set_obj_scale!(obj_scale, f::VT, max_gradient, min_value = 1.0e-8) where {T,VT<:AbstractVector{T}}
+    return obj_scale[] = max(T(min_value), min(one(T), max_gradient / norm(f, Inf)))
 end
 
 function set_con_scale_sparse!(
@@ -231,10 +231,11 @@ function set_con_scale_sparse!(
     jac_I,
     jac_buffer,
     max_gradient,
+    min_value = 1.0e-8,
 ) where {T,VT<:AbstractVector{T}}
     fill!(con_scale, one(T))
     _set_con_scale_sparse!(con_scale, jac_I, jac_buffer)
-    return map!(x -> min(one(T), max_gradient / x), con_scale, con_scale)
+    return map!(x -> max(T(min_value), min(one(T), max_gradient / x)), con_scale, con_scale)
 end
 function _set_con_scale_sparse!(con_scale, jac_I, jac_buffer)
     @inbounds @simd for i in 1:length(jac_I)
@@ -255,11 +256,15 @@ function set_con_scale_dense!(
     con_scale::VT,
     jac_buffer,
     max_gradient,
+    min_value = 1.0e-8,
 ) where {T,VT<:AbstractVector{T}}
     return con_scale .=
-        min.(
-            one(T),
-            max_gradient ./ mapreduce(abs, max, jac_buffer, dims = 2, init = one(T)),
+        max.(
+            T(min_value),
+            min.(
+                one(T),
+                max_gradient ./ mapreduce(abs, max, jac_buffer, dims = 2, init = one(T)),
+            ),
         )
 end
 
@@ -705,6 +710,7 @@ function set_scaling!(
     rhs,
     ind_ineq,
     nlp_scaling_max_gradient,
+    nlp_scaling_min_value = 1.0e-8,
 )
     x0 = variable(x)
 
@@ -718,11 +724,11 @@ function set_scaling!(
     # Set scaling
     jac = similar(con_buffer, cb.nnzj)
     _eval_jac_wrapper!(cb, x0, jac)
-    set_con_scale_sparse!(con_scale, cb.jac_I, jac, nlp_scaling_max_gradient)
+    set_con_scale_sparse!(con_scale, cb.jac_I, jac, nlp_scaling_max_gradient, nlp_scaling_min_value)
     set_jac_scale_sparse!(jac_scale, con_scale, cb.jac_I)
 
     _eval_grad_f_wrapper!(cb, x0, grad_buffer)
-    set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
+    set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient, nlp_scaling_min_value)
 
     con_scale_slk = @view(con_scale[ind_ineq])
     y0 ./= con_scale
@@ -742,6 +748,7 @@ function set_scaling!(
     rhs,
     ind_ineq,
     nlp_scaling_max_gradient,
+    nlp_scaling_min_value = 1.0e-8,
 )
     x0 = variable(x)
 
@@ -756,10 +763,10 @@ function set_scaling!(
 
     # Set scaling
     NLPModels.jac_dense!(nlp, x0, jac_buffer)
-    set_con_scale_dense!(con_scale, jac_buffer, nlp_scaling_max_gradient)
+    set_con_scale_dense!(con_scale, jac_buffer, nlp_scaling_max_gradient, nlp_scaling_min_value)
 
     NLPModels.grad!(nlp, x0, grad_buffer)
-    set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
+    set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient, nlp_scaling_min_value)
 
     con_scale_slk = @view(con_scale[ind_ineq])
     y0 ./= con_scale
