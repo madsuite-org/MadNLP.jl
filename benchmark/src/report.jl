@@ -389,8 +389,9 @@ function write_report(site, root; base = nothing, wall = 7200.0, title = "MadNLP
     tools = String[]
     finished || push!(tools, "<a href=\"workers.html\">Workers</a>")
     push!(tools, "<a href=\"data/\">Files</a>")
-    link === nothing || push!(tools, "<a href=\"" * escape_html(link) * "\">Pull request</a>")
-    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"top\"><b>" * escape_html(title) * "</b> <span class=\"m\">" * heading *
+    heading_title = escape_html(title)
+    link === nothing || (heading_title = replace(heading_title, r"pr #\d+" => m -> "<a href=\"" * escape_html(link) * "\">" * m * "</a>"))
+    bar = "<div class=\"bar sticky-top\"><div class=\"container\"><div class=\"top\"><b>" * heading_title * "</b> <span class=\"m\">" * heading *
         "</span></div><nav>" * join(families) * "</nav><nav>" * join(tools) * "</nav></div></div>"
     for set in sets
         set_page(site, set, sides, cand, base, wall, logs, bar; refresh = !finished)
