@@ -53,3 +53,18 @@ solve_refine!
 KrylovIterator
 
 ```
+
+## Scaling and shifts of the factorized matrix
+With the options `kkt_scaler`, `primal_shift` and `dual_shift`, a sparse KKT system hands its
+linear solver a scaled and shifted copy of its matrix; iterative refinement works with the
+unscaled, unshifted system.
+
+```@docs
+create_kkt_linear_solver
+ScaledShiftedSolver
+AbstractScaler
+NoScaler
+JacobiScaler
+MaxNormScaler
+RuizScaler
+```

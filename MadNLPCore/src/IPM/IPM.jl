@@ -156,8 +156,8 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
         hessian_approximation=ipm_opt.hessian_approximation,
         opt_linear_solver=options.linear_solver,
         qn_options=ipm_opt.quasi_newton_options,
-        factorization_options(ipm_opt)...,
-        ipm_opt.kkt_options...,
+        # the top-level kkt_scaler, primal_shift and dual_shift take precedence over kkt_options
+        (; ipm_opt.kkt_options..., factorization_options(ipm_opt)...)...,
     )
 
     @trace(logger,"Initializing iterative solver.")

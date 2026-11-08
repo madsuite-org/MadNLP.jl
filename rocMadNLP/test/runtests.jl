@@ -32,5 +32,16 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             )
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
+        @testset "SDSSolver on the augmented system, Ruiz scaling and dual shift" begin
+            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            solver = MadNLPCore.MadNLPSolver(
+                nlp; print_level = MadNLPCore.ERROR, kkt_system = MadNLPCore.SparseKKTSystem,
+                sds_factorization = :ldl, sds_pivoting = :bk,
+                kkt_scaler = MadCore.RuizScaler(), dual_shift = 1.0e-10,
+            )
+            @test solver.kkt.linear_solver.wrapped isa MadCore.ScaledShiftedSolver
+            stats = MadNLPCore.solve!(solver)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+        end
     end
 end
