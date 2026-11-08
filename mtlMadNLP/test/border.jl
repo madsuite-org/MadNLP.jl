@@ -73,7 +73,7 @@ end
 
     solver = MadNLPSolver(
         BorderQPGPU(MtlVector(zeros(Float32, n)));
-        print_level = MadNLPCore.ERROR, kkt_system, kkt_options = border, tol,
+        print_level = MadNLPCore.ERROR, kkt_system, kkt_options = border, tol, sds_factorization = :ldl,
     )
     kkt = MadCore.get_kkt(solver)
     @test length(kkt.border.ind_D) == 1
@@ -82,8 +82,10 @@ end
     @test results.status == MadNLPCore.SOLVE_SUCCEEDED
     @test Array(results.solution) ≈ Array(results0.solution) rtol = 1.0f-2
 
-    @test_throws ArgumentError MadNLPSolver(
+    # Cholesky cannot factor the border, so the dense row is condensed
+    solver_c = MadNLPSolver(
         BorderQPGPU(MtlVector(zeros(Float32, n)));
-        print_level = MadNLPCore.ERROR, kkt_system, kkt_options = border, tol, sds_factorization = :cholesky,
+        print_level = MadNLPCore.ERROR, kkt_system, kkt_options = border, tol,
     )
+    @test isempty(MadCore.get_kkt(solver_c).border.ind_D)
 end

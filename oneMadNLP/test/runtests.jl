@@ -3,11 +3,11 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
 @testset "oneMadNLP" begin
     @testset "Exports and extensions" begin
         @test LapackOneMKLSolver === MadCoreGPU.LapackOneMKLSolver
-        @test SDSSolver <: MadCore.AbstractLinearSolver
+        @test SDSSolver === MadCoreGPU.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test oneMadNLP.oneAPIBackend === oneAPI.oneAPIBackend
         @test MadCore.default_options(LapackOneMKLSolver) isa MadCore.AbstractOptions
-        @test MadCore.default_options(SDSSolver) isa SDSSolverOptions
+        @test MadCore.default_options(SDSSolver) isa MadCore.AbstractOptions
         @test MadCore.input_type(SDSSolver) === :csc
         @test hasmethod(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, oneVector{Float64}}})
     end

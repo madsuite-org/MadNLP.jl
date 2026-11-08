@@ -10,6 +10,7 @@ module oneMadNLP
 import MadCore, MadCoreGPU, MadNLPCore
 import oneAPI
 using oneAPI: oneVector, oneAPIBackend
+# SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
 
 using MadNLPCore
@@ -17,10 +18,9 @@ for name in names(MadNLPCore)
     name === :MadNLPCore && continue
     @eval export $name
 end
-using MadCoreGPU: LapackOneMKLSolver
-export LapackOneMKLSolver, SDSSolver, SDSSolverOptions, oneAPIBackend
+using MadCoreGPU: LapackOneMKLSolver, SDSSolver
+export LapackOneMKLSolver, SDSSolver, oneAPIBackend
 
-include("sds.jl")
 include("options.jl")
 
 end # module

@@ -32,6 +32,15 @@ solver is built; MadNLP sets the default to [`MumpsSolver`](@ref).
 """
 default_sparse_solver(nlp) = DummySolver
 
+"""
+    default_dense_solver(nlp)
+
+Return the dense linear solver used when the option `linear_solver` is not set and the
+model has dense callbacks. The default is [`LapackCPUSolver`](@ref); the GPU entry points
+set it for their array types.
+"""
+default_dense_solver(nlp) = LapackCPUSolver
+
 function print_ignored_options(logger,option_dict)
     @warn(logger,"The following options are ignored: ")
     for (key,val) in option_dict

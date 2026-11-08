@@ -2,10 +2,10 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
 
 @testset "mtlMadNLP" begin
     @testset "Exports" begin
-        @test SDSSolver <: MadCore.AbstractLinearSolver
+        @test SDSSolver === MadCoreGPU.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test mtlMadNLP.MetalBackend === Metal.MetalBackend
-        @test MadCore.default_options(SDSSolver) isa SDSSolverOptions
+        @test MadCore.default_options(SDSSolver) isa MadCore.AbstractOptions
         @test MadCore.input_type(SDSSolver) === :csc
         @test hasmethod(MadNLPCore.MadNLPOptions{Float32}, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}})
     end

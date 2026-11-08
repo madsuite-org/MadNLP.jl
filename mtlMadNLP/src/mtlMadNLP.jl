@@ -11,6 +11,7 @@ import MadCore, MadCoreGPU, MadNLPCore
 # GPUArrays is a trigger of MadCoreGPUMetalExt, which defines the sparse matrix type.
 import GPUArrays, Metal
 using Metal: MtlVector, MetalBackend
+# SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
 
 using MadNLPCore
@@ -18,9 +19,9 @@ for name in names(MadNLPCore)
     name === :MadNLPCore && continue
     @eval export $name
 end
-export SDSSolver, SDSSolverOptions, MetalBackend
+using MadCoreGPU: SDSSolver
+export SDSSolver, MetalBackend
 
-include("sds.jl")
 include("options.jl")
 
 end # module

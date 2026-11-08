@@ -18,6 +18,7 @@ CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
 CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
 GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
 Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+SparseDirectSolver = "dc8e0fd9-41f1-440b-9624-22817132f700"
 cuBLAS = "182d3088-87b7-4494-8cad-fc6afaa545bc"
 cuSOLVER = "887afef0-6a32-4de5-add4-7827692ba8fc"
 cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
@@ -29,9 +30,11 @@ MadCoreGPUCUDAExt = ["CUDACore", "cuBLAS", "cuSOLVER", "cuSPARSE"]
 MadCoreGPUCUDSSExt = ["CUDACore", "CUDSS", "cuBLAS", "cuSOLVER", "cuSPARSE"]
 MadCoreGPUMetalExt = ["GPUArrays", "Metal"]
 MadCoreGPUOneAPIExt = "oneAPI"
+MadCoreGPUSDSExt = "SparseDirectSolver"
 
 [sources]
 MadCore = {path = "../MadCore"}
+SparseDirectSolver = {url = "https://github.com/exanauts/SparseDirectSolver.jl", rev = "compat/madnlp-0.12"}
 
 [compat]
 AMD = "0.5"
@@ -46,6 +49,7 @@ LinearAlgebra = "1.10"
 MadCore = "=0.12.0"
 Metal = "1.11"
 Metis = "1"
+SparseDirectSolver = "0.2"
 SparseArrays = "1.10"
 cuBLAS = "6"
 cuSOLVER = "6"
