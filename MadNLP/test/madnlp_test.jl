@@ -528,6 +528,15 @@ end
     @test MadNLP.get_mu(1.0e-6, 1.0e-11, 0.2, 1.5, 1.0e-3, 10.0) ≈ 1.0e-4 / 11
 end
       
+@testset "Divergence test on the primal variables" begin
+    # From x0 = 0, the termination measure of HS15 reaches about 3e4 while |x| stays below 1.3:
+    # the divergence test looks at the variables only, as Ipopt does.
+    solver = MadNLPSolver(MadNLPTests.HS15Model(); print_level = MadNLP.ERROR, diverging_iterates_tol = 1e3)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    solver = MadNLPSolver(MadNLPTests.HS15Model(); print_level = MadNLP.ERROR, diverging_iterates_tol = 1.0)
+    @test MadNLP.solve!(solver).status == MadNLP.DIVERGING_ITERATES
+end
+
 @testset "Original constraint violation" begin
     solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
     @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
