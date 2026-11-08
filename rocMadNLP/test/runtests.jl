@@ -22,6 +22,9 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
             @test opt.linear_solver === SDSSolver
             @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem
+            @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
+            @test opt.barrier.sigma_max == 2.0 && opt.barrier.mu_min == 1.0e-11
+            @test opt.slack_reset
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
