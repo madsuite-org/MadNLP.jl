@@ -518,3 +518,20 @@ end
     MadNLP.reset_slacks!(solver)
     @test xs == s0
 end
+
+@testset "Barrier decrease after a tiny step" begin
+    function mu_after(tiny)
+        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
+        MadNLP.initialize!(solver)
+        mu = MadNLP.get_mu(solver)
+        # a barrier sub-problem far from solved
+        MadNLP.set_inf_pr!(solver, 1.0e3)
+        solver.cnt.tiny_step = tiny
+        MadNLP._update_monotone!(solver.opt.barrier, solver, 1.0)
+        return MadNLP.get_mu(solver) / mu, solver.cnt.tiny_step
+    end
+    @test mu_after(false) == (1.0, false)
+    ratio, flag = mu_after(true)
+    @test ratio < 1
+    @test !flag
+end
