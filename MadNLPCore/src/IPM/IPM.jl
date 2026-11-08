@@ -103,6 +103,7 @@ end
 
 include("kernels.jl")
 include("restoration.jl")
+include("feasibility.jl")
 include("inertiacorrector.jl")
 include("barrier.jl")
 
