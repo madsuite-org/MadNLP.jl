@@ -526,11 +526,19 @@ end
     cs = view(c, MadNLP.get_ind_ineq(solver))
     s = MadNLP.slack(MadNLP.get_x(solver))
 
-    # a slack moved away from g(x) inside the bounds: a slack residual, no violation
+    # a slack moved away from g(x) inside the bounds on a row with no multiplier: a slack
+    # residual, no violation
+    y = view(MadNLP.get_y(solver), MadNLP.get_ind_ineq(solver))
+    y .= 0
     s .+= 1.0e-3
     cs .-= 1.0e-3
     @test MadNLP.get_inf_pr(c) >= 1.0e-3
     @test MadNLP.get_inf_pr_orig(solver) < 1.0e-6
+
+    # with a multiplier the residual counts, weighted by it
+    y .= 2.0
+    @test MadNLP.get_inf_pr_orig(solver) ≈ 2.0e-3
+    y .= 0
 
     # g(x) below its lower bound: a violation
     cs .-= 2.0

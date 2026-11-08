@@ -162,7 +162,7 @@ The algorithm stops as soon as `max(inf_pr, inf_du, inf_compl) < tol`, with
 \end{aligned}
 ```
 
-Here `inf_pr` is measured on the original constraints: on an inequality row it is the violation of the bounds by the constraint value, not the gap between the constraint and its slack.
+Here `inf_pr` is not the slack residual itself. On an inequality row it is the larger of the violation of the bounds by the constraint value and the slack residual weighted by the row's multiplier, so a slack that lags its constraint matters only as far as the multiplier makes it matter.
 The tolerance `tol` is set to `1e-8` by default.
 
 If the stopping criterion is not satisfied, MadNLP moves to the next iteration (here
