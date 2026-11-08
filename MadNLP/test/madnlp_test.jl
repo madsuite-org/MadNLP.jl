@@ -534,4 +534,13 @@ end
     ratio, flag = mu_after(true)
     @test ratio < 1
     @test !flag
+
+    # the flag does not outlive the iteration under an adaptive barrier, nor a resolve
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, barrier = MadNLP.QualityFunctionUpdate(1.0e-8, 10.0))
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    @test !solver.cnt.tiny_step
+    solver.cnt.tiny_step = true
+    MadNLP.reinitialize!(solver)
+    @test !solver.cnt.tiny_step
 end

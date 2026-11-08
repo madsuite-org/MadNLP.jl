@@ -15,8 +15,8 @@ function _update_monotone!(
     sc::T
 ) where T
     set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
-    # After a tiny step, μ decreases once even if the barrier sub-problem is not solved, as in
-    # Ipopt; the flag is consumed here.
+    # After a tiny step, μ decreases once even if the barrier sub-problem is not solved. This is
+    # a simplified form of Ipopt's tiny_step_flag, which waits for a second consecutive tiny step.
     tiny = get_cnt(solver).tiny_step
     get_cnt(solver).tiny_step = false
     while (get_mu(solver) > max((barrier.mu_min::T), get_opt(solver).tol/10)) &&

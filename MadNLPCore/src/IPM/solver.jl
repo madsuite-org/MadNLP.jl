@@ -133,6 +133,7 @@ function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     set_tau!(solver, max(get_opt(solver).tau_min,one(T)-get_opt(solver).barrier.mu_init))
     empty!(get_filter(solver))
     get_RR(solver) === nothing || (get_RR(solver).n_feasible_returns = 0)
+    get_cnt(solver).tiny_step = false
     push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
 
     return REGULAR
@@ -271,6 +272,8 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         # update the barrier parameter
         @trace(get_logger(solver),"Updating the barrier parameter.")
         update_barrier!(get_opt(solver).barrier, solver, sc)
+        # The tiny-step flag is about the last step only: clear it whichever barrier rule ran.
+        get_cnt(solver).tiny_step = false
 
         # factorize the KKT system and solve Newton step
         @trace(get_logger(solver),"Computing the Newton step.")
