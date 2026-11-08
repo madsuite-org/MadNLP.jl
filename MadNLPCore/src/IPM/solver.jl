@@ -262,7 +262,10 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
         # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
-        norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
+        # A watchdog trial step may blow up the iterate before the rollback, so the test waits
+        # until the watchdog ends.
+        !watchdog_active(solver) &&
+            norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
@@ -273,9 +276,18 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
 
         # update the barrier parameter
         @trace(get_logger(solver),"Updating the barrier parameter.")
+        mu_prev = get_mu(solver)
         update_barrier!(get_opt(solver).barrier, solver, sc)
         # The tiny-step flag is about the last step only: clear it whichever barrier rule ran.
         get_cnt(solver).tiny_step = false
+        # A change of the barrier parameter keeps a watchdog going, with the reference values
+        # re-evaluated at the new μ: the barrier objective and its directional derivative are
+        # affine in μ. This deviates from Ipopt, which resets the watchdog here. A later rollback
+        # restores the direction computed for the old μ, which need not be a descent direction
+        # for the new barrier objective; the filter and θ tests still guard acceptance.
+        if watchdog_active(solver) && get_mu(solver) != mu_prev
+            update_watchdog_reference!(watchdog_state(solver), get_mu(solver))
+        end
 
         # factorize the KKT system and solve Newton step
         @trace(get_logger(solver),"Computing the Newton step.")
@@ -284,8 +296,44 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
         inertia_correction!(get_inertia_corrector(solver), solver) || return ROBUST
 
+        # After watchdog_shortened_iter_trigger consecutive shortened steps, the watchdog saves the
+        # iterate and takes up to watchdog_trial_iter_max full steps, as in Ipopt.
+        if get_opt(solver).watchdog && hasfield(typeof(solver), :watchdog)
+            get_watchdog(solver) === nothing && set_watchdog!(solver, WatchdogState(solver))
+            wd = get_watchdog(solver)
+            if !wd.in_watchdog && wd.shortened_iter >= get_opt(solver).watchdog_shortened_iter_trigger
+                save_watchdog_iterate!(solver, wd)
+                wd.in_watchdog = true
+                wd.trial_iter = 0
+                wd.shortened_iter = 0
+            end
+        end
+
         @trace(get_logger(solver),"Backtracking line search initiated.")
         status = filter_line_search!(solver)
+        if watchdog_active(solver)
+            wd = watchdog_state(solver)
+            if status == LINESEARCH_SUCCEEDED && get_ftype(solver) != "w"
+                # a step accepted relative to the reference ends the watchdog
+                wd.in_watchdog = false
+            elseif status == LINESEARCH_SUCCEEDED
+                # a tentative full step, not acceptable relative to the reference
+                wd.trial_iter += 1
+                if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
+                    # no progress: roll back and take the usual line search from the reference.
+                    # A second-order correction there solves with the KKT system factorized at
+                    # the tentative point; the filter still vets any step it produces.
+                    restore_watchdog_iterate!(solver, wd)
+                    wd.in_watchdog = false
+                    status = filter_line_search!(solver)
+                end
+            else
+                # the watchdog failed: roll back and take the usual line search from the reference
+                restore_watchdog_iterate!(solver, wd)
+                wd.in_watchdog = false
+                status = filter_line_search!(solver)
+            end
+        end
         if status != LINESEARCH_SUCCEEDED
             return status
         end
@@ -317,6 +365,11 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         )
 
         eval_grad_f_wrapper!(solver, get_f(solver),get_x(solver))
+
+        # count consecutive shortened steps outside a watchdog
+        if get_opt(solver).watchdog && (wd = watchdog_state(solver)) !== nothing && !wd.in_watchdog
+            wd.shortened_iter = get_cnt(solver).l == 1 ? 0 : wd.shortened_iter + 1
+        end
 
         get_cnt(solver).k+=1
         @trace(get_logger(solver),"Proceeding to the next interior point iteration.")
@@ -461,6 +514,14 @@ function return_to_regular!(solver::AbstractMadNLPSolver{T}) where {T}
 end
 
 function robust!(solver::AbstractMadNLPSolver{T}) where T
+    # The watchdog belongs to the regular phase. Restoration entered from a tentative point
+    # starts from the reference instead.
+    if (wd = watchdog_state(solver)) !== nothing
+        wd.in_watchdog && restore_watchdog_iterate!(solver, wd)
+        wd.in_watchdog = false
+        wd.shortened_iter = 0
+        wd.trial_iter = 0
+    end
     initialize_robust_restorer!(solver)
     RR = get_RR(solver)
     while true

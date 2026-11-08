@@ -42,6 +42,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         primal(get_d(solver)),
         get_mu(solver),
     )
+    # During a watchdog, steps are accepted relative to the saved reference, as in Ipopt.
+    if watchdog_active(solver)
+        wd = watchdog_state(solver)
+        theta, varphi, varphi_d = wd.theta_ref, wd.varphi_ref, wd.varphi_d_ref
+    end
 
     alpha_max = get_alpha_max(
         primal(get_x(solver)),
@@ -73,9 +78,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         varphi_trial= get_varphi(get_obj_val_trial(solver),get_x_trial_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_trial_ur(solver),get_mu(solver))
         armijo_condition = is_armijo(varphi_trial,varphi,get_opt(solver).eta_phi,get_alpha(solver),varphi_d)
 
-        # A tiny step is accepted and flagged; the barrier update then decreases μ once.
+        # A tiny step is accepted and flagged; the barrier update then decreases μ once. During a
+        # watchdog it is not an acceptance relative to the reference.
         if small_search_norm
             get_cnt(solver).tiny_step = true
+            watchdog_active(solver) && set_ftype!(solver, "w")
             break
         end
 
@@ -88,6 +95,18 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         if get_ftype(solver) in ("f","h")
             @trace(get_logger(solver),"Step accepted with type $(get_ftype(solver))")
             break
+        end
+
+        # During a watchdog, the full step is taken tentatively (type "w") when it is not accepted.
+        # A full step that cannot be evaluated ends the watchdog: backtracking against the
+        # reference from a tentative point cannot succeed, so regular! rolls back instead.
+        if watchdog_active(solver) && get_cnt(solver).l == 1
+            if is_valid(get_c_trial(solver)) && isfinite(varphi_trial) && isfinite(theta_trial)
+                set_ftype!(solver, "w")
+                break
+            else
+                return RESTORE
+            end
         end
 
         if get_cnt(solver).l==1 && theta_trial>=theta
@@ -146,7 +165,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         get_cnt(solver).unsuccessful_iterate = 0
     end
 
-    if !switching_condition || !armijo_condition
+    # The filter is not augmented by a tentative watchdog step. A step that ends a watchdog
+    # augments it as usual, with the switching and Armijo tests taken relative to the reference.
+    # (Ipopt's reference-relative Armijo test uses the step length of the first watchdog step;
+    # here it uses the current step length.)
+    if (!switching_condition || !armijo_condition) && get_ftype(solver) != "w"
         @trace(get_logger(solver),"Augmenting filter.")
         augment_filter!(get_filter(solver), theta_trial, varphi_trial, get_opt(solver).gamma_theta, get_opt(solver).gamma_phi)
     end
