@@ -299,6 +299,12 @@ function _build_bordered_condensed_aug_symbolic(hess_com, jt_csc, ind_D, ::Type{
     return aug_com, dptr, hptr, jptr, border
 end
 
+# Sorting of vectors of tuples in the symbolic setup. A GPU backend whose arrays cannot sort
+# tuples overloads these.
+_sort_tuples!(v; kw...) = sort!(v; kw...)
+_sortperm_tuples(v; kw...) = sortperm(v; kw...)
+_permute_tuples!(v, p) = permute!(v, p)
+
 # A solver whose options select a Cholesky factorization (cholmod_algorithm,
 # cudss_algorithm, ...) cannot factor the bordered matrix; anything else is assumed
 # to handle a symmetric quasidefinite matrix.
@@ -424,9 +430,9 @@ nzval(H) = H.nzval
         @view(sym2[n+nnz(H)+1:n+nnz(H)+nnzjtsj])
     )
 
-    p = sortperm(sym2; by = ((i,j),) -> (j,i))
-    permute!(sym, p)
-    permute!(sym2, p)
+    p = _sortperm_tuples(sym2; by = ((i,j),) -> (j,i))
+    _permute_tuples!(sym, p)
+    _permute_tuples!(sym2, p)
 
     by(x,y) = x != y
 
