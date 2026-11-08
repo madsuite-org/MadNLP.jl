@@ -260,7 +260,8 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         inf_total <= get_opt(solver).acceptable_tol ?
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
-        inf_total >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
+        # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
+        norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
