@@ -12,6 +12,13 @@ for attribute in FILTER_FIELDS
     end
 end
 
+# A solver type without a `watchdog` field runs without the watchdog.
+get_watchdog(solver::AbstractMadNLPSolver) =
+    hasfield(typeof(solver), :watchdog) ? getfield(solver, :watchdog) : nothing
+set_watchdog!(solver::AbstractMadNLPSolver, wd) = setfield!(solver, :watchdog, wd)
+watchdog_active(solver::AbstractMadNLPSolver) =
+    get_opt(solver).watchdog && (wd = get_watchdog(solver)) !== nothing && wd.in_watchdog
+
 get_theta(solver::AbstractMadNLPSolver) = get_theta(get_c(solver))
 get_varphi(solver::AbstractMadNLPSolver) = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
 

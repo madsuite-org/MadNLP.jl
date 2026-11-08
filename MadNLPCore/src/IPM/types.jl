@@ -35,6 +35,26 @@ mutable struct RobustRestorer{T, VT}
     n_feasible_returns::Int
 end
 
+# State of the watchdog line search: the reference iterate and search direction it rolls back
+# to, the filter at that point, and the step counters.
+mutable struct WatchdogState{T, VT}
+    in_watchdog::Bool
+    shortened_iter::Int
+    trial_iter::Int
+    x_ref::VT
+    y_ref::VT
+    zl_ref::VT
+    zu_ref::VT
+    xl_ref::VT
+    xu_ref::VT
+    c_ref::VT
+    obj_val_ref::T
+    theta_ref::T
+    varphi_ref::T
+    d_ref::VT
+    filter::Vector{Tuple{T, T}}
+end
+
 abstract type AbstractInertiaCorrector end
 struct InertiaAuto <: AbstractInertiaCorrector end
 struct InertiaBased <: AbstractInertiaCorrector end

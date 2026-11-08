@@ -518,3 +518,24 @@ end
     MadNLP.reset_slacks!(solver)
     @test xs == s0
 end
+
+@testset "Watchdog line search" begin
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    on = madnlp(nlp; print_level = MadNLP.ERROR)
+    off = madnlp(nlp; print_level = MadNLP.ERROR, watchdog = false)
+    @test on.status == off.status == MadNLP.SOLVE_SUCCEEDED
+    @test on.objective ≈ off.objective
+
+    # the reference is restored exactly
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, watchdog = true, watchdog_shortened_iter_trigger = 0)
+    MadNLP.solve!(solver)
+    wd = MadNLP.WatchdogState(solver)
+    MadNLP.save_watchdog_iterate!(solver, wd)
+    x = copy(MadNLP.full(MadNLP.get_x(solver)))
+    y = copy(MadNLP.get_y(solver))
+    MadNLP.full(MadNLP.get_x(solver)) .+= 1.0
+    MadNLP.get_y(solver) .+= 1.0
+    MadNLP.restore_watchdog_iterate!(solver, wd)
+    @test MadNLP.full(MadNLP.get_x(solver)) == x
+    @test MadNLP.get_y(solver) == y
+end
