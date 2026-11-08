@@ -46,6 +46,7 @@ mutable struct ScaledShiftedSolver{T, MT, VT, VI, LS, SC <: AbstractScaler} <: A
     fmap::VI                 # nonzero of that pattern -> nonzero of A
     fcolptr::VI
     frow::VI
+    long_cols::VI            # columns of that pattern with more than SCALING_LONG_COLUMN nonzeros
     arow::VI                 # row and column of each nonzero of A
     acol::VI
     adiag::VI                # nonzero of each diagonal entry of A
@@ -82,13 +83,17 @@ function ScaledShiftedSolver(
     return ScaledShiftedSolver(
         A, fac, inner, kkt_scaler, T(primal_shift), T(dual_shift), n_primal,
         dv(ones(T, n)), dv(ones(T, n)), dv(zeros(T, nnz(S))), dv(Ti.(nonzeros(S))), dv(Ti.(S.colptr)),
-        dv(Ti.(S.rowval)), dv(Ti.(rows)), dv(Ti.(cols)), dv(Ti.(adiag)), logger,
+        dv(Ti.(S.rowval)), dv(Ti.(findall(>(SCALING_LONG_COLUMN), diff(S.colptr)))), dv(Ti.(rows)), dv(Ti.(cols)), dv(Ti.(adiag)), logger,
     )
 end
 
+# A GPU sweep gives each column with more nonzeros than this a work group of its own.
+const SCALING_LONG_COLUMN = 1024
+
 # One sweep of symmetric infinity-norm scaling over the pattern with both triangles, stored by
-# columns: dnew_j = d_j / sqrt(max_i |A_ij| d_i d_j).
-function scaling_sweep!(dnew::Vector, d, colptr, rowval, absnz)
+# columns: dnew_j = d_j / sqrt(max_i |A_ij| d_i d_j). On the host every column is handled
+# alike and `long_cols` is not used.
+function scaling_sweep!(dnew::Vector, d, colptr, rowval, absnz, long_cols)
     for j in eachindex(dnew)
         r = zero(eltype(d))
         for k in colptr[j]:(colptr[j + 1] - 1)
@@ -112,7 +117,7 @@ function update_scaling!(M::ScaledShiftedSolver{T}, scaler::AbstractScaler) wher
     sweeps > 0 || return
     M.absnz .= abs.(view(scaling_nzval(M.A), M.fmap))
     for _ in 1:sweeps
-        scaling_sweep!(M.dnew, M.d, M.fcolptr, M.frow, M.absnz)
+        scaling_sweep!(M.dnew, M.d, M.fcolptr, M.frow, M.absnz, M.long_cols)
         M.d, M.dnew = M.dnew, M.d
     end
     return
@@ -139,4 +144,6 @@ end
 is_inertia(M::ScaledShiftedSolver) = is_inertia(M.inner)
 inertia(M::ScaledShiftedSolver) = inertia(M.inner)
 improve!(M::ScaledShiftedSolver) = improve!(M.inner)
+is_factorized(M::ScaledShiftedSolver) = is_factorized(M.inner)
+is_async(M::ScaledShiftedSolver) = is_async(M.inner)
 introduce(M::ScaledShiftedSolver) = "$(introduce(M.inner)) (scaled and shifted)"
