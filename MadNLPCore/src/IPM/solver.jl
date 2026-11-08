@@ -132,7 +132,11 @@ function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     set_mu!(solver, get_opt(solver).barrier.mu_init)
     set_tau!(solver, max(get_opt(solver).tau_min,one(T)-get_opt(solver).barrier.mu_init))
     empty!(get_filter(solver))
-    get_RR(solver) === nothing || (get_RR(solver).n_feasible_returns = 0)
+    if get_RR(solver) !== nothing
+        get_RR(solver).n_feasible_returns = 0
+        get_RR(solver).n_stall_retries = 0
+        empty!(get_RR(solver).best_err)
+    end
     push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
 
     return REGULAR
@@ -262,6 +266,7 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         get_inf_total(solver) >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
+        regular_stalled(solver) && feasibility_fallback!(solver, get_theta(get_c(solver))) && continue
 
         # evaluate Hessian
         if (get_cnt(solver).k!=0 && !get_opt(solver).hessian_constant)
@@ -429,6 +434,25 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
 
         set_ftype!(solver, "f")
     end
+end
+
+# Largest number of times one solve runs the feasibility fallback on a stalled regular phase.
+const MAX_STALL_RETRIES = 3
+
+# Whether the KKT error of the regular phase has stalled, once restoration has been used.
+function regular_stalled(solver::AbstractMadNLPSolver{T}) where {T}
+    opt = get_opt(solver)
+    K = opt.regular_stall_iter
+    RR = get_RR(solver)
+    (K > 0 && opt.feasibility_fallback && RR !== nothing && RR.n_stall_retries < MAX_STALL_RETRIES) || return false
+    e = get_inf_total(solver)
+    isfinite(e) || return false
+    push!(RR.best_err, isempty(RR.best_err) ? e : min(RR.best_err[end], e))
+    j = length(RR.best_err)
+    (j > K && RR.best_err[j] > (1 - opt.regular_stall_tol) * RR.best_err[j - K]) || return false
+    RR.n_stall_retries += 1
+    empty!(RR.best_err)
+    return true
 end
 
 # Largest number of times one solve returns from a restoration phase that converged at a

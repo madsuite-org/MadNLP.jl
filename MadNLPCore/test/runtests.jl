@@ -64,6 +64,18 @@ struct MyLDL end
         @test a.iter == b.iter && a.objective == b.objective
     end
 
+    @testset "Regular-phase stall retry" begin
+        wb = WachBiegModel()
+        opts = (linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
+        stats = madnlp(wb; opts..., feasibility_fallback = true, regular_stall_iter = 1)
+        @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+        @test stats.solution ≈ [1.0, 0.0, 0.5] atol = 1e-6
+        # A solve that never enters restoration is unchanged.
+        a = madnlp(nlp; opts...)
+        b = madnlp(nlp; opts..., feasibility_fallback = true, regular_stall_iter = 1)
+        @test a.iter == b.iter && a.objective == b.objective
+    end
+
     @testset "Solve with LAPACK" begin
         stats = madnlp(
             nlp;

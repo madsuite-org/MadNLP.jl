@@ -93,6 +93,8 @@ required\\_infeasibility\\_reduction        | 0.9             | required reducti
 feasibility\\_fallback       | `false`              | when the restoration phase fails, retry from its starting point by projected gradient descent on the constraint violation
 feasibility\\_fallback\\_max\\_iter | 10000     | iteration limit of the fallback
 feasibility\\_fallback\\_reduction | 1e-2         | the fallback stops once the constraint violation falls by this factor
+regular\\_stall\\_iter        | 0                    | with `feasibility_fallback`, once the solve has used the restoration phase, run the fallback from the current point when the KKT error has improved by less than `regular_stall_tol` over this many regular iterations; at most 3 times per solve (0: never)
+regular\\_stall\\_tol         | 1e-2                 | relative improvement that counts as progress for `regular_stall_iter`
 ||
 __Line search__||
 ||
@@ -182,6 +184,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     feasibility_fallback::Bool = false
     feasibility_fallback_max_iter::Int = 10_000
     feasibility_fallback_reduction::T = 1.0e-2
+    regular_stall_iter::Int = 0
+    regular_stall_tol::T = 1e-2
 
     # Line search
     obj_max_inc::T = 5.

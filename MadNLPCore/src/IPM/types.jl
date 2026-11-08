@@ -39,6 +39,8 @@ mutable struct RobustRestorer{T, VT}
     g_fb::VT
     x_prev_fb::VT
     g_prev_fb::VT
+    best_err::Vector{T}
+    n_stall_retries::Int
 end
 
 abstract type AbstractInertiaCorrector end
