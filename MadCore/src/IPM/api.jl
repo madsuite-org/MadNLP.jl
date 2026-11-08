@@ -32,4 +32,22 @@ end
 get_kkt_error(solver::AbstractMadNLPSolver) = max(get_inf_pr(solver), get_inf_du(solver), get_inf_compl(solver))
 get_inf_compl(solver::AbstractMadNLPSolver{T}, sc::T; mu=get_mu(solver)) where {T} = get_inf_compl(get_x_lr(solver),get_xl_r(solver),get_zl_r(solver),get_xu_r(solver),get_x_ur(solver),get_zu_r(solver), mu, sc)
 get_inf_barrier(solver::AbstractMadNLPSolver) = max(get_inf_pr(solver),get_inf_du(solver),get_inf_compl_mu(solver))
-get_inf_total(solver::AbstractMadNLPSolver) = max(get_inf_pr(solver),get_inf_du(solver),get_inf_compl(solver))
+"""
+    get_inf_pr_orig(solver)
+
+Constraint violation of the original problem: |c| on equality rows and the violation of the
+bounds by g(x) = c + s on inequality rows. Unlike the slack residual held by
+`get_inf_pr(solver)`, it does not count a slack that differs from g(x) inside the bounds.
+"""
+function get_inf_pr_orig(solver::AbstractMadNLPSolver{T}) where {T}
+    buf = dual(get__w1(solver))
+    ind_ineq = get_ind_ineq(solver)
+    copyto!(buf, get_c(solver))
+    g = view(buf, ind_ineq)
+    g .+= slack(get_x(solver))
+    g .= max.(zero(T), g .- slack(get_xu(solver)), slack(get_xl(solver)) .- g)
+    return norm(buf, Inf)
+end
+# The convergence test uses the original constraint violation, as Ipopt does; the filter and
+# the barrier sub-problem keep the slack residual.
+get_inf_total(solver::AbstractMadNLPSolver) = max(get_inf_pr_orig(solver), get_inf_du(solver), get_inf_compl(solver))
