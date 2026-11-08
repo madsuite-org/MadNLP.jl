@@ -5,11 +5,11 @@ import SuiteSparse
 for name in MadCore.public_names()
     @eval import MadCore: $name
 end
-import Base: @kwdef, copyto!, size
+import Base: @kwdef, finalize, size
 import LinearAlgebra: issuccess
-import MadCore: CHOLESKY, InertiaException, LDL, LinearFactorization,
-    get_tril_to_full, nzval
-import SparseArrays: SparseMatrixCSC
+import MadCore: CHOLESKY, InertiaException, LDL, LinearFactorization, get_tril_to_full,
+    nzval
+import SparseArrays: SparseMatrixCSC, nnz, sparse
 
 # UMFPACK and CHOLMOD are only available if Julia was built with the GPL libraries.
 @static if Base.USE_GPL_LIBS

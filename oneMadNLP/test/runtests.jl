@@ -29,7 +29,7 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
         # Arc GPUs have no native Float64, so the solves run in Float32.
         T = oneL0.module_properties(oneAPI.device()).fp64flags == 0 ? Float32 : Float64
         @testset "Option presets for oneVector models, $T" begin
-            nlp = MadNLPCore.SparseWrapperModel(oneVector, MadNLPCore.HS15Model(; T))
+            nlp = MadCore.SparseWrapperModel(oneVector, MadNLPCore.HS15Model(; T))
             opt = MadNLPCore.MadNLPOptions{T}(nlp)
             @test opt.linear_solver === SDSSolver
             @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem

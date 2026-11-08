@@ -36,7 +36,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
         @testset "SDSSolver with Ruiz scaling" begin
-            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            nlp = MadCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
             solver = MadNLPCore.MadNLPSolver(nlp; print_level = MadNLPCore.ERROR, kkt_scaler = MadCore.RuizScaler())
             @test solver.kkt.linear_solver.wrapped isa MadCore.ScaledShiftedSolver
             stats = MadNLPCore.solve!(solver)
