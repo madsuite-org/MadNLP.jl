@@ -97,6 +97,8 @@ function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger()
     x = similar(nzval, n)
     b = similar(nzval, n)
     SDS.analyze!(inner, x, b; asynchronous = false)
+    # Refactorization needs a first factorization, on the analysis values.
+    SDS.factorize!(inner, x, b; asynchronous = false)
     return SDSState{T, typeof(inner), typeof(csc), typeof(x)}(inner, csc, x, b, 0, opt, logger)
 end
 
