@@ -46,7 +46,9 @@ function update_watchdog_reference!(wd::WatchdogState, mu)
     return
 end
 
-# Rolls back to the reference and recomputes the gradient there.
+# Rolls back to the reference and recomputes the gradient there. The Jacobian product `jacl`
+# and the KKT factorization stay at the tentative point until the next iteration evaluates them;
+# a second-order correction or a restoration phase started right after a rollback sees them.
 function restore_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogState)
     copyto!(full(get_x(solver)), wd.x_ref)
     copyto!(get_y(solver), wd.y_ref)

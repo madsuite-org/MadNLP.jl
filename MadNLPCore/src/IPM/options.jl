@@ -189,10 +189,10 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     eta_phi::T = 1e-4
     kappa_soc::T = 0.99
     slack_reset::Bool = false
+    slack_reset_tol::T = 1.0e-6
     watchdog::Bool = true
     watchdog_shortened_iter_trigger::Int = 10
     watchdog_trial_iter_max::Int = 3
-    slack_reset_tol::T = 1.0e-6
     gamma_theta::T = 1e-5
     gamma_phi::T = 1e-5
     delta::T = 1

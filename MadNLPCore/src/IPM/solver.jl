@@ -277,7 +277,9 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         update_barrier!(get_opt(solver).barrier, solver, sc)
         # A change of the barrier parameter keeps a watchdog going, with the reference values
         # re-evaluated at the new μ: the barrier objective and its directional derivative are
-        # affine in μ.
+        # affine in μ. This deviates from Ipopt, which resets the watchdog here. A later rollback
+        # restores the direction computed for the old μ, which need not be a descent direction
+        # for the new barrier objective; the filter and θ tests still guard acceptance.
         if watchdog_active(solver) && get_mu(solver) != mu_prev
             update_watchdog_reference!(watchdog_state(solver), get_mu(solver))
         end

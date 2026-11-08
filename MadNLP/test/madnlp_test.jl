@@ -519,6 +519,12 @@ end
     @test xs == s0
 end
 
+# counts the tentative watchdog steps of a solve
+struct WatchdogSteps <: MadNLP.AbstractUserCallback
+    count::Base.RefValue{Int}
+end
+(cb::WatchdogSteps)(solver, mode) = (MadNLP.get_ftype(solver) == "w" && (cb.count[] += 1); true)
+
 @testset "Watchdog line search" begin
     nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
     on = madnlp(nlp; print_level = MadNLP.ERROR)
@@ -534,10 +540,6 @@ end
     end
 
     # tentative watchdog steps are taken and the solve still reaches the solution
-    struct WatchdogSteps <: MadNLP.AbstractUserCallback
-        count::Base.RefValue{Int}
-    end
-    (cb::WatchdogSteps)(solver, mode) = (MadNLP.get_ftype(solver) == "w" && (cb.count[] += 1); true)
     steps = WatchdogSteps(Ref(0))
     nlp_far = MadNLPTests.HS15Model(; x0 = [-2.0, 1.0])
     r = madnlp(nlp_far; print_level = MadNLP.ERROR, watchdog_shortened_iter_trigger = 0, intermediate_callback = steps)

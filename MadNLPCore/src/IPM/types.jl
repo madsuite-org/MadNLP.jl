@@ -36,7 +36,7 @@ mutable struct RobustRestorer{T, VT}
 end
 
 # State of the watchdog line search: the reference iterate and search direction it rolls back
-# to, the filter at that point, and the step counters.
+# to, the reference values of the acceptance tests, and the step counters.
 mutable struct WatchdogState{T, VT}
     in_watchdog::Bool
     shortened_iter::Int
