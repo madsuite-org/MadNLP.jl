@@ -526,9 +526,16 @@ end
     @test on.status == off.status == MadNLP.SOLVE_SUCCEEDED
     @test on.objective ≈ off.objective
 
+    # a watchdog started at every iteration still reaches the same solution
+    for trigger in (0, 1)
+        r = madnlp(nlp; print_level = MadNLP.ERROR, watchdog_shortened_iter_trigger = trigger)
+        @test r.status == MadNLP.SOLVE_SUCCEEDED
+        @test r.objective ≈ off.objective atol = 1.0e-6
+    end
+
     # the reference is restored exactly
     solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, watchdog = true, watchdog_shortened_iter_trigger = 0)
-    MadNLP.solve!(solver)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
     wd = MadNLP.WatchdogState(solver)
     MadNLP.save_watchdog_iterate!(solver, wd)
     x = copy(MadNLP.full(MadNLP.get_x(solver)))

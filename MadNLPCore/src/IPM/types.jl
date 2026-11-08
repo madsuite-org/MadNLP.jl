@@ -51,6 +51,7 @@ mutable struct WatchdogState{T, VT}
     obj_val_ref::T
     theta_ref::T
     varphi_ref::T
+    varphi_d_ref::T
     d_ref::VT
     filter::Vector{Tuple{T, T}}
 end

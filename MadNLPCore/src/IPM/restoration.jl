@@ -7,7 +7,7 @@ function WatchdogState(solver::AbstractMadNLPSolver{T}) where {T}
         vec(full(get_zl(solver))), vec(full(get_zu(solver))),
         vec(full(get_xl(solver))), vec(full(get_xu(solver))),
         vec(get_c(solver)),
-        zero(T), zero(T), zero(T),
+        zero(T), zero(T), zero(T), zero(T),
         vec(full(get_d(solver))),
         Tuple{T, T}[],
     )
@@ -25,6 +25,10 @@ function save_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogState)
     wd.obj_val_ref = get_obj_val(solver)
     wd.theta_ref = get_theta(get_c(solver))
     wd.varphi_ref = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
+    wd.varphi_d_ref = get_varphi_d(
+        primal(get_f(solver)), primal(get_x(solver)), primal(get_xl(solver)), primal(get_xu(solver)),
+        primal(get_d(solver)), get_mu(solver),
+    )
     copyto!(wd.d_ref, full(get_d(solver)))
     empty!(wd.filter)
     append!(wd.filter, get_filter(solver))

@@ -42,6 +42,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         primal(get_d(solver)),
         get_mu(solver),
     )
+    # During a watchdog, steps are accepted relative to the saved reference, as in Ipopt.
+    if watchdog_active(solver)
+        wd = watchdog_state(solver)
+        theta, varphi, varphi_d = wd.theta_ref, wd.varphi_ref, wd.varphi_d_ref
+    end
 
     alpha_max = get_alpha_max(
         primal(get_x(solver)),
@@ -149,8 +154,9 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         get_cnt(solver).unsuccessful_iterate = 0
     end
 
-    # The filter is not augmented during a watchdog trial step.
-    if (!switching_condition || !armijo_condition) && !watchdog_active(solver)
+    # The filter is not augmented by a tentative watchdog step. A step that ends a watchdog adds
+    # the reference, since theta and varphi hold the reference values then.
+    if (!switching_condition || !armijo_condition) && get_ftype(solver) != "w"
         @trace(get_logger(solver),"Augmenting filter.")
         augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta)
     end

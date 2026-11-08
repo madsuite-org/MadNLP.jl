@@ -307,23 +307,16 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         if watchdog_active(solver)
             wd = watchdog_state(solver)
             if status == LINESEARCH_SUCCEEDED && get_ftype(solver) != "w"
-                # a step accepted as usual ends the watchdog
+                # a step accepted relative to the reference ends the watchdog
                 wd.in_watchdog = false
             elseif status == LINESEARCH_SUCCEEDED
-                # a tentative full step succeeds if it makes enough progress from the reference
-                theta_t = get_theta(get_c_trial(solver))
-                varphi_t = get_varphi(get_obj_val_trial(solver), get_x_trial_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_trial_ur(solver), get_mu(solver))
-                if is_filter_acceptable(get_filter(solver), theta_t, varphi_t) &&
-                        is_sufficient_progress(theta_t, wd.theta_ref, get_opt(solver).gamma_theta, varphi_t, wd.varphi_ref, get_opt(solver).gamma_phi, has_constraints(solver))
+                # a tentative full step, not acceptable relative to the reference
+                wd.trial_iter += 1
+                if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
+                    # no progress: roll back and take the usual line search from the reference
+                    restore_watchdog_iterate!(solver, wd)
                     wd.in_watchdog = false
-                else
-                    wd.trial_iter += 1
-                    if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
-                        # no progress: roll back and take the usual line search from the reference
-                        restore_watchdog_iterate!(solver, wd)
-                        wd.in_watchdog = false
-                        status = filter_line_search!(solver)
-                    end
+                    status = filter_line_search!(solver)
                 end
             else
                 restore_watchdog_iterate!(solver, wd)
