@@ -86,7 +86,7 @@ function solve_refine!(x::VT, it::KrylovState{T}, b::VT, w::VT) where {T, VT <: 
         # Residual ratio of the refined solution, as in RichardsonIterator.
         copyto!(full(w), full(b))
         mul!(w, it.kkt, x, -one(T), one(T))
-        residual_ratio = norm(full(w), Inf) / (min(norm(full(x), Inf), 1e6 * norm_b) + norm_b)
+        residual_ratio = norm(full(w), Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
         (residual_ratio < it.opt.krylov_tol || !isfinite(residual_ratio)) && break
     end
     @debug(
