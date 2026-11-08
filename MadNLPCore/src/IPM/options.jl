@@ -98,10 +98,10 @@ max\\_soc                      | 4                    | maximum number of second
 alpha\\_min\\_frac             | 0.05                 | safety factor for the minimal step size
 s\\_theta                      | 1.1                  | exponent for current constraint violation in the switching rule
 s\\_phi                        | 2.3                  | exponent for linear barrier function model in the switching rule
-eta\\_phi                      | 1e-8                 | relaxation factor in the Armijo condition
+eta\\_phi                      | 1e-4                 | relaxation factor in the Armijo condition
 kappa\\_soc                    | 0.99                 | factor in the sufficient reduction rule for second order correction
 gamma\\_theta                  | 1e-5                 | relaxation factor in the filter margin for the constraint violation
-gamma\\_phi                    | 1e-8                 | relaxation factor in the filter margin for the barrier function
+gamma\\_phi                    | 1e-5                 | relaxation factor in the filter margin for the barrier function
 delta                          | 1.0                  | multiplier for constraint violation in the switching rule
 kappa\\_sigma                  | 1e10                 | factor limiting the deviation of dual variables from primal estimates
 barrier\\_tol\\_factor         | 10.0                 | factor for mu in barrier stop test
@@ -183,12 +183,12 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     alpha_min_frac::T = 0.05
     s_theta::T = 1.1
     s_phi::T = 2.3
-    eta_phi::T = 1.0e-8
+    eta_phi::T = 1e-4
     kappa_soc::T = 0.99
     slack_reset::Bool = false
     slack_reset_tol::T = 1.0e-6
     gamma_theta::T = 1e-5
-    gamma_phi::T = 1.0e-8
+    gamma_phi::T = 1e-5
     delta::T = 1
     kappa_sigma::T = 1e10
     barrier_tol_factor::T = 10.
