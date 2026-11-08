@@ -8,7 +8,9 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
         SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
-        @test hasmethod(MadNLPCore.MadNLPOptions{Float32}, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}})
+        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to MtlVector models
+        preset = which(MadNLPCore.MadNLPOptions{Float32}, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}})
+        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
     if Metal.functional()
         @testset "Option presets for MtlVector models" begin

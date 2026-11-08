@@ -12,7 +12,9 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
         SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
-        @test hasmethod(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, ROCVector{Float64}}})
+        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to ROCVector models
+        preset = which(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, ROCVector{Float64}}})
+        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
     if AMDGPU.functional()
         @testset "Option presets for ROCVector models" begin

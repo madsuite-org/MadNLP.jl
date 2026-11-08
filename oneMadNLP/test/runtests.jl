@@ -10,7 +10,9 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
         SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
-        @test hasmethod(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, oneVector{Float64}}})
+        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to oneVector models
+        preset = which(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, oneVector{Float64}}})
+        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
     if oneAPI.functional()
         @testset "oneMKL Cholesky reports failure" begin

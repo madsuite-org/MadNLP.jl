@@ -299,15 +299,15 @@ function _build_bordered_condensed_aug_symbolic(hess_com, jt_csc, ind_D, ::Type{
     return aug_com, dptr, hptr, jptr, border
 end
 
-# A solver whose options select a Cholesky factorization (cholmod_algorithm,
-# cudss_algorithm, ...) cannot factor the bordered matrix; anything else is assumed
-# to handle a symmetric quasidefinite matrix.
 # Sorting of vectors of tuples in the symbolic setup. A GPU backend whose arrays cannot sort
 # tuples overloads these.
 _sort_tuples!(v; kw...) = sort!(v; kw...)
 _sortperm_tuples(v; kw...) = sortperm(v; kw...)
 _permute_tuples!(v, p) = permute!(v, p)
 
+# A solver whose options select a Cholesky factorization (cholmod_algorithm,
+# cudss_algorithm, ...) cannot factor the bordered matrix; anything else is assumed
+# to handle a symmetric quasidefinite matrix.
 function _factors_indefinite(opt::AbstractOptions)
     for name in fieldnames(typeof(opt))
         v = getfield(opt, name)
