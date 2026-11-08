@@ -249,3 +249,28 @@ rocm_testset = [
         end
     end
 end
+
+# One scaling sweep on the device against the host, over a pattern with both triangles that has
+# a column longer than MadCore.SCALING_LONG_COLUMN (its own work group) and many short ones.
+function test_scaling_sweep(Arr)
+    MC = MadNLP.MadCore
+    n = 3000
+    nlong = MC.SCALING_LONG_COLUMN + 1000
+    A = SparseArrays.spdiagm(-1 => ones(n - 1), 0 => ones(n), 1 => ones(n - 1))
+    A[2:nlong, 1] .= 1.0
+    A[1, 2:nlong] .= 1.0
+    long_cols = findall(>(MC.SCALING_LONG_COLUMN), diff(A.colptr))
+    @test long_cols == [1]
+    absnz = rand(SparseArrays.nnz(A)) .+ 0.1
+    d = rand(n) .+ 0.5
+    dnew = similar(d)
+    MC.scaling_sweep!(dnew, d, A.colptr, A.rowval, absnz, long_cols)
+    dnew_device = Arr(zeros(n))
+    MC.scaling_sweep!(dnew_device, Arr(d), Arr(Int32.(A.colptr)), Arr(Int32.(A.rowval)), Arr(absnz), Arr(Int32.(long_cols)))
+    @test Array(dnew_device) ≈ dnew
+end
+
+@testset "Scaling sweep with a long column" begin
+    HAS_CUDA && CUDA.functional() && test_scaling_sweep(CuArray)
+    HAS_AMDGPU && AMDGPU.functional() && test_scaling_sweep(ROCArray)
+end
