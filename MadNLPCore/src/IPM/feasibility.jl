@@ -86,6 +86,7 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
         copyto!(full(x), RR.x_entry)
         eval_cons_wrapper!(solver, c, x)
         set_obj_val!(solver, eval_f_wrapper(solver, x))
+        eval_jac_wrapper!(solver, kkt, x)  # the Jacobian was last evaluated at a trial point
         return false
     end
     eval_grad_f_wrapper!(solver, get_f(solver), x)
