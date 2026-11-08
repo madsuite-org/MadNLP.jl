@@ -460,18 +460,41 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
     get_RR(solver) === nothing && set_RR!(solver, RobustRestorer(solver))
     RR::RobustRestorer = get_RR(solver)
     copyto!(RR.x_entry, full(get_x(solver)))
+    copyto!(RR.y_entry, get_y(solver))
+    copyto!(RR.zl_entry, full(get_zl(solver)))
+    copyto!(RR.zu_entry, full(get_zu(solver)))
     theta_entry = get_theta(get_c(solver))
+    function restore_entry!()
+        copyto!(full(get_x(solver)), RR.x_entry)
+        copyto!(get_y(solver), RR.y_entry)
+        copyto!(full(get_zl(solver)), RR.zl_entry)
+        copyto!(full(get_zu(solver)), RR.zu_entry)
+        eval_cons_wrapper!(solver, get_c(solver), get_x(solver))
+        set_obj_val!(solver, eval_f_wrapper(solver, get_x(solver)))
+    end
+
+    RR.stall_iter = get_opt(solver).restoration_stall_iter
     status = robust_phase!(solver)
+    if RR.stalled
+        # The phase stopped making progress: try the fallback, and resume the phase from its
+        # start, without the stall test, if the filter rejects the fallback's point.
+        restore_entry!()
+        feasibility_fallback!(solver, theta_entry) && return REGULAR
+        restore_entry!()
+        RR.stall_iter = 0
+        status = robust_phase!(solver)
+    end
     status in (RESTORATION_FAILED, INFEASIBLE_PROBLEM_DETECTED) || return status
     # Retry from where the restoration phase started.
-    copyto!(full(get_x(solver)), RR.x_entry)
-    eval_cons_wrapper!(solver, get_c(solver), get_x(solver))
+    restore_entry!()
     return feasibility_fallback!(solver, theta_entry) ? REGULAR : status
 end
 
 function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
     initialize_robust_restorer!(solver)
     RR = get_RR(solver)
+    RR.stalled = false
+    empty!(RR.best_theta)
     while true
         if !get_opt(solver).jacobian_constant
             eval_jac_wrapper!(solver, get_kkt(solver), get_x(solver))
@@ -500,6 +523,16 @@ function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
 
         print_iter(solver;is_resto=true)
         !(get_intermediate_callback(solver)(solver, UserCallbackRobust()) :: Bool) && return USER_REQUESTED_STOP
+
+        if RR.stall_iter > 0
+            theta = get_theta(get_c(solver))
+            push!(RR.best_theta, isempty(RR.best_theta) ? theta : min(RR.best_theta[end], theta))
+            j = length(RR.best_theta)
+            if j > RR.stall_iter && RR.best_theta[j] > (1 - get_opt(solver).restoration_stall_tol) * RR.best_theta[j - RR.stall_iter]
+                RR.stalled = true
+                return RESTORATION_FAILED
+            end
+        end
 
         if max(RR.inf_pr_R, RR.inf_du_R, RR.inf_compl_R) <= get_opt(solver).tol
             # A feasible point is not evidence of infeasibility: the regular phase takes over,

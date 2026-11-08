@@ -64,6 +64,20 @@ struct MyLDL end
         @test a.iter == b.iter && a.objective == b.objective
     end
 
+    @testset "Restoration stall" begin
+        wb = WachBiegModel()
+        opts = (linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = true)
+        full_phase = madnlp(wb; opts...)
+        early = madnlp(wb; opts..., restoration_stall_iter = 2)
+        @test early.status == MadNLPCore.SOLVE_SUCCEEDED
+        @test early.solution ≈ [1.0, 0.0, 0.5] atol = 1e-6
+        # The stalled phase is left early, so the solve takes fewer iterations.
+        @test early.iter < full_phase.iter
+        # Without the fallback the option does nothing.
+        @test madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, restoration_stall_iter = 2).status ==
+            MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
+    end
+
     @testset "Solve with LAPACK" begin
         stats = madnlp(
             nlp;

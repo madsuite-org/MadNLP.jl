@@ -39,6 +39,12 @@ mutable struct RobustRestorer{T, VT}
     g_fb::VT
     x_prev_fb::VT
     g_prev_fb::VT
+    y_entry::VT
+    zl_entry::VT
+    zu_entry::VT
+    best_theta::Vector{T}
+    stall_iter::Int
+    stalled::Bool
 end
 
 abstract type AbstractInertiaCorrector end
