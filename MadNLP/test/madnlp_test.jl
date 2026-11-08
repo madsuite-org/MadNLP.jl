@@ -586,6 +586,62 @@ end
 end
 
 
+# counts the tentative watchdog steps of a solve
+struct WatchdogSteps <: MadNLP.AbstractUserCallback
+    count::Base.RefValue{Int}
+end
+(cb::WatchdogSteps)(solver, mode) = (MadNLP.get_ftype(solver) == "w" && (cb.count[] += 1); true)
+
+@testset "Watchdog line search" begin
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    on = madnlp(nlp; print_level = MadNLP.ERROR)
+    off = madnlp(nlp; print_level = MadNLP.ERROR, watchdog = false)
+    @test on.status == off.status == MadNLP.SOLVE_SUCCEEDED
+    @test on.objective ≈ off.objective
+
+    # a watchdog started at every iteration still reaches the same solution
+    for trigger in (0, 1)
+        r = madnlp(nlp; print_level = MadNLP.ERROR, watchdog_shortened_iter_trigger = trigger)
+        @test r.status == MadNLP.SOLVE_SUCCEEDED
+        @test r.objective ≈ off.objective atol = 1.0e-6
+    end
+
+    # tentative watchdog steps are taken and the solve still reaches the solution
+    steps = WatchdogSteps(Ref(0))
+    nlp_far = MadNLPTests.HS15Model(; x0 = [-2.0, 1.0])
+    r = madnlp(nlp_far; print_level = MadNLP.ERROR, watchdog_shortened_iter_trigger = 0, intermediate_callback = steps)
+    @test r.status == MadNLP.SOLVE_SUCCEEDED
+    @test steps.count[] > 0
+    @test r.objective ≈ madnlp(nlp_far; print_level = MadNLP.ERROR, watchdog = false).objective atol = 1.0e-6
+
+    # the reference is restored exactly
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, watchdog = true, watchdog_shortened_iter_trigger = 0)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    wd = MadNLP.WatchdogState(solver)
+    MadNLP.save_watchdog_iterate!(solver, wd)
+    # the reference values follow μ: at the saved μ they are unchanged
+    varphi_ref, varphi_d_ref = wd.varphi_ref, wd.varphi_d_ref
+    MadNLP.update_watchdog_reference!(wd, MadNLP.get_mu(solver))
+    @test wd.varphi_ref ≈ varphi_ref
+    @test wd.varphi_d_ref ≈ varphi_d_ref
+    x = copy(MadNLP.full(MadNLP.get_x(solver)))
+    y = copy(MadNLP.get_y(solver))
+    MadNLP.full(MadNLP.get_x(solver)) .+= 1.0
+    MadNLP.get_y(solver) .+= 1.0
+    MadNLP.restore_watchdog_iterate!(solver, wd)
+    @test MadNLP.full(MadNLP.get_x(solver)) == x
+    @test MadNLP.get_y(solver) == y
+
+    # a filter reset after the save (as by a change of μ) survives the rollback
+    MadNLP.save_watchdog_iterate!(solver, wd)
+    push!(MadNLP.get_filter(solver), (1.0, 1.0))
+    empty!(MadNLP.get_filter(solver))
+    push!(MadNLP.get_filter(solver), (MadNLP.get_theta_max(solver), -Inf))
+    MadNLP.restore_watchdog_iterate!(solver, wd)
+    @test MadNLP.get_filter(solver) == [(MadNLP.get_theta_max(solver), -Inf)]
+end
+
+
 @testset "Barrier parameter floor" begin
     # μ stops at tol / (barrier_tol_factor + 1) when mu_min is smaller
     @test MadNLP.get_mu(1.0e-9, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) ≈ 1.0e-8 / 11

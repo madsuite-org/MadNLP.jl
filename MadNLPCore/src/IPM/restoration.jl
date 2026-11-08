@@ -1,3 +1,68 @@
+function WatchdogState(solver::AbstractMadNLPSolver{T}) where {T}
+    VT = typeof(get_y(solver))
+    vec(x) = similar(get_y(solver), length(x))
+    return WatchdogState{T, VT}(
+        false, 0, 0,
+        vec(full(get_x(solver))), vec(get_y(solver)),
+        vec(full(get_zl(solver))), vec(full(get_zu(solver))),
+        vec(full(get_xl(solver))), vec(full(get_xu(solver))),
+        vec(get_c(solver)),
+        zero(T), zero(T), zero(T), zero(T), (zero(T), zero(T)), (zero(T), zero(T)),
+        vec(full(get_d(solver))),
+    )
+end
+
+# Saves the iterate and the search direction as the watchdog's reference. The filter is not
+# saved: tentative steps never augment it, and the only change it can undergo during a watchdog
+# is the reset by a change of μ, which must persist after a rollback.
+function save_watchdog_iterate!(solver::AbstractMadNLPSolver{T}, wd::WatchdogState) where {T}
+    copyto!(wd.x_ref, full(get_x(solver)))
+    copyto!(wd.y_ref, get_y(solver))
+    copyto!(wd.zl_ref, full(get_zl(solver)))
+    copyto!(wd.zu_ref, full(get_zu(solver)))
+    copyto!(wd.xl_ref, full(get_xl(solver)))
+    copyto!(wd.xu_ref, full(get_xu(solver)))
+    copyto!(wd.c_ref, get_c(solver))
+    wd.obj_val_ref = get_obj_val(solver)
+    wd.theta_ref = get_theta(get_c(solver))
+    wd.varphi_ref = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
+    varphi0 = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), zero(T))
+    varphi1 = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), one(T))
+    wd.varphi_ref_affine = (varphi0, varphi1 - varphi0)
+    varphi_d(mu) = get_varphi_d(
+        primal(get_f(solver)), primal(get_x(solver)), primal(get_xl(solver)), primal(get_xu(solver)),
+        primal(get_d(solver)), mu,
+    )
+    wd.varphi_d_ref = varphi_d(get_mu(solver))
+    wd.varphi_d_ref_affine = (varphi_d(zero(T)), varphi_d(one(T)) - varphi_d(zero(T)))
+    copyto!(wd.d_ref, full(get_d(solver)))
+    return
+end
+
+# Re-evaluates the reference's barrier objective and directional derivative at a new μ.
+function update_watchdog_reference!(wd::WatchdogState, mu)
+    wd.varphi_ref = wd.varphi_ref_affine[1] + mu * wd.varphi_ref_affine[2]
+    wd.varphi_d_ref = wd.varphi_d_ref_affine[1] + mu * wd.varphi_d_ref_affine[2]
+    return
+end
+
+# Rolls back to the reference and recomputes the gradient there. The Jacobian product `jacl`
+# and the KKT factorization stay at the tentative point until the next iteration evaluates them;
+# a second-order correction or a restoration phase started right after a rollback sees them.
+function restore_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogState)
+    copyto!(full(get_x(solver)), wd.x_ref)
+    copyto!(get_y(solver), wd.y_ref)
+    copyto!(full(get_zl(solver)), wd.zl_ref)
+    copyto!(full(get_zu(solver)), wd.zu_ref)
+    copyto!(full(get_xl(solver)), wd.xl_ref)
+    copyto!(full(get_xu(solver)), wd.xu_ref)
+    copyto!(get_c(solver), wd.c_ref)
+    set_obj_val!(solver, wd.obj_val_ref)
+    copyto!(full(get_d(solver)), wd.d_ref)
+    eval_grad_f_wrapper!(solver, get_f(solver), get_x(solver))
+    return
+end
+
 function RobustRestorer(solver::AbstractMadNLPSolver{T}) where {T}
 
     f_R = similar(get_y(solver), get_n(solver))
