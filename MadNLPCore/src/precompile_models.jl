@@ -89,6 +89,8 @@ function _precompile_solves(like::AbstractVector; sizes = (100, 20000), options.
         solver = MadNLPSolver(ModelBarrier(PrecompileChainModel(n, like));
                               print_level = ERROR, max_iter = 30, options...)
         solve!(solver)
+        # restoration stops at the iteration limit, which a slower barrier rule may have reached
+        get_opt(solver).max_iter = get_cnt(solver).k + 30
         restore!(solver)
         robust!(solver)
     end

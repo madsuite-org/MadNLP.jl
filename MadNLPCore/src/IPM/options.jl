@@ -86,7 +86,7 @@ perturb\\_dec\\_fact               | 1/3                  | decrease factor for 
 jacobian\\_regularization\\_exponent | 1/4                | exponent for mu in the regularization of rank-deficient Jacobian
 jacobian\\_regularization\\_value  | 1e-8                 | size of regularization for rank-deficient Jacobian
 ||
-slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`
+slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`; `true` on a GPU with `SparseKKTSystem`
 slack\\_reset\\_tol             | 1e-6                 | violation of the original rows allowed for the slack reset
 watchdog                      | `true`               | watchdog line search: after `watchdog_shortened_iter_trigger` consecutive shortened steps, take up to `watchdog_trial_iter_max` full steps and roll back if they make no progress
 watchdog\\_shortened\\_iter\\_trigger | 10            | consecutive shortened steps that start the watchdog
@@ -115,7 +115,7 @@ rho                            | 1000.0               | value in penalty paramet
 ||
 __Barrier__||
 ||
-barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter
+barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter; `QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)` on a GPU with `SparseKKTSystem`
 tau\\_min                      | 0.99                 | lower bound on fraction-to-the-boundary parameter tau
 ||
 """

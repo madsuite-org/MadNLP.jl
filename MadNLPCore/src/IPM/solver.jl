@@ -260,10 +260,11 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         inf_total <= get_opt(solver).acceptable_tol ?
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
-        # A watchdog trial step may blow up the iterate before the rollback, so the divergence
-        # test waits until the watchdog ends.
+        # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
+        # A watchdog trial step may blow up the iterate before the rollback, so the test waits
+        # until the watchdog ends.
         !watchdog_active(solver) &&
-            inf_total >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
+            norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
@@ -652,15 +653,16 @@ function second_order_correction(solver::AbstractMadNLPSolver,alpha_max,theta,va
                                  theta_trial,varphi_d,switching_condition::Bool)
     @trace(get_logger(solver),"Second-order correction started.")
 
+    # The correction step is solved into _w1; c_soc lives in _w2, which the solve does not overwrite.
     wx = primal(get__w1(solver))
-    wy = dual(get__w1(solver))
-    copyto!(wy, get_c_trial(solver))
-    axpy!(alpha_max, get_c(solver), wy)
+    c_soc = dual(get__w2(solver))
+    copyto!(c_soc, get_c_trial(solver))
+    axpy!(alpha_max, get_c(solver), c_soc)
 
     theta_soc_old = theta_trial
     for p=1:get_opt(solver).max_soc
         # compute second order correction
-        set_aug_rhs!(solver, get_kkt(solver), wy, get_mu(solver))
+        set_aug_rhs!(solver, get_kkt(solver), c_soc, get_mu(solver))
         dual_inf_perturbation!(
             primal(get_p(solver)),
             get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d,
@@ -705,6 +707,8 @@ function second_order_correction(solver::AbstractMadNLPSolver,alpha_max,theta,va
 
         theta_soc>get_opt(solver).kappa_soc*theta_soc_old && break
         theta_soc_old = theta_soc
+        # c_soc <- alpha_soc * c_soc + c(x_soc), as in Ipopt
+        c_soc .= alpha_soc .* c_soc .+ get_c_trial(solver)
     end
     @trace(get_logger(solver),"Second-order correction terminated.")
 

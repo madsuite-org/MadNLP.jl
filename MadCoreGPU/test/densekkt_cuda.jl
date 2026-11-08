@@ -11,7 +11,10 @@ function _compare_gpu_with_cpu(KKTSystem, n, m, ind_fixed)
             :kkt_system=>KKTSystem,
             :linear_solver => MadCoreGPU.LapackCUDASolver,
             :print_level=>MadNLP.ERROR,
-            :tol=>tol
+            :tol=>tol,
+            # the same barrier rule on host and device: the GPU preset picks its own otherwise
+            :barrier=>MadNLP.MonotoneUpdate(T(tol), 10),
+            :slack_reset=>false,
         )
 
         # Host evaluator
