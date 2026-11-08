@@ -4,6 +4,9 @@ using SparseArrays.LibSuiteSparse: cholmod_dense, cholmod_factor_struct, cholmod
 
 @kwdef mutable struct CHOLMODOptions <: AbstractOptions
     cholmod_algorithm::LinearFactorization = CHOLESKY
+    # With `LDL`, a pivot smaller than this in magnitude is replaced by a pivot of this magnitude
+    # instead of ending the factorization. Zero leaves the pivots as they are.
+    cholmod_dbound::Float64 = 0.0
 end
 
 # `cholmod_analyze` reports the entries of L in `lnz`. Int32 indices must address L, and the
@@ -126,13 +129,20 @@ function _free_solve_buffers!(M::CHOLMODState{T, Ti}) where {T, Ti}
     return
 end
 
-function factorize!(M::CHOLMODState)
+function factorize!(M::CHOLMODState{T, Ti}) where {T, Ti}
     M.Ax .= M.tril_to_permuted_view
     # We check the factorization succeeded later in the backsolve
     if M.opt.cholmod_algorithm == LDL
         # `CHOLMOD.ldlt!` converts the symbolic factor first, which makes CHOLMOD allocate
         # about 2.5 times the size of L at the first factorization.
-        CHOLMOD.factorize_p!(M.A, 0.0, M.inner)
+        common = CHOLMOD.getcommon(Ti)[]
+        dbound = common.dbound
+        common.dbound = M.opt.cholmod_dbound
+        try
+            CHOLMOD.factorize_p!(M.A, 0.0, M.inner)
+        finally
+            common.dbound = dbound
+        end
     elseif M.opt.cholmod_algorithm == CHOLESKY
         CHOLMOD.cholesky!(M.inner, M.A; check = false)
     end
