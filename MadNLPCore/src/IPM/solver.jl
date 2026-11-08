@@ -703,14 +703,16 @@ function inertia_correction!(
             regularize_dual && set_del_c!(solver, dc)
             # Wrong inertia (Hessian), or delta_c alone was insufficient: advance the delta_w schedule.
             if !started_dw
-                set_del_w!(solver, get_del_w_last(solver)==zero(T) ? get_opt(solver).first_hessian_perturbation :
-                    max(get_opt(solver).min_hessian_perturbation,get_opt(solver).perturb_dec_fact*get_del_w_last(solver)))
+                set_del_w!(
+                    solver, get_del_w_last(solver) == zero(T) ? get_opt(solver).first_hessian_perturbation :
+                        max(get_opt(solver).min_hessian_perturbation, get_opt(solver).perturb_dec_fact * get_del_w_last(solver))
+                )
                 started_dw = true
             else
-                set_del_w!(solver, get_del_w(solver) * (get_del_w_last(solver)==zero(T) ? get_opt(solver).perturb_inc_fact_first : get_opt(solver).perturb_inc_fact))
-                if get_del_w(solver)>get_opt(solver).max_hessian_perturbation
-                    get_cnt(solver).k+=1
-                    @debug(get_logger(solver),"Primal regularization is too big. Switching to restoration phase.")
+                set_del_w!(solver, get_del_w(solver) * (get_del_w_last(solver) == zero(T) ? get_opt(solver).perturb_inc_fact_first : get_opt(solver).perturb_inc_fact))
+                if get_del_w(solver) > get_opt(solver).max_hessian_perturbation
+                    get_cnt(solver).k += 1
+                    @debug(get_logger(solver), "Primal regularization is too big. Switching to restoration phase.")
                     return false
                 end
             end
