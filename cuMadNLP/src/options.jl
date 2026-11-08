@@ -5,9 +5,13 @@ MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) wher
 MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = LapackCUDASolver
 
 # The augmented KKT system is factorized by cuDSS after Ruiz scaling and a dual shift, with
-# matching and small pivots bounded; GMRES refines each solve on the unshifted system.
+# matching and small pivots bounded; GMRES refines each solve on the unshifted system. The
+# barrier parameter follows the quality-function rule, which may raise it at most twofold per
+# iteration, and the slacks are moved onto the constraints after an accepted step.
 const GPU_DUAL_SHIFT = 1.0e-10
 const GPU_PIVOT_EPSILON = 1.0e-10
+const GPU_SIGMA_MAX = 2.0
+const GPU_MU_MIN = 1.0e-11
 
 function MadNLPCore.MadNLPOptions{T}(
         nlp::MadNLPCore.AbstractNLPModel{T, VT};
@@ -19,7 +23,11 @@ function MadNLPCore.MadNLPOptions{T}(
         bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
     ) where {T, VT <: CuVector{T}}
     augmented = kkt_system == MadNLPCore.SparseKKTSystem
-    return MadNLPCore.MadNLPOptions{T}(
+    adaptive = augmented ? (;
+        barrier = MadNLPCore.QualityFunctionUpdate{T}(sigma_max = T(GPU_SIGMA_MAX), mu_min = T(GPU_MU_MIN)),
+        slack_reset = true,
+    ) : (;)
+    return MadNLPCore.MadNLPOptions{T}(;
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,
@@ -28,6 +36,7 @@ function MadNLPCore.MadNLPOptions{T}(
         kkt_scaler = augmented ? MadCore.RuizScaler() : MadCore.NoScaler(),
         dual_shift = augmented ? T(GPU_DUAL_SHIFT) : zero(T),
         iterator = augmented ? MadCore.KrylovIterator : MadCore.RichardsonIterator,
+        adaptive...,
     )
 end
 
