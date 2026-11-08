@@ -321,12 +321,13 @@ function get_mu(
     mu_linear_decrease_factor,
     mu_superlinear_decrease_power,
     tol,
+    barrier_tol_factor,
 ) where {T}
-    # Warning: `a * tol` should be strictly less than 100 * mu_min, see issue #242
-    a = min(T(99.0) * mu_min / tol, T(0.01))
+    # As in Ipopt, μ does not go below min(tol, 1e-4) / (barrier_tol_factor + 1), the value
+    # of the default mu_min.
     return max(
         mu_min,
-        a * tol,
+        min(tol, T(1.0e-4)) / (barrier_tol_factor + one(T)),
         min(mu_linear_decrease_factor*mu, mu^mu_superlinear_decrease_power),
     )
 end

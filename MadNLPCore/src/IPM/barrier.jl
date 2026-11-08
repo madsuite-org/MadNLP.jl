@@ -23,7 +23,10 @@ function _update_monotone!(
             (barrier.mu_linear_decrease_factor::T),
             (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
+        # At the floor, μ cannot decrease further
+        mu_new == get_mu(solver) && break
         set_mu!(solver, mu_new)
         set_tau!(solver, get_tau(mu_new, get_opt(solver).tau_min))
         # Re-evaluate the barrier error with the new barrier parameter
@@ -59,13 +62,17 @@ function _update_monotone_RR!(
     )
     while RR.mu_R >= (barrier.mu_min::T) &&
         max(RR.inf_pr_R,RR.inf_du_R,inf_compl_mu_R) <= get_opt(solver).barrier_tol_factor*RR.mu_R
-        RR.mu_R = get_mu(
+        mu_R = get_mu(
             RR.mu_R,
             (barrier.mu_min::T),
             (barrier.mu_linear_decrease_factor::T),
             (barrier.mu_superlinear_decrease_power::T),
             get_opt(solver).tol,
+            get_opt(solver).barrier_tol_factor,
         )
+        # At the floor, μ cannot decrease further
+        mu_R == RR.mu_R && break
+        RR.mu_R = mu_R
         inf_compl_mu_R = get_inf_compl_R(
             get_x_lr(solver),
             get_xl_r(solver),
