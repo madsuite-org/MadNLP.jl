@@ -1,6 +1,7 @@
 @kwdef mutable struct RichardsonOptions <: AbstractOptions
     richardson_max_iter::Int = 10
-    # Refinement stops when a pass leaves the residual ratio above this fraction of the previous one.
+    # Refinement stops when a pass leaves the residual ratio above this fraction of the previous
+    # one, once the residual ratio is below richardson_acceptable_tol.
     richardson_improvement_factor::Float64 = 0.999999999
     richardson_tol::Float64
     richardson_acceptable_tol::Float64
@@ -61,7 +62,10 @@ function solve_refine!(
             @debug(iterator.logger, @sprintf("%4i %6.2e", iterator.cnt.ir, residual_ratio))
             iterator.cnt.ir += 1
 
-            stalled = residual_ratio > iterator.opt.richardson_improvement_factor * residual_ratio_old
+            # A pass that leaves the residual ratio above this fraction of the previous one has
+            # stalled. Stop only if the solve is already acceptable; otherwise keep refining.
+            stalled = residual_ratio > iterator.opt.richardson_improvement_factor * residual_ratio_old &&
+                residual_ratio < iterator.opt.richardson_acceptable_tol
             if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol) || stalled
                 break
             end
