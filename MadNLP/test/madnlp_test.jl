@@ -544,3 +544,45 @@ end
     MadNLP.reinitialize!(solver)
     @test !solver.cnt.tiny_step
 end
+
+
+@testset "Barrier parameter floor" begin
+    # μ stops at tol / (barrier_tol_factor + 1) when mu_min is smaller
+    @test MadNLP.get_mu(1.0e-9, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) ≈ 1.0e-8 / 11
+    @test MadNLP.get_mu(1.0e-9, 1.0e-6, 0.2, 1.5, 1.0e-8, 10.0) == 1.0e-6
+    @test MadNLP.get_mu(1.0, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) == 0.2
+    # with a loose tol, the floor stays at the default mu_min
+    @test MadNLP.get_mu(1.0e-6, 1.0e-11, 0.2, 1.5, 1.0e-3, 10.0) ≈ 1.0e-4 / 11
+end
+      
+@testset "Original constraint violation" begin
+    solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    c = MadNLP.get_c(solver)
+    cs = view(c, MadNLP.get_ind_ineq(solver))
+    s = MadNLP.slack(MadNLP.get_x(solver))
+
+    # a slack moved away from g(x) inside the bounds on a row with no multiplier: a slack
+    # residual, no violation
+    y = view(MadNLP.get_y(solver), MadNLP.get_ind_ineq(solver))
+    y .= 0
+    s .+= 1.0e-3
+    cs .-= 1.0e-3
+    @test MadNLP.get_inf_pr(c) >= 1.0e-3
+    @test MadNLP.get_inf_pr_orig(solver) < 1.0e-6
+
+    # with a multiplier the residual counts, weighted by it
+    y .= 2.0
+    @test MadNLP.get_inf_pr_orig(solver) ≈ 2.0e-3
+    y .= 0
+
+    # g(x) below its lower bound: a violation
+    cs .-= 2.0
+    @test MadNLP.get_inf_pr_orig(solver) > 1.0
+end
+      
+@testset "Filter margins" begin
+    filter = Tuple{Float64, Float64}[]
+    MadNLP.augment_filter!(filter, 2.0, 3.0, 0.1, 0.25)
+    @test filter[1] == (1.8, 2.5)
+end

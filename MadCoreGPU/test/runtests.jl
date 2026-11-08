@@ -1,4 +1,5 @@
 using Test, MadNLP, MadCoreGPU, MadNLPTests
+import SparseArrays
 
 # The GPU entry points set the option presets for GPU models; CI installs the one
 # matching the runner's GPU.
