@@ -559,4 +559,14 @@ end
     @test sum(results.solution) ≈ 1 atol = 1.0e-6
     # the dual block needed regularization at every iteration, so the Jacobian is taken as degenerate
     @test solver.inertia_corrector.jac_degenerate
+    # and the Hessian was never perturbed
+    @test solver.del_w_last == 0
+
+    # a full-rank Jacobian is not taken as degenerate, on the augmented and the condensed system
+    for kkt_system in (MadNLP.SparseKKTSystem, MadNLP.SparseCondensedKKTSystem)
+        nlp = MadNLP.SparseWrapperModel(Array, MadNLPTests.HS15Model(; x0 = [1.0, 1.0]))
+        solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, kkt_system)
+        @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+        @test !solver.inertia_corrector.jac_degenerate
+    end
 end

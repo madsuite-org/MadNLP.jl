@@ -650,6 +650,11 @@ function second_order_correction(solver::AbstractMadNLPSolver,alpha_max,theta,va
 end
 
 
+# Consecutive iterations that need δ_c before the Jacobian is taken as degenerate (Ipopt's
+# degen_iters_max). The determination then holds for the rest of the solver's life, as in Ipopt
+# within one solve.
+const DEGEN_ITERS_MAX = 3
+
 function inertia_correction!(
     inertia_corrector::InertiaBased,
     solver::AbstractMadNLPSolver{T}
@@ -687,12 +692,15 @@ function inertia_correction!(
     while !solve_status
         @debug(get_logger(solver),"Primal-dual perturbed.")
 
-        if should_regularize_dual(get_kkt(solver), num_pos, num_zero, num_neg) && get_del_c(solver) == zero(T)
+        regularize_dual = should_regularize_dual(get_kkt(solver), num_pos, num_zero, num_neg)
+        if num_zero != 0 && regularize_dual && get_del_c(solver) == zero(T)
             # Singular system (rank-deficient Jacobian): regularize the dual block only; do NOT
             # perturb the Hessian (matches Ipopt's separate delta_c path).
             set_del_c!(solver, dc)
             needed_dc = true
         else
+            # KKT systems that always want δ_c with a perturbation (condensed, Schur) keep it.
+            regularize_dual && set_del_c!(solver, dc)
             # Wrong inertia (Hessian), or delta_c alone was insufficient: advance the delta_w schedule.
             if !started_dw
                 set_del_w!(solver, get_del_w_last(solver)==zero(T) ? get_opt(solver).first_hessian_perturbation :
@@ -724,7 +732,7 @@ function inertia_correction!(
     # Update the Jacobian-degeneracy determination (Ipopt degen_iters_max = 3).
     if needed_dc
         inertia_corrector.degen_iters += 1
-        inertia_corrector.degen_iters >= 3 && (inertia_corrector.jac_degenerate = true)
+        inertia_corrector.degen_iters >= DEGEN_ITERS_MAX && (inertia_corrector.jac_degenerate = true)
     else
         inertia_corrector.degen_iters = 0
     end
