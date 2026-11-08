@@ -6,7 +6,7 @@ function _fallback_margin(l::T, u::T) where {T}
     l == u && return zero(T)
     isfinite(l) || isfinite(u) || return zero(T)
     a = isfinite(l) ? (isfinite(u) ? min(abs(l), abs(u)) : abs(l)) : abs(u)
-    return min(T(1e-8) * max(one(T), a), (u - l) / 4)
+    return min(T(1.0e-8) * max(one(T), a), (u - l) / 4)
 end
 _fallback_lo(l, u) = l == u ? l : l + _fallback_margin(l, u)
 _fallback_hi(l, u) = l == u ? u : u - _fallback_margin(l, u)
@@ -43,12 +43,12 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
         jtprod!(g, kkt, c)
         # projected gradient, for a stationarity test
         full(xt) .= full(x) .- clamp.(full(x) .- g, _fallback_lo.(l, u), _fallback_hi.(l, u))
-        norm(full(xt), Inf) <= 1e-12 * max(one(T), norm(c, Inf)) && break
+        norm(full(xt), Inf) <= 1.0e-12 * max(one(T), norm(c, Inf)) && break
         if have_prev
             xp .= full(x) .- xp
             gp .= g .- gp
             sy = dot(xp, gp)
-            tau = sy > 0 ? clamp(dot(xp, xp) / sy, T(1e-10), T(1e10)) : 2tau
+            tau = sy > 0 ? clamp(dot(xp, xp) / sy, T(1.0e-10), T(1.0e10)) : 2tau
         else
             tau = one(T) / max(norm(g, Inf), one(T))
         end
@@ -62,7 +62,7 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
             full(xt) .= clamp.(full(x) .- alpha .* tau .* g, _fallback_lo.(l, u), _fallback_hi.(l, u))
             eval_cons_wrapper!(solver, ct, xt)
             phi_t = dot(ct, ct) / 2
-            if isfinite(phi_t) && phi_t <= ref - T(1e-4) * dot(g, xp .- full(xt))
+            if isfinite(phi_t) && phi_t <= ref - T(1.0e-4) * dot(g, xp .- full(xt))
                 accepted = true
                 phi = phi_t
                 break

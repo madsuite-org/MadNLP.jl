@@ -192,7 +192,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     required_infeasibility_reduction::T = 0.9
     feasibility_fallback::Bool = false
     feasibility_fallback_max_iter::Int = 10_000
-    feasibility_fallback_reduction::T = 1e-2
+    feasibility_fallback_reduction::T = 1.0e-2
 
     # Line search
     obj_max_inc::T = 5.
