@@ -34,6 +34,10 @@ function RobustRestorer(solver::AbstractMadNLPSolver{T}) where {T}
         zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), 
         Tuple{T, T}[], 
         0,
+        similar(get_y(solver), get_n(solver)),
+        similar(get_y(solver), get_n(solver)),
+        similar(get_y(solver), get_n(solver)),
+        similar(get_y(solver), get_n(solver)),
     )
 end
 
