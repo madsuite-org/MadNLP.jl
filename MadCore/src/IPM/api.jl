@@ -40,7 +40,8 @@ bounds by g(x) = c + s on inequality rows. Unlike the slack residual held by
 `get_inf_pr(solver)`, it does not count a slack that differs from g(x) inside the bounds.
 """
 function get_inf_pr_orig(solver::AbstractMadNLPSolver{T}) where {T}
-    buf = dual(get__w1(solver))
+    # _w4 is scratch outside a linear solve; _w1 holds a backup during restore!
+    buf = dual(get__w4(solver))
     ind_ineq = get_ind_ineq(solver)
     copyto!(buf, get_c(solver))
     g = view(buf, ind_ineq)

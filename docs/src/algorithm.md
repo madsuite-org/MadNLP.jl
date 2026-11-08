@@ -161,6 +161,8 @@ The algorithm stops as soon as `max(inf_pr, inf_du, inf_compl) < tol`, with
 & \texttt{inf\_compl} = \| WZe \|_\infty \; .
 \end{aligned}
 ```
+
+Here `inf_pr` is measured on the original constraints: on an inequality row it is the violation of the bounds by the constraint value, not the gap between the constraint and its slack.
 The tolerance `tol` is set to `1e-8` by default.
 
 If the stopping criterion is not satisfied, MadNLP moves to the next iteration (here
