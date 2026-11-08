@@ -18,7 +18,20 @@ needs Julia 1.13, and is not registered yet, so add it from the repository:
 ```julia
 pkg> add https://github.com/madsuite-org/MadNLP.jl:rocMadNLP
 ```
-Both load MadNLPCore and set the default options for models whose data live on the GPU.
+On Intel GPUs, install oneMadNLP the same way:
+```julia
+pkg> add https://github.com/madsuite-org/MadNLP.jl:oneMadNLP
+```
+Intel Arc GPUs have no `Float64`, so models on them must use `Float32`.
+
+On Apple GPUs, install mtlMadNLP the same way:
+```julia
+pkg> add https://github.com/madsuite-org/MadNLP.jl:mtlMadNLP
+```
+Metal has no `Float64`, so models must use `Float32`, and only the condensed KKT system with
+SparseDirectSolver.jl is available.
+
+All of them load MadNLPCore and set the default options for models whose data live on the GPU.
 They do not load MadNLP, so they bring no CPU linear solver: load MadNLP as well to solve
 a model on the CPU or to use `MadNLP.Optimizer` with JuMP.
 MadNLPGPU is deprecated and loads cuMadNLP.
