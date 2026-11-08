@@ -35,7 +35,7 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             # the condensed system keeps its own preset
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem)
             @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
-            @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64} && opt.slack_reset
+            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
             stats = madnlp(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
