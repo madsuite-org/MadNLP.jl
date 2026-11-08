@@ -6,6 +6,35 @@ using Krylov, LinearAlgebra, SparseArrays
         () -> MadNLP.Optimizer(iterator = KrylovIterator, print_level = MadNLP.ERROR),
         [],
     )
+
+    # With an inexact factorization (a large dual shift) and one GMRES step per cycle, the
+    # solution reaches krylov_tol only through restarts from the true residual.
+    MC = MadNLP.MadCore
+    solver = MadNLP.MadNLPSolver(
+        MadNLPTests.HS15Model();
+        callback = MadNLP.SparseCallback,
+        kkt_system = MadNLP.SparseKKTSystem,
+        linear_solver = MadNLP.CHOLMODSolver,
+        cholmod_algorithm = MadNLP.LDL,
+        dual_shift = 1.0e-4,
+        iterator = KrylovIterator,
+        krylov_max_iter = 1,
+        krylov_max_cycles = 20,
+        max_iter = 3,
+        print_level = MadNLP.ERROR,
+    )
+    MadNLP.solve!(solver)
+    MadNLP.factorize_wrapper!(solver)
+    b = MC.UnreducedKKTVector(solver.kkt)
+    x = MC.UnreducedKKTVector(solver.kkt)
+    w = MC.UnreducedKKTVector(solver.kkt)
+    MC.full(b) .= 1.0:length(MC.full(b))
+    @test MC.solve_refine!(x, solver.iterator, b, w)
+    copyto!(MC.full(w), MC.full(b))
+    mul!(w, solver.kkt, x, -1.0, 1.0)
+    residual_ratio = norm(MC.full(w), Inf) / (norm(MC.full(x), Inf) + norm(MC.full(b), Inf))
+    @test solver.iterator.cnt.ir > 1
+    @test residual_ratio < solver.iterator.opt.krylov_tol
 end
 
 @testset "Scaled and shifted factorization" begin

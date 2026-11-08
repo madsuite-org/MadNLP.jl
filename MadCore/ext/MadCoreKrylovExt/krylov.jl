@@ -1,6 +1,7 @@
 @kwdef mutable struct KrylovOptions <: AbstractOptions
     krylov_memory::Int = 20
     krylov_max_iter::Int = 10
+    krylov_max_cycles::Int = 5
     krylov_tol::Float64
     krylov_acceptable_tol::Float64
 end
@@ -59,25 +60,35 @@ end
 default_options(::Type{KrylovState}, tol) =
     KrylovOptions(krylov_tol = tol^(5 / 4), krylov_acceptable_tol = tol^(5 / 8))
 
+# GMRES cycles of at most `krylov_max_iter` steps, each on the true residual of the solution so
+# far: GMRES's own residual estimate can fall far below the true residual when the
+# factorization is inexact (a shifted or statically pivoted LDLᵀ), and only a restart from the
+# true residual corrects the solution beyond that point.
 function solve_refine!(x::VT, it::KrylovState{T}, b::VT, w::VT) where {T, VT <: AbstractKKTVector{T}}
     @debug(it.logger, "Iterative solver initiated")
     norm_b = norm(full(b), Inf)
     fill!(full(x), zero(T))
     norm_b == zero(T) && return true
 
-    Krylov.gmres!(
-        it.workspace, it.op, full(b);
-        N = it.prec, ldiv = true,
-        atol = zero(T), rtol = T(it.opt.krylov_tol),
-        itmax = it.opt.krylov_max_iter,
-    )
-    copyto!(full(x), Krylov.solution(it.workspace))
-    it.cnt.ir = Krylov.iteration_count(it.workspace)
-
-    # Residual ratio of the refined solution, as in RichardsonIterator.
     copyto!(full(w), full(b))
-    mul!(w, it.kkt, x, -one(T), one(T))
-    residual_ratio = norm(full(w), Inf) / (min(norm(full(x), Inf), 1e6 * norm_b) + norm_b)
+    it.cnt.ir = 0
+    residual_ratio = T(Inf)
+    for _ in 1:it.opt.krylov_max_cycles
+        Krylov.gmres!(
+            it.workspace, it.op, full(w);
+            N = it.prec, ldiv = true,
+            atol = zero(T), rtol = T(it.opt.krylov_tol),
+            itmax = it.opt.krylov_max_iter,
+        )
+        full(x) .+= Krylov.solution(it.workspace)
+        it.cnt.ir += Krylov.iteration_count(it.workspace)
+
+        # Residual ratio of the refined solution, as in RichardsonIterator.
+        copyto!(full(w), full(b))
+        mul!(w, it.kkt, x, -one(T), one(T))
+        residual_ratio = norm(full(w), Inf) / (min(norm(full(x), Inf), 1e6 * norm_b) + norm_b)
+        (residual_ratio < it.opt.krylov_tol || !isfinite(residual_ratio)) && break
+    end
     @debug(
         it.logger,
         @sprintf(
