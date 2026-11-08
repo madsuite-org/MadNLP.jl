@@ -78,7 +78,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         varphi_trial= get_varphi(get_obj_val_trial(solver),get_x_trial_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_trial_ur(solver),get_mu(solver))
         armijo_condition = is_armijo(varphi_trial,varphi,get_opt(solver).eta_phi,get_alpha(solver),varphi_d)
 
-        small_search_norm && break
+        # A tiny step during a watchdog is not an acceptance relative to the reference.
+        if small_search_norm
+            watchdog_active(solver) && set_ftype!(solver, "w")
+            break
+        end
 
         set_ftype!(solver, get_ftype(
             get_filter(solver),theta,theta_trial,varphi,varphi_trial,switching_condition,armijo_condition,
@@ -159,8 +163,10 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         get_cnt(solver).unsuccessful_iterate = 0
     end
 
-    # The filter is not augmented by a tentative watchdog step. A step that ends a watchdog adds
-    # the reference, since theta and varphi hold the reference values then.
+    # The filter is not augmented by a tentative watchdog step. A step that ends a watchdog
+    # augments it as usual, with the switching and Armijo tests taken relative to the reference.
+    # (Ipopt's reference-relative Armijo test uses the step length of the first watchdog step;
+    # here it uses the current step length.)
     if (!switching_condition || !armijo_condition) && get_ftype(solver) != "w"
         @trace(get_logger(solver),"Augmenting filter.")
         augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta)

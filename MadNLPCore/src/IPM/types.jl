@@ -56,7 +56,6 @@ mutable struct WatchdogState{T, VT}
     varphi_ref_affine::Tuple{T, T}
     varphi_d_ref_affine::Tuple{T, T}
     d_ref::VT
-    filter::Vector{Tuple{T, T}}
 end
 
 abstract type AbstractInertiaCorrector end

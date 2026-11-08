@@ -533,6 +533,18 @@ end
         @test r.objective ≈ off.objective atol = 1.0e-6
     end
 
+    # tentative watchdog steps are taken and the solve still reaches the solution
+    struct WatchdogSteps <: MadNLP.AbstractUserCallback
+        count::Base.RefValue{Int}
+    end
+    (cb::WatchdogSteps)(solver, mode) = (MadNLP.get_ftype(solver) == "w" && (cb.count[] += 1); true)
+    steps = WatchdogSteps(Ref(0))
+    nlp_far = MadNLPTests.HS15Model(; x0 = [-2.0, 1.0])
+    r = madnlp(nlp_far; print_level = MadNLP.ERROR, watchdog_shortened_iter_trigger = 0, intermediate_callback = steps)
+    @test r.status == MadNLP.SOLVE_SUCCEEDED
+    @test steps.count[] > 0
+    @test r.objective ≈ madnlp(nlp_far; print_level = MadNLP.ERROR, watchdog = false).objective atol = 1.0e-6
+
     # the reference is restored exactly
     solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, watchdog = true, watchdog_shortened_iter_trigger = 0)
     @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
@@ -550,4 +562,12 @@ end
     MadNLP.restore_watchdog_iterate!(solver, wd)
     @test MadNLP.full(MadNLP.get_x(solver)) == x
     @test MadNLP.get_y(solver) == y
+
+    # a filter reset after the save (as by a change of μ) survives the rollback
+    MadNLP.save_watchdog_iterate!(solver, wd)
+    push!(MadNLP.get_filter(solver), (1.0, 1.0))
+    empty!(MadNLP.get_filter(solver))
+    push!(MadNLP.get_filter(solver), (MadNLP.get_theta_max(solver), -Inf))
+    MadNLP.restore_watchdog_iterate!(solver, wd)
+    @test MadNLP.get_filter(solver) == [(MadNLP.get_theta_max(solver), -Inf)]
 end

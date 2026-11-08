@@ -9,11 +9,12 @@ function WatchdogState(solver::AbstractMadNLPSolver{T}) where {T}
         vec(get_c(solver)),
         zero(T), zero(T), zero(T), zero(T), (zero(T), zero(T)), (zero(T), zero(T)),
         vec(full(get_d(solver))),
-        Tuple{T, T}[],
     )
 end
 
-# Saves the iterate, the search direction and the filter as the watchdog's reference.
+# Saves the iterate and the search direction as the watchdog's reference. The filter is not
+# saved: tentative steps never augment it, and the only change it can undergo during a watchdog
+# is the reset by a change of μ, which must persist after a rollback.
 function save_watchdog_iterate!(solver::AbstractMadNLPSolver{T}, wd::WatchdogState) where {T}
     copyto!(wd.x_ref, full(get_x(solver)))
     copyto!(wd.y_ref, get_y(solver))
@@ -35,8 +36,6 @@ function save_watchdog_iterate!(solver::AbstractMadNLPSolver{T}, wd::WatchdogSta
     wd.varphi_d_ref = varphi_d(get_mu(solver))
     wd.varphi_d_ref_affine = (varphi_d(zero(T)), varphi_d(one(T)) - varphi_d(zero(T)))
     copyto!(wd.d_ref, full(get_d(solver)))
-    empty!(wd.filter)
-    append!(wd.filter, get_filter(solver))
     return
 end
 
@@ -58,8 +57,6 @@ function restore_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogSta
     copyto!(get_c(solver), wd.c_ref)
     set_obj_val!(solver, wd.obj_val_ref)
     copyto!(full(get_d(solver)), wd.d_ref)
-    empty!(get_filter(solver))
-    append!(get_filter(solver), wd.filter)
     eval_grad_f_wrapper!(solver, get_f(solver), get_x(solver))
     return
 end

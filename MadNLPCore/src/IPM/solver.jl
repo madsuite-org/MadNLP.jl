@@ -313,7 +313,9 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
                 # a tentative full step, not acceptable relative to the reference
                 wd.trial_iter += 1
                 if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
-                    # no progress: roll back and take the usual line search from the reference
+                    # no progress: roll back and take the usual line search from the reference.
+                    # A second-order correction there solves with the KKT system factorized at
+                    # the tentative point; the filter still vets any step it produces.
                     restore_watchdog_iterate!(solver, wd)
                     wd.in_watchdog = false
                     status = filter_line_search!(solver)
@@ -505,8 +507,10 @@ function return_to_regular!(solver::AbstractMadNLPSolver{T}) where {T}
 end
 
 function robust!(solver::AbstractMadNLPSolver{T}) where T
-    # the watchdog belongs to the regular phase
+    # The watchdog belongs to the regular phase. Restoration entered from a tentative point
+    # starts from the reference instead.
     if (wd = watchdog_state(solver)) !== nothing
+        wd.in_watchdog && restore_watchdog_iterate!(solver, wd)
         wd.in_watchdog = false
         wd.shortened_iter = 0
         wd.trial_iter = 0
