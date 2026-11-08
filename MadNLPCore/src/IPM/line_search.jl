@@ -3,6 +3,34 @@
     Regular filter line-search algorithm.
 =#
 
+# Moves the slacks of the trial point onto the constraints, if every original row already holds
+# to `slack_reset_tol`. A one-sided row whose g(x) lies inside its bound then has no slack
+# residual, so that θ measures infeasibility and not how far the slack lags g(x).
+function reset_slacks!(solver::AbstractMadNLPSolver{T}) where {T}
+    tol = get_opt(solver).slack_reset_tol
+    xs = slack(get_x_trial(solver))
+    xl = slack(get_xl(solver))
+    xu = slack(get_xu(solver))
+    c = get_c_trial(solver)
+    cs = view(c, get_ind_ineq(solver))
+    w = dual(get__w1(solver))
+    ws = view(w, get_ind_ineq(solver))
+
+    # equality rows
+    w .= c
+    ws .= zero(T)
+    norm(w, Inf) > tol && return
+
+    # inequality rows, at g(x) = c + s
+    ws .= max.(xl .- (cs .+ xs), (cs .+ xs) .- xu, zero(T))
+    norm(ws, Inf) > tol && return
+
+    ws .= ifelse.(((cs .> 0) .& isinf.(xu)) .| ((cs .< 0) .& isinf.(xl)), cs, zero(T))
+    xs .+= ws
+    cs .-= ws
+    return
+end
+
 function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
     theta = get_theta(get_c(solver))
     varphi= get_varphi(get_obj_val(solver),get_x_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_ur(solver),get_mu(solver))
