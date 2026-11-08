@@ -1,4 +1,26 @@
 cuda_testset = [
+    [
+        "CUDSS, Ruiz scaling, dual shift",
+        () -> MadNLP.Optimizer(
+            kkt_system = MadNLP.SparseKKTSystem,
+            linear_solver = MadCoreGPU.CUDSSSolver,
+            cudss_pivot_epsilon = 1.0e-10,
+            kkt_scaler = MadNLP.RuizScaler(),
+            dual_shift = 1.0e-10,
+            print_level = MadNLP.ERROR,
+        ),
+        [],
+    ],
+    [
+        "CUDSS, Jacobi scaling",
+        () -> MadNLP.Optimizer(
+            kkt_system = MadNLP.SparseKKTSystem,
+            linear_solver = MadCoreGPU.CUDSSSolver,
+            kkt_scaler = MadNLP.JacobiScaler(),
+            print_level = MadNLP.ERROR,
+        ),
+        [],
+    ],
     # Temporarily commented out since LapackCUDASolver does not currently support sparse callbacks
     [
         "CUDSS",
@@ -47,6 +69,7 @@ cuda_testset = [
     [
         "CUDSS-IR",
         ()->MadNLP.Optimizer(
+            kkt_system = MadNLP.SparseCondensedKKTSystem,
             linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_ir=1,
@@ -225,4 +248,29 @@ rocm_testset = [
             test_madnlp(name,optimizer_constructor,exclude; Arr=ROCArray)
         end
     end
+end
+
+# One scaling sweep on the device against the host, over a pattern with both triangles that has
+# a column longer than MadCore.SCALING_LONG_COLUMN (its own work group) and many short ones.
+function test_scaling_sweep(Arr)
+    MC = MadNLP.MadCore
+    n = 3000
+    nlong = MC.SCALING_LONG_COLUMN + 1000
+    A = SparseArrays.spdiagm(-1 => ones(n - 1), 0 => ones(n), 1 => ones(n - 1))
+    A[2:nlong, 1] .= 1.0
+    A[1, 2:nlong] .= 1.0
+    long_cols = findall(>(MC.SCALING_LONG_COLUMN), diff(A.colptr))
+    @test long_cols == [1]
+    absnz = rand(SparseArrays.nnz(A)) .+ 0.1
+    d = rand(n) .+ 0.5
+    dnew = similar(d)
+    MC.scaling_sweep!(dnew, d, A.colptr, A.rowval, absnz, long_cols)
+    dnew_device = Arr(zeros(n))
+    MC.scaling_sweep!(dnew_device, Arr(d), Arr(Int32.(A.colptr)), Arr(Int32.(A.rowval)), Arr(absnz), Arr(Int32.(long_cols)))
+    @test Array(dnew_device) ≈ dnew
+end
+
+@testset "Scaling sweep with a long column" begin
+    HAS_CUDA && CUDA.functional() && test_scaling_sweep(CuArray)
+    HAS_AMDGPU && AMDGPU.functional() && test_scaling_sweep(ROCArray)
 end

@@ -8,7 +8,7 @@ import LinearAlgebra: Symmetric, mul!, norm, dot
 import Adapt: adapt
 import GPUArraysCore: AbstractGPUVector, AbstractGPUMatrix, AbstractGPUArray, @allowscalar
 # Kernels
-import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend
+import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend, @localmem, @synchronize
 
 import MadCore: NLPModels
 import MadCore
@@ -39,6 +39,7 @@ include("KKT/gpu_sparse.jl")
 include("KKT/gpu_qn.jl")
 include("IPM/utils.jl")
 include("IPM/kernels.jl")
+include("scaling.jl")
 
 # Linear solvers implemented in the GPU extensions, selected by marker types.
 """
