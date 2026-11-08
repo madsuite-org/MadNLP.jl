@@ -518,3 +518,9 @@ end
     MadNLP.reset_slacks!(solver)
     @test xs == s0
 end
+
+@testset "Filter margins" begin
+    filter = Tuple{Float64, Float64}[]
+    MadNLP.augment_filter!(filter, 2.0, 3.0, 0.1, 0.25)
+    @test filter[1] == (1.8, 2.5)
+end
