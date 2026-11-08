@@ -3,8 +3,7 @@
 
 Entry point of MadNLP on AMD GPUs. Loads MadNLPCore with the GPU KKT systems of
 MadCoreGPU, the rocSOLVER solvers and SparseDirectSolver.jl. Models on `ROCVector` are
-solved with the condensed KKT system and [`SDSSolver`](@ref) by default, with the
-quality-function barrier rule and slack reset of the GPU option preset.
+solved with the condensed KKT system and [`SDSSolver`](@ref) by default.
 """
 module rocMadNLP
 
