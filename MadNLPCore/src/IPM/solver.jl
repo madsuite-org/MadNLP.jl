@@ -535,7 +535,7 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
     return feasibility_fallback!(solver, theta_entry) ? REGULAR : status
 end
 
-function robust_phase!(solver::AbstractMadNLPSolver{T}) where T
+function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
     initialize_robust_restorer!(solver)
     RR = get_RR(solver)
     while true

@@ -3,15 +3,18 @@
 # x = (1, 0, 0.5), f = 1.
 using NLPModels
 
-struct WachBiegModel{T} <: NLPModels.AbstractNLPModel{T,Vector{T}}
+struct WachBiegModel{T} <: NLPModels.AbstractNLPModel{T, Vector{T}}
     meta::NLPModels.NLPModelMeta{T, Vector{T}}
     counters::NLPModels.Counters
 end
 
 WachBiegModel(; T = Float64) = WachBiegModel(
-    NLPModels.NLPModelMeta(3; ncon = 2, nnzj = 4, nnzh = 1, x0 = T[-2, 1, 1],
-        lvar = T[-Inf, 0, 0], uvar = T[Inf, Inf, Inf], lcon = T[0, 0], ucon = T[0, 0]),
-    NLPModels.Counters())
+    NLPModels.NLPModelMeta(
+        3; ncon = 2, nnzj = 4, nnzh = 1, x0 = T[-2, 1, 1],
+        lvar = T[-Inf, 0, 0], uvar = T[Inf, Inf, Inf], lcon = T[0, 0], ucon = T[0, 0]
+    ),
+    NLPModels.Counters()
+)
 
 NLPModels.obj(::WachBiegModel, x::AbstractVector) = x[1]
 NLPModels.grad!(::WachBiegModel, x::AbstractVector, g::AbstractVector) = (g .= 0; g[1] = 1; g)
