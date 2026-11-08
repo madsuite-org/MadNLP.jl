@@ -11,6 +11,7 @@ import MadCore, MadCoreGPU, MadNLPCore
 import AMDGPU
 using AMDGPU: ROCVector, ROCBackend
 import PrecompileTools
+# SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
 
 using MadNLPCore
@@ -18,10 +19,9 @@ for name in names(MadNLPCore)
     name === :MadNLPCore && continue
     @eval export $name
 end
-using MadCoreGPU: LapackROCmSolver
-export LapackROCmSolver, SDSSolver, SDSSolverOptions, ROCBackend
+using MadCoreGPU: LapackROCmSolver, SDSSolver
+export LapackROCmSolver, SDSSolver, ROCBackend
 
-include("sds.jl")
 include("options.jl")
 include("precompile.jl")
 
