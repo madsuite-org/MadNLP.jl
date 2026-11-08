@@ -36,7 +36,7 @@ default_sparse_solver(nlp) = DummySolver
     default_dense_solver(nlp)
 
 Return the dense linear solver used when the option `linear_solver` is not set and the
-model has dense callbacks. The default is [`LapackCPUSolver`](@ref); the GPU entry points
+model has dense callbacks. The default is `LapackCPUSolver`; the GPU entry points
 set it for their array types.
 """
 default_dense_solver(nlp) = LapackCPUSolver
