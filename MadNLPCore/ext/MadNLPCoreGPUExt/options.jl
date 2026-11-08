@@ -18,10 +18,14 @@ function MadNLPCore.MadNLPOptions{T}(
         tol = MadNLPCore.get_tolerance(T, kkt_system),
         bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
     ) where {T, VT <: AbstractGPUVector{T}}
-    adaptive = kkt_system == MadNLPCore.SparseKKTSystem ? (;
-        barrier = MadNLPCore.QualityFunctionUpdate{T}(sigma_max = T(GPU_SIGMA_MAX), mu_min = T(GPU_MU_MIN_RATIO) * tol),
-        slack_reset = true,
-    ) : (;)
+    adaptive = if kkt_system == MadNLPCore.SparseKKTSystem
+        (;
+            barrier = MadNLPCore.QualityFunctionUpdate{T}(sigma_max = T(GPU_SIGMA_MAX), mu_min = T(GPU_MU_MIN_RATIO) * tol),
+            slack_reset = true,
+        )
+    else
+        (;)
+    end
     return MadNLPCore.MadNLPOptions{T}(;
         tol = tol,
         callback = callback,
