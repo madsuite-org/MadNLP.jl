@@ -1,5 +1,5 @@
 # Option presets for models on NVIDIA GPUs: the linear solvers of the GPU option presets
-# (MadNLPCoreGPUExt), and a preset of their own, more specific than the shared one.
+# (MadNLPCoreGPUExt), and a preset of their own that builds on the shared one.
 
 MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = CUDSSSolver
 MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = LapackCUDASolver
@@ -18,17 +18,17 @@ function MadNLPCore.MadNLPOptions{T}(
         tol = MadNLPCore.get_tolerance(T, kkt_system),
         bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
     ) where {T, VT <: CuVector{T}}
-    augmented = kkt_system == MadNLPCore.SparseKKTSystem
-    return MadNLPCore.MadNLPOptions{T}(
-        tol = tol,
-        callback = callback,
-        kkt_system = kkt_system,
-        linear_solver = linear_solver,
-        bound_relax_factor = bound_relax_factor,
-        kkt_scaler = augmented ? MadCore.RuizScaler() : MadCore.NoScaler(),
-        dual_shift = augmented ? T(GPU_DUAL_SHIFT) : zero(T),
-        iterator = augmented ? MadCore.KrylovIterator : MadCore.RichardsonIterator,
+    # the shared GPU preset of MadNLPCoreGPUExt, with the augmented system's factorization options
+    opt = invoke(
+        MadNLPCore.MadNLPOptions{T}, Tuple{MadNLPCore.AbstractNLPModel{T, <:MadCoreGPU.AbstractGPUVector{T}}}, nlp;
+        dense_callback, callback, kkt_system, linear_solver, tol, bound_relax_factor,
     )
+    if kkt_system == MadNLPCore.SparseKKTSystem
+        opt.kkt_scaler = MadCore.RuizScaler()
+        opt.dual_shift = T(GPU_DUAL_SHIFT)
+        opt.iterator = MadCore.KrylovIterator
+    end
+    return opt
 end
 
 # cuDSS on the augmented KKT system of a GPU model: LDLᵀ with small pivots bounded and with
