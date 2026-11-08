@@ -3,6 +3,10 @@
     # Refinement stops when a pass leaves the residual ratio above this fraction of the previous
     # one, once the residual ratio is below richardson_acceptable_tol.
     richardson_improvement_factor::Float64 = 0.999999999
+    # Refinement passes after the first solve before the residual test can accept, as Ipopt's
+    # min_refinement_steps. richardson_max_iter counts the first solve too and still caps the
+    # loop, so a minimum of richardson_max_iter or more cannot be met.
+    richardson_min_iter::Int = 1
     richardson_tol::Float64
     richardson_acceptable_tol::Float64
 end
@@ -63,11 +67,14 @@ function solve_refine!(
             iterator.cnt.ir += 1
 
             # A pass that leaves the residual ratio above this fraction of the previous one has
-            # stalled. Stop only if the solve is already acceptable; otherwise keep refining.
-            stalled = iterator.cnt.ir > 1 &&
+            # stalled. Stop only after the minimum number of passes, and only if the solve is
+            # already acceptable; otherwise keep refining.
+            stalled = iterator.cnt.ir > max(1, iterator.opt.richardson_min_iter) &&
                 residual_ratio > iterator.opt.richardson_improvement_factor * residual_ratio_old &&
                 residual_ratio < iterator.opt.richardson_acceptable_tol
-            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol) || stalled
+            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) ||
+                    (residual_ratio < iterator.opt.richardson_tol && iterator.cnt.ir > iterator.opt.richardson_min_iter) ||
+                    stalled
                 break
             end
             residual_ratio_old = residual_ratio
