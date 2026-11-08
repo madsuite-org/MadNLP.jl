@@ -41,6 +41,28 @@ import SparseArrays: CHOLMOD as SuiteSparseCHOLMOD
 using LinearAlgebra: I
 using Random: MersenneTwister
 
+@testset "CHOLMOD small-pivot bound" begin
+    K = sparse(Int32[2, 2], Int32[1, 2], [1.0, 0.0], 2, 2)
+    for (max_lnz, Ti) in ((Inf, Int32), (0, Int64))
+        opt = MadNLP.default_options(CHOLMODSolver)
+        opt.cholmod_algorithm = MadNLP.LDL
+        M = MadNLP.create_linear_solver(CHOLMODSolver, copy(K); opt, max_lnz_int32 = max_lnz)
+        MadNLP.factorize!(M)
+        @test MadNLP.inertia(M) == (0, 2, 0)
+
+        opt = MadNLP.default_options(CHOLMODSolver)
+        opt.cholmod_algorithm = MadNLP.LDL
+        opt.cholmod_dbound = 1.0e-10
+        M = MadNLP.create_linear_solver(CHOLMODSolver, copy(K); opt, max_lnz_int32 = max_lnz)
+        MadNLP.factorize!(M)
+        @test MadNLP.inertia(M) == (1, 0, 1)
+        x = [1.0, 2.0]
+        MadNLP.solve_linear_system!(M, x)
+        @test x ≈ [2.0, 1.0] rtol = 1.0e-6
+        @test SparseArrays.CHOLMOD.getcommon(Ti)[].dbound == 0.0
+    end
+end
+
 @testset "CHOLMOD index width" begin
     K = sparse(Int32[1, 3, 2, 3, 3], Int32[1, 1, 2, 2, 3], [4.0, 1.0, 3.0, 1.0, -2.0], 3, 3)
     rhs = [1.0, 2.0, 3.0]
