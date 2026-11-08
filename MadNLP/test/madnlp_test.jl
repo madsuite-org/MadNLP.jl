@@ -491,3 +491,30 @@ end
     solver.RR.n_feasible_returns = MadNLP.MAX_FEASIBLE_RETURNS
     @test MadNLP.robust!(solver) == MadNLP.INFEASIBLE_PROBLEM_DETECTED
 end
+
+@testset "Slack reset" begin
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    results = madnlp(nlp; print_level = MadNLP.ERROR, slack_reset = true)
+    @test results.status == MadNLP.SOLVE_SUCCEEDED
+    @test results.objective ≈ madnlp(nlp; print_level = MadNLP.ERROR).objective
+
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, slack_reset = true)
+    MadNLP.solve!(solver)
+    xs = MadNLP.slack(MadNLP.get_x_trial(solver))
+    c = MadNLP.get_c_trial(solver)
+    cs = view(c, MadNLP.get_ind_ineq(solver))
+    s0 = copy(xs)
+
+    # a slack below g(x) moves up to it, when the rows hold
+    cs[1] = 1.0e-3
+    MadNLP.reset_slacks!(solver)
+    @test xs[1] ≈ s0[1] + 1.0e-3
+    @test cs[1] == 0
+
+    # nothing moves when a row is violated
+    copyto!(xs, s0)
+    cs .= 0
+    cs[1] = -1.0 - s0[1] - 1.0e-3
+    MadNLP.reset_slacks!(solver)
+    @test xs == s0
+end
