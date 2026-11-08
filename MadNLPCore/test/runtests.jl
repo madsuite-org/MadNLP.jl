@@ -57,7 +57,7 @@ struct MyLDL end
         @test stats.status == MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
         stats = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = true)
         @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-        @test stats.solution ≈ [1.0, 0.0, 0.5] atol = 1e-6
+        @test stats.solution ≈ [1.0, 0.0, 0.5] atol = 1.0e-6
         # The option leaves a solve that never enters restoration unchanged.
         a = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
         b = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = true)
