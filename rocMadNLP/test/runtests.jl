@@ -9,7 +9,8 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
         @test rocMadNLP.ROCBackend === AMDGPU.ROCBackend
         # rocMadNLP loads AMDGPU, so the rocSOLVER solvers are available.
         @test MadCore.default_options(LapackROCmSolver) isa MadCore.AbstractOptions
-        @test MadCore.default_options(SDSSolver) isa MadCore.AbstractOptions
+        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
+        @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
         @test hasmethod(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, ROCVector{Float64}}})
     end

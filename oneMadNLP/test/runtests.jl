@@ -7,7 +7,8 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
         @test madnlp === MadNLPCore.madnlp
         @test oneMadNLP.oneAPIBackend === oneAPI.oneAPIBackend
         @test MadCore.default_options(LapackOneMKLSolver) isa MadCore.AbstractOptions
-        @test MadCore.default_options(SDSSolver) isa MadCore.AbstractOptions
+        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
+        @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
         @test hasmethod(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, oneVector{Float64}}})
     end
@@ -32,6 +33,10 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
             @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+            # The local minimum reached from the origin, up to the precision of T and the
+            # relaxed bounds of the condensed KKT system.
+            @test stats.objective ≈ T(360.38) rtol = 1.0e-2
+            @test Array(stats.solution) ≈ T[-0.7921, -1.2624] rtol = 1.0e-2
         end
     end
 end

@@ -84,6 +84,6 @@ function LinearAlgebra.mul!(
 end
 
 # Metal sorts plain numbers only. The symbolic setup sorts vectors of tuples once, on the host.
-Base.sort!(v::MtlVector{<:Tuple}; kw...) = (length(v) > 0 && copyto!(v, sort!(Array(v); kw...)); v)
-Base.sortperm(v::MtlVector{<:Tuple}; kw...) = MtlVector(sortperm(Array(v); kw...))
-Base.permute!(v::MtlVector{<:Tuple}, p::MtlVector) = (length(v) > 0 && copyto!(v, v[p]); v)
+MadCore._sort_tuples!(v::MtlVector; kw...) = (length(v) > 0 && copyto!(v, sort!(Array(v); kw...)); v)
+MadCore._sortperm_tuples(v::MtlVector; kw...) = MtlVector(sortperm(Array(v); kw...))
+MadCore._permute_tuples!(v::MtlVector, p::MtlVector) = (length(v) > 0 && copyto!(v, v[p]); v)

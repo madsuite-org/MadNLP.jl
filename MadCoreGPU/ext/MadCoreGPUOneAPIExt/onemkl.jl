@@ -9,7 +9,7 @@ mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, 
     ipiv::oneVector{Int64}
     scratchpad::oneVector{T}
     scratchpad_size::Int64
-    device_queue::SYCL.syclQueue_t
+    queue::oneAPI.oneL0.ZeCommandQueue
     alpha::Base.RefValue{T}
     beta::Base.RefValue{T}
     opt::MadCore.LapackOptions
@@ -33,12 +33,13 @@ mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, 
         info = Ref{Cint}(0)
         ipiv = oneVector{Int64}(undef, 0)
         scratchpad = oneVector{T}(undef, 0)
+        # oneMKL calls take `sycl_queue(queue)` each time: it orders them after the Julia work
+        # queued before, and the Julia work queued after them.
         queue = oneAPI.global_queue(oneAPI.context(fact), oneAPI.device(fact))
-        device_queue = oneAPI.sycl_queue(queue)
         alpha = Ref{T}(1)
         beta = Ref{T}(0)
         alg = opt.lapack_algorithm
-        solver = new{T, MT, alg}(A, fact, n, sol, tau, Λ, info, ipiv, scratchpad, 0, device_queue, alpha, beta, opt, logger)
+        solver = new{T, MT, alg}(A, fact, n, sol, tau, Λ, info, ipiv, scratchpad, 0, queue, alpha, beta, opt, logger)
         MadCore.setup!(solver)
         return solver
     end
@@ -56,8 +57,8 @@ for (potrf, potrf_buffer, potrs, potrs_buffer, T) in
     )
     @eval begin
         function MadCore.setup_cholesky!(M::LapackOneMKLState{$T})
-            potrf_scratchpad_size = Support.$potrf_buffer(M.device_queue, 'L', M.n, M.n)
-            potrs_scratchpad_size = Support.$potrs_buffer(M.device_queue, 'L', M.n, one(Int64), M.n, M.n)
+            potrf_scratchpad_size = Support.$potrf_buffer(oneAPI.sycl_queue(M.queue), 'L', M.n, M.n)
+            potrs_scratchpad_size = Support.$potrs_buffer(oneAPI.sycl_queue(M.queue), 'L', M.n, one(Int64), M.n, M.n)
             M.scratchpad_size = max(potrf_scratchpad_size, potrs_scratchpad_size)
             resize!(M.scratchpad, M.scratchpad_size)
             return M
@@ -65,7 +66,7 @@ for (potrf, potrf_buffer, potrs, potrs_buffer, T) in
 
         function MadCore.factorize_cholesky!(M::LapackOneMKLState{$T})
             M.info[] = Support.$potrf(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 'L',
                 M.n,
                 M.fact,
@@ -78,7 +79,7 @@ for (potrf, potrf_buffer, potrs, potrs_buffer, T) in
 
         function MadCore.solve_cholesky!(M::LapackOneMKLState{$T}, x::oneVector{$T})
             Support.$potrs(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 'L',
                 M.n,
                 one(Int64),
@@ -102,8 +103,8 @@ for (getrf, getrf_buffer, getrs, getrs_buffer, T) in
     @eval begin
         function MadCore.setup_lu!(M::LapackOneMKLState{$T})
             resize!(M.ipiv, M.n)
-            getrf_scratchpad_size = Support.$getrf_buffer(M.device_queue, M.n, M.n, M.n)
-            getrs_scratchpad_size = Support.$getrs_buffer(M.device_queue, 'N', M.n, one(Int64), M.n, M.n)
+            getrf_scratchpad_size = Support.$getrf_buffer(oneAPI.sycl_queue(M.queue), M.n, M.n, M.n)
+            getrs_scratchpad_size = Support.$getrs_buffer(oneAPI.sycl_queue(M.queue), 'N', M.n, one(Int64), M.n, M.n)
             M.scratchpad_size = max(getrf_scratchpad_size, getrs_scratchpad_size)
             resize!(M.scratchpad, M.scratchpad_size)
             return M
@@ -111,7 +112,7 @@ for (getrf, getrf_buffer, getrs, getrs_buffer, T) in
 
         function MadCore.factorize_lu!(M::LapackOneMKLState{$T})
             M.info[] = Support.$getrf(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 M.n,
                 M.n,
                 M.fact,
@@ -125,7 +126,7 @@ for (getrf, getrf_buffer, getrs, getrs_buffer, T) in
 
         function MadCore.solve_lu!(M::LapackOneMKLState{$T}, x::oneVector{$T})
             Support.$getrs(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 'N',
                 M.n,
                 one(Int64),
@@ -150,8 +151,8 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, T) in
     @eval begin
         function MadCore.setup_qr!(M::LapackOneMKLState{$T})
             resize!(M.tau, M.n)
-            geqrf_scratchpad_size = Support.$geqrf_buffer(M.device_queue, M.n, M.n, M.n)
-            ormqr_scratchpad_size = Support.$ormqr_buffer(M.device_queue, 'L', 'T', M.n, one(Int64), M.n, M.n, M.n)
+            geqrf_scratchpad_size = Support.$geqrf_buffer(oneAPI.sycl_queue(M.queue), M.n, M.n, M.n)
+            ormqr_scratchpad_size = Support.$ormqr_buffer(oneAPI.sycl_queue(M.queue), 'L', 'T', M.n, one(Int64), M.n, M.n, M.n)
             M.scratchpad_size = max(geqrf_scratchpad_size, ormqr_scratchpad_size)
             resize!(M.scratchpad, M.scratchpad_size)
             return M
@@ -159,7 +160,7 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, T) in
 
         function MadCore.factorize_qr!(M::LapackOneMKLState{$T})
             M.info[] = Support.$geqrf(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 M.n,
                 M.n,
                 M.fact,
@@ -174,7 +175,7 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, T) in
         function MadCore.solve_qr!(M::LapackOneMKLState{$T}, x::oneVector{$T})
             # Apply Q^T to x: x = Q^T * x
             Support.$ormqr(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 'L',          # side (left multiplication)
                 'T',          # trans (transpose)
                 M.n,          # m
@@ -204,14 +205,14 @@ for (syevd, syevd_buffer, gemv, T) in
         function MadCore.setup_evd!(M::LapackOneMKLState{$T})
             resize!(M.tau, M.n)
             resize!(M.Λ, M.n)
-            M.scratchpad_size = Support.$syevd_buffer(M.device_queue, 'V', 'L', M.n, M.n)
+            M.scratchpad_size = Support.$syevd_buffer(oneAPI.sycl_queue(M.queue), 'V', 'L', M.n, M.n)
             resize!(M.scratchpad, M.scratchpad_size)
             return M
         end
 
         function MadCore.factorize_evd!(M::LapackOneMKLState{$T})
             M.info[] = Support.$syevd(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 'V',
                 'L',
                 M.n,
@@ -226,7 +227,7 @@ for (syevd, syevd_buffer, gemv, T) in
 
         function MadCore.solve_evd!(M::LapackOneMKLState{$T}, x::oneVector{$T})
             Support.$gemv(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 'T',
                 M.n,
                 M.n,
@@ -241,7 +242,7 @@ for (syevd, syevd_buffer, gemv, T) in
             )
             M.tau ./= M.Λ
             Support.$gemv(
-                M.device_queue,
+                oneAPI.sycl_queue(M.queue),
                 'N',
                 M.n,
                 M.n,

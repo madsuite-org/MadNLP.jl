@@ -1,17 +1,4 @@
 #=
-    SparseMatrixCSC to oneSparseMatrixCSC
-=#
-
-function oneMKL.oneSparseMatrixCSC{Tv, Ti}(A::SparseMatrixCSC{Tv, Ti}) where {Tv, Ti}
-    return oneMKL.oneSparseMatrixCSC{Tv, Ti}(
-        oneVector(A.colptr),
-        oneVector(A.rowval),
-        oneVector(A.nzval),
-        size(A),
-    )
-end
-
-#=
     oneSparseMatrixCSC to oneMatrix
 =#
 

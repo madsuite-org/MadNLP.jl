@@ -5,7 +5,8 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
         @test SDSSolver === MadCoreGPU.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test mtlMadNLP.MetalBackend === Metal.MetalBackend
-        @test MadCore.default_options(SDSSolver) isa MadCore.AbstractOptions
+        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
+        @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
         @test hasmethod(MadNLPCore.MadNLPOptions{Float32}, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}})
     end
@@ -41,11 +42,11 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
         @testset "Host sort of tuples" begin
             v = [(3, 1), (1, 2), (2, 3)]
             dv = MtlVector(v)
-            sort!(dv)
+            MadCore._sort_tuples!(dv)
             @test Array(dv) == sort(v)
-            @test Array(sortperm(MtlVector(v))) == sortperm(v)
+            @test Array(MadCore._sortperm_tuples(MtlVector(v))) == sortperm(v)
             dv = MtlVector(v)
-            permute!(dv, MtlVector([3, 1, 2]))
+            MadCore._permute_tuples!(dv, MtlVector([3, 1, 2]))
             @test Array(dv) == v[[3, 1, 2]]
         end
         include("border.jl")
