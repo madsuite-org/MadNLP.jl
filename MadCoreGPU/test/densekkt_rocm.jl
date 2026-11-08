@@ -12,7 +12,10 @@ function _compare_amdgpu_with_cpu(KKTSystem, n, m, ind_fixed)
             :linear_solver => MadCoreGPU.LapackROCmSolver,
             :lapack_algorithm=>MadNLP.QR,
             :print_level=>MadNLP.ERROR,
-            :tol=>tol
+            :tol=>tol,
+            # the same barrier rule on host and device: the GPU preset picks its own otherwise
+            :barrier=>MadNLP.MonotoneUpdate(T(tol), 10),
+            :slack_reset=>false,
         )
 
         # Host evaluator

@@ -25,7 +25,7 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             @test opt.dual_shift == 1.0e-10
             @test opt.iterator === MadCore.KrylovIterator
             @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
-            @test opt.barrier.sigma_max == 2.0 && opt.barrier.mu_min == 1.0e-11
+            @test opt.barrier.sigma_max == 2.0 && opt.barrier.mu_min ≈ 1.0e-3 * opt.tol
             @test opt.slack_reset
             lopt = MadCore.default_options(nlp, opt.kkt_system, opt.linear_solver)
             @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 1.0e-10
