@@ -41,6 +41,17 @@ import SparseArrays: CHOLMOD as SuiteSparseCHOLMOD
 using LinearAlgebra: I
 using Random: MersenneTwister
 
+@testset "LDLSolver with a failed factorization" begin
+    K = sparse(Int32[2, 2], Int32[1, 2], [1.0, 0.0], 2, 2)
+    M = MadNLP.create_linear_solver(LDLSolver, K; opt = MadNLP.default_options(LDLSolver))
+    MadNLP.factorize!(M)
+    @test !MadNLP.is_factorized(M)
+    @test MadNLP.inertia(M) == (0, 2, 0)
+    x = [1.0, 2.0]
+    MadNLP.solve_linear_system!(M, x)
+    @test x == [1.0, 2.0]
+end
+
 @testset "CHOLMOD small-pivot bound" begin
     K = sparse(Int32[2, 2], Int32[1, 2], [1.0, 0.0], 2, 2)
     for (max_lnz, Ti) in ((Inf, Int32), (0, Int64))
