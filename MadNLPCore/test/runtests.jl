@@ -70,7 +70,7 @@ struct MyLDL end
         full_phase = madnlp(wb; opts...)
         early = madnlp(wb; opts..., restoration_stall_iter = 2)
         @test early.status == MadNLPCore.SOLVE_SUCCEEDED
-        @test early.solution ≈ [1.0, 0.0, 0.5] atol = 1e-6
+        @test early.solution ≈ [1.0, 0.0, 0.5] atol = 1.0e-6
         # The stalled phase is left early, so the solve takes fewer iterations.
         @test early.iter < full_phase.iter
         # Without the fallback the option does nothing.

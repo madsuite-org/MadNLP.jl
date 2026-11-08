@@ -470,7 +470,7 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
         copyto!(full(get_zl(solver)), RR.zl_entry)
         copyto!(full(get_zu(solver)), RR.zu_entry)
         eval_cons_wrapper!(solver, get_c(solver), get_x(solver))
-        set_obj_val!(solver, eval_f_wrapper(solver, get_x(solver)))
+        return set_obj_val!(solver, eval_f_wrapper(solver, get_x(solver)))
     end
 
     RR.stall_iter = get_opt(solver).restoration_stall_iter

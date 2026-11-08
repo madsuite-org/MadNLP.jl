@@ -185,7 +185,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     feasibility_fallback_max_iter::Int = 10_000
     feasibility_fallback_reduction::T = 1.0e-2
     restoration_stall_iter::Int = 0
-    restoration_stall_tol::T = 1e-2
+    restoration_stall_tol::T = 1.0e-2
 
     # Line search
     obj_max_inc::T = 5.
