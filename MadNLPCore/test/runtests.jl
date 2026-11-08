@@ -1,6 +1,7 @@
 using Test, MadNLPCore, NLPModels
 
 include("hs15.jl")
+include("wachbieg.jl")
 
 # A package that keeps MadCore as a weak dependency exports a plain type and defines,
 # in its extension, the methods of the linear solver interface for it.
@@ -46,6 +47,21 @@ struct MyLDL end
         end
         stats = madnlp(nlp; linear_solver = MyLDL, print_level = MadNLPCore.ERROR)
         @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+    end
+
+    @testset "Feasibility fallback" begin
+        using LDLFactorizations
+        wb = WachBiegModel()
+        # The restoration phase ends at an infeasible stationary point of the violation.
+        stats = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
+        @test stats.status == MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
+        stats = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = true)
+        @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+        @test stats.solution ≈ [1.0, 0.0, 0.5] atol = 1e-6
+        # The option leaves a solve that never enters restoration unchanged.
+        a = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
+        b = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = true)
+        @test a.iter == b.iter && a.objective == b.objective
     end
 
     @testset "Solve with LAPACK" begin

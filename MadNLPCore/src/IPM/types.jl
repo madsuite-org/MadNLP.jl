@@ -33,6 +33,12 @@ mutable struct RobustRestorer{T, VT}
     filter::Vector{Tuple{T,T}}
 
     n_feasible_returns::Int
+
+    # feasibility fallback
+    x_entry::VT
+    g_fb::VT
+    x_prev_fb::VT
+    g_prev_fb::VT
 end
 
 # State of the watchdog line search: the reference iterate and search direction it rolls back
