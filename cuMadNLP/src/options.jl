@@ -1,4 +1,8 @@
-# Option presets of MadNLPCore for models on NVIDIA GPUs
+# Option presets for models on NVIDIA GPUs: the linear solvers of the GPU option presets
+# (MadNLPCoreGPUExt), and a preset of their own, more specific than the shared one.
+
+MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = CUDSSSolver
+MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = LapackCUDASolver
 
 # The augmented KKT system is factorized by cuDSS after Ruiz scaling and a dual shift, with
 # matching and small pivots bounded; GMRES refines each solve on the unshifted system.
@@ -10,7 +14,7 @@ function MadNLPCore.MadNLPOptions{T}(
         dense_callback = MadNLPCore.is_dense_callback(nlp),
         callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
         kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.SparseKKTSystem,
-        linear_solver = dense_callback ? LapackCUDASolver : CUDSSSolver,
+        linear_solver = dense_callback ? MadNLPCore.default_dense_solver(nlp) : MadNLPCore.default_sparse_solver(nlp),
         tol = MadNLPCore.get_tolerance(T, kkt_system),
         bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
     ) where {T, VT <: CuVector{T}}
