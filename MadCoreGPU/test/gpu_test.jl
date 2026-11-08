@@ -69,6 +69,7 @@ cuda_testset = [
     [
         "CUDSS-IR",
         ()->MadNLP.Optimizer(
+            kkt_system = MadNLP.SparseCondensedKKTSystem,
             linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_ir=1,

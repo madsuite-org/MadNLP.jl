@@ -1,7 +1,7 @@
 # Option presets of MadNLPCore for models on NVIDIA GPUs
 
 # The augmented KKT system is factorized by cuDSS after Ruiz scaling and a dual shift, with
-# small pivots bounded; iterative refinement works with the unshifted system.
+# matching and small pivots bounded; GMRES refines each solve on the unshifted system.
 const GPU_DUAL_SHIFT = 1.0e-10
 const GPU_PIVOT_EPSILON = 1.0e-10
 
@@ -23,15 +23,20 @@ function MadNLPCore.MadNLPOptions{T}(
         bound_relax_factor = bound_relax_factor,
         kkt_scaler = augmented ? MadCore.RuizScaler() : MadCore.NoScaler(),
         dual_shift = augmented ? T(GPU_DUAL_SHIFT) : zero(T),
+        iterator = augmented ? MadCore.KrylovIterator : MadCore.RichardsonIterator,
     )
 end
 
-# cuDSS on the augmented KKT system of a GPU model: LDLᵀ with small pivots bounded
+# cuDSS on the augmented KKT system of a GPU model: LDLᵀ with small pivots bounded and with
+# matching, without which the solve of this indefinite matrix has a backward error near 1e-5.
+# Matching depends on the values, so the analysis waits for the first matrix.
 function MadCore.default_options(
         ::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.SparseKKTSystem}, ::Type{CUDSSSolver},
     ) where {T, VT <: CuVector{T}}
     opt = MadCore.default_options(CUDSSSolver)
     opt.cudss_algorithm = MadCore.LDL
     opt.cudss_pivot_epsilon = GPU_PIVOT_EPSILON
+    opt.cudss_matching = true
+    opt.cudss_deferred_analysis = true
     return opt
 end

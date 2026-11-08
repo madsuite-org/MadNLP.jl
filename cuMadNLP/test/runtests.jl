@@ -20,8 +20,10 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem
             @test opt.kkt_scaler isa MadCore.RuizScaler
             @test opt.dual_shift == 1.0e-10
+            @test opt.iterator === MadCore.KrylovIterator
             lopt = MadCore.default_options(nlp, opt.kkt_system, opt.linear_solver)
             @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 1.0e-10
+            @test lopt.cudss_matching && lopt.cudss_deferred_analysis
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # the condensed system keeps its own preset
