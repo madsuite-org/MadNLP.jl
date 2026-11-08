@@ -518,3 +518,45 @@ end
     MadNLP.reset_slacks!(solver)
     @test xs == s0
 end
+
+# min (x1 - 3)^4 + x2^2 subject to x1 + x2 = 1 written twice: the Jacobian is rank deficient
+struct RedundantEqualityModel <: NLPModels.AbstractNLPModel{Float64, Vector{Float64}}
+    meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
+    counters::NLPModels.Counters
+end
+RedundantEqualityModel() = RedundantEqualityModel(
+    NLPModels.NLPModelMeta(2; ncon = 2, nnzj = 4, nnzh = 2, x0 = [-5.0, 9.0], lcon = [1.0, 1.0], ucon = [1.0, 1.0]),
+    NLPModels.Counters(),
+)
+NLPModels.obj(::RedundantEqualityModel, x::AbstractVector) = (x[1] - 3)^4 + x[2]^2
+function NLPModels.grad!(::RedundantEqualityModel, x::AbstractVector, g::AbstractVector)
+    g[1] = 4 * (x[1] - 3)^3
+    g[2] = 2 * x[2]
+    return g
+end
+NLPModels.cons!(::RedundantEqualityModel, x::AbstractVector, c::AbstractVector) = (c .= x[1] + x[2]; c)
+function NLPModels.jac_structure!(::RedundantEqualityModel, I::AbstractVector, J::AbstractVector)
+    I .= [1, 1, 2, 2]
+    J .= [1, 2, 1, 2]
+    return I, J
+end
+NLPModels.jac_coord!(::RedundantEqualityModel, x::AbstractVector, vals::AbstractVector) = (vals .= 1.0; vals)
+function NLPModels.hess_structure!(::RedundantEqualityModel, I::AbstractVector, J::AbstractVector)
+    I .= [1, 2]
+    J .= [1, 2]
+    return I, J
+end
+function NLPModels.hess_coord!(::RedundantEqualityModel, x, y, vals::AbstractVector; obj_weight = 1.0)
+    vals[1] = 12 * (x[1] - 3)^2 * obj_weight
+    vals[2] = 2 * obj_weight
+    return vals
+end
+
+@testset "Dual regularization without Hessian perturbation" begin
+    solver = MadNLPSolver(RedundantEqualityModel(); print_level = MadNLP.ERROR)
+    results = MadNLP.solve!(solver)
+    @test results.status == MadNLP.SOLVE_SUCCEEDED
+    @test sum(results.solution) ≈ 1 atol = 1.0e-6
+    # the dual block needed regularization at every iteration, so the Jacobian is taken as degenerate
+    @test solver.inertia_corrector.jac_degenerate
+end
