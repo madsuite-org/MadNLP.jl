@@ -19,7 +19,9 @@ with Barzilai-Borwein steps and a nonmonotone Armijo test over the last 10 value
 `‖c‖∞` falls by the factor `feasibility_fallback_reduction`, or after
 `feasibility_fallback_max_iter` iterations. If the filter accepts the result and the
 violation is below `required_infeasibility_reduction * theta_ref`, set the multipliers and
-return `true`; otherwise restore the starting point and return `false`.
+return `true`. A feasible result that only the filter rejects resets the filter, within the
+same limit of `MAX_FEASIBLE_RETURNS` as a restoration phase that converges at a feasible
+point. Otherwise restore the starting point and return `false`.
 """
 function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where {T}
     opt = get_opt(solver)
@@ -81,6 +83,14 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     varphi = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), mu)
     ok = is_filter_acceptable(get_filter(solver), theta, varphi) &&
         theta <= opt.required_infeasibility_reduction * theta_ref
+    if !ok && get_inf_pr(c) <= opt.tol && RR.n_feasible_returns < MAX_FEASIBLE_RETURNS
+        # Feasible, but blocked by the filter: as when restoration converges at a feasible
+        # point, the filter is reset and the regular phase takes over.
+        RR.n_feasible_returns += 1
+        empty!(get_filter(solver))
+        push!(get_filter(solver), (get_theta_max(solver), -T(Inf)))
+        ok = true
+    end
     @debug(get_logger(solver), "Feasibility fallback: $iter iterations, theta $theta, accepted $ok.")
     if !ok
         copyto!(full(x), RR.x_entry)
