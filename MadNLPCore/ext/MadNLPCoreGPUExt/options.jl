@@ -2,9 +2,9 @@
 # solvers through `default_sparse_solver` and `default_dense_solver`. With the augmented KKT
 # system, the barrier parameter follows the quality-function rule, which may raise it at most
 # twofold per iteration, and the slacks are moved onto the constraints after an accepted step.
-# The other systems keep the monotone rule: the quality-function rule solves with the KKT system
-# before the first factorization, which the condensed system has not done yet with its zero
-# initial multipliers.
+# The other systems keep the monotone rule. On the condensed system the quality-function rule
+# would solve with the KKT system before its first factorization, which zero initial multipliers
+# leave undone; the dense systems factorize first but have not been benchmarked with it.
 const GPU_SIGMA_MAX = 2.0
 # the floor of the barrier parameter, relative to the tolerance: 1e-11 at the default tol = 1e-8
 const GPU_MU_MIN_RATIO = 1.0e-3
