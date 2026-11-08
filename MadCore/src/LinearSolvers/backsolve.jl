@@ -1,5 +1,8 @@
 @kwdef mutable struct RichardsonOptions <: AbstractOptions
     richardson_max_iter::Int = 10
+    # Refinement passes after the first solve before the residual test can accept, as Ipopt's
+    # min_refinement_steps.
+    richardson_min_iter::Int = 1
     richardson_tol::Float64
     richardson_acceptable_tol::Float64
 end
@@ -58,7 +61,8 @@ function solve_refine!(
             @debug(iterator.logger, @sprintf("%4i %6.2e", iterator.cnt.ir, residual_ratio))
             iterator.cnt.ir += 1
 
-            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
+            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) ||
+                    (residual_ratio < iterator.opt.richardson_tol && iterator.cnt.ir > iterator.opt.richardson_min_iter)
                 break
             end
         end

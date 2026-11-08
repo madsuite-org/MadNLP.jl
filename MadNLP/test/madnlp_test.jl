@@ -518,3 +518,17 @@ end
     MadNLP.reset_slacks!(solver)
     @test xs == s0
 end
+
+@testset "Minimum refinement passes" begin
+    function passes(min_iter)
+        solver = MadNLPSolver(
+            MadNLPTests.HS15Model(; x0 = [1.0, 1.0]);
+            print_level = MadNLP.ERROR, max_iter = 1,
+            richardson_tol = 1.0, richardson_min_iter = min_iter,
+        )
+        MadNLP.solve!(solver)
+        return solver.cnt.ir
+    end
+    @test passes(0) == 1
+    @test passes(1) == 2
+end
