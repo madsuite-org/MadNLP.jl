@@ -1,7 +1,8 @@
 @kwdef mutable struct RichardsonOptions <: AbstractOptions
     richardson_max_iter::Int = 10
     # Refinement passes after the first solve before the residual test can accept, as Ipopt's
-    # min_refinement_steps.
+    # min_refinement_steps. richardson_max_iter counts the first solve too and still caps the
+    # loop, so a minimum of richardson_max_iter or more cannot be met.
     richardson_min_iter::Int = 1
     richardson_tol::Float64
     richardson_acceptable_tol::Float64
