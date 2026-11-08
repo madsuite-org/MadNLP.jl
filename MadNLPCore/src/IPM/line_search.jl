@@ -22,7 +22,7 @@ function reset_slacks!(solver::AbstractMadNLPSolver{T}) where {T}
     norm(w, Inf) > tol && return
 
     # inequality rows, at g(x) = c + s
-    ws .= max.(xl .- (cs .+ xs), (cs .+ xs) .- xu, zero(T))
+    ws .= bound_violation.(cs .+ xs, xl, xu)
     norm(ws, Inf) > tol && return
 
     ws .= ifelse.(((cs .> 0) .& isinf.(xu)) .| ((cs .< 0) .& isinf.(xl)), cs, zero(T))
