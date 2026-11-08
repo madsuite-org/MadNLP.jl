@@ -538,6 +538,11 @@ end
     @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
     wd = MadNLP.WatchdogState(solver)
     MadNLP.save_watchdog_iterate!(solver, wd)
+    # the reference values follow μ: at the saved μ they are unchanged
+    varphi_ref, varphi_d_ref = wd.varphi_ref, wd.varphi_d_ref
+    MadNLP.update_watchdog_reference!(wd, MadNLP.get_mu(solver))
+    @test wd.varphi_ref ≈ varphi_ref
+    @test wd.varphi_d_ref ≈ varphi_d_ref
     x = copy(MadNLP.full(MadNLP.get_x(solver)))
     y = copy(MadNLP.get_y(solver))
     MadNLP.full(MadNLP.get_x(solver)) .+= 1.0

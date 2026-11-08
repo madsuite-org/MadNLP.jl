@@ -275,11 +275,11 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         @trace(get_logger(solver),"Updating the barrier parameter.")
         mu_prev = get_mu(solver)
         update_barrier!(get_opt(solver).barrier, solver, sc)
-        # A change of the barrier parameter ends a watchdog.
+        # A change of the barrier parameter keeps a watchdog going, with the reference values
+        # re-evaluated at the new μ: the barrier objective and its directional derivative are
+        # affine in μ.
         if watchdog_active(solver) && get_mu(solver) != mu_prev
-            wd = watchdog_state(solver)
-            wd.in_watchdog = false
-            wd.trial_iter = 0
+            update_watchdog_reference!(watchdog_state(solver), get_mu(solver))
         end
 
         # factorize the KKT system and solve Newton step
@@ -319,8 +319,10 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
                     status = filter_line_search!(solver)
                 end
             else
+                # the watchdog failed: roll back and take the usual line search from the reference
                 restore_watchdog_iterate!(solver, wd)
                 wd.in_watchdog = false
+                status = filter_line_search!(solver)
             end
         end
         if status != LINESEARCH_SUCCEEDED

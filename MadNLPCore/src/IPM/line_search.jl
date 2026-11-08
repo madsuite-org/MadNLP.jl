@@ -92,10 +92,15 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         end
 
         # During a watchdog, the full step is taken tentatively (type "w") when it is not accepted.
-        if watchdog_active(solver) && get_cnt(solver).l == 1 && is_valid(get_c_trial(solver)) &&
-                isfinite(varphi_trial) && isfinite(theta_trial)
-            set_ftype!(solver, "w")
-            break
+        # A full step that cannot be evaluated ends the watchdog: backtracking against the
+        # reference from a tentative point cannot succeed, so regular! rolls back instead.
+        if watchdog_active(solver) && get_cnt(solver).l == 1
+            if is_valid(get_c_trial(solver)) && isfinite(varphi_trial) && isfinite(theta_trial)
+                set_ftype!(solver, "w")
+                break
+            else
+                return RESTORE
+            end
         end
 
         if get_cnt(solver).l==1 && theta_trial>=theta

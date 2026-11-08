@@ -52,6 +52,9 @@ mutable struct WatchdogState{T, VT}
     theta_ref::T
     varphi_ref::T
     varphi_d_ref::T
+    # barrier objective and directional derivative at the reference, as a + μ b
+    varphi_ref_affine::Tuple{T, T}
+    varphi_d_ref_affine::Tuple{T, T}
     d_ref::VT
     filter::Vector{Tuple{T, T}}
 end
