@@ -255,14 +255,15 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         # evaluate termination criteria
         @trace(get_logger(solver),"Evaluating termination criteria.")
         !(get_intermediate_callback(solver)(solver, UserCallbackRegular()) :: Bool) && return USER_REQUESTED_STOP
-        get_inf_total(solver) <= get_opt(solver).tol && return SOLVE_SUCCEEDED
-        get_inf_total(solver) <= get_opt(solver).acceptable_tol ?
+        inf_total = get_inf_total(solver)
+        inf_total <= get_opt(solver).tol && return SOLVE_SUCCEEDED
+        inf_total <= get_opt(solver).acceptable_tol ?
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
         # A watchdog trial step may blow up the iterate before the rollback, so the divergence
         # test waits until the watchdog ends.
         !watchdog_active(solver) &&
-            get_inf_total(solver) >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
+            inf_total >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 

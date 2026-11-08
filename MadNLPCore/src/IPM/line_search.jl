@@ -22,7 +22,7 @@ function reset_slacks!(solver::AbstractMadNLPSolver{T}) where {T}
     norm(w, Inf) > tol && return
 
     # inequality rows, at g(x) = c + s
-    ws .= max.(xl .- (cs .+ xs), (cs .+ xs) .- xu, zero(T))
+    ws .= bound_violation.(cs .+ xs, xl, xu)
     norm(ws, Inf) > tol && return
 
     ws .= ifelse.(((cs .> 0) .& isinf.(xu)) .| ((cs .< 0) .& isinf.(xl)), cs, zero(T))
@@ -169,7 +169,7 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
     # here it uses the current step length.)
     if (!switching_condition || !armijo_condition) && get_ftype(solver) != "w"
         @trace(get_logger(solver),"Augmenting filter.")
-        augment_filter!(get_filter(solver),theta_trial,varphi_trial,get_opt(solver).gamma_theta)
+        augment_filter!(get_filter(solver), theta_trial, varphi_trial, get_opt(solver).gamma_theta, get_opt(solver).gamma_phi)
     end
 
     return LINESEARCH_SUCCEEDED
@@ -268,7 +268,7 @@ function filter_line_search_RR!(solver::AbstractMadNLPSolver{T}) where T
 
     if !switching_condition || !armijo_condition
         @trace(get_logger(solver),"Augmenting restoration phase filter.")
-        augment_filter!(RR.filter,theta_R_trial,varphi_R_trial,get_opt(solver).gamma_theta)
+        augment_filter!(RR.filter, theta_R_trial, varphi_R_trial, get_opt(solver).gamma_theta, get_opt(solver).gamma_phi)
     end
 
     return LINESEARCH_SUCCEEDED

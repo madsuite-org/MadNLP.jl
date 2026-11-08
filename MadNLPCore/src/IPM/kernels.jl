@@ -34,7 +34,7 @@ function print_iter(solver::AbstractMadNLPSolver; is_resto=false)
         mu = log10(RR.mu_R)
     else
         inf_du = get_inf_du(solver)
-        inf_pr = get_inf_pr(solver)
+        inf_pr = get_inf_pr_orig(solver)
         inf_compl = get_inf_compl(solver)
         mu = log10(get_mu(solver))
     end
@@ -478,8 +478,8 @@ function is_sufficient_progress(theta_trial::T, theta, gamma_theta, varphi_trial
     (has_constraints && ((theta_trial<=(1-gamma_theta)*theta+10*eps(T)*abs(theta))) || ((varphi_trial<=varphi-gamma_phi*theta +10*eps(T)*abs(varphi))))
 end
 
-function augment_filter!(filter, theta, varphi, gamma_theta)
-    push!(filter, ((1-gamma_theta)*theta, varphi-gamma_theta*theta))
+function augment_filter!(filter, theta, varphi, gamma_theta, gamma_phi)
+    return push!(filter, ((1 - gamma_theta) * theta, varphi - gamma_phi * theta))
 end
 
 function is_filter_acceptable(filter, theta, varphi)
