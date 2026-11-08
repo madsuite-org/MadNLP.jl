@@ -33,15 +33,16 @@ function factorize!(M::LDLState)
 end
 
 function solve_linear_system!(M::LDLState{T},rhs::Vector{T}) where T
-    ldiv!(M.inner, rhs)
     # If the factorization failed, we return the same
     # rhs to enter into a primal-dual regularization phase.
+    LDLF.factorized(M.inner) && ldiv!(M.inner, rhs)
     return rhs
 end
 
 is_inertia(::LDLState) = true
 function inertia(M::LDLState)
     (m, n) = size(M.tril)
+    LDLF.factorized(M.inner) || return (0, n, 0)
     (pos, zero, neg) = (0, 0, 0)
     D = M.inner.D
     for i=1:n

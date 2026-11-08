@@ -33,11 +33,6 @@ deps/build.log
 .ci/Project.toml
 .ci/Manifest.toml
 
-# Benchmark byproduct
-benchmark/Project.toml
-benchmark/Manifest.toml
-benchmark/*.csv
-benchmark/*.pdf
 
 # Emacs Autosaves
 *~
