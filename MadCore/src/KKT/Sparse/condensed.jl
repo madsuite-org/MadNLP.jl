@@ -111,6 +111,9 @@ function create_kkt_system(
     opt_linear_solver=default_options(linear_solver),
     hessian_approximation=ExactHessian,
     qn_options=QuasiNewtonOptions(),
+    kkt_scaler::AbstractScaler=NoScaler(),
+    primal_shift=0.0,
+    dual_shift=0.0,
     dense_row_abs::Int = 512,
     dense_row_rel::Float64 = 0.10,
     dense_row_fill_min::Float64 = 1e7,
@@ -180,8 +183,7 @@ function create_kkt_system(
     )
 
     # tell the linear solver the saddle-point partition before it analyzes
-    set_block_structure!(opt_linear_solver, n, mD)
-    _linear_solver = LinearSolverBarrier(create_linear_solver(linear_solver, aug_com; opt = opt_linear_solver))
+    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
         hess, hess_raw, hess_com, hess_csc_map,

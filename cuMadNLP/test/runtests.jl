@@ -17,8 +17,17 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             nlp = MadNLPCore.SparseWrapperModel(CuVector, MadNLPCore.HS15Model())
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
             @test opt.linear_solver === CUDSSSolver
-            @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem
+            @test opt.kkt_system === MadNLPCore.SparseKKTSystem
+            @test opt.kkt_scaler isa MadCore.RuizScaler
+            @test opt.dual_shift == 1.0e-10
+            lopt = MadCore.default_options(nlp, opt.kkt_system, opt.linear_solver)
+            @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 1.0e-10
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+            # the condensed system keeps its own preset
+            opt = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem)
+            @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
+            stats = madnlp(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
         @testset "get_F accounts for upper bounds on the GPU" begin

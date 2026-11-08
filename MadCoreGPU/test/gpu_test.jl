@@ -1,4 +1,26 @@
 cuda_testset = [
+    [
+        "CUDSS, Ruiz scaling, dual shift",
+        () -> MadNLP.Optimizer(
+            kkt_system = MadNLP.SparseKKTSystem,
+            linear_solver = MadCoreGPU.CUDSSSolver,
+            cudss_pivot_epsilon = 1.0e-10,
+            kkt_scaler = MadNLP.RuizScaler(),
+            dual_shift = 1.0e-10,
+            print_level = MadNLP.ERROR,
+        ),
+        [],
+    ],
+    [
+        "CUDSS, Jacobi scaling",
+        () -> MadNLP.Optimizer(
+            kkt_system = MadNLP.SparseKKTSystem,
+            linear_solver = MadCoreGPU.CUDSSSolver,
+            kkt_scaler = MadNLP.JacobiScaler(),
+            print_level = MadNLP.ERROR,
+        ),
+        [],
+    ],
     # Temporarily commented out since LapackCUDASolver does not currently support sparse callbacks
     [
         "CUDSS",

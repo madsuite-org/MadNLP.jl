@@ -39,6 +39,7 @@ include("KKT/gpu_sparse.jl")
 include("KKT/gpu_qn.jl")
 include("IPM/utils.jl")
 include("IPM/kernels.jl")
+include("scaling.jl")
 
 # Linear solvers implemented in the GPU extensions, selected by marker types.
 """

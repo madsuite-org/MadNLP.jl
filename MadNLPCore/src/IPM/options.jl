@@ -32,6 +32,9 @@ blas\\_num\\_threads           | 1                    | number of threads to use
 iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
+kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`)
+primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
+dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path
@@ -150,6 +153,11 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     inertia_free_tol::T = 0.
     default_primal_regularization::T = 0.
     default_dual_regularization::T = 0.
+    # scaling and diagonal shifts of the matrix factorized by a sparse KKT system; the
+    # iterative refinement works with the unscaled, unshifted system
+    kkt_scaler::AbstractScaler = NoScaler()
+    primal_shift::T = 0.
+    dual_shift::T = 0.
 
     # initialization options
     dual_initialized::Bool = false
@@ -265,3 +273,14 @@ function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
     )
 end
 
+
+# The options `kkt_scaler`, `primal_shift` and `dual_shift` that differ from their defaults, as
+# keyword arguments of `create_kkt_system`; a KKT system that does not take them is unaffected
+# as long as they are left at their defaults.
+function factorization_options(opt)
+    kw = (;)
+    opt.kkt_scaler isa NoScaler || (kw = merge(kw, (; kkt_scaler = opt.kkt_scaler)))
+    iszero(opt.primal_shift) || (kw = merge(kw, (; primal_shift = opt.primal_shift)))
+    iszero(opt.dual_shift) || (kw = merge(kw, (; dual_shift = opt.dual_shift)))
+    return kw
+end

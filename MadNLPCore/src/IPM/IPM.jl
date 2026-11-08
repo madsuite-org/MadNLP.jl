@@ -156,6 +156,7 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
         hessian_approximation=ipm_opt.hessian_approximation,
         opt_linear_solver=options.linear_solver,
         qn_options=ipm_opt.quasi_newton_options,
+        factorization_options(ipm_opt)...,
         ipm_opt.kkt_options...,
     )
 

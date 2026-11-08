@@ -51,6 +51,9 @@ function create_kkt_system(
     opt_linear_solver=default_options(linear_solver),
     hessian_approximation=ExactHessian,
     qn_options=QuasiNewtonOptions(),
+    kkt_scaler::AbstractScaler=NoScaler(),
+    primal_shift=0.0,
+    dual_shift=0.0,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     ind_lb = cb.ind_lb
@@ -148,8 +151,7 @@ function create_kkt_system(
 
     # tell the linear solver the saddle-point partition before it analyzes
     _np = length(pr_diag)
-    set_block_structure!(opt_linear_solver, _np, size(aug_com, 1) - _np)
-    _linear_solver = LinearSolverBarrier(create_linear_solver(linear_solver, aug_com; opt = opt_linear_solver))
+    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, _np; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
     return SparseUnreducedKKTSystem(
         hess, jac_callback, jac, quasi_newton, reg, pr_diag, du_diag,
         l_diag, u_diag, l_lower, u_lower, l_lower_aug, u_lower_aug,

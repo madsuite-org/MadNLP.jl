@@ -220,3 +220,4 @@ include("lapack.jl")
 
 # sparse solvers, implemented in package extensions
 include("markers.jl")
+include("scaling.jl")
