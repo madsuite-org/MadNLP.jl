@@ -22,6 +22,12 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
             @test opt.linear_solver === SDSSolver
             @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem
+            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            # the augmented system gets the quality-function barrier and slack reset
+            aug = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseKKTSystem)
+            @test aug.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
+            @test aug.barrier.sigma_max == 2.0 && aug.barrier.mu_min ≈ 1.0e-3 * aug.tol
+            @test aug.slack_reset
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
