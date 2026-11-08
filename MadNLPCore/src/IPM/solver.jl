@@ -655,6 +655,20 @@ end
 # within one solve.
 const DEGEN_ITERS_MAX = 3
 
+# A solve with δ_c alone is kept only if iterative refinement reached its target accuracy
+# (richardson_tol). The weaker acceptable level is left to the joint δ_w + δ_c schedule.
+function accurate_solve(solver::AbstractMadNLPSolver{T}) where {T}
+    iterator = get_iterator(solver)
+    iterator isa RichardsonIterator || return true
+    d, p, w = get_d(solver), get_p(solver), get__w3(solver)
+    copyto!(full(w), full(p))
+    mul!(w, get_kkt(solver), d, -one(T), one(T))
+    norm_p = norm(full(p), Inf)
+    norm_p == zero(T) && return true
+    ratio = norm(full(w), Inf) / (min(norm(full(d), Inf), T(1.0e6) * norm_p) + norm_p)
+    return ratio < iterator.opt.richardson_tol
+end
+
 function inertia_correction!(
     inertia_corrector::InertiaBased,
     solver::AbstractMadNLPSolver{T}
@@ -665,7 +679,6 @@ function inertia_correction!(
     set_del_w!(solver, zero(T))
     set_del_c!(solver, zero(T))
     dc = get_opt(solver).jacobian_regularization_value * get_mu(solver)^(get_opt(solver).jacobian_regularization_exponent)
-    needed_dc = false
     started_dw = false
 
     @trace(get_logger(solver),"Inertia-based regularization started.")
@@ -676,7 +689,6 @@ function inertia_correction!(
         set_del_c!(solver, dc)
         regularize_diagonal!(get_kkt(solver), zero(T), get_del_c(solver) - del_c_prev)
         del_c_prev = get_del_c(solver)
-        needed_dc = true
     end
 
     factorize_wrapper!(solver)
@@ -688,16 +700,24 @@ function inertia_correction!(
     else
         false
     end
+    # δ_c alone must give an accurate solve; otherwise the joint schedule takes over
+    if solve_status && get_del_c(solver) != zero(T) && !started_dw
+        solve_status = accurate_solve(solver)
+    end
 
     while !solve_status
         @debug(get_logger(solver),"Primal-dual perturbed.")
 
         regularize_dual = should_regularize_dual(get_kkt(solver), num_pos, num_zero, num_neg)
-        if num_zero != 0 && regularize_dual && get_del_c(solver) == zero(T)
+        # The dual block alone is singular when the primal block has its full positive inertia
+        # and zero eigenvalues remain. A failed Cholesky-type factorization also reports zero
+        # eigenvalues, but not with the primal inertia intact, so it takes the joint schedule.
+        n_primal, n_dual = block_structure(get_kkt(solver))
+        dual_singular = num_zero != 0 && n_dual > 0 && num_pos == n_primal
+        if dual_singular && regularize_dual && get_del_c(solver) == zero(T)
             # Singular system (rank-deficient Jacobian): regularize the dual block only; do NOT
             # perturb the Hessian (matches Ipopt's separate delta_c path).
             set_del_c!(solver, dc)
-            needed_dc = true
         else
             # KKT systems that always want δ_c with a perturbation (condensed, Schur) keep it.
             regularize_dual && set_del_c!(solver, dc)
@@ -729,7 +749,12 @@ function inertia_correction!(
         else
             false
         end
+        if solve_status && get_del_c(solver) != zero(T) && !started_dw
+            solve_status = accurate_solve(solver)
+        end
     end
+    # The Jacobian counts as degenerate in this iteration when δ_c alone was enough.
+    needed_dc = get_del_c(solver) != zero(T) && !started_dw
 
     # Update the Jacobian-degeneracy determination (Ipopt degen_iters_max = 3).
     if needed_dc

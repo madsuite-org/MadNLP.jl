@@ -569,4 +569,18 @@ end
         @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
         @test !solver.inertia_corrector.jac_degenerate
     end
+
+    # a failed Cholesky factorization of the condensed system is not a singular dual block
+    if Base.USE_GPL_LIBS
+        nlp = MadNLP.SparseWrapperModel(Array, MadNLPTests.HS15Model(; x0 = [1.0, 1.0]))
+        reference = madnlp(nlp; print_level = MadNLP.ERROR)
+        solver = MadNLPSolver(
+            nlp; print_level = MadNLP.ERROR,
+            kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.CHOLMODSolver,
+        )
+        results = MadNLP.solve!(solver)
+        @test results.status == MadNLP.SOLVE_SUCCEEDED
+        @test !solver.inertia_corrector.jac_degenerate
+        @test results.solution ≈ reference.solution atol = 1.0e-6
+    end
 end
