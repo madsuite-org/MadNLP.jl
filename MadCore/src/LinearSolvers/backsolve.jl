@@ -43,7 +43,7 @@ function solve_refine!(
 
         while true
             solve_kkt!(iterator.kkt, w)
-            axpy!(1., full(w), full(x))
+            axpy!(one(T), full(w), full(x))
             copyto!(full(w), full(b))
 
             mul!(w, iterator.kkt, x, -one(T), one(T))
