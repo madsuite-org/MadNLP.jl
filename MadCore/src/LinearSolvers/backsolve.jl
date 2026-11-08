@@ -64,7 +64,8 @@ function solve_refine!(
 
             # A pass that leaves the residual ratio above this fraction of the previous one has
             # stalled. Stop only if the solve is already acceptable; otherwise keep refining.
-            stalled = residual_ratio > iterator.opt.richardson_improvement_factor * residual_ratio_old &&
+            stalled = iterator.cnt.ir > 1 &&
+                residual_ratio > iterator.opt.richardson_improvement_factor * residual_ratio_old &&
                 residual_ratio < iterator.opt.richardson_acceptable_tol
             if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol) || stalled
                 break
