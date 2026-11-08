@@ -20,7 +20,7 @@ function _update_monotone!(
     tiny = get_cnt(solver).tiny_step
     get_cnt(solver).tiny_step = false
     while (get_mu(solver) > max((barrier.mu_min::T), get_opt(solver).tol/10)) &&
-        (tiny || get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor*get_mu(solver))
+            (tiny || get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor * get_mu(solver))
         tiny = false
         mu_new = get_mu(
             get_mu(solver),
