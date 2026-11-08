@@ -188,13 +188,13 @@ function MadCore.get_sparse_condensed_ext(
     zvals = adapt(get_backend(hess_map), collect(1:length(hess_map)))
     hess_com_ptr = map((i, j) -> (i, j), hess_map, zvals)
     if length(hess_com_ptr) > 0 # otherwise error is thrown
-        sort!(hess_com_ptr)
+        MadCore._sort_tuples!(hess_com_ptr)
     end
 
     jvals = adapt(get_backend(jt_map), collect(1:length(jt_map)))
     jt_csc_ptr = map((i, j) -> (i, j), jt_map, jvals)
     if length(jt_csc_ptr) > 0 # otherwise error is thrown
-        sort!(jt_csc_ptr)
+        MadCore._sort_tuples!(jt_csc_ptr)
     end
 
     by = (i, j) -> i[1] != j[1]
@@ -314,7 +314,7 @@ function MadCore._set_con_scale_sparse!(
     ) where {T, VT <: AbstractGPUVector{T}}
     ind_jac = adapt(get_backend(jac_I), collect(1:length(jac_I)))
     inds = map((i, j) -> (i, j), jac_I, ind_jac)
-    !isempty(inds) && sort!(inds)
+    !isempty(inds) && MadCore._sort_tuples!(inds)
     ptr = MadCore.getptr(inds; by = ((x1, x2), (y1, y2)) -> x1 != y1)
     if length(ptr) > 1
         backend = get_backend(con_scale)
@@ -340,7 +340,7 @@ function MadCore.coo_to_csc(
     zvals = adapt(get_backend(coo.I), collect(1:length(coo.I)))
     coord = map((i, j, k) -> ((i, j), k), coo.I, coo.J, zvals)
     if length(coord) > 0
-        sort!(coord, lt = (((i, j), k), ((n, m), l)) -> (j, i) < (m, n))
+        MadCore._sort_tuples!(coord, lt = (((i, j), k), ((n, m), l)) -> (j, i) < (m, n))
     end
 
     mapptr = MadCore.getptr(coord; by = ((x1, x2), (y1, y2)) -> x1 != y1)

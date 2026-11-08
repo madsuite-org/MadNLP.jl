@@ -1,0 +1,39 @@
+name = "mtlMadNLP"
+uuid = "46c59620-3694-4de2-837b-22aafb5d4f0b"
+version = "0.12.0"
+
+[deps]
+GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
+MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+SparseDirectSolver = "dc8e0fd9-41f1-440b-9624-22817132f700"
+
+[sources]
+MadCore = {path = "../MadCore"}
+MadCoreGPU = {path = "../MadCoreGPU"}
+MadNLPCore = {path = "../MadNLPCore"}
+SparseDirectSolver = {url = "https://github.com/exanauts/SparseDirectSolver.jl", rev = "compat/madnlp-0.12"}
+
+[compat]
+GPUArrays = "11.3, 12"
+LinearAlgebra = "1.10"
+MadCore = "=0.12.0"
+MadCoreGPU = "=0.12.0"
+MadNLPCore = "=0.12.0"
+Metal = "1.11"
+NLPModels = "0.21"
+SparseArrays = "1.10"
+SparseDirectSolver = "0.2"
+Test = "1.10"
+julia = "1.13"
+
+[extras]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["LinearAlgebra", "NLPModels", "SparseArrays", "Test"]
