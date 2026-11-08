@@ -34,7 +34,6 @@ MadCoreGPUSDSExt = "SparseDirectSolver"
 
 [sources]
 MadCore = {path = "../MadCore"}
-SparseDirectSolver = {url = "https://github.com/exanauts/SparseDirectSolver.jl", rev = "compat/madnlp-0.12"}
 
 [compat]
 AMD = "0.5"
