@@ -3,15 +3,18 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
 @testset "rocMadNLP" begin
     @testset "Exports and extensions" begin
         @test LapackROCmSolver === MadCoreGPU.LapackROCmSolver
-        @test SDSSolver <: MadCore.AbstractLinearSolver
+        @test SDSSolver === MadCoreGPU.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test :ROCBackend in names(rocMadNLP)
         @test rocMadNLP.ROCBackend === AMDGPU.ROCBackend
         # rocMadNLP loads AMDGPU, so the rocSOLVER solvers are available.
         @test MadCore.default_options(LapackROCmSolver) isa MadCore.AbstractOptions
-        @test MadCore.default_options(SDSSolver) isa SDSSolverOptions
+        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
+        @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
-        @test hasmethod(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, ROCVector{Float64}}})
+        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to ROCVector models
+        preset = which(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, ROCVector{Float64}}})
+        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
     if AMDGPU.functional()
         @testset "Option presets for ROCVector models" begin
@@ -30,6 +33,13 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
                 nlp; print_level = MadNLPCore.ERROR,
                 sds_factorization = factorization, sds_pivoting = pivoting,
             )
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+        end
+        @testset "SDSSolver with Ruiz scaling" begin
+            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            solver = MadNLPCore.MadNLPSolver(nlp; print_level = MadNLPCore.ERROR, kkt_scaler = MadCore.RuizScaler())
+            @test solver.kkt.linear_solver.wrapped isa MadCore.ScaledShiftedSolver
+            stats = MadNLPCore.solve!(solver)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
     end

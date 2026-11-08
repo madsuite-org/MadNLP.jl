@@ -86,26 +86,29 @@ nothing
 Note that we are using the sparse linear solver [NVIDIA cuDSS](https://docs.nvidia.com/cuda/cudss/getting_started.html)
 to solve the primal-dual KKT system entirely on the GPU.
 
-When solving an optimization problem on the GPU, MadNLP proceeds to some automatic modifications. In order:
-1. It increases the parameter `bound_relax_factor` to `1e-4`.
-2. It relaxes all the equality constraints ``g(x) = 0`` as a pair of inequality constraints ``-\tau \leq g(x) \leq \tau``, with ``\tau`` being equal to `bound_relax_factor`;
-3. It reduces the KKT system down to sparse condensed system, exploiting the fact that the relaxed problem has only (potentially tight) inequality constraints. Up to a given primal regularization, the resulting KKT system is positive definite and can be factorized using a pivoting-free factorization routines (e.g. a Cholesky or an LDL' decompositions). This is the so-called *Lifted-KKT* formulation documented in [this article](https://arxiv.org/html/2405.14236v2).
-4. The new condensed KKT system increases the ill-conditioning inherent to the interior-point method, amplifying the loss of accuracy when the iterates get close to a local solution. As a result, the termination tolerance `tol` is also increased to `1e-4` to recover convergence.
+For a sparse model on the GPU, MadNLP by default:
+1. factorizes the augmented KKT system (`kkt_system = SparseKKTSystem`) with cuDSS, using an LDL' factorization with matching and with small pivots bounded (`cudss_pivot_epsilon = 1e-10`);
+2. factorizes a scaled and shifted copy of that matrix: Ruiz scaling (`kkt_scaler = RuizScaler()`) and a shift of `-1e-10` on the diagonal of the dual block (`dual_shift = 1e-10`). The inertia is read from this factorization;
+3. refines each solve with GMRES (`iterator = KrylovIterator`) on the unscaled and unshifted KKT system.
 
-As a result, the convergence observed can be significantly different than what we
-observe on the CPU. In particular, relaxing the parameter `bound_relax_factor` has a non-marginal impact
-on the feasible set's geometry. You can limit the loss of accuracy by
-specifying explicitly the relaxation and tolerance parameters to MadNLP:
+The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
+
+The condensed *Lifted-KKT* formulation documented in [this article](https://arxiv.org/html/2405.14236v2)
+remains available with `kkt_system = SparseCondensedKKTSystem`. MadNLP then relaxes every equality
+constraint ``g(x) = 0`` as a pair of inequality constraints ``-\tau \leq g(x) \leq \tau``, with ``\tau``
+equal to `bound_relax_factor` (by default `tol`), and reduces the KKT system to a sparse condensed system
+which, up to a primal regularization, is positive definite and can be factorized without pivoting
+(e.g. by a Cholesky or an LDL' decomposition):
 ```@example gpu
 results = madnlp(
     nlp;
-    tol=1e-7,
-    bound_relax_factor=1e-7,
+    kkt_system=MadNLP.SparseCondensedKKTSystem,
     linear_solver=CUDSSSolver,
 )
 nothing
 ```
-Decreasing the tolerance `tol` too much is likely to cause numerical issues inside the algorithm.
+The relaxation changes the geometry of the feasible set, and the condensed system is more
+ill-conditioned than the augmented one, so the convergence can differ from what we observe on the CPU.
 In general, we recommend keeping the value of `bound_relax_factor` below `tol`.
 
 

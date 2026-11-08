@@ -467,3 +467,95 @@ end
     @test readline(pipe) == "The following options are ignored: "
     @test readline(pipe) == " - fake_option"
 end
+
+@testset "Restoration converged at a feasible point" begin
+    # robust! entered at the solution of a feasible problem converges at a feasible point.
+    function solved()
+        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
+        @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+        solver.opt.max_iter = 2000
+        return solver
+    end
+
+    solver = solved()
+    @test MadNLP.robust!(solver) == MadNLP.REGULAR
+    @test solver.RR.n_feasible_returns == 1
+
+    # the limit applies to one solve
+    MadNLP.reinitialize!(solver)
+    @test solver.RR.n_feasible_returns == 0
+
+    # past the limit, such a phase ends the solve
+    solver = solved()
+    MadNLP.initialize_robust_restorer!(solver)
+    solver.RR.n_feasible_returns = MadNLP.MAX_FEASIBLE_RETURNS
+    @test MadNLP.robust!(solver) == MadNLP.INFEASIBLE_PROBLEM_DETECTED
+end
+
+@testset "Slack reset" begin
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    results = madnlp(nlp; print_level = MadNLP.ERROR, slack_reset = true)
+    @test results.status == MadNLP.SOLVE_SUCCEEDED
+    @test results.objective ≈ madnlp(nlp; print_level = MadNLP.ERROR).objective
+
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, slack_reset = true)
+    MadNLP.solve!(solver)
+    xs = MadNLP.slack(MadNLP.get_x_trial(solver))
+    c = MadNLP.get_c_trial(solver)
+    cs = view(c, MadNLP.get_ind_ineq(solver))
+    s0 = copy(xs)
+
+    # a slack below g(x) moves up to it, when the rows hold
+    cs[1] = 1.0e-3
+    MadNLP.reset_slacks!(solver)
+    @test xs[1] ≈ s0[1] + 1.0e-3
+    @test cs[1] == 0
+
+    # nothing moves when a row is violated
+    copyto!(xs, s0)
+    cs .= 0
+    cs[1] = -1.0 - s0[1] - 1.0e-3
+    MadNLP.reset_slacks!(solver)
+    @test xs == s0
+end
+
+@testset "Barrier parameter floor" begin
+    # μ stops at tol / (barrier_tol_factor + 1) when mu_min is smaller
+    @test MadNLP.get_mu(1.0e-9, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) ≈ 1.0e-8 / 11
+    @test MadNLP.get_mu(1.0e-9, 1.0e-6, 0.2, 1.5, 1.0e-8, 10.0) == 1.0e-6
+    @test MadNLP.get_mu(1.0, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) == 0.2
+    # with a loose tol, the floor stays at the default mu_min
+    @test MadNLP.get_mu(1.0e-6, 1.0e-11, 0.2, 1.5, 1.0e-3, 10.0) ≈ 1.0e-4 / 11
+end
+      
+@testset "Original constraint violation" begin
+    solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    c = MadNLP.get_c(solver)
+    cs = view(c, MadNLP.get_ind_ineq(solver))
+    s = MadNLP.slack(MadNLP.get_x(solver))
+
+    # a slack moved away from g(x) inside the bounds on a row with no multiplier: a slack
+    # residual, no violation
+    y = view(MadNLP.get_y(solver), MadNLP.get_ind_ineq(solver))
+    y .= 0
+    s .+= 1.0e-3
+    cs .-= 1.0e-3
+    @test MadNLP.get_inf_pr(c) >= 1.0e-3
+    @test MadNLP.get_inf_pr_orig(solver) < 1.0e-6
+
+    # with a multiplier the residual counts, weighted by it
+    y .= 2.0
+    @test MadNLP.get_inf_pr_orig(solver) ≈ 2.0e-3
+    y .= 0
+
+    # g(x) below its lower bound: a violation
+    cs .-= 2.0
+    @test MadNLP.get_inf_pr_orig(solver) > 1.0
+end
+      
+@testset "Filter margins" begin
+    filter = Tuple{Float64, Float64}[]
+    MadNLP.augment_filter!(filter, 2.0, 3.0, 0.1, 0.25)
+    @test filter[1] == (1.8, 2.5)
+end

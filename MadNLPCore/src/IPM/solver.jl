@@ -132,6 +132,7 @@ function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     set_mu!(solver, get_opt(solver).barrier.mu_init)
     set_tau!(solver, max(get_opt(solver).tau_min,one(T)-get_opt(solver).barrier.mu_init))
     empty!(get_filter(solver))
+    get_RR(solver) === nothing || (get_RR(solver).n_feasible_returns = 0)
     push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
 
     return REGULAR
@@ -254,11 +255,12 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         # evaluate termination criteria
         @trace(get_logger(solver),"Evaluating termination criteria.")
         !(get_intermediate_callback(solver)(solver, UserCallbackRegular()) :: Bool) && return USER_REQUESTED_STOP
-        get_inf_total(solver) <= get_opt(solver).tol && return SOLVE_SUCCEEDED
-        get_inf_total(solver) <= get_opt(solver).acceptable_tol ?
+        inf_total = get_inf_total(solver)
+        inf_total <= get_opt(solver).tol && return SOLVE_SUCCEEDED
+        inf_total <= get_opt(solver).acceptable_tol ?
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
-        get_inf_total(solver) >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
+        inf_total >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
@@ -283,6 +285,9 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         if status != LINESEARCH_SUCCEEDED
             return status
         end
+        # After the line search: the filter holds the trial point before the reset, which only
+        # makes it more permissive.
+        get_opt(solver).slack_reset && reset_slacks!(solver)
 
         @trace(get_logger(solver),"Updating primal-dual variables.")
         copyto!(full(get_x(solver)), full(get_x_trial(solver)))
@@ -427,6 +432,30 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
     end
 end
 
+# Largest number of times one solve returns from a restoration phase that converged at a
+# feasible point; after that, such a phase ends the solve as infeasible.
+const MAX_FEASIBLE_RETURNS = 5
+
+function return_to_regular!(solver::AbstractMadNLPSolver{T}) where {T}
+    @trace(get_logger(solver), "Going back to the regular phase.")
+    set_initial_rhs!(solver, get_kkt(solver))
+    initialize!(get_kkt(solver))
+
+    factorize_wrapper!(solver)
+    solve_refine_wrapper!(
+        get_d(solver), solver, get_p(solver), get__w4(solver)
+    )
+    if norm(dual(get_d(solver)), Inf) > get_opt(solver).constr_mult_init_max
+        fill!(get_y(solver), zero(T))
+    else
+        copyto!(get_y(solver), dual(get_d(solver)))
+    end
+
+    get_cnt(solver).k += 1
+    get_cnt(solver).t += 1
+    return
+end
+
 function robust!(solver::AbstractMadNLPSolver{T}) where T
     initialize_robust_restorer!(solver)
     RR = get_RR(solver)
@@ -459,7 +488,20 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
         print_iter(solver;is_resto=true)
         !(get_intermediate_callback(solver)(solver, UserCallbackRobust()) :: Bool) && return USER_REQUESTED_STOP
 
-        max(RR.inf_pr_R,RR.inf_du_R,RR.inf_compl_R) <= get_opt(solver).tol && return INFEASIBLE_PROBLEM_DETECTED
+        if max(RR.inf_pr_R, RR.inf_du_R, RR.inf_compl_R) <= get_opt(solver).tol
+            # A feasible point is not evidence of infeasibility: the regular phase takes over,
+            # with a filter that no longer blocks the point.
+            if get_inf_pr(get_c(solver)) <= get_opt(solver).tol && RR.n_feasible_returns < MAX_FEASIBLE_RETURNS
+                RR.n_feasible_returns += 1
+                empty!(get_filter(solver))
+                push!(get_filter(solver), (get_theta_max(solver), -T(Inf)))
+                set_obj_val!(solver, eval_f_wrapper(solver, get_x(solver)))
+                eval_grad_f_wrapper!(solver, get_f(solver), get_x(solver))
+                return_to_regular!(solver)
+                return REGULAR
+            end
+            return INFEASIBLE_PROBLEM_DETECTED
+        end
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
@@ -532,23 +574,7 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
         if is_filter_acceptable(get_filter(solver),theta,varphi) &&
             theta <= get_opt(solver).required_infeasibility_reduction * RR.theta_ref
 
-            @trace(get_logger(solver),"Going back to the regular phase.")
-            set_initial_rhs!(solver, get_kkt(solver))
-            initialize!(get_kkt(solver))
-
-            factorize_wrapper!(solver)
-            solve_refine_wrapper!(
-                get_d(solver), solver, get_p(solver), get__w4(solver)
-            )
-            if norm(dual(get_d(solver)), Inf)>get_opt(solver).constr_mult_init_max
-                fill!(get_y(solver), zero(T))
-            else
-                copyto!(get_y(solver), dual(get_d(solver)))
-            end
-
-            get_cnt(solver).k+=1
-            get_cnt(solver).t+=1
-
+            return_to_regular!(solver)
             return REGULAR
         end
 
@@ -716,7 +742,7 @@ function inertia_correction!(
         get_d(solver), solver, get_p(solver), get__w4(solver),
     )
     copyto!(t,dx)
-    axpy!(-1.,n,t)
+    axpy!(-one(eltype(t)), n, t)
 
     while !curv_test(t,n,g,get_kkt(solver),wx,get_opt(solver).inertia_free_tol) || !solve_status
         @debug(get_logger(solver),"Primal-dual perturbed.")
@@ -744,7 +770,7 @@ function inertia_correction!(
             get_d(solver), solver, get_p(solver), get__w4(solver)
         )
         copyto!(t,dx)
-        axpy!(-1.,n,t)
+        axpy!(-one(eltype(t)), n, t)
 
         n_trial += 1
     end

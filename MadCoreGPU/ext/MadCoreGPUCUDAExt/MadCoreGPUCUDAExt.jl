@@ -37,6 +37,7 @@ include("lapackgpu.jl")
 include("cusolver.jl")
 include("cuda.jl")
 include("timer.jl")
+include("scaling.jl")
 
 MadCore.create_linear_solver(::Type{MadCoreGPU.LapackCUDASolver}, A; kwargs...) = LapackCUDAState(A; kwargs...)
 MadCore.default_options(::Type{MadCoreGPU.LapackCUDASolver}) = MadCore.default_options(LapackCUDAState)

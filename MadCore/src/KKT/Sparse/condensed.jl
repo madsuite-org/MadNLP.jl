@@ -111,6 +111,9 @@ function create_kkt_system(
     opt_linear_solver=default_options(linear_solver),
     hessian_approximation=ExactHessian,
     qn_options=QuasiNewtonOptions(),
+    kkt_scaler::AbstractScaler=NoScaler(),
+    primal_shift=0.0,
+    dual_shift=0.0,
     dense_row_abs::Int = 512,
     dense_row_rel::Float64 = 0.10,
     dense_row_fill_min::Float64 = 1e7,
@@ -180,8 +183,7 @@ function create_kkt_system(
     )
 
     # tell the linear solver the saddle-point partition before it analyzes
-    set_block_structure!(opt_linear_solver, n, mD)
-    _linear_solver = LinearSolverBarrier(create_linear_solver(linear_solver, aug_com; opt = opt_linear_solver))
+    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
         hess, hess_raw, hess_com, hess_csc_map,
@@ -298,6 +300,12 @@ function _build_bordered_condensed_aug_symbolic(hess_com, jt_csc, ind_D, ::Type{
     )
     return aug_com, dptr, hptr, jptr, border
 end
+
+# Sorting of vectors of tuples in the symbolic setup. A GPU backend whose arrays cannot sort
+# tuples overloads these.
+_sort_tuples!(v; kw...) = sort!(v; kw...)
+_sortperm_tuples(v; kw...) = sortperm(v; kw...)
+_permute_tuples!(v, p) = permute!(v, p)
 
 # A solver whose options select a Cholesky factorization (cholmod_algorithm,
 # cudss_algorithm, ...) cannot factor the bordered matrix; anything else is assumed
@@ -449,9 +457,9 @@ function build_condensed_aug_symbolic end
         @view(sym2[n+nnz(H)+1:n+nnz(H)+nnzjtsj])
     )
 
-    p = sortperm(sym2; by = ((i,j),) -> (j,i))
-    permute!(sym, p)
-    permute!(sym2, p)
+    p = _sortperm_tuples(sym2; by = ((i,j),) -> (j,i))
+    _permute_tuples!(sym, p)
+    _permute_tuples!(sym2, p)
 
     by(x,y) = x != y
 

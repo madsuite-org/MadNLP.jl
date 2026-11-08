@@ -30,6 +30,7 @@ together with the package it wraps (MadNLP loads MUMPS, SuiteSparse, LDLFactoriz
 create_linear_solver
 backend_package
 default_sparse_solver
+default_dense_solver
 DummySolver
 MumpsSolver
 LDLSolver
@@ -52,4 +53,19 @@ accuracy of the solution returned by the linear solver.
 solve_refine!
 KrylovIterator
 
+```
+
+## Scaling and shifts of the factorized matrix
+With the options `kkt_scaler`, `primal_shift` and `dual_shift`, a sparse KKT system hands its
+linear solver a scaled and shifted copy of its matrix; iterative refinement works with the
+unscaled, unshifted system.
+
+```@docs
+create_kkt_linear_solver
+ScaledShiftedSolver
+AbstractScaler
+NoScaler
+JacobiScaler
+MaxNormScaler
+RuizScaler
 ```

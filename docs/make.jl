@@ -44,10 +44,23 @@ makedocs(
     ]
 )
 
-deploydocs(
-    repo = "github.com/madsuite-org/MadNLP.jl.git",
-    target = "build",
-    devbranch = "master",
-    devurl = "dev",
-    push_preview = true,
-)
+# Every open pull request pushes its preview to gh-pages, so a push can lose the race with
+# another and be rejected. Each attempt clones gh-pages again, so a retry pushes onto the
+# current branch.
+attempts = 3
+for attempt in 1:attempts
+    try
+        deploydocs(
+            repo = "github.com/madsuite-org/MadNLP.jl.git",
+            target = "build",
+            devbranch = "master",
+            devurl = "dev",
+            push_preview = true,
+        )
+        break
+    catch e
+        attempt == attempts && rethrow()
+        @warn "deploydocs failed (attempt $attempt of $attempts), retrying" exception = e
+        sleep(30 * attempt)
+    end
+end

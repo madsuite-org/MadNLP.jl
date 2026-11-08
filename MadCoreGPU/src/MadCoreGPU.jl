@@ -8,7 +8,7 @@ import LinearAlgebra: Symmetric, mul!, norm, dot
 import Adapt: adapt
 import GPUArraysCore: AbstractGPUVector, AbstractGPUMatrix, AbstractGPUArray, @allowscalar
 # Kernels
-import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend
+import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend, @localmem, @synchronize
 
 import MadCore: NLPModels
 import MadCore
@@ -39,6 +39,7 @@ include("KKT/gpu_sparse.jl")
 include("KKT/gpu_qn.jl")
 include("IPM/utils.jl")
 include("IPM/kernels.jl")
+include("scaling.jl")
 
 # Linear solvers implemented in the GPU extensions, selected by marker types.
 """
@@ -68,7 +69,33 @@ extension loaded by AMDGPU.
 struct LapackROCmSolver end
 MadCore.backend_package(::Type{LapackROCmSolver}) = "AMDGPU"
 
-export LapackCUDASolver, CUDSSSolver, LapackROCmSolver
+"""
+    LapackOneMKLSolver
+
+Select the dense factorizations of oneMKL on Intel GPUs. Implemented in the
+extension loaded by oneAPI.
+"""
+struct LapackOneMKLSolver end
+MadCore.backend_package(::Type{LapackOneMKLSolver}) = "oneAPI"
+
+"""
+    SDSSolver
+
+Select the sparse direct solver SparseDirectSolver.jl on any GPU. Implemented in the
+extension loaded by SparseDirectSolver.
+"""
+struct SDSSolver end
+MadCore.backend_package(::Type{SDSSolver}) = "SparseDirectSolver"
+
+"""
+    sds_fused_default(backend)
+
+Whether [`SDSSolver`](@ref) runs the fused pipeline of SparseDirectSolver on `backend` by
+default. GPU extensions overload it for backends that cannot run it.
+"""
+sds_fused_default(backend) = true
+
+export LapackCUDASolver, CUDSSSolver, LapackROCmSolver, LapackOneMKLSolver, SDSSolver
 
 # Fallback that fires when a GPU array reaches sparse-matrix construction but no
 # backend extension is active. The real overrides (CuSparseMatrixCSC /
@@ -78,7 +105,7 @@ export LapackCUDASolver, CUDSSSolver, LapackROCmSolver
 function MadCore._get_sparse_csc(dims, colptr::AbstractGPUVector, rowval, nzval)
     error(
         "MadCoreGPU: cannot build a GPU sparse KKT system because the GPU backend " *
-        "extension is not loaded. Load the GPU package (CUDA or AMDGPU) before " *
+            "extension is not loaded. Load the GPU package (CUDA, AMDGPU, oneAPI or Metal) before " *
         "solving a model with GPU arrays.",
     )
 end

@@ -13,6 +13,7 @@ import SolverCore: getStatus, AbstractOptimizationSolver, AbstractExecutionStats
 export LapackCPUSolver, MumpsSolver, LDLSolver, UmfpackSolver, CHOLMODSolver, DummySolver
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver
 export KrylovIterator
+export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
 export MadNLPExecutionStats, SchurComplementKKTSystem, solve!, madsuite
 
 """
