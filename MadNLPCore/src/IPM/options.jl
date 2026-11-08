@@ -88,6 +88,9 @@ jacobian\\_regularization\\_value  | 1e-8                 | size of regularizati
 ||
 slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`; `true` on a GPU with `SparseKKTSystem`
 slack\\_reset\\_tol             | 1e-6                 | violation of the original rows allowed for the slack reset
+watchdog                      | `true`               | watchdog line search: after `watchdog_shortened_iter_trigger` consecutive shortened steps, take up to `watchdog_trial_iter_max` full steps and roll back if they make no progress
+watchdog\\_shortened\\_iter\\_trigger | 10            | consecutive shortened steps that start the watchdog
+watchdog\\_trial\\_iter\\_max    | 3                    | full steps the watchdog tries before rolling back
 ||
 __Feasible restoration__||
 ||
@@ -195,6 +198,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     kappa_soc::T = 0.99
     slack_reset::Bool = false
     slack_reset_tol::T = 1.0e-6
+    watchdog::Bool = true
+    watchdog_shortened_iter_trigger::Int = 10
+    watchdog_trial_iter_max::Int = 3
     gamma_theta::T = 1e-5
     gamma_phi::T = 1e-5
     delta::T = 1
