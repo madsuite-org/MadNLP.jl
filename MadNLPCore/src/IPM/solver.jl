@@ -277,7 +277,7 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         update_barrier!(get_opt(solver).barrier, solver, sc)
         # A change of the barrier parameter ends a watchdog.
         if watchdog_active(solver) && get_mu(solver) != mu_prev
-            wd = get_watchdog(solver)
+            wd = watchdog_state(solver)
             wd.in_watchdog = false
             wd.trial_iter = 0
         end
@@ -305,7 +305,7 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         @trace(get_logger(solver),"Backtracking line search initiated.")
         status = filter_line_search!(solver)
         if watchdog_active(solver)
-            wd = get_watchdog(solver)
+            wd = watchdog_state(solver)
             if status == LINESEARCH_SUCCEEDED && get_ftype(solver) != "w"
                 # a step accepted as usual ends the watchdog
                 wd.in_watchdog = false
@@ -363,7 +363,7 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         eval_grad_f_wrapper!(solver, get_f(solver),get_x(solver))
 
         # count consecutive shortened steps outside a watchdog
-        if get_opt(solver).watchdog && (wd = get_watchdog(solver)) !== nothing && !wd.in_watchdog
+        if get_opt(solver).watchdog && (wd = watchdog_state(solver)) !== nothing && !wd.in_watchdog
             wd.shortened_iter = get_cnt(solver).l == 1 ? 0 : wd.shortened_iter + 1
         end
 
@@ -511,7 +511,7 @@ end
 
 function robust!(solver::AbstractMadNLPSolver{T}) where T
     # the watchdog belongs to the regular phase
-    if (wd = get_watchdog(solver)) !== nothing
+    if (wd = watchdog_state(solver)) !== nothing
         wd.in_watchdog = false
         wd.shortened_iter = 0
         wd.trial_iter = 0

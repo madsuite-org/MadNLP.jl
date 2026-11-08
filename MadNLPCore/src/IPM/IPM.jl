@@ -95,7 +95,7 @@ mutable struct MadNLPSolver{
 
     inertia_corrector::IC
     RR::Union{Nothing,RobustRestorer{T,VT}}
-    watchdog::Union{Nothing,WatchdogState{T,VT}}
+    watchdog::Union{Nothing, WatchdogState{T, VT}}
     intermediate_callback::ICB
     status::Status
     output::Dict

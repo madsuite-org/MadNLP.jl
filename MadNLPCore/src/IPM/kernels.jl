@@ -1,7 +1,7 @@
 # Filter line search and restoration kernels
 
 # Fields used only by the filter line search and the restoration phase.
-const FILTER_FIELDS = (:theta_min, :theta_max, :ftype, :filter, :RR)
+const FILTER_FIELDS = (:theta_min, :theta_max, :ftype, :filter, :RR, :watchdog)
 
 for attribute in FILTER_FIELDS
     getter = Symbol("get_", attribute)
@@ -12,12 +12,12 @@ for attribute in FILTER_FIELDS
     end
 end
 
-# A solver type without a `watchdog` field runs without the watchdog.
-get_watchdog(solver::AbstractMadNLPSolver) =
-    hasfield(typeof(solver), :watchdog) ? getfield(solver, :watchdog) : nothing
-set_watchdog!(solver::AbstractMadNLPSolver, wd) = setfield!(solver, :watchdog, wd)
+# The watchdog state, or `nothing` for a solver type without a `watchdog` field, which then
+# runs without the watchdog.
+watchdog_state(solver::AbstractMadNLPSolver) =
+    hasfield(typeof(solver), :watchdog) ? get_watchdog(solver) : nothing
 watchdog_active(solver::AbstractMadNLPSolver) =
-    get_opt(solver).watchdog && (wd = get_watchdog(solver)) !== nothing && wd.in_watchdog
+    get_opt(solver).watchdog && (wd = watchdog_state(solver)) !== nothing && wd.in_watchdog
 
 get_theta(solver::AbstractMadNLPSolver) = get_theta(get_c(solver))
 get_varphi(solver::AbstractMadNLPSolver) = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
