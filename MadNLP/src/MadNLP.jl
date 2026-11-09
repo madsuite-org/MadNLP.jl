@@ -24,19 +24,18 @@ export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
 # MUMPS is the default sparse linear solver of MadNLP. MadCore and MadNLPCore have none.
 MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = MumpsSolver
 
-# The shifted preset (the default) factorizes the augmented system by CHOLMOD's LDLᵀ, with small
-# pivots bounded as cuDSS's are on a GPU; without Julia's GPL libraries, by MUMPS.
+# ShiftedPreset and CondensedPreset factorize by CHOLMOD's LDLᵀ, with small pivots bounded as
+# cuDSS's are on a GPU; without Julia's GPL libraries, by MUMPS.
 MadNLPCore.shifted_sparse_solver(::NLPModels.AbstractNLPModel) = Base.USE_GPL_LIBS ? MadCore.CHOLMODSolver : MumpsSolver
-const SHIFTED_PIVOT_BOUND = 1.0e-10
 if Base.USE_GPL_LIBS
     # CHOLMOD under ShiftedPreset and CondensedPreset: LDLᵀ with small pivots bounded
     function MadCore.default_options(
-            ::NLPModels.AbstractNLPModel, ::Type{<:MadNLPCore.PivotBoundedPreset}, ::Type{<:MadNLPCore.SparsePresetKKTSystem},
+            ::NLPModels.AbstractNLPModel{T}, ::Type{<:MadNLPCore.PivotBoundedPreset}, ::Type{<:MadNLPCore.SparsePresetKKTSystem},
             ::Type{MadCore.CHOLMODSolver},
-        )
+        ) where {T}
         opt = MadCore.default_options(MadCore.CHOLMODSolver)
         opt.cholmod_algorithm = MadCore.LDL
-        opt.cholmod_dbound = SHIFTED_PIVOT_BOUND
+        opt.cholmod_dbound = Float64(MadNLPCore.preset_perturbation(T))
         return opt
     end
 end

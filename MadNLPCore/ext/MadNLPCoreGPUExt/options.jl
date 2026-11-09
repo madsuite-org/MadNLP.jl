@@ -29,7 +29,6 @@ end
 # SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset and CondensedPreset:
 # a static LDLᵀ factorization in the order of the reordering, with pivots below the bound perturbed
 # to it, as cuDSS's pivot epsilon and CHOLMOD's dbound do.
-const SDS_PIVOT_EPSILON = 1.0e-10
 function MadNLPCore.default_options(
         ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{<:MadNLPCore.PivotBoundedPreset},
         ::Type{<:MadNLPCore.SparsePresetKKTSystem}, ::Type{SDSSolver},
@@ -37,7 +36,7 @@ function MadNLPCore.default_options(
     opt = MadNLPCore.default_options(SDSSolver)
     opt.sds_factorization = :ldl
     opt.sds_pivoting = :none
-    opt.sds_pivot_epsilon = SDS_PIVOT_EPSILON
+    opt.sds_pivot_epsilon = Float64(MadNLPCore.preset_perturbation(T))
     return opt
 end
 

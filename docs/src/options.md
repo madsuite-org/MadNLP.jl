@@ -22,4 +22,5 @@ AbstractPreset
 ShiftedPreset
 AugmentedPreset
 CondensedPreset
+MadNLPCore.preset_perturbation
 ```

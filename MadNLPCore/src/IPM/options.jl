@@ -27,7 +27,8 @@ abstract type AbstractPreset end
     ShiftedPreset
 
 The default preset on a GPU: the augmented KKT system factorized LDLᵀ with small
-pivots bounded, after Ruiz scaling and with a dual shift of 1e-10, each solve refined by GMRES on the
+pivots bounded, after Ruiz scaling and with a dual shift (both 1e-10 in `Float64`, see
+[`preset_perturbation`](@ref MadNLPCore.preset_perturbation)), each solve refined by GMRES on the
 unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
 mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
@@ -73,7 +74,17 @@ shifted_sparse_solver(nlp) = default_sparse_solver(nlp)
 
 const SHIFTED_SIGMA_MAX = 2.0
 const SHIFTED_MU_MIN_RATIO = 1.0e-3
-const SHIFTED_DUAL_SHIFT = 1.0e-10
+
+"""
+    preset_perturbation(T)
+
+The dual shift of [`ShiftedPreset`](@ref) and the pivot bound of its LDLᵀ factorization, and of
+[`CondensedPreset`](@ref)'s, in precision `T`: 1e-10 in `Float64`. In another precision it is
+scaled by `(eps(T) / eps(Float64))^(5/8)`, which keeps it at about the same place, on a logarithmic
+scale, between the unit roundoff and 1 (about 3e-5 in `Float32`).
+"""
+preset_perturbation(::Type{T}) where {T} =
+    T(1.0e-10 * exp2(5 * (exponent(eps(T)) - exponent(eps(Float64))) / 8))
 
 # The options of a preset beyond the KKT system and the linear solver.
 preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} = (;)
@@ -81,7 +92,7 @@ function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where
     kkt_system == SparseKKTSystem || return (;)
     shifted = (;
         barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
-        slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = T(SHIFTED_DUAL_SHIFT),
+        slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
     )
     # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
     return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))
@@ -115,7 +126,7 @@ intermediate\\_callback        | `NoUserCallback()`   | intermediate callback ca
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
 kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
-dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; 1e-10 under `ShiftedPreset`
+dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path

@@ -33,6 +33,13 @@
         @test lopt.cholmod_algorithm == MadNLP.LDL && lopt.cholmod_dbound == 1.0e-10
     end
 
+    # The dual shift and the pivot bound: 1e-10 in Float64, grown with the unit roundoff in Float32
+    @test MadNLP.MadNLPCore.preset_perturbation(Float64) === 1.0e-10
+    @test MadNLP.MadNLPCore.preset_perturbation(Float32) ≈ 1.0f-10 * (eps(Float32) / eps(Float64))^(5 / 8)
+    nlp32 = MadNLP.MadNLPCore.PrecompileChainModel(100, Float32[])
+    sh32 = MadNLP.MadNLPOptions{Float32}(nlp32; preset = MadNLP.ShiftedPreset)
+    @test sh32.dual_shift === MadNLP.MadNLPCore.preset_perturbation(Float32)
+
     # The shifted options apply to the augmented system only
     cond = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.ShiftedPreset, kkt_system = MadNLP.SparseCondensedKKTSystem)
     @test cond.kkt_scaler isa MadNLP.NoScaler && iszero(cond.dual_shift)
