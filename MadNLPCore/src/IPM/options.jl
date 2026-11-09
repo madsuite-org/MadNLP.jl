@@ -104,11 +104,13 @@ function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where
         # the shifted method on the condensed system: the equalities are enforced and kept, with
         # the inequality rows of SHIFTED_CONDENSE_MAX_NNZ or more nonzeros, as the border of the
         # condensed matrix; the dual shift takes the place of the border perturbation
-        shifted = merge(shifted, (;
-            equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
-            dual_initialization_method = DualInitializeLeastSquares,
-            kkt_options = Dict{Symbol, Any}(:condense_max_nnz => SHIFTED_CONDENSE_MAX_NNZ, :border_delta => 0.0),
-        ))
+        shifted = merge(
+            shifted, (;
+                equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
+                dual_initialization_method = DualInitializeLeastSquares,
+                kkt_options = Dict{Symbol, Any}(:condense_max_nnz => SHIFTED_CONDENSE_MAX_NNZ, :border_delta => 0.0),
+            )
+        )
     end
     # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
     return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))

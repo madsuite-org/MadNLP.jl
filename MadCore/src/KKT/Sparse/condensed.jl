@@ -126,7 +126,7 @@ function create_kkt_system(
     dense_row_fill_min::Float64 = 1e7,
     border_delta::Float64 = 1e-8,
     border_delta_exp::Float64 = 0.25,
-    condense_max_nnz::Union{Nothing, Int} = nothing,
+        condense_max_nnz::Union{Nothing, Int} = nothing,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar

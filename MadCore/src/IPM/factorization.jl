@@ -311,13 +311,13 @@ function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::Abstrac
 
     # Decompose results
     xx = view(full(x), 1:n)
-    xs = view(full(x), n+1:n+ns)
-    xz = view(full(x), n+ns+1:n+ns+m)
+    xs = view(full(x), (n + 1):(n + ns))
+    xz = view(full(x), (n + ns + 1):(n + ns + m))
 
     # Decompose buffers
     wx = _madnlp_unsafe_wrap(full(w), n)
-    ws = view(full(w), n+1:n+ns)
-    wz = view(full(w), n+ns+1:n+ns+m)
+    ws = view(full(w), (n + 1):(n + ns))
+    wz = view(full(w), (n + ns + 1):(n + ns + m))
 
     mul!(wx, Symmetric(kkt.hess_com, :L), xx, alpha, beta) # TODO: make this symmetric
 
