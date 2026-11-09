@@ -143,14 +143,15 @@ end
 function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) where {T}
 
     (n, m) = size(kkt.jt_csc)
+    ns = length(kkt.ind_ineq)
     b = kkt.border
     mD = num_border_rows(b)
 
     # Decompose buffers
     wx = _madnlp_unsafe_wrap(full(w), n)
-    ws = view(full(w), (n + 1):(n + m))
-    wz = view(full(w), (n + m + 1):(n + 2 * m))
-    Σs = view(kkt.pr_diag, (n + 1):(n + m))
+    ws = view(full(w), (n + 1):(n + ns))
+    wz = view(full(w), (n + ns + 1):(n + ns + m))
+    Σs = view(kkt.pr_diag, (n + 1):(n + ns))
 
     reduce_rhs!(kkt, w)
 
@@ -169,9 +170,10 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
         return w
     end
 
-    # folded right-hand side r = wz + ws / Σs of every row; the condensed rows add
-    # J_Sᵀ D_S r_S to the primal block, the kept rows enter the border
-    kkt.buffer .= wz .+ ws ./ Σs
+    # folded right-hand side r = wz + ws / Σs of every row (r = wz on an equality row); the
+    # condensed rows add J_Sᵀ D_S r_S to the primal block, the kept rows enter the border
+    kkt.buffer .= wz
+    view(kkt.buffer, kkt.ind_ineq) .+= ws ./ Σs
     kkt.buffer3 .= kkt.diag_buffer .* kkt.buffer
     view(kkt.buffer3, b.ind_D) .= zero(T)
     pdx = view(b.pd_buffer, 1:n)
@@ -187,7 +189,7 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     mul!(kkt.buffer2, kkt.jt_csc', wx)
     view(wz, b.ind_S) .= view(kkt.diag_buffer, b.ind_S) .* (view(kkt.buffer2, b.ind_S) .- view(kkt.buffer, b.ind_S))
     view(wz, b.ind_D) .= pdy
-    ws .= (ws .+ wz) ./ Σs
+    ws .= (ws .+ view(wz, kkt.ind_ineq)) ./ Σs
 
     finish_aug_solve!(kkt, w)
     return w
@@ -305,23 +307,23 @@ end
 function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::AbstractKKTVector, alpha, beta) where T
     n = size(kkt.hess_com, 1)
     m = size(kkt.jt_csc, 2)
+    ns = length(kkt.ind_ineq)
 
     # Decompose results
     xx = view(full(x), 1:n)
-    xs = view(full(x), n+1:n+m)
-    xz = view(full(x), n+m+1:n+2*m)
+    xs = view(full(x), n+1:n+ns)
+    xz = view(full(x), n+ns+1:n+ns+m)
 
     # Decompose buffers
     wx = _madnlp_unsafe_wrap(full(w), n)
-    ws = view(full(w), n+1:n+m)
-    wz = view(full(w), n+m+1:n+2*m)
+    ws = view(full(w), n+1:n+ns)
+    wz = view(full(w), n+ns+1:n+ns+m)
 
     mul!(wx, Symmetric(kkt.hess_com, :L), xx, alpha, beta) # TODO: make this symmetric
 
     mul!(wx, kkt.jt_csc,  xz, alpha, one(T))
     mul!(wz, kkt.jt_csc', xx, alpha, beta)
-    axpy!(-alpha, xs, wz)
-    ws .= beta.*ws .- alpha.* xz
+    _condensed_slack_mul!(ws, wz, xs, xz, kkt.ind_ineq, alpha, beta)
 
     _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
     return w
@@ -355,6 +357,18 @@ function mul_hess_blk!(wx, kkt::Union{DenseKKTSystem,DenseCondensedKKTSystem}, t
     mul!(@view(wx[1:n]), Symmetric(kkt.hess, :L), @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
     wx .+= t .* kkt.pr_diag
+end
+
+# the slack columns of the KKT product: wz[ind_ineq] -= α xs, ws = β ws - α xz[ind_ineq]
+function _condensed_slack_mul!(ws, wz, xs, xz, ind_ineq, alpha, beta)
+    if length(ws) == length(wz)   # every row an inequality, ind_ineq = 1:m
+        axpy!(-alpha, xs, wz)
+        ws .= beta .* ws .- alpha .* xz
+    else
+        view(wz, ind_ineq) .-= alpha .* xs
+        ws .= beta .* ws .- alpha .* view(xz, ind_ineq)
+    end
+    return
 end
 
 function mul_hess_blk!(wx, kkt::Union{SparseKKTSystem,SparseCondensedKKTSystem}, t)

@@ -13,7 +13,7 @@ function MadNLPCore.MadNLPOptions{T}(
         kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.preset_kkt_system(preset),
         linear_solver = dense_callback ? MadNLPCore.default_dense_solver(nlp) : MadNLPCore.default_sparse_solver(nlp),
         tol = MadNLPCore.get_tolerance(T, kkt_system),
-        bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
+        bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem && preset != MadNLPCore.ShiftedPreset) ? tol : T(1.0e-8),
     ) where {T, VT <: AbstractGPUVector{T}}
     return MadNLPCore.MadNLPOptions{T}(;
         tol = tol,

@@ -40,10 +40,11 @@
     sh32 = MadNLP.MadNLPOptions{Float32}(nlp32; preset = MadNLP.ShiftedPreset)
     @test sh32.dual_shift === MadNLP.MadNLPCore.preset_perturbation(Float32)
 
-    # The shifted options apply to the augmented system only
+    # The shifted options apply to the condensed system too, with the equalities enforced
     cond = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.ShiftedPreset, kkt_system = MadNLP.SparseCondensedKKTSystem)
-    @test cond.kkt_scaler isa MadNLP.NoScaler && iszero(cond.dual_shift)
-    @test cond.barrier isa MadNLP.MonotoneUpdate && !cond.slack_reset
+    @test cond.kkt_scaler isa MadNLP.RuizScaler && cond.dual_shift == MadNLP.MadNLPCore.preset_perturbation(Float64)
+    @test cond.barrier isa MadNLP.QualityFunctionUpdate && cond.slack_reset
+    @test cond.equality_treatment == MadNLP.EnforceEquality && cond.kkt_options[:condense_max_nnz] == 20
 
     # CondensedPreset: the condensed system, factorized by the same pivot-bounded LDLᵀ
     co = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset)

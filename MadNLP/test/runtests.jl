@@ -16,6 +16,7 @@ import SparseArrays: sparse
         include("madnlp_test.jl")
         include("presets_test.jl")
         include("condensed_border_test.jl")
+        include("shifted_condensed_test.jl")
         include("madnlp_dense.jl")
         include("madnlp_quasi_newton.jl")
         include("regression_test.jl")
