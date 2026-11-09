@@ -66,8 +66,10 @@ struct MyLDL end
         @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta_ref
         # A rejected rescue leaves the solver at the restoration phase's last iterate, and a
         # limit reached during the rescue is reported.
-        for (field, value, expected) in ((:feasibility_fallback_max_iter, 0, MadNLPCore.RESTORATION_FAILED),
-                                         (:max_wall_time, 0.0, MadNLPCore.MAXIMUM_WALLTIME_EXCEEDED))
+        for (field, value, expected) in (
+                (:feasibility_fallback_max_iter, 0, MadNLPCore.RESTORATION_FAILED),
+                (:max_wall_time, 0.0, MadNLPCore.MAXIMUM_WALLTIME_EXCEEDED),
+            )
             solver = solve_wb()
             x_last = copy(MadNLPCore.full(MadNLPCore.get_x(solver)))
             c_last = copy(MadNLPCore.get_c(solver))
