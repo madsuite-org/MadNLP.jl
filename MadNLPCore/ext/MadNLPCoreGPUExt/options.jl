@@ -40,3 +40,14 @@ function MadNLPCore.default_options(
     opt.sds_pivot_epsilon = SDS_PIVOT_EPSILON
     return opt
 end
+
+# SparseDirectSolver.jl on the augmented system under AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting.
+function MadNLPCore.default_options(
+        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{MadNLPCore.AugmentedPreset},
+        ::Type{MadNLPCore.SparseKKTSystem}, ::Type{SDSSolver},
+    ) where {T}
+    opt = MadNLPCore.default_options(SDSSolver)
+    opt.sds_factorization = :ldl
+    opt.sds_pivoting = :bk
+    return opt
+end

@@ -41,6 +41,9 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem && opt.linear_solver === CUDSSSolver
             @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
             @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
+            @test lopt.cudss_pivot_type == 'B' && lopt.cudss_matching && lopt.cudss_reanalyze_on_improve
+            @test !lopt.cudss_refactorization
             stats = madnlp(nlp; preset = MadNLPCore.AugmentedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # CondensedPreset: the condensed system with the same cuDSS options as ShiftedPreset
