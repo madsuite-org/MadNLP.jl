@@ -32,9 +32,9 @@ unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate
 mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
 solve is refined by Richardson iterations. The options beyond the linear solver apply to
-`SparseKKTSystem` only; on AMD, Intel and Apple GPUs sparse models keep the condensed system by
-default (see `default_sparse_kkt_system`), so the preset takes effect there with
-`kkt_system = SparseKKTSystem`.
+`SparseKKTSystem` only. On AMD, Intel and Apple GPUs sparse models keep the condensed system by
+default (see `default_sparse_kkt_system`): their sparse solver does not yet solve the augmented
+system with these options.
 """
 struct ShiftedPreset <: AbstractPreset end
 

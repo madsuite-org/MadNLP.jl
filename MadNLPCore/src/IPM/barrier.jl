@@ -277,10 +277,10 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     end
     step_aff = get__w3(solver) # buffer 1
     step_cen = get__w4(solver) # buffer 2
-    # The solves below use the last factorization of the KKT system. Before the first iteration's
-    # there is none when the duals start at zero (nothing has factorized it yet, as the least-squares
-    # dual initialization would): factorize the current system first.
-    if get_cnt(solver).k == 0
+    # The solves below use the last factorization of the KKT system. When the duals start at zero,
+    # nothing has factorized it yet (the least-squares dual initialization would have): factorize
+    # the current system first.
+    if get_cnt(solver).factorization_cnt == 0
         set_aug_diagonal!(get_kkt(solver), solver)
         factorize_wrapper!(solver)
     end

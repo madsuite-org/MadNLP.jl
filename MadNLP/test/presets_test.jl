@@ -42,6 +42,14 @@
     for preset in (MadNLP.ShiftedPreset, MadNLP.AugmentedPreset)
         @test madnlp(nlp; preset, print_level = MadNLP.ERROR).status == MadNLP.SOLVE_SUCCEEDED
     end
+    # With zero initial duals nothing is factorized before the quality-function barrier's first
+    # solves, so the barrier update factorizes first (CHOLMOD cannot solve without a factor)
+    if Base.USE_GPL_LIBS
+        stats = madnlp(
+            nlp; preset = MadNLP.ShiftedPreset, dual_initialization_method = MadNLP.DualInitializeSetZero, print_level = MadNLP.ERROR,
+        )
+        @test stats.status == MadNLP.SOLVE_SUCCEEDED
+    end
     solver = MadNLP.MadNLPSolver(
         nlp; preset = MadNLP.ShiftedPreset, barrier = MadNLP.MonotoneUpdate(1.0e-8, 10.0), print_level = MadNLP.ERROR,
     )
