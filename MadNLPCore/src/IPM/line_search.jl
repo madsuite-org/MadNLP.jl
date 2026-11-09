@@ -78,8 +78,10 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         varphi_trial= get_varphi(get_obj_val_trial(solver),get_x_trial_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_trial_ur(solver),get_mu(solver))
         armijo_condition = is_armijo(varphi_trial,varphi,get_opt(solver).eta_phi,get_alpha(solver),varphi_d)
 
-        # A tiny step during a watchdog is not an acceptance relative to the reference.
+        # A tiny step is accepted and flagged; the barrier update then decreases μ once. During a
+        # watchdog it is not an acceptance relative to the reference.
         if small_search_norm
+            get_cnt(solver).tiny_step = true
             watchdog_active(solver) && set_ftype!(solver, "w")
             break
         end

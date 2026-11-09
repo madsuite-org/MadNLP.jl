@@ -519,6 +519,32 @@ end
     @test xs == s0
 end
 
+@testset "Barrier decrease after a tiny step" begin
+    function mu_after(tiny)
+        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
+        MadNLP.initialize!(solver)
+        mu = MadNLP.get_mu(solver)
+        # a barrier sub-problem far from solved
+        MadNLP.set_inf_pr!(solver, 1.0e3)
+        solver.cnt.tiny_step = tiny
+        MadNLP._update_monotone!(solver.opt.barrier, solver, 1.0)
+        return MadNLP.get_mu(solver) / mu, solver.cnt.tiny_step
+    end
+    @test mu_after(false) == (1.0, false)
+    ratio, flag = mu_after(true)
+    @test ratio < 1
+    @test !flag
+
+    # the flag does not outlive the iteration under an adaptive barrier, nor a resolve
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, barrier = MadNLP.QualityFunctionUpdate(1.0e-8, 10.0))
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    @test !solver.cnt.tiny_step
+    solver.cnt.tiny_step = true
+    MadNLP.reinitialize!(solver)
+    @test !solver.cnt.tiny_step
+end      
+      
 # min (x1 - 3)^4 + x2^2 subject to x1 + x2 = 1 written twice: the Jacobian is rank deficient
 struct RedundantEqualityModel <: NLPModels.AbstractNLPModel{Float64, Vector{Float64}}
     meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
