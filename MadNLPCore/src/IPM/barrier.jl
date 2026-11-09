@@ -277,6 +277,13 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     end
     step_aff = get__w3(solver) # buffer 1
     step_cen = get__w4(solver) # buffer 2
+    # The solves below use the last factorization of the KKT system. Before the first iteration's
+    # there is none when the duals start at zero (nothing has factorized it yet, as the least-squares
+    # dual initialization would): factorize the current system first.
+    if get_cnt(solver).k == 0
+        set_aug_diagonal!(get_kkt(solver), solver)
+        factorize_wrapper!(solver)
+    end
     # Affine step
     set_aug_rhs!(solver, get_kkt(solver), get_c(solver), zero(T))
     # Get primal and dual infeasibility directly from the values in RHS p
