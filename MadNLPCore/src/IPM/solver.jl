@@ -524,7 +524,7 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
     end
     status = robust_phase!(solver)
     get_opt(solver).feasibility_fallback || return status
-    status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL) || return status
+    status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL, INFEASIBLE_PROBLEM_DETECTED) || return status
     return feasibility_rescue!(solver, status)
 end
 
