@@ -77,6 +77,7 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
 
     # Info
     ind_ineq::VI
+    ind_eq::VI
     ind_lb::VI
     ind_ub::VI
 
@@ -97,12 +98,18 @@ multipliers, as a border: the matrix handed to the linear solver is
 
 of size n + m_D, whose inertia (n, m_D, 0) is known, so a static LDLᵀ factorization
 applies; `δ = border_delta * μ^border_delta_exp` keeps the border diagonal away from
-zero. Among the candidate rows the densest are kept, as many as minimize the estimated
-nonzeros of the factored matrix (a condensed block is at most a dense n × n triangle, a
-kept row costs 2 nnz + 1 border entries), and only when that saves more than
+zero. An equality row has no slack to eliminate and is always kept, with the border diagonal
+`Σd_D`.
+
+By default, among the candidate inequality rows the densest are kept, as many as minimize
+the estimated nonzeros of the factored matrix (a condensed block is at most a dense n × n
+triangle, a kept row costs 2 nnz + 1 border entries), and only when that saves more than
 `dense_row_fill_min` nonzeros and the linear solver can factor an indefinite matrix (a
-solver set to a Cholesky factorization condenses every row). With no row kept the
-system is the plain condensed one.
+solver set to a Cholesky factorization condenses every row). With no row kept the system
+is the plain condensed one.
+
+With `condense_max_nnz = N` (an integer) the rule is instead a fixed threshold: an
+inequality row is condensed when it has fewer than `N` nonzeros and kept otherwise.
 """
 function create_kkt_system(
     ::Type{SparseCondensedKKTSystem},
@@ -119,15 +126,14 @@ function create_kkt_system(
     dense_row_fill_min::Float64 = 1e7,
     border_delta::Float64 = 1e-8,
     border_delta_exp::Float64 = 0.25,
+    condense_max_nnz::Union{Nothing, Int} = nothing,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
     m = cb.ncon
     n_slack = length(ind_ineq)
-
-    if n_slack != m
-        error("SparseCondensedKKTSystem does not support equality constrained NLPs.")
-    end
+    ind_ineq_h = Array(ind_ineq)
+    ind_eq_h = setdiff(1:m, ind_ineq_h)
 
     # Evaluate sparsity pattern
     jac_sparsity_I = create_array(cb, Int32, cb.nnzj)
@@ -145,11 +151,17 @@ function create_kkt_system(
     nlb = length(cb.ind_lb)
     nub = length(cb.ind_ub)
 
-    ind_D = _select_dense_rows(jac_sparsity_I, n, m, n_hess, dense_row_abs, dense_row_rel, dense_row_fill_min)
+    ind_D = if condense_max_nnz === nothing
+        _select_dense_rows(jac_sparsity_I, n, m, n_hess, dense_row_abs, dense_row_rel, dense_row_fill_min, ind_ineq_h)
+    else
+        _select_rows_by_nnz(jac_sparsity_I, m, condense_max_nnz, ind_ineq_h)
+    end
     if !isempty(ind_D) && !_factors_indefinite(opt_linear_solver)
+        isempty(ind_eq_h) || error("$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix, which an equality-constrained problem requires.")
         Base.@warn "$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix; the $(length(ind_D)) dense Jacobian rows are condensed."
         ind_D = Int[]
     end
+    ind_D = sort!(union(ind_D, ind_eq_h))
     mD = length(ind_D)
 
     reg = VT(undef, n_tot)
@@ -195,26 +207,38 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, cb.ind_lb, cb.ind_ub,
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), cb.ind_lb, cb.ind_ub,
         ext
     )
 end
 
-# The rows with more than dense_row_abs nonzeros and more than dense_row_rel * n are the
-# candidates; the densest k of them are kept as the border, k chosen to minimize the
+_to_index_vector(like, v) = (o = similar(like, Int, length(v)); copyto!(o, v); o)
+
+# The inequality rows with condense_max_nnz or more nonzeros, sorted: every inequality row with
+# fewer is condensed.
+function _select_rows_by_nnz(jac_sparsity_I, m, condense_max_nnz, ind_ineq)
+    cnt = zeros(Int, m)
+    for r in Array(jac_sparsity_I)
+        cnt[r] += 1
+    end
+    return sort!(filter(i -> cnt[i] >= condense_max_nnz, ind_ineq))
+end
+
+# The inequality rows (ind_ineq) with more than dense_row_abs nonzeros and more than
+# dense_row_rel * n are the candidates; the densest k of them are kept as the border, k chosen to minimize the
 # estimated nonzeros of the factored matrix: the condensed block is bounded by a dense
 # n x n triangle, so once the rows left condensed fill it, keeping more rows only adds
 # border entries (2 nnz + 1 each). The border is used when the saving exceeds
 # dense_row_fill_min. Returns the kept rows, sorted.
-function _select_dense_rows(jac_sparsity_I, n, m, n_hess, dense_row_abs, dense_row_rel, dense_row_fill_min)
+function _select_dense_rows(jac_sparsity_I, n, m, n_hess, dense_row_abs, dense_row_rel, dense_row_fill_min, ind_ineq = 1:m)
     cnt = zeros(Int, m)
     for r in Array(jac_sparsity_I)
         cnt[r] += 1
     end
     tri(c) = c * (c + 1) / 2
-    cand = sort!(findall(i -> cnt[i] > dense_row_abs && cnt[i] > dense_row_rel * n, 1:m); by = i -> -cnt[i])
+    cand = sort!(filter(i -> cnt[i] > dense_row_abs && cnt[i] > dense_row_rel * n, collect(ind_ineq)); by = i -> -cnt[i])
     dense_cap = tri(n)
-    base = n_hess + sum(tri, cnt; init = 0.0)             # every row condensed, before the cap
+    base = n_hess + sum(i -> tri(cnt[i]), ind_ineq; init = 0.0)   # every inequality row condensed, before the cap
     best_k, best_total, saved, border = 0, min(dense_cap, base), 0.0, 0.0
     for (k, i) in enumerate(cand)
         saved += tri(cnt[i])
@@ -342,10 +366,9 @@ end
 
 function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVector)
     n = size(kkt.hess_com, 1)
-    m = size(kkt.jt_csc, 2)
-
     mul!(view(y, 1:n), kkt.jt_csc, x)
-    y[size(kkt.jt_csc,1)+1:end] .= -x
+    view(y, (n + 1):length(y)) .= .-view(x, kkt.ind_ineq)
+    return y
 end
 
 function _sym_length(Jt)
@@ -548,24 +571,31 @@ build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_a
 
 function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     n = size(kkt.hess_com, 1)
-    m = size(kkt.jt_csc, 2)
+    ns = length(kkt.ind_ineq)
 
-    Σs = view(kkt.pr_diag, (n + 1):(n + m))
+    Σs = view(kkt.pr_diag, (n + 1):(n + ns))
     Σd = kkt.du_diag
 
-    kkt.diag_buffer .= Σs ./ (1 .- Σd .* Σs)
     b = kkt.border
     if isempty(b)
+        # no row kept, so no equality row: the slacks are the rows
+        kkt.diag_buffer .= Σs ./ (1 .- Σd .* Σs)
         build_condensed_aug_coord!(kkt)
         return
     end
+    # D = Σs / (1 - Σd Σs) on the inequality rows (zero on the equality rows, which are kept);
+    # the border diagonal Σd - 1/Σs on the inequality rows, Σd on the equality rows
+    fill!(kkt.diag_buffer, zero(T))
+    view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- view(Σd, kkt.ind_ineq) .* Σs)
+    kkt.buffer2 .= Σd
+    view(kkt.buffer2, kkt.ind_ineq) .-= one(T) ./ Σs
     # condensed block of the sparse rows, then the border
     nonzeros(b.jt_s) .= view(nonzeros(kkt.jt_csc), b.smap)
     b.dbuf_s .= view(kkt.diag_buffer, b.ind_S)
     _build_condensed_aug_coord!(kkt, b.aug_c, b.jt_s, b.dbuf_s)
     view(nonzeros(kkt.aug_com), b.cmap) .= nonzeros(b.aug_c)
     view(nonzeros(kkt.aug_com), b.dmap_pos) .= view(nonzeros(kkt.jt_csc), b.dmap_src)
-    view(nonzeros(kkt.aug_com), b.epos) .= view(Σd, b.ind_D) .- 1 ./ view(Σs, b.ind_D) .- b.delta[1]
+    view(nonzeros(kkt.aug_com), b.epos) .= view(kkt.buffer2, b.ind_D) .- b.delta[1]
     return
 end
 
