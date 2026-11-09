@@ -16,6 +16,7 @@ cuSOLVER = "887afef0-6a32-4de5-add4-7827692ba8fc"
 cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
 
 [sources]
+Krylov = {url = "https://github.com/madsuite-org/Krylov.jl", rev = "96aecb7dc5a2a290d281128380906654ca1d687b"}
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
 MadNLPCore = {path = "../MadNLPCore"}

@@ -1,4 +1,4 @@
-using LinearAlgebra
+using Krylov, LinearAlgebra
 
 @testset "SymCGIterator" begin
     test_madnlp(
@@ -56,12 +56,13 @@ using LinearAlgebra
     # The scaled operator is symmetric, and so is the scaled preconditioner, up to the rounding
     # of the factorization.
     @test all(>(0), solver.kkt.l_lower) && length(solver.kkt.l_lower) > 0
-    MC._set_symcg_scaling!(it)
+    E = Base.get_extension(MC, :MadCoreKrylovExt)
+    E.set_scaling!(it)
     N = length(MC.full(b))
     p, q, Kp, Kq = randn(N), randn(N), zeros(N), zeros(N)
-    MC._symcg_op!(Kp, it, p); MC._symcg_op!(Kq, it, q)
+    mul!(Kp, it.op, p); mul!(Kq, it.op, q)
     @test dot(q, Kp) ≈ dot(p, Kq) rtol = 1.0e-12
-    MC._symcg_prec!(Kp, it, p); MC._symcg_prec!(Kq, it, q)
+    ldiv!(Kp, it.prec, p); ldiv!(Kq, it.prec, q)
     @test dot(q, Kp) ≈ dot(p, Kq) rtol = 1.0e-6
 
     # The system of the least-squares estimate of the constraint multipliers, which

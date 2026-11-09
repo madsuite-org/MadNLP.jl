@@ -16,6 +16,7 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [sources]
+Krylov = {url = "https://github.com/madsuite-org/Krylov.jl", rev = "96aecb7dc5a2a290d281128380906654ca1d687b"}
 MadCore = {path = "../MadCore"}
 MadNLPCore = {path = "../MadNLPCore"}
 MadNLPTests = {path = "../MadNLPTests"}

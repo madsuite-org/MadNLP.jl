@@ -13,7 +13,7 @@ import MadCore, MadCoreGPU, MadNLPCore
 import CUDA, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
 using CUDACore: CuVector, CUDABackend
 import PrecompileTools
-import Krylov   # GMRES refinement (KrylovIterator)
+import Krylov   # CG refinement (SymCGIterator) of ShiftedPreset
 
 using MadNLPCore
 for name in names(MadNLPCore)

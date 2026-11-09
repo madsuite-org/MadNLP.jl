@@ -3,7 +3,7 @@ module MadNLP
 import MadCore, MadNLPCore
 import NLPModels
 import HSL, LDLFactorizations, MUMPS_seq_jll, OpenBLAS32_jll, SuiteSparse
-import Krylov   # GMRES refinement (KrylovIterator)
+import Krylov   # CG and GMRES refinement (SymCGIterator, KrylovIterator)
 
 # MadNLP bundles MadNLPCore with the CPU linear solvers. For backward compatibility,
 # every name of MadCore and MadNLPCore also resolves as `MadNLP.name`.

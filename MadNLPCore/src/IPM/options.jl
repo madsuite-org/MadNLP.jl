@@ -2,14 +2,16 @@
 
 # Convert a barrier update built with another float type (e.g. `MonotoneUpdate()`,
 # which defaults to Float64) to the precision of the solver.
-function parse_option(::Type{AbstractBarrierUpdate{T}}, barrier::AbstractBarrierUpdate) where T
+function parse_option(::Type{AbstractBarrierUpdate{T}}, barrier::AbstractBarrierUpdate) where {T}
     B = Base.typename(typeof(barrier)).wrapper
     fields = (getfield(barrier, k) for k in fieldnames(typeof(barrier)))
     return try
         B{T}(fields...)
     catch
-        error("[options] The barrier update $(typeof(barrier)) cannot be converted to precision $T.\n"*
-              "Please instantiate it with the precision of the model, e.g. $(nameof(B)){$T}().")
+        error(
+            "[options] The barrier update $(typeof(barrier)) cannot be converted to precision $T.\n" *
+                "Please instantiate it with the precision of the model, e.g. $(nameof(B)){$T}()."
+        )
     end
 end
 
@@ -29,11 +31,13 @@ abstract type AbstractPreset end
 The default preset on a GPU: the augmented KKT system factorized LDLᵀ with small
 pivots bounded, after Ruiz scaling and with a dual shift (both 1e-10 in `Float64`, see
 [`preset_perturbation`](@ref MadNLPCore.preset_perturbation)), each solve refined by conjugate
-gradients on the symmetrized unreduced, unshifted system (`SymCGIterator`), with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
-mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
-Julia's GPL libraries), on an NVIDIA GPU cuDSS's. The options beyond the linear solver apply to
-`SparseKKTSystem` only. On AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's
-static LDLᵀ with the same pivot bound.
+gradients on the symmetrized unreduced, unshifted system (`SymCGIterator`), with the
+quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 tol)`) and
+slack reset. On the host the factorization is CHOLMOD's (MUMPS without Julia's GPL libraries),
+on an NVIDIA GPU cuDSS's; CG needs the Krylov package, without which a solve is refined by
+Richardson iterations. The options beyond the linear solver apply to `SparseKKTSystem` only. On
+AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's static LDLᵀ with the same
+pivot bound.
 """
 struct ShiftedPreset <: AbstractPreset end
 
@@ -93,7 +97,8 @@ function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where
         barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), sigma_min = T(0.1), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
         slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
     )
-    return merge(shifted, (; iterator = SymCGIterator))
+    # CG refinement where the Krylov package is loaded (MadNLP loads it)
+    return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = SymCGIterator))
 end
 
 """
@@ -126,7 +131,7 @@ __General options__||
 rethrow\\_error                | true                 | rethrow any error encountered during the algorithm
 disable\\_garbage\\_collector  | false                | disable garbage collector in MadNLP
 blas\\_num\\_threads           | 1                    | number of threads to use in the BLAS backend
-iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `SymCGIterator` under `ShiftedPreset`
+iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `SymCGIterator` under `ShiftedPreset` where Krylov is loaded
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
 kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
@@ -240,50 +245,50 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     file_print_level::LogLevels = INFO
 
     # Termination options
-    acceptable_tol::T = 1e-6
+    acceptable_tol::T = 1.0e-6
     acceptable_iter::Int = 15
-    diverging_iterates_tol::T = 1e20
+    diverging_iterates_tol::T = 1.0e20
     max_iter::Int = 3000
-    max_wall_time::T = 1e6
-    s_max::T = 100.
+    max_wall_time::T = 1.0e6
+    s_max::T = 100.0
 
     # NLP options
-    kappa_d::T = 1e-5
+    kappa_d::T = 1.0e-5
     fixed_variable_treatment::Type = kkt_system <: SparseCondensedKKTSystem ? RelaxBound : MakeParameter
     equality_treatment::Type = kkt_system <: SparseCondensedKKTSystem ? RelaxEquality : EnforceEquality
-    bound_relax_factor::T = 1e-8
+    bound_relax_factor::T = 1.0e-8
     jacobian_constant::Bool = false
     hessian_constant::Bool = false
     hessian_approximation::Type = ExactHessian
     quasi_newton_options::QuasiNewtonOptions{T} = QuasiNewtonOptions{T}()
     inertia_correction_method::Type = InertiaAuto
-    inertia_free_tol::T = 0.
-    default_primal_regularization::T = 0.
-    default_dual_regularization::T = 0.
+    inertia_free_tol::T = 0.0
+    default_primal_regularization::T = 0.0
+    default_dual_regularization::T = 0.0
     # scaling and diagonal shifts of the matrix factorized by a sparse KKT system; the
     # iterative refinement works with the unscaled, unshifted system
     kkt_scaler::AbstractScaler = NoScaler()
-    primal_shift::T = 0.
-    dual_shift::T = 0.
+    primal_shift::T = 0.0
+    dual_shift::T = 0.0
 
     # initialization options
     dual_initialized::Bool = false
     dual_initialization_method::Type = kkt_system <: SparseCondensedKKTSystem ? DualInitializeSetZero : DualInitializeLeastSquares
-    constr_mult_init_max::T = 1e3
-    bound_push::T = 1e-2
-    bound_fac::T = 1e-2
+    constr_mult_init_max::T = 1.0e3
+    bound_push::T = 1.0e-2
+    bound_fac::T = 1.0e-2
     nlp_scaling::Bool = true
-    nlp_scaling_max_gradient::T = 100.
+    nlp_scaling_max_gradient::T = 100.0
 
     # Hessian Perturbation
-    min_hessian_perturbation::T = 1e-20
-    first_hessian_perturbation::T = 1e-4
-    max_hessian_perturbation::T = 1e20
-    perturb_inc_fact_first::T = 1e2
-    perturb_inc_fact::T = 8.
-    perturb_dec_fact::T = 1/3
-    jacobian_regularization_exponent::T = 1/4
-    jacobian_regularization_value::T = 1e-8
+    min_hessian_perturbation::T = 1.0e-20
+    first_hessian_perturbation::T = 1.0e-4
+    max_hessian_perturbation::T = 1.0e20
+    perturb_inc_fact_first::T = 1.0e2
+    perturb_inc_fact::T = 8.0
+    perturb_dec_fact::T = 1 / 3
+    jacobian_regularization_exponent::T = 1 / 4
+    jacobian_regularization_value::T = 1.0e-8
 
     # restoration options
     soft_resto_pderror_reduction_factor::T = 0.9999
@@ -294,24 +299,24 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     feasibility_fallback_method::Symbol = :gradient
 
     # Line search
-    obj_max_inc::T = 5.
+    obj_max_inc::T = 5.0
     max_soc::Int = 4
     alpha_min_frac::T = 0.05
     s_theta::T = 1.1
     s_phi::T = 2.3
-    eta_phi::T = 1e-4
+    eta_phi::T = 1.0e-4
     kappa_soc::T = 0.99
     slack_reset::Bool = false
     slack_reset_tol::T = 1.0e-6
     watchdog::Bool = true
     watchdog_shortened_iter_trigger::Int = 10
     watchdog_trial_iter_max::Int = 3
-    gamma_theta::T = 1e-5
-    gamma_phi::T = 1e-5
+    gamma_theta::T = 1.0e-5
+    gamma_phi::T = 1.0e-5
     delta::T = 1
-    kappa_sigma::T = 1e10
-    barrier_tol_factor::T = 10.
-    rho::T = 1000.
+    kappa_sigma::T = 1.0e10
+    barrier_tol_factor::T = 10.0
+    rho::T = 1000.0
 
     # Barrier
     # mu_min by courtesy of Ipopt
@@ -326,15 +331,15 @@ end
 
 # smart option presets
 function MadNLPOptions{T}(
-    nlp::AbstractNLPModel{T};
-    preset::Type{<:AbstractPreset} = default_preset(nlp),
-    dense_callback = is_dense_callback(nlp),
-    callback = dense_callback ? DenseCallback : SparseCallback,
-    kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
-    linear_solver = dense_callback ? default_dense_solver(nlp) :
-        preset <: PivotBoundedPreset && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
-    tol = get_tolerance(T,kkt_system)
-) where {T}
+        nlp::AbstractNLPModel{T};
+        preset::Type{<:AbstractPreset} = default_preset(nlp),
+        dense_callback = is_dense_callback(nlp),
+        callback = dense_callback ? DenseCallback : SparseCallback,
+        kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
+        linear_solver = dense_callback ? default_dense_solver(nlp) :
+            preset <: PivotBoundedPreset && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
+        tol = get_tolerance(T, kkt_system)
+    ) where {T}
     return MadNLPOptions{T}(;
         tol = tol,
         callback = callback,
@@ -352,16 +357,20 @@ function check_option_sanity(options)
         error("[options] feasibility_fallback_method must be :gradient or :gauss_newton.")
     end
     if input_type(options.linear_solver) == :csc && is_kkt_dense
-        error("[options] Sparse Linear solver is not supported in dense mode.\n"*
-              "Please use a dense linear solver or change `kkt_system` ")
+        error(
+            "[options] Sparse Linear solver is not supported in dense mode.\n" *
+                "Please use a dense linear solver or change `kkt_system` "
+        )
     end
-    if is_hess_approx_dense && !is_kkt_dense
-        error("[options] BFGS and DampedBFGS quasi-Newton approximations\n"*
-              "require a dense KKT system (DenseKKTSystem or DenseCondensedKKTSystem).")
+    return if is_hess_approx_dense && !is_kkt_dense
+        error(
+            "[options] BFGS and DampedBFGS quasi-Newton approximations\n" *
+                "require a dense KKT system (DenseKKTSystem or DenseCondensedKKTSystem)."
+        )
     end
 end
 
-function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
+function load_options(nlp::AbstractNLPModel{T, VT}; options...) where {T, VT}
 
     primary_opt, options = _get_primary_options(options)
 
@@ -379,22 +388,22 @@ function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
 
     # Initiate logger
     logger = MadNLPLogger(
-        print_level=opt_ipm.print_level,
-        file_print_level=opt_ipm.file_print_level,
-        file = opt_ipm.output_file == "" ? nothing : open(opt_ipm.output_file,"w+"),
+        print_level = opt_ipm.print_level,
+        file_print_level = opt_ipm.file_print_level,
+        file = opt_ipm.output_file == "" ? nothing : open(opt_ipm.output_file, "w+"),
     )
-    @trace(logger,"Logger is initialized.")
+    @trace(logger, "Logger is initialized.")
 
     # Print remaining options (unsupported)
     if !isempty(remaining_options)
         print_ignored_options(logger, remaining_options)
     end
     return (
-        interior_point=opt_ipm,
-        linear_solver=opt_linear_solver,
-        iterative_refinement=opt_iterator,
-        logger=logger,
-        intermediate_callback=opt_ipm.intermediate_callback,
+        interior_point = opt_ipm,
+        linear_solver = opt_linear_solver,
+        iterative_refinement = opt_iterator,
+        logger = logger,
+        intermediate_callback = opt_ipm.intermediate_callback,
     )
 end
 

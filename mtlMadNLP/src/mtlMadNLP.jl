@@ -16,7 +16,7 @@ import GPUArrays, Metal
 using Metal: MtlVector, MetalBackend
 # SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
-import Krylov   # GMRES refinement (KrylovIterator)
+import Krylov   # CG refinement (SymCGIterator) of ShiftedPreset
 
 using MadNLPCore
 for name in names(MadNLPCore)

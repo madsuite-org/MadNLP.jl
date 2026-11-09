@@ -11,6 +11,7 @@ SparseDirectSolver = "dc8e0fd9-41f1-440b-9624-22817132f700"
 oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 
 [sources]
+Krylov = {url = "https://github.com/madsuite-org/Krylov.jl", rev = "96aecb7dc5a2a290d281128380906654ca1d687b"}
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
 MadNLPCore = {path = "../MadNLPCore"}
