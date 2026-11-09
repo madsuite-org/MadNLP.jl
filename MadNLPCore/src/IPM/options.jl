@@ -195,6 +195,10 @@ __Feasible restoration__||
 ||
 soft\\_resto\\_pderror\\_reduction\\_factor | 0.9999          | required reduction in primal-dual error in the soft restoration phase
 required\\_infeasibility\\_reduction        | 0.9             | required reduction of infeasibility before leaving restoration phase
+feasibility\\_fallback       | `true`               | after a failure exit (a failed restoration phase or line search, a detected local infeasibility, diverging iterates), retry by projected gradient descent on the constraint violation, from where restoration started or from the current point; at most 3 times per solve
+feasibility\\_fallback\\_max\\_iter | 10000     | iteration limit of the fallback
+feasibility\\_fallback\\_reduction | 1e-2         | the fallback stops once the constraint violation falls by this factor
+feasibility\\_fallback\\_method | `:gradient`         | `:gradient` for projected gradient descent, `:gauss_newton` for Gauss-Newton steps solved by CGLS, with Jacobian products by finite differences of the constraints and at most 500 iterations
 ||
 __Line search__||
 ||
@@ -286,6 +290,10 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # restoration options
     soft_resto_pderror_reduction_factor::T = 0.9999
     required_infeasibility_reduction::T = 0.9
+    feasibility_fallback::Bool = true
+    feasibility_fallback_max_iter::Int = 10_000
+    feasibility_fallback_reduction::T = 1.0e-2
+    feasibility_fallback_method::Symbol = :gradient
 
     # Line search
     obj_max_inc::T = 5.
@@ -342,6 +350,9 @@ end
 function check_option_sanity(options)
     is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem || options.kkt_system <: SchurComplementKKTSystem
     is_hess_approx_dense = options.hessian_approximation <: Union{BFGS, DampedBFGS}
+    if !(options.feasibility_fallback_method in (:gradient, :gauss_newton))
+        error("[options] feasibility_fallback_method must be :gradient or :gauss_newton.")
+    end
     if input_type(options.linear_solver) == :csc && is_kkt_dense
         error("[options] Sparse Linear solver is not supported in dense mode.\n"*
               "Please use a dense linear solver or change `kkt_system` ")

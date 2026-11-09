@@ -64,6 +64,8 @@ function restore_watchdog_iterate!(solver::AbstractMadNLPSolver, wd::WatchdogSta
 end
 
 function RobustRestorer(solver::AbstractMadNLPSolver{T}) where {T}
+    gn = get_opt(solver).feasibility_fallback_method === :gauss_newton
+    ngn, mgn = gn ? get_n(solver) : 0, gn ? get_m(solver) : 0
 
     f_R = similar(get_y(solver), get_n(solver))
     x_ref = similar(get_y(solver), get_n(solver))
@@ -99,6 +101,20 @@ function RobustRestorer(solver::AbstractMadNLPSolver{T}) where {T}
         zero(T), zero(T), zero(T), zero(T), zero(T), zero(T), 
         Tuple{T, T}[], 
         0,
+        0,
+        false,
+        similar(get_y(solver), get_n(solver)),
+        similar(get_y(solver), get_m(solver)),
+        similar(get_y(solver), get_n(solver)),
+        similar(get_y(solver), get_n(solver)),
+        similar(get_y(solver), get_n(solver)),
+        # Gauss-Newton workspaces, empty unless that method is selected
+        similar(get_y(solver), ngn),
+        similar(get_y(solver), ngn),
+        similar(get_y(solver), ngn),
+        similar(get_y(solver), ngn),
+        similar(get_y(solver), mgn),
+        similar(get_y(solver), mgn),
     )
 end
 

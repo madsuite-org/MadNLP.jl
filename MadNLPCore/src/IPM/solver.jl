@@ -132,7 +132,11 @@ function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     set_mu!(solver, get_opt(solver).barrier.mu_init)
     set_tau!(solver, max(get_opt(solver).tau_min,one(T)-get_opt(solver).barrier.mu_init))
     empty!(get_filter(solver))
-    get_RR(solver) === nothing || (get_RR(solver).n_feasible_returns = 0)
+    if get_RR(solver) !== nothing
+        get_RR(solver).n_feasible_returns = 0
+        get_RR(solver).n_rescues = 0
+        get_RR(solver).infeasible_seen = false
+    end
     get_cnt(solver).tiny_step = false
     push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
 
@@ -178,7 +182,13 @@ function solve!(
         end
 
         while get_status(solver) >= REGULAR
-            get_status(solver) == REGULAR && (set_status!(solver, regular!(solver)))
+            if get_status(solver) == REGULAR
+                set_status!(solver, regular!(solver))
+                # A failed regular phase gets the rescue from where it stopped.
+                if get_status(solver) in (SEARCH_DIRECTION_BECOMES_TOO_SMALL, DIVERGING_ITERATES) && get_opt(solver).feasibility_fallback
+                    set_status!(solver, feasibility_rescue!(solver, get_status(solver); from_entry = false))
+                end
+            end
             get_status(solver) == RESTORE && (set_status!(solver, restore!(solver)))
             get_status(solver) == ROBUST && (set_status!(solver, robust!(solver)))
         end
@@ -522,6 +532,15 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
         wd.shortened_iter = 0
         wd.trial_iter = 0
     end
+    status = robust_phase!(solver)
+    get_opt(solver).feasibility_fallback || return status
+    status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL, INFEASIBLE_PROBLEM_DETECTED) || return status
+    RR::RobustRestorer = get_RR(solver)
+    status == INFEASIBLE_PROBLEM_DETECTED && (RR.infeasible_seen = true)
+    return restoration_verdict(RR, feasibility_rescue!(solver, status; from_entry = true))
+end
+
+function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
     initialize_robust_restorer!(solver)
     RR = get_RR(solver)
     while true
