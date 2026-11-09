@@ -33,7 +33,8 @@ unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate
 mu_min = 1e-3 tol)`) and slack reset. With `kkt_system = SparseCondensedKKTSystem` the same options
 apply to the condensed system: the equalities are enforced and kept uncondensed, with the
 inequality rows of 20 or more nonzeros, as the border of the condensed matrix, and the other
-inequality rows are condensed (`kkt_options = Dict(:condense_max_nnz => N)` sets the threshold).
+inequality rows are condensed (`kkt_options = Dict(:condense_max_nnz => N)` sets the threshold;
+the KKT options given are merged over the preset's).
 On the host the factorization is CHOLMOD's (MUMPS without
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
 solve is refined by Richardson iterations. The options beyond the linear solver apply to
@@ -387,7 +388,10 @@ function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
 
     # Initiate interior-point options
     opt_ipm = MadNLPOptions{T}(nlp; primary_opt...)
+    preset_kkt_options = copy(opt_ipm.kkt_options)
     linear_solver_options = set_options!(opt_ipm, options)
+    # the KKT options given take precedence over the preset's, key by key
+    opt_ipm.kkt_options = merge(preset_kkt_options, opt_ipm.kkt_options)
 
     check_option_sanity(opt_ipm)
     # Initiate linear-solver options

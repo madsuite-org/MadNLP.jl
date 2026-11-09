@@ -69,8 +69,11 @@ cuda_testset = [
     [
         "CUDSS-IR",
         # cuDSS's refinement fails (CUDSS_STATUS_IR_FAILED) on eigmina when matching and the
-        # pivot epsilon of the default preset are both on
+        # pivot epsilon of the default preset are both on, and on the condensed system of
+        # ShiftedPreset (Ruiz scaling, dual shift, Krylov refinement); CondensedPreset keeps the
+        # relaxed condensed system with the pivot-bounded LDLᵀ
         ()->MadNLP.Optimizer(
+            preset = MadNLP.CondensedPreset,
             kkt_system = MadNLP.SparseCondensedKKTSystem,
             linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,

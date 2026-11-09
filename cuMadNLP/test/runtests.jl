@@ -32,10 +32,12 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             @test lopt.cudss_matching && lopt.cudss_deferred_analysis
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-            # the condensed system keeps its own preset
+            # the shifted options carry over to the condensed system, with the equalities enforced
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem)
-            @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
-            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            @test opt.kkt_scaler isa MadCore.RuizScaler && opt.dual_shift == 1.0e-10
+            @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64} && opt.slack_reset
+            @test opt.equality_treatment === MadCore.EnforceEquality && opt.kkt_options[:condense_max_nnz] == 20
+            @test opt.bound_relax_factor == 1.0e-8
             # AugmentedPreset: the augmented system with cuDSS and the monotone rule
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.AugmentedPreset)
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem && opt.linear_solver === CUDSSSolver

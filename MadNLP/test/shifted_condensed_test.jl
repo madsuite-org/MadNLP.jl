@@ -106,7 +106,8 @@ end
     end
 
     @testset "condense_max_nnz = $N" for (N, kept_dense) in ((20, true), (n + 1, false))
-        kkt_options = Dict{Symbol, Any}(:condense_max_nnz => N, :border_delta => 0.0)
+        # the given KKT options are merged over the preset's (border_delta = 0 stays)
+        kkt_options = Dict{Symbol, Any}(:condense_max_nnz => N)
         solver = MadNLP.MadNLPSolver(
             nlp; preset = MadNLP.ShiftedPreset, kkt_system = MadNLP.SparseCondensedKKTSystem,
             kkt_options, print_level = MadNLP.ERROR,
@@ -119,6 +120,7 @@ end
         @test kkt.border.ind_D == border
         @test size(kkt.aug_com, 1) == n + length(border)
         @test MadNLP.block_structure(kkt) == (n, length(border))
+        @test kkt.border.delta_base == 0.0
 
         res = MadNLP.solve!(solver)
         @test res.status == MadNLP.SOLVE_SUCCEEDED
@@ -150,5 +152,13 @@ end
         (res_c, x_c), (res_a, x_a) = res
         @test res_c <= 10 * res_a + 1.0e-12
         @test x_c ≈ x_a rtol = 1.0e-6
+    end
+    # a Cholesky factorization cannot factor the equality border, even with no dense row kept
+    @testset "Cholesky with equalities" begin
+        @test_throws ErrorException MadNLP.MadNLPSolver(
+            nlp; kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.CHOLMODSolver,
+            cholmod_algorithm = MadNLP.CHOLESKY, equality_treatment = MadNLP.EnforceEquality,
+            print_level = MadNLP.ERROR,
+        )
     end
 end

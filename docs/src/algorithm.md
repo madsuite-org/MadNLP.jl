@@ -272,6 +272,13 @@ inertia, so the inertia test still applies. These thresholds are passed through
 ```julia
 kkt_options = Dict(:dense_row_abs => 100, :dense_row_fill_min => 0.0)
 ```
+An equality constraint has no slack to eliminate, so it is always kept in the border. With
+`kkt_options = Dict(:condense_max_nnz => N)` the thresholds above are replaced by a fixed rule:
+an inequality row is condensed when it has fewer than `N` nonzeros and kept otherwise. With
+`preset = ShiftedPreset` (the GPU default) the condensed system enforces the equalities, keeps
+the inequality rows of 20 or more nonzeros as the border, and takes the shifted options of the
+augmented system (Ruiz scaling, dual shift, Krylov refinement, quality-function barrier rule,
+slack reset).
 For certain highly structured problem, it may be beneficial to implement
 a [custom KKT system](tutorials/kktsystem.md) to exploit the problem's structure.
 

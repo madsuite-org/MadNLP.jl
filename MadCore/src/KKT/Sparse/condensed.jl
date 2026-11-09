@@ -156,10 +156,12 @@ function create_kkt_system(
     else
         _select_rows_by_nnz(jac_sparsity_I, m, condense_max_nnz, ind_ineq_h)
     end
-    if !isempty(ind_D) && !_factors_indefinite(opt_linear_solver)
+    if !_factors_indefinite(opt_linear_solver)
         isempty(ind_eq_h) || error("$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix, which an equality-constrained problem requires.")
-        Base.@warn "$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix; the $(length(ind_D)) dense Jacobian rows are condensed."
-        ind_D = Int[]
+        if !isempty(ind_D)
+            Base.@warn "$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix; the $(length(ind_D)) dense Jacobian rows are condensed."
+            ind_D = Int[]
+        end
     end
     ind_D = sort!(union(ind_D, ind_eq_h))
     mD = length(ind_D)

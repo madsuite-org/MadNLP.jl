@@ -93,6 +93,14 @@ On the CPU, `preset = ShiftedPreset` selects the same setting with CHOLMOD's LDL
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 
+With the default preset, `kkt_system = SparseCondensedKKTSystem` condenses the inequality
+constraints with fewer than 20 nonzeros and keeps the equality constraints, and the denser
+inequality constraints, uncondensed as the border of the condensed matrix, with the shifted
+options above:
+```julia
+results = madnlp(nlp; kkt_system=SparseCondensedKKTSystem)
+```
+
 The condensed *Lifted-KKT* formulation documented in [this article](https://arxiv.org/html/2405.14236v2)
 remains available with `preset = CondensedPreset`. MadNLP then relaxes every equality
 constraint ``g(x) = 0`` as a pair of inequality constraints ``-\tau \leq g(x) \leq \tau``, with ``\tau``
