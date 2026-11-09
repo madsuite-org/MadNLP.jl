@@ -162,6 +162,10 @@ The algorithm is described in [Nocedal2009, Section 4].
     free_mode::Bool = true
     globalization::Bool = true
     n_update::Int = 0
+    # lower bound on mu relative to the infeasibility (Ipopt's adaptive_mu_safeguard_factor); 0 turns it off
+    mu_safeguard_factor::T = 0.0
+    ref_inf_pr::T = -1.0
+    ref_inf_du::T = -1.0
 end
 function QualityFunctionUpdate(tol::T, barrier_tol_factor) where T
     return QualityFunctionUpdate{T}(; mu_min=min(1e-4, tol ) / (barrier_tol_factor + 1))

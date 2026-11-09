@@ -318,7 +318,18 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     sigma_opt = _run_golden_search!(solver, barrier, sigma_min, sigma_max, step_aff, step_cen, res_primal, res_dual)
     # Increment counter
     barrier.n_update += 1
-    return clamp(sigma_opt * mu, barrier.mu_min, barrier.mu_max)
+    return clamp(sigma_opt * mu, lower_mu_safeguard(solver, barrier), barrier.mu_max)
+end
+
+# As Ipopt's adaptive_mu_safeguard_factor: mu stays above a multiple of the primal and dual
+# infeasibilities, each relative to its first value (at least 1), so that it does not reach its
+# floor while the iterate is far from a stationary point.
+function lower_mu_safeguard(solver::AbstractMadNLPSolver{T}, barrier::QualityFunctionUpdate{T}) where T
+    barrier.mu_safeguard_factor > 0 || return barrier.mu_min
+    inf_pr, inf_du = get_inf_pr(solver), get_inf_du(solver)
+    barrier.ref_inf_pr < 0 && (barrier.ref_inf_pr = max(one(T), inf_pr))
+    barrier.ref_inf_du < 0 && (barrier.ref_inf_du = max(one(T), inf_du))
+    return max(barrier.mu_min, barrier.mu_safeguard_factor * max(inf_pr / barrier.ref_inf_pr, inf_du / barrier.ref_inf_du))
 end
 
 function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::LOQOUpdate{T}) where T

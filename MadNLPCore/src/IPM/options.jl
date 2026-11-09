@@ -91,7 +91,7 @@ preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} =
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
     kkt_system == SparseKKTSystem || return (;)
     shifted = (;
-        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), sigma_min = T(0.1), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
+        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), sigma_min = T(0.1), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol, mu_safeguard_factor = T(1.0e-2)),
         slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
     )
     # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
