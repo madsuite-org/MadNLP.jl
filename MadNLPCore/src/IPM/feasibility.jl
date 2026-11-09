@@ -11,24 +11,37 @@ end
 _fallback_lo(l, u) = l == u ? l : l + _fallback_margin(l, u)
 _fallback_hi(l, u) = l == u ? u : u - _fallback_margin(l, u)
 
-"""
-    feasibility_rescue!(solver, status) -> Status
+# Largest number of rescues in one solve.
+const MAX_RESCUES = 3
 
-Run the feasibility fallback from the point where the failed restoration phase started. Return
-`REGULAR` if the regular phase resumes from the fallback's point. Otherwise put the solver back
-at the restoration phase's last iterate, where its gradient, multipliers and error measures
-still are, and return `status`, or the limit or stop that ended the fallback.
 """
-function feasibility_rescue!(solver::AbstractMadNLPSolver{T}, status) where {T}
+    feasibility_rescue!(solver, status; from_entry) -> Status
+
+Run the feasibility fallback after a failure exit `status`: from the point where the failed
+restoration phase started if `from_entry`, otherwise from the current point. Return `REGULAR`
+if the regular phase resumes from the fallback's point. Otherwise put the solver back at the
+point of the failure exit, where its gradient, multipliers and error measures still are, and
+return `status`, or the limit or stop that ended the fallback. A solve gets at most
+`MAX_RESCUES` rescues.
+"""
+function feasibility_rescue!(solver::AbstractMadNLPSolver{T}, status; from_entry::Bool) where {T}
+    get_RR(solver) === nothing && set_RR!(solver, RobustRestorer(solver))
     RR::RobustRestorer = get_RR(solver)
+    RR.n_rescues < MAX_RESCUES || return status
+    RR.n_rescues += 1
     x, c = get_x(solver), get_c(solver)
     copyto!(RR.x_last, full(x))
     copyto!(RR.c_last, c)
     obj_last = get_obj_val(solver)
 
-    copyto!(full(x), RR.x_ref)
-    eval_cons_wrapper!(solver, c, x)
-    result = feasibility_fallback!(solver, RR.theta_ref)
+    if from_entry
+        copyto!(full(x), RR.x_ref)
+        eval_cons_wrapper!(solver, c, x)
+        theta_ref = RR.theta_ref
+    else
+        theta_ref = get_theta(c)
+    end
+    result = feasibility_fallback!(solver, theta_ref)
     result === REGULAR && return REGULAR
 
     copyto!(full(x), RR.x_last)

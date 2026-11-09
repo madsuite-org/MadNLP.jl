@@ -63,7 +63,7 @@ struct MyLDL end
         solve_wb() = (s = MadNLPSolver(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = false); MadNLPCore.solve!(s); s)
         solver = solve_wb()
         theta_ref = MadNLPCore.get_RR(solver).theta_ref
-        @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.RESTORATION_FAILED) == MadNLPCore.REGULAR
+        @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.RESTORATION_FAILED; from_entry = true) == MadNLPCore.REGULAR
         @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta_ref
         # A rejected rescue leaves the solver at the restoration phase's last iterate, and a
         # limit reached during the rescue is reported.
@@ -75,7 +75,7 @@ struct MyLDL end
             x_last = copy(MadNLPCore.full(MadNLPCore.get_x(solver)))
             c_last = copy(MadNLPCore.get_c(solver))
             setfield!(MadNLPCore.get_opt(solver), field, value)
-            @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.RESTORATION_FAILED) == expected
+            @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.RESTORATION_FAILED; from_entry = true) == expected
             @test MadNLPCore.full(MadNLPCore.get_x(solver)) == x_last
             @test MadNLPCore.get_c(solver) == c_last
         end
