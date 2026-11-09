@@ -35,7 +35,8 @@ mutable struct RobustRestorer{T, VT}
     n_feasible_returns::Int
 
     # feasibility fallback
-    x_entry::VT
+    x_last::VT
+    c_last::VT
     g_fb::VT
     x_prev_fb::VT
     g_prev_fb::VT

@@ -57,12 +57,25 @@ struct MyLDL end
         on = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
         @test off.status == on.status == MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
         @test off.iter == on.iter
-        # The fallback itself, from the point where that solve stopped: it reaches the solution.
-        solver = MadNLPSolver(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
-        MadNLPCore.solve!(solver)
-        theta = MadNLPCore.get_theta(MadNLPCore.get_c(solver))
-        @test MadNLPCore.feasibility_fallback!(solver, theta)
-        @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta
+        # The rescue, run on that solve as after a failed restoration phase: the regular phase
+        # resumes from a point with a lower violation than where restoration started.
+        solve_wb() = (s = MadNLPSolver(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR); MadNLPCore.solve!(s); s)
+        solver = solve_wb()
+        theta_ref = MadNLPCore.get_RR(solver).theta_ref
+        @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.RESTORATION_FAILED) == MadNLPCore.REGULAR
+        @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta_ref
+        # A rejected rescue leaves the solver at the restoration phase's last iterate, and a
+        # limit reached during the rescue is reported.
+        for (field, value, expected) in ((:feasibility_fallback_max_iter, 0, MadNLPCore.RESTORATION_FAILED),
+                                         (:max_wall_time, 0.0, MadNLPCore.MAXIMUM_WALLTIME_EXCEEDED))
+            solver = solve_wb()
+            x_last = copy(MadNLPCore.full(MadNLPCore.get_x(solver)))
+            c_last = copy(MadNLPCore.get_c(solver))
+            setfield!(MadNLPCore.get_opt(solver), field, value)
+            @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.RESTORATION_FAILED) == expected
+            @test MadNLPCore.full(MadNLPCore.get_x(solver)) == x_last
+            @test MadNLPCore.get_c(solver) == c_last
+        end
         # A solve that never enters restoration is unchanged.
         a = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = false)
         b = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
