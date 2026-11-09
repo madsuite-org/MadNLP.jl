@@ -17,8 +17,10 @@ function lootsma_model()
 end
 
 @testset "Barrier: ShiftedPreset with a dense LU factorization" begin
-    opts = (; preset = MadNLP.ShiftedPreset, linear_solver = MadNLP.LapackCPUSolver,
-        lapack_algorithm = MadNLP.LU, print_level = MadNLP.ERROR)
+    opts = (;
+        preset = MadNLP.ShiftedPreset, linear_solver = MadNLP.LapackCPUSolver,
+        lapack_algorithm = MadNLP.LU, print_level = MadNLP.ERROR,
+    )
     # mu decreases at most tenfold per iteration and is never raised by the bound
     res = MadNLP.madnlp(lootsma_model(); opts...)
     @test res.status == MadNLP.SOLVE_SUCCEEDED
