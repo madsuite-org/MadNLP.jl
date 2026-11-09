@@ -92,6 +92,14 @@ struct MyLDL end
         solver = solve_wb()
         MadNLPCore.get_opt(solver).feasibility_fallback_method = :gauss_newton
         @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL; from_entry = false) == MadNLPCore.REGULAR
+        # A later restoration failure keeps an earlier detected local infeasibility.
+        RR = MadNLPCore.get_RR(solve_wb())
+        RR.infeasible_seen = false
+        @test MadNLPCore.restoration_verdict(RR, MadNLPCore.RESTORATION_FAILED) == MadNLPCore.RESTORATION_FAILED
+        RR.infeasible_seen = true
+        @test MadNLPCore.restoration_verdict(RR, MadNLPCore.RESTORATION_FAILED) == MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
+        @test MadNLPCore.restoration_verdict(RR, MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL) == MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
+        @test MadNLPCore.restoration_verdict(RR, MadNLPCore.REGULAR) == MadNLPCore.REGULAR
         # Diverging iterates are retried a bounded number of times.
         solver = MadNLPSolver(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, diverging_iterates_tol = 1.0)
         stats = MadNLPCore.solve!(solver)

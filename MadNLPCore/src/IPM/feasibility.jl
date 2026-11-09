@@ -11,6 +11,12 @@ end
 _fallback_lo(l, u) = l == u ? l : l + _fallback_margin(l, u)
 _fallback_hi(l, u) = l == u ? u : u - _fallback_margin(l, u)
 
+# A restoration phase that fails after one has detected a local infeasibility in the same solve
+# keeps that diagnosis.
+restoration_verdict(RR, status) =
+    status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL) && RR.infeasible_seen ?
+    INFEASIBLE_PROBLEM_DETECTED : status
+
 # Largest number of rescues in one solve.
 const MAX_RESCUES = 3
 

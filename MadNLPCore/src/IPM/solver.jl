@@ -135,6 +135,7 @@ function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     if get_RR(solver) !== nothing
         get_RR(solver).n_feasible_returns = 0
         get_RR(solver).n_rescues = 0
+        get_RR(solver).infeasible_seen = false
     end
     get_cnt(solver).tiny_step = false
     push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
@@ -534,7 +535,9 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
     status = robust_phase!(solver)
     get_opt(solver).feasibility_fallback || return status
     status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL, INFEASIBLE_PROBLEM_DETECTED) || return status
-    return feasibility_rescue!(solver, status; from_entry = true)
+    RR::RobustRestorer = get_RR(solver)
+    status == INFEASIBLE_PROBLEM_DETECTED && (RR.infeasible_seen = true)
+    return restoration_verdict(RR, feasibility_rescue!(solver, status; from_entry = true))
 end
 
 function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
