@@ -82,20 +82,16 @@ struct MyLDL end
             @test MadNLPCore.full(MadNLPCore.get_x(solver)) == x_last
             @test MadNLPCore.get_c(solver) == c_last
         end
-        # The rescue of a failed regular phase starts from the current point: it either resumes
-        # at a lower violation, or leaves the point as it was.
+        # The rescue of a failed regular phase starts from the current point, and here resumes
+        # the regular phase at a lower violation.
         solver = solve_wb()
-        x_before = copy(MadNLPCore.full(MadNLPCore.get_x(solver)))
-        c_before = copy(MadNLPCore.get_c(solver))
-        theta_before = MadNLPCore.get_theta(c_before)
-        status = MadNLPCore.feasibility_rescue!(solver, MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL; from_entry = false)
-        if status == MadNLPCore.REGULAR
-            @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta_before
-        else
-            @test status == MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL
-            @test MadNLPCore.full(MadNLPCore.get_x(solver)) == x_before
-            @test MadNLPCore.get_c(solver) == c_before
-        end
+        theta_before = MadNLPCore.get_theta(MadNLPCore.get_c(solver))
+        @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL; from_entry = false) == MadNLPCore.REGULAR
+        @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta_before
+        # The Gauss-Newton workspaces follow a method chosen after the first restoration.
+        solver = solve_wb()
+        MadNLPCore.get_opt(solver).feasibility_fallback_method = :gauss_newton
+        @test MadNLPCore.feasibility_rescue!(solver, MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL; from_entry = false) == MadNLPCore.REGULAR
         # Diverging iterates are retried a bounded number of times.
         solver = MadNLPSolver(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, diverging_iterates_tol = 1.0)
         stats = MadNLPCore.solve!(solver)

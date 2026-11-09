@@ -73,6 +73,11 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     xt, ct = get_x_trial(solver), get_c_trial(solver)
     l, u = full(get_xl(solver)), full(get_xu(solver))
     g, gp, xp = RR.g_fb, RR.g_prev_fb, RR.x_prev_fb
+    if opt.feasibility_fallback_method === :gauss_newton && length(RR.d_fb) != length(g)
+        # the method was chosen after the workspaces were sized
+        foreach(v -> resize!(v, length(g)), (RR.d_fb, RR.s_fb, RR.p_fb, RR.w_fb))
+        foreach(v -> resize!(v, length(c)), (RR.q_fb, RR.r_fb))
+    end
 
     tol = max(T(opt.tol), opt.feasibility_fallback_reduction * norm(c, Inf))
     phi = dot(c, c) / 2
