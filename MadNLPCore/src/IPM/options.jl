@@ -22,19 +22,20 @@ __Primary options__||
 tol                            | 1e-8                 | termination tolerance on KKT residual
 callback                       | [`SparseCallback`](@ref) | type of callback (`SparseCallback` or `DenseCallback`)
 kkt\\_system                   | [`SparseKKTSystem`](@ref) | type of primal-dual KKT system
-linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system
+linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
+preset                         | [`ShiftedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`); options given explicitly take precedence
 ||
 __General options__||
 ||
 rethrow\\_error                | true                 | rethrow any error encountered during the algorithm
 disable\\_garbage\\_collector  | false                | disable garbage collector in MadNLP
 blas\\_num\\_threads           | 1                    | number of threads to use in the BLAS backend
-iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system
+iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `KrylovIterator` under `ShiftedPreset` where Krylov is loaded
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
-kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`)
+kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
-dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system
+dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; 1e-10 under `ShiftedPreset`
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path
@@ -86,7 +87,7 @@ perturb\\_dec\\_fact               | 1/3                  | decrease factor for 
 jacobian\\_regularization\\_exponent | 1/4                | exponent for mu in the regularization of rank-deficient Jacobian
 jacobian\\_regularization\\_value  | 1e-8                 | size of regularization for rank-deficient Jacobian
 ||
-slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`; `true` on a GPU with `SparseKKTSystem`
+slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`; `true` under `ShiftedPreset`
 slack\\_reset\\_tol             | 1e-6                 | violation of the original rows allowed for the slack reset
 watchdog                      | `true`               | watchdog line search: after `watchdog_shortened_iter_trigger` consecutive shortened steps, take up to `watchdog_trial_iter_max` full steps and roll back if they make no progress
 watchdog\\_shortened\\_iter\\_trigger | 10            | consecutive shortened steps that start the watchdog
@@ -115,7 +116,7 @@ rho                            | 1000.0               | value in penalty paramet
 ||
 __Barrier__||
 ||
-barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter; `QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)` on a GPU with `SparseKKTSystem`
+barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter; `QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)` under `ShiftedPreset`
 tau\\_min                      | 0.99                 | lower bound on fraction-to-the-boundary parameter tau
 ||
 """

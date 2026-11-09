@@ -188,9 +188,11 @@ callback=DenseCallback
 ### Step 2: Updating the barrier parameter
 
 Once the sensitivities are evaluated, MadNLP updates the barrier parameter $$\mu$$.
-By default, MadNLP uses the monotone update rule inspired by the Fiacco-McCormick rule: [`MonotoneUpdate`](@ref).
-Alternatively, MadNLP provides two adaptive update rules, implemented in the solver respectively
-as [`QualityFunctionUpdate`](@ref) and [`LOQOUpdate`](@ref).
+MadNLP provides the monotone update rule inspired by the Fiacco-McCormick rule, [`MonotoneUpdate`](@ref),
+and two adaptive update rules, implemented in the solver respectively as [`QualityFunctionUpdate`](@ref)
+and [`LOQOUpdate`](@ref). On a sparse model, the default preset [`ShiftedPreset`](@ref) uses
+`QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)` with the augmented KKT system;
+[`AugmentedPreset`](@ref), and the other KKT systems, use `MonotoneUpdate`.
 The user can change the barrier update, e.g. by setting the option
 ```
 barrier=QualityFunctionUpdate()
