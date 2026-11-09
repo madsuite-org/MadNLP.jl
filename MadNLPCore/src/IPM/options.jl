@@ -98,8 +98,15 @@ function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where
     return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))
 end
 
-# The options of a linear solver under a preset: those for the KKT system, unless a package
-# specializes them for the preset (MadNLP: CHOLMOD's LDLᵀ under ShiftedPreset).
+"""
+    default_options(nlp, preset, kkt_system, linear_solver)
+
+The options of `linear_solver` for the KKT system `kkt_system` of `nlp` under `preset`, which
+`load_options` reads. Falls back to `default_options(nlp, kkt_system, linear_solver)`. Packages
+specialize it per preset; the pivot-bounded LDLᵀ of `ShiftedPreset` and `CondensedPreset`
+dispatches on `PivotBoundedPreset` and `SparsePresetKKTSystem` (MadNLP for CHOLMOD, cuMadNLP for
+cuDSS, the GPU extension of MadNLPCore for SparseDirectSolver.jl).
+"""
 default_options(nlp::AbstractNLPModel, ::Type{<:AbstractPreset}, kkt_system, linear_solver) =
     default_options(nlp, kkt_system, linear_solver)
 
