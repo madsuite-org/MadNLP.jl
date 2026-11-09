@@ -38,12 +38,13 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
+        # on the condensed system, which a Cholesky factorization needs
         @testset "SDSSolver: $(factorization), $(pivoting)" for (factorization, pivoting) in (
                 (:cholesky, :none), (:ldl, :none), (:ldl, :bk),
             )
             nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
             stats = madnlp(
-                nlp; print_level = MadNLPCore.ERROR,
+                nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR,
                 sds_factorization = factorization, sds_pivoting = pivoting,
             )
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
