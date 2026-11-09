@@ -60,7 +60,13 @@ end
 
 abstract type AbstractInertiaCorrector end
 struct InertiaAuto <: AbstractInertiaCorrector end
-struct InertiaBased <: AbstractInertiaCorrector end
+# After the dual block has needed regularization in 3 consecutive iterations, the Jacobian is
+# taken as degenerate and δ_c is applied from the first factorization, as in Ipopt.
+mutable struct InertiaBased <: AbstractInertiaCorrector
+    degen_iters::Int
+    jac_degenerate::Bool
+end
+InertiaBased() = InertiaBased(0, false)
 struct InertiaIgnore <: AbstractInertiaCorrector end
 struct InertiaFree{
     T,
