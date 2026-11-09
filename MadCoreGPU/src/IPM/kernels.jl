@@ -36,6 +36,23 @@ function get_min_complementarity(
     return min(cc_lb,cc_ub)
 end
 
+# The generic method takes `dot`s of these views, which scalar-index views through an index array
+# on some GPU backends.
+function get_average_complementarity(
+    x_lr::AbstractGPUVectorOrSubVector{T},
+    xl_r::AbstractGPUVectorOrSubVector{T},
+    zl_r::AbstractGPUVectorOrSubVector{T},
+    x_ur::AbstractGPUVectorOrSubVector{T},
+    xu_r::AbstractGPUVectorOrSubVector{T},
+    zu_r::AbstractGPUVectorOrSubVector{T}
+) where T
+    n_lb, n_ub = length(x_lr), length(x_ur)
+    n_lb + n_ub == 0 && return zero(T)
+    cc_lb = mapreduce((x_l, xl, zl) -> (x_l-xl)*zl, +, x_lr, xl_r, zl_r, init=zero(T))
+    cc_ub = mapreduce((x_u, xu, zu) -> (xu-x_u)*zu, +, x_ur, xu_r, zu_r, init=zero(T))
+    return (cc_lb + cc_ub) / (n_lb + n_ub)
+end
+
 function get_alpha_max(
     x::AbstractGPUVectorOrSubVector{T},
     xl::AbstractGPUVectorOrSubVector{T},

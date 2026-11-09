@@ -8,7 +8,8 @@ function MadCore.transfer!(
         src::MadCore.SparseMatrixCOO,
         map,
     )
-    return copyto!(view(dest.nzVal, map), src.V)
+    MadCoreGPU._transfer_coo_to_csc!(dest.nzVal, src.V, map)
+    return dest
 end
 
 MadCore.nzval(H::oneMKL.oneSparseMatrixCSC) = H.nzVal

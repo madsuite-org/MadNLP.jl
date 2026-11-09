@@ -1,37 +1,52 @@
 # Option presets for models whose data live on a GPU. The GPU entry points choose the linear
-# solvers through `default_sparse_solver` and `default_dense_solver`. With the augmented KKT
-# system, the barrier parameter follows the quality-function rule, which may raise it at most
-# twofold per iteration, and the slacks are moved onto the constraints after an accepted step.
-# The other systems keep the monotone rule. On the condensed system the quality-function rule
-# would solve with the KKT system before its first factorization, which zero initial multipliers
-# leave undone; the dense systems factorize first but have not been benchmarked with it.
-const GPU_SIGMA_MAX = 2.0
-# the floor of the barrier parameter, relative to the tolerance: 1e-11 at the default tol = 1e-8
-const GPU_MU_MIN_RATIO = 1.0e-3
+# solvers through `default_sparse_solver` and `default_dense_solver`, and the options of a sparse
+# solver through `default_options(nlp, preset, kkt_system, linear_solver)`.
+# The preset sets the rest; on a GPU it is `ShiftedPreset` by default.
+
+MadNLPCore.default_preset(::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}) where {T} = MadNLPCore.ShiftedPreset
 
 function MadNLPCore.MadNLPOptions{T}(
         nlp::MadNLPCore.AbstractNLPModel{T, VT};
+        preset::Type{<:MadNLPCore.AbstractPreset} = MadNLPCore.default_preset(nlp),
         dense_callback = MadNLPCore.is_dense_callback(nlp),
         callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
-        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.SparseCondensedKKTSystem,
+        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.preset_kkt_system(preset),
         linear_solver = dense_callback ? MadNLPCore.default_dense_solver(nlp) : MadNLPCore.default_sparse_solver(nlp),
         tol = MadNLPCore.get_tolerance(T, kkt_system),
         bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
     ) where {T, VT <: AbstractGPUVector{T}}
-    adaptive = if kkt_system == MadNLPCore.SparseKKTSystem
-        (;
-            barrier = MadNLPCore.QualityFunctionUpdate{T}(sigma_max = T(GPU_SIGMA_MAX), mu_min = T(GPU_MU_MIN_RATIO) * tol),
-            slack_reset = true,
-        )
-    else
-        (;)
-    end
     return MadNLPCore.MadNLPOptions{T}(;
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,
         linear_solver = linear_solver,
         bound_relax_factor = bound_relax_factor,
-        adaptive...,
+        preset = preset,
+        MadNLPCore.preset_options(preset, T, kkt_system, tol)...,
     )
+end
+
+# SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset and CondensedPreset:
+# a static LDLᵀ factorization in the order of the reordering, with pivots below the bound perturbed
+# to it, as cuDSS's pivot epsilon and CHOLMOD's dbound do.
+function MadNLPCore.default_options(
+        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{<:MadNLPCore.PivotBoundedPreset},
+        ::Type{<:MadNLPCore.SparsePresetKKTSystem}, ::Type{SDSSolver},
+    ) where {T}
+    opt = MadNLPCore.default_options(SDSSolver)
+    opt.sds_factorization = :ldl
+    opt.sds_pivoting = :none
+    opt.sds_pivot_epsilon = Float64(MadNLPCore.preset_perturbation(T))
+    return opt
+end
+
+# SparseDirectSolver.jl on the augmented system under AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting.
+function MadNLPCore.default_options(
+        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{MadNLPCore.AugmentedPreset},
+        ::Type{MadNLPCore.SparseKKTSystem}, ::Type{SDSSolver},
+    ) where {T}
+    opt = MadNLPCore.default_options(SDSSolver)
+    opt.sds_factorization = :ldl
+    opt.sds_pivoting = :bk
+    return opt
 end

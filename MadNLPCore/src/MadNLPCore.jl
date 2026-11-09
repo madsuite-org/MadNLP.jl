@@ -5,7 +5,7 @@ for name in MadCore.internal_names()
     @eval import MadCore: $name
 end
 
-export MadNLPSolver, MadNLPOptions, madnlp
+export MadNLPSolver, MadNLPOptions, madnlp, AbstractPreset, ShiftedPreset, AugmentedPreset, CondensedPreset
 # MadNLPCore also exports what MadCore exports.
 for name in names(MadCore)
     name === :MadCore && continue

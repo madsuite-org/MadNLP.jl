@@ -3,7 +3,8 @@
 
 Entry point of MadNLP on AMD GPUs. Loads MadNLPCore with the GPU KKT systems of
 MadCoreGPU, the rocSOLVER solvers and SparseDirectSolver.jl. Models on `ROCVector` are
-solved with the condensed KKT system and [`SDSSolver`](@ref) by default.
+solved with [`ShiftedPreset`](@ref MadNLPCore.ShiftedPreset) by default: the augmented KKT
+system with the static LDLᵀ factorization of [`SDSSolver`](@ref).
 """
 module rocMadNLP
 
@@ -13,6 +14,7 @@ using AMDGPU: ROCVector, ROCBackend
 import PrecompileTools
 # SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
+import Krylov   # GMRES refinement (KrylovIterator) of ShiftedPreset
 
 using MadNLPCore
 for name in names(MadNLPCore)

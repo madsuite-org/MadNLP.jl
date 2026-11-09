@@ -30,9 +30,6 @@ We import ExaModels as:
 using ExaModels
 ```
 
-!!! info
-    MadNLP does not yet support solving sparse optimization problems on AMD GPUs.
-
 ### Evaluating the model on the GPU with ExaModels
 The first step requires implementing the model with ExaModels.
 
@@ -86,27 +83,24 @@ nothing
 Note that we are using the sparse linear solver [NVIDIA cuDSS](https://docs.nvidia.com/cuda/cudss/getting_started.html)
 to solve the primal-dual KKT system entirely on the GPU.
 
-For a sparse model on the GPU, MadNLP by default:
+For a sparse model on an NVIDIA GPU, MadNLP's default preset, [`ShiftedPreset`](@ref):
 1. factorizes the augmented KKT system (`kkt_system = SparseKKTSystem`) with cuDSS, using an LDL' factorization with matching and with small pivots bounded (`cudss_pivot_epsilon = 1e-10`);
 2. factorizes a scaled and shifted copy of that matrix: Ruiz scaling (`kkt_scaler = RuizScaler()`) and a shift of `-1e-10` on the diagonal of the dual block (`dual_shift = 1e-10`). The inertia is read from this factorization;
-3. refines each solve with GMRES (`iterator = KrylovIterator`) on the unscaled and unshifted KKT system.
+3. refines each solve with GMRES (`iterator = KrylovIterator`) on the unscaled and unshifted KKT system;
+4. updates the barrier parameter with the quality-function rule (`barrier = QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)`, so `mu_min = 1e-11` at the default `tol`), which may raise it at most twofold per iteration, and moves the slacks onto the constraints after an accepted step (`slack_reset = true`).
 
-With the augmented KKT system, on any GPU, the barrier parameter follows the quality-function rule (`barrier = QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)`, so `mu_min = 1e-11` at the default `tol`), which may raise it at most twofold per iteration, and the slacks are moved onto the constraints after an accepted step (`slack_reset = true`).
+On the CPU, `preset = ShiftedPreset` selects the same setting with CHOLMOD's LDL' factorization; the CPU default is `AugmentedPreset`. On the GPU, `preset = AugmentedPreset` keeps the augmented system with the monotone barrier rule. On AMD, Intel and Apple GPUs the same preset factorizes with SparseDirectSolver.jl's static LDL' and the same pivot bound. The values 1e-10 above are for `Float64`; in lower precision the shift and the pivot bound grow with the unit roundoff (about `3e-5` in `Float32`, see [`MadNLPCore.preset_perturbation`](@ref)).
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 
 The condensed *Lifted-KKT* formulation documented in [this article](https://arxiv.org/html/2405.14236v2)
-remains available with `kkt_system = SparseCondensedKKTSystem`. MadNLP then relaxes every equality
+remains available with `preset = CondensedPreset`. MadNLP then relaxes every equality
 constraint ``g(x) = 0`` as a pair of inequality constraints ``-\tau \leq g(x) \leq \tau``, with ``\tau``
 equal to `bound_relax_factor` (by default `tol`), and reduces the KKT system to a sparse condensed system
-which, up to a primal regularization, is positive definite and can be factorized without pivoting
-(e.g. by a Cholesky or an LDL' decomposition):
+(`SparseCondensedKKTSystem`), factorized by the same pivot-bounded LDL' as the default preset, since
+dense rows may be left uncondensed:
 ```@example gpu
-results = madnlp(
-    nlp;
-    kkt_system=MadNLP.SparseCondensedKKTSystem,
-    linear_solver=CUDSSSolver,
-)
+results = madnlp(nlp; preset=CondensedPreset)
 nothing
 ```
 The relaxation changes the geometry of the feasible set, and the condensed system is more
