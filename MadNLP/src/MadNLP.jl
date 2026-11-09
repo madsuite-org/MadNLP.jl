@@ -29,8 +29,10 @@ MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = MumpsSolver
 MadNLPCore.shifted_sparse_solver(::NLPModels.AbstractNLPModel) = Base.USE_GPL_LIBS ? MadCore.CHOLMODSolver : MumpsSolver
 const SHIFTED_PIVOT_BOUND = 1.0e-10
 if Base.USE_GPL_LIBS
-    # CHOLMOD on the augmented system, which is indefinite: LDLᵀ with small pivots bounded
-    function MadCore.default_options(::NLPModels.AbstractNLPModel, ::Type{MadCore.SparseKKTSystem}, ::Type{MadCore.CHOLMODSolver})
+    # CHOLMOD on the augmented system under ShiftedPreset: LDLᵀ with small pivots bounded
+    function MadCore.default_options(
+            ::NLPModels.AbstractNLPModel, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem}, ::Type{MadCore.CHOLMODSolver},
+        )
         opt = MadCore.default_options(MadCore.CHOLMODSolver)
         opt.cholmod_algorithm = MadCore.LDL
         opt.cholmod_dbound = SHIFTED_PIVOT_BOUND

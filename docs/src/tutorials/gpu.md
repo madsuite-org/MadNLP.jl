@@ -92,7 +92,7 @@ For a sparse model on an NVIDIA GPU, MadNLP's default preset, [`ShiftedPreset`](
 3. refines each solve with GMRES (`iterator = KrylovIterator`) on the unscaled and unshifted KKT system;
 4. updates the barrier parameter with the quality-function rule (`barrier = QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)`, so `mu_min = 1e-11` at the default `tol`), which may raise it at most twofold per iteration, and moves the slacks onto the constraints after an accepted step (`slack_reset = true`).
 
-The same preset is the default on the CPU, with CHOLMOD's LDL' factorization. `preset = AugmentedPreset()` keeps the augmented system with the monotone barrier rule. On AMD, Intel and Apple GPUs, sparse models use the condensed KKT system below by default, since their sparse solver does not yet solve the augmented system with these options.
+The same preset is the default on the CPU, with CHOLMOD's LDL' factorization. `preset = AugmentedPreset` keeps the augmented system with the monotone barrier rule. On AMD, Intel and Apple GPUs, sparse models use the condensed KKT system below by default, since their sparse solver does not yet solve the augmented system with these options.
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 
