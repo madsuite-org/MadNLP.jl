@@ -10,7 +10,7 @@ function MadNLPCore.MadNLPOptions{T}(
         preset::Type{<:MadNLPCore.AbstractPreset} = MadNLPCore.default_preset(nlp),
         dense_callback = MadNLPCore.is_dense_callback(nlp),
         callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
-        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.default_sparse_kkt_system(nlp),
+        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.preset_kkt_system(preset),
         linear_solver = dense_callback ? MadNLPCore.default_dense_solver(nlp) : MadNLPCore.default_sparse_solver(nlp),
         tol = MadNLPCore.get_tolerance(T, kkt_system),
         bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),
@@ -24,4 +24,19 @@ function MadNLPCore.MadNLPOptions{T}(
         preset = preset,
         MadNLPCore.preset_options(preset, T, kkt_system, tol)...,
     )
+end
+
+# SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset and CondensedPreset:
+# a static LDLᵀ factorization in the order of the reordering, with pivots below the bound perturbed
+# to it, as cuDSS's pivot epsilon and CHOLMOD's dbound do.
+const SDS_PIVOT_EPSILON = 1.0e-10
+function MadNLPCore.default_options(
+        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{<:MadNLPCore.PivotBoundedPreset},
+        ::Type{<:MadNLPCore.SparsePresetKKTSystem}, ::Type{SDSSolver},
+    ) where {T}
+    opt = MadNLPCore.default_options(SDSSolver)
+    opt.sds_factorization = :ldl
+    opt.sds_pivoting = :none
+    opt.sds_pivot_epsilon = SDS_PIVOT_EPSILON
+    return opt
 end

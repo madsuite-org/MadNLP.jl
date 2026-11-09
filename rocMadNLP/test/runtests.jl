@@ -19,16 +19,22 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
     if AMDGPU.functional()
         @testset "Option presets for ROCVector models" begin
             nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            # the default, ShiftedPreset: the augmented system with SparseDirectSolver's static LDLᵀ
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
+            @test opt.preset === MadNLPCore.ShiftedPreset
             @test opt.linear_solver === SDSSolver
-            @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem
-            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
-            # the augmented system gets the quality-function barrier and slack reset
-            aug = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseKKTSystem)
-            @test aug.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
-            @test aug.barrier.sigma_max == 2.0 && aug.barrier.mu_min ≈ 1.0e-3 * aug.tol
-            @test aug.slack_reset
+            @test opt.kkt_system === MadNLPCore.SparseKKTSystem
+            @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
+            @test opt.barrier.sigma_max == 2.0 && opt.barrier.mu_min ≈ 1.0e-3 * opt.tol
+            @test opt.slack_reset
+            lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
+            @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :none && lopt.sds_pivot_epsilon == 1.0e-10
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+            # CondensedPreset: the condensed system with the same SparseDirectSolver options
+            co = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.CondensedPreset)
+            @test co.kkt_system === MadNLPCore.SparseCondensedKKTSystem && co.barrier isa MadNLPCore.MonotoneUpdate
+            stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
         @testset "SDSSolver: $(factorization), $(pivoting)" for (factorization, pivoting) in (

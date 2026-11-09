@@ -32,9 +32,8 @@ unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate
 mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
 solve is refined by Richardson iterations. The options beyond the linear solver apply to
-`SparseKKTSystem` only. On AMD, Intel and Apple GPUs sparse models keep the condensed system by
-default (see `default_sparse_kkt_system`): their sparse solver does not yet solve the augmented
-system with these options.
+`SparseKKTSystem` only. On AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's
+static LDLᵀ with the same pivot bound.
 """
 struct ShiftedPreset <: AbstractPreset end
 
@@ -45,6 +44,25 @@ The default preset on the host: the augmented KKT system with the default sparse
 solver, its default options and the monotone barrier rule.
 """
 struct AugmentedPreset <: AbstractPreset end
+
+"""
+    CondensedPreset
+
+The condensed KKT system (`SparseCondensedKKTSystem`): the equality constraints relaxed as pairs
+of inequalities and the bounds relaxed, with zero initial multipliers, factorized by the same
+pivot-bounded LDLᵀ as `ShiftedPreset` (dense rows may be left uncondensed, which keeps the system
+indefinite), with the monotone barrier rule.
+"""
+struct CondensedPreset <: AbstractPreset end
+
+# The KKT system of a sparse model under a preset, when `kkt_system` is not given.
+preset_kkt_system(::Type{<:AbstractPreset}) = SparseKKTSystem
+preset_kkt_system(::Type{CondensedPreset}) = SparseCondensedKKTSystem
+
+# The presets whose sparse KKT systems are factorized LDLᵀ with small pivots bounded: the condensed
+# system can keep dense rows uncondensed, which leaves it indefinite.
+const PivotBoundedPreset = Union{ShiftedPreset, CondensedPreset}
+const SparsePresetKKTSystem = Union{SparseKKTSystem, SparseCondensedKKTSystem}
 
 # The host default; the GPU option preset (MadNLPCoreGPUExt) makes it ShiftedPreset on GPU models.
 default_preset(nlp) = AugmentedPreset
@@ -85,7 +103,7 @@ tol                            | 1e-8                 | termination tolerance on
 callback                       | [`SparseCallback`](@ref) | type of callback (`SparseCallback` or `DenseCallback`)
 kkt\\_system                   | [`SparseKKTSystem`](@ref) | type of primal-dual KKT system
 linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
-preset                         | [`AugmentedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`); [`ShiftedPreset`](@ref) on a GPU; options given explicitly take precedence
+preset                         | [`AugmentedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`): `AugmentedPreset`, `ShiftedPreset` (the default on a GPU) or `CondensedPreset`; options given explicitly take precedence
 ||
 __General options__||
 ||
@@ -288,9 +306,9 @@ function MadNLPOptions{T}(
     preset::Type{<:AbstractPreset} = default_preset(nlp),
     dense_callback = is_dense_callback(nlp),
     callback = dense_callback ? DenseCallback : SparseCallback,
-    kkt_system = dense_callback ? DenseCondensedKKTSystem : default_sparse_kkt_system(nlp),
+    kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
     linear_solver = dense_callback ? default_dense_solver(nlp) :
-        preset == ShiftedPreset && kkt_system == SparseKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
+        preset <: PivotBoundedPreset && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
     tol = get_tolerance(T,kkt_system)
 ) where {T}
     return MadNLPOptions{T}(;

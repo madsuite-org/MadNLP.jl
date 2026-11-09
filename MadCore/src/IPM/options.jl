@@ -41,15 +41,6 @@ set it for their array types.
 """
 default_dense_solver(nlp) = LapackCPUSolver
 
-"""
-    default_sparse_kkt_system(nlp)
-
-Return the KKT system used when the option `kkt_system` is not set and the model has sparse
-callbacks. The default is [`SparseKKTSystem`](@ref), which the presets build on; a GPU entry
-point whose sparse solver cannot factorize it as the presets need sets the condensed system.
-"""
-default_sparse_kkt_system(nlp) = SparseKKTSystem
-
 function print_ignored_options(logger,option_dict)
     @warn(logger,"The following options are ignored: ")
     for (key,val) in option_dict

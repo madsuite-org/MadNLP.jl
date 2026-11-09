@@ -92,22 +92,18 @@ For a sparse model on an NVIDIA GPU, MadNLP's default preset, [`ShiftedPreset`](
 3. refines each solve with GMRES (`iterator = KrylovIterator`) on the unscaled and unshifted KKT system;
 4. updates the barrier parameter with the quality-function rule (`barrier = QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)`, so `mu_min = 1e-11` at the default `tol`), which may raise it at most twofold per iteration, and moves the slacks onto the constraints after an accepted step (`slack_reset = true`).
 
-On the CPU, `preset = ShiftedPreset` selects the same setting with CHOLMOD's LDL' factorization; the CPU default is `AugmentedPreset`. On the GPU, `preset = AugmentedPreset` keeps the augmented system with the monotone barrier rule. On AMD, Intel and Apple GPUs, sparse models use the condensed KKT system below by default, since their sparse solver does not yet solve the augmented system with these options.
+On the CPU, `preset = ShiftedPreset` selects the same setting with CHOLMOD's LDL' factorization; the CPU default is `AugmentedPreset`. On the GPU, `preset = AugmentedPreset` keeps the augmented system with the monotone barrier rule. On AMD, Intel and Apple GPUs the same preset factorizes with SparseDirectSolver.jl's static LDL' and the same pivot bound.
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 
 The condensed *Lifted-KKT* formulation documented in [this article](https://arxiv.org/html/2405.14236v2)
-remains available with `kkt_system = SparseCondensedKKTSystem`. MadNLP then relaxes every equality
+remains available with `preset = CondensedPreset`. MadNLP then relaxes every equality
 constraint ``g(x) = 0`` as a pair of inequality constraints ``-\tau \leq g(x) \leq \tau``, with ``\tau``
 equal to `bound_relax_factor` (by default `tol`), and reduces the KKT system to a sparse condensed system
-which, up to a primal regularization, is positive definite and can be factorized without pivoting
-(e.g. by a Cholesky or an LDL' decomposition):
+(`SparseCondensedKKTSystem`), factorized by the same pivot-bounded LDL' as the default preset, since
+dense rows may be left uncondensed:
 ```@example gpu
-results = madnlp(
-    nlp;
-    kkt_system=MadNLP.SparseCondensedKKTSystem,
-    linear_solver=CUDSSSolver,
-)
+results = madnlp(nlp; preset=CondensedPreset)
 nothing
 ```
 The relaxation changes the geometry of the feasible set, and the condensed system is more

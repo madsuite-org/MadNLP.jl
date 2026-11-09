@@ -38,8 +38,20 @@
     @test cond.kkt_scaler isa MadNLP.NoScaler && iszero(cond.dual_shift)
     @test cond.barrier isa MadNLP.MonotoneUpdate && !cond.slack_reset
 
-    # Both presets solve, and an option given explicitly overrides the preset
-    for preset in (MadNLP.ShiftedPreset, MadNLP.AugmentedPreset)
+    # CondensedPreset: the condensed system, factorized by the same pivot-bounded LDLᵀ
+    co = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset)
+    @test co.preset === MadNLP.CondensedPreset
+    @test co.kkt_system === MadNLP.SparseCondensedKKTSystem
+    @test co.equality_treatment === MadNLP.RelaxEquality
+    @test co.linear_solver === (Base.USE_GPL_LIBS ? MadNLP.CHOLMODSolver : MadNLP.MumpsSolver)
+    @test co.kkt_scaler isa MadNLP.NoScaler && co.barrier isa MadNLP.MonotoneUpdate
+    if Base.USE_GPL_LIBS
+        lopt = MC.default_options(nlp, co.preset, co.kkt_system, co.linear_solver)
+        @test lopt.cholmod_algorithm == MadNLP.LDL && lopt.cholmod_dbound == 1.0e-10
+    end
+
+    # Every preset solves, and an option given explicitly overrides the preset
+    for preset in (MadNLP.ShiftedPreset, MadNLP.AugmentedPreset, MadNLP.CondensedPreset)
         @test madnlp(nlp; preset, print_level = MadNLP.ERROR).status == MadNLP.SOLVE_SUCCEEDED
     end
     # With zero initial duals nothing is factorized before the quality-function barrier's first

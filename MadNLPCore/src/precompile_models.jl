@@ -72,7 +72,7 @@ function NLPModels.hess_coord!(m::PrecompileChainModel, x::AbstractVector, y::Ab
 end
 
 """
-    _precompile_solves(like; sizes = (100, 20000), presets = (ShiftedPreset, AugmentedPreset), options...)
+    _precompile_solves(like; sizes = (100, 20000), presets = (ShiftedPreset, AugmentedPreset, CondensedPreset), options...)
 
 Solve `PrecompileChainModel`s stored in arrays like `like` (a `Vector`, `CuVector`, ...)
 with and without a fixed variable at each of `sizes`, since large problems use different
@@ -83,7 +83,7 @@ the solver (e.g. `linear_solver`). Models are built here so that, when this runs
 `@compile_workload`, the code compiled while building them is kept too.
 """
 function _precompile_solves(
-        like::AbstractVector; sizes = (100, 20000), presets = (ShiftedPreset, AugmentedPreset), options...,
+        like::AbstractVector; sizes = (100, 20000), presets = (ShiftedPreset, AugmentedPreset, CondensedPreset), options...,
     )
     for preset in presets, n in sizes, fixed in (false, true)
         madnlp(PrecompileChainModel(n, like; fixed); print_level = ERROR, preset, options...)

@@ -16,7 +16,7 @@ for name in MadCore.internal_names(MadNLPCore)
 end
 
 export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementKKTSystem
-export AbstractPreset, ShiftedPreset, AugmentedPreset
+export AbstractPreset, ShiftedPreset, AugmentedPreset, CondensedPreset
 Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver, KrylovIterator
 export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
@@ -29,9 +29,10 @@ MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = MumpsSolver
 MadNLPCore.shifted_sparse_solver(::NLPModels.AbstractNLPModel) = Base.USE_GPL_LIBS ? MadCore.CHOLMODSolver : MumpsSolver
 const SHIFTED_PIVOT_BOUND = 1.0e-10
 if Base.USE_GPL_LIBS
-    # CHOLMOD on the augmented system under ShiftedPreset: LDLᵀ with small pivots bounded
+    # CHOLMOD under ShiftedPreset and CondensedPreset: LDLᵀ with small pivots bounded
     function MadCore.default_options(
-            ::NLPModels.AbstractNLPModel, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem}, ::Type{MadCore.CHOLMODSolver},
+            ::NLPModels.AbstractNLPModel, ::Type{<:MadNLPCore.PivotBoundedPreset}, ::Type{<:MadNLPCore.SparsePresetKKTSystem},
+            ::Type{MadCore.CHOLMODSolver},
         )
         opt = MadCore.default_options(MadCore.CHOLMODSolver)
         opt.cholmod_algorithm = MadCore.LDL
