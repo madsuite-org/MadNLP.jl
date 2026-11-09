@@ -49,6 +49,7 @@ struct SymCGState{T, KKT <: AbstractKKTSystem{T}, VT, Op, Prec, W} <: AbstractIt
     kkt::KKT
     s::SymCGScaling{VT}
     rhs::VT
+    x_prev::VT
     op::Op
     prec::Prec
     workspace::W
@@ -70,13 +71,16 @@ function SymCGState(
     op = SymCGOperator(kkt, u, UnreducedKKTVector(kkt), s)
     prec = SymCGPreconditioner(kkt, UnreducedKKTVector(kkt), s)
     workspace = Krylov.CgWorkspace(n, n, VT)
-    return SymCGState(kkt, s, similar(full(u)), op, prec, workspace, opt, cnt, logger)
+    return SymCGState(kkt, s, similar(full(u)), similar(full(u)), op, prec, workspace, opt, cnt, logger)
 end
 
 default_options(::Type{SymCGState}, tol) =
     SymCGOptions(symcg_tol = tol^(5 / 4), symcg_acceptable_tol = tol^(5 / 8))
 
 _inv_or_zero(a) = ifelse(iszero(a), zero(a), inv(a))
+
+_residual_ratio(w, x, norm_b::T) where {T} =
+    norm(full(w), Inf) / (min(norm(full(x), Inf), T(1.0e6) * norm_b) + norm_b)
 
 function set_scaling!(it::SymCGState{T}) where {T}
     kkt, s = it.kkt, it.s
@@ -109,9 +113,11 @@ function solve_refine!(x::VT, it::SymCGState{T}, b::VT, w::VT) where {T, VT <: A
     dual_ub(x) .= ifelse.(iszero.(kkt.u_lower), dual_ub(b) ./ kkt.u_diag, zero(T))
     copyto!(full(w), full(b))
     mul!(w, kkt, x, -one(T), one(T))
+    residual_ratio = _residual_ratio(w, x, norm_b)
 
-    residual_ratio = T(Inf)
     for _ in 1:it.opt.symcg_max_cycles
+        (residual_ratio < it.opt.symcg_tol || !isfinite(residual_ratio)) && break
+        copyto!(it.x_prev, full(x))
         it.rhs .= it.s.r .* full(w)
         Krylov.cg!(
             it.workspace, it.op, it.rhs;
@@ -125,8 +131,16 @@ function solve_refine!(x::VT, it::SymCGState{T}, b::VT, w::VT) where {T, VT <: A
         # Residual ratio of the refined solution, as in RichardsonIterator.
         copyto!(full(w), full(b))
         mul!(w, kkt, x, -one(T), one(T))
-        residual_ratio = norm(full(w), Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
-        (residual_ratio < it.opt.symcg_tol || !isfinite(residual_ratio)) && break
+        ratio = _residual_ratio(w, x, norm_b)
+        # On an indefinite system the residual of CG is not monotone, and a step close to
+        # breakdown can leave the cycle worse than it started: keep the better iterate.
+        if !(ratio < residual_ratio)
+            copyto!(full(x), it.x_prev)
+            copyto!(full(w), full(b))
+            mul!(w, kkt, x, -one(T), one(T))
+            break
+        end
+        residual_ratio = ratio
     end
     @debug(
         it.logger,
