@@ -72,7 +72,7 @@ default_preset(nlp) = AugmentedPreset
 # with an LDLᵀ factorization that bounds small pivots provides one (MadNLP: CHOLMOD).
 shifted_sparse_solver(nlp) = default_sparse_solver(nlp)
 
-const SHIFTED_SIGMA_MAX = 2.0
+const SHIFTED_SIGMA_MAX = 30.0
 const SHIFTED_MU_MIN_RATIO = 1.0e-3
 
 """
