@@ -77,9 +77,11 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     phi = dot(c, c) / 2
     hist = fill(phi, 10)
     tau = one(T)
+    lambda = T(1.0e-8)
     have_prev = false
     iter = 0
-    while iter < opt.feasibility_fallback_max_iter && norm(c, Inf) > tol
+    max_iter = opt.feasibility_fallback_method === :gauss_newton ? min(opt.feasibility_fallback_max_iter, 500) : opt.feasibility_fallback_max_iter
+    while iter < max_iter && norm(c, Inf) > tol
         time() - get_cnt(solver).start_time >= opt.max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
         !(get_intermediate_callback(solver)(solver, UserCallbackRobust())::Bool) && return USER_REQUESTED_STOP
         iter += 1
@@ -88,6 +90,37 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
         # projected gradient, for a stationarity test
         full(xt) .= full(x) .- clamp.(full(x) .- g, _fallback_lo.(l, u), _fallback_hi.(l, u))
         norm(full(xt), Inf) <= 1.0e-12 * max(one(T), norm(c, Inf)) && break
+        if opt.feasibility_fallback_method === :gauss_newton
+            # Gauss-Newton step over the variables not held at a bound by the gradient.
+            free = RR.w_fb
+            free .= ifelse.(
+                ((full(x) .<= _fallback_lo.(l, u)) .& (g .> 0)) .| ((full(x) .>= _fallback_hi.(l, u)) .& (g .< 0)),
+                zero(T), one(T),
+            )
+            gauss_newton_step!(solver, RR.d_fb, g, free, lambda)
+            dg = dot(g, RR.d_fb)
+            copyto!(xp, full(x))
+            alpha = one(T)
+            accepted = false
+            for _ in 1:30
+                full(xt) .= clamp.(full(x) .+ alpha .* RR.d_fb, _fallback_lo.(l, u), _fallback_hi.(l, u))
+                eval_cons_wrapper!(solver, ct, xt)
+                phi_t = dot(ct, ct) / 2
+                if isfinite(phi_t) && phi_t < phi && phi_t <= phi + T(1.0e-4) * alpha * min(dg, zero(T))
+                    accepted = true
+                    phi = phi_t
+                    break
+                end
+                alpha /= 2
+            end
+            if accepted
+                lambda = alpha == 1 ? max(lambda / 3, T(1.0e-12)) : lambda
+            else
+                lambda *= 100
+                lambda > 1.0e12 && break
+                continue
+            end
+        else
         if have_prev
             xp .= full(x) .- xp
             gp .= g .- gp
@@ -114,6 +147,7 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
             end
             alpha /= 2
         end
+        end
         accepted || break
         copyto!(full(x), full(xt))
         copyto!(c, ct)
@@ -134,4 +168,43 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     get_zu_r(solver) .= mu ./ (get_xu_r(solver) .- get_x_ur(solver))
     return_to_regular!(solver)
     return REGULAR
+end
+
+"""
+    gauss_newton_step!(solver, d, g, free, lambda)
+
+Approximately solve `min ‖J D d + c‖² + lambda ‖d‖²` by CGLS, where `D` is the diagonal 0/1
+mask `free` and `g = J'c`. Products `J v` are forward differences of the constraints.
+"""
+function gauss_newton_step!(solver::AbstractMadNLPSolver{T}, d, g, free, lambda; maxcg = 500, cgtol = 1.0e-2) where {T}
+    RR::RobustRestorer = get_RR(solver)
+    kkt = get_kkt(solver)
+    x, c = get_x(solver), get_c(solver)
+    xt, ct = get_x_trial(solver), get_c_trial(solver)
+    s, p, q, r = RR.s_fb, RR.p_fb, RR.q_fb, RR.r_fb
+    fill!(d, zero(T))
+    r .= .-c
+    s .= .-g .* free
+    copyto!(p, s)
+    gamma = gamma0 = dot(s, s)
+    gamma0 > 0 || return d
+    for _ in 1:maxcg
+        # q = J (free .* p) by a forward difference
+        h = sqrt(eps(T)) * (one(T) + norm(full(x), Inf)) / max(norm(p, Inf), eps(T))
+        full(xt) .= full(x) .+ h .* free .* p
+        eval_cons_wrapper!(solver, ct, xt)
+        q .= (ct .- c) ./ h
+        delta = dot(q, q) + lambda * dot(p, p)
+        delta > 0 || break
+        a = gamma / delta
+        d .+= a .* p
+        r .-= a .* q
+        jtprod!(s, kkt, r)
+        s .= s .* free .- lambda .* d
+        gamma_new = dot(s, s)
+        gamma_new <= cgtol^2 * gamma0 && break
+        p .= s .+ (gamma_new / gamma) .* p
+        gamma = gamma_new
+    end
+    return d
 end

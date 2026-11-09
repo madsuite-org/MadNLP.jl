@@ -58,6 +58,9 @@ struct MyLDL end
         on = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
         @test on.status == MadNLPCore.SOLVE_SUCCEEDED
         @test on.solution ≈ [1.0, 0.0, 0.5] atol = 1.0e-6
+        gn = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback_method = :gauss_newton)
+        @test gn.status == MadNLPCore.SOLVE_SUCCEEDED
+        @test gn.solution ≈ [1.0, 0.0, 0.5] atol = 1.0e-6
         # The rescue, run on that solve as after a failed restoration phase: the regular phase
         # resumes from a point with a lower violation than where restoration started.
         solve_wb() = (s = MadNLPSolver(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = false); MadNLPCore.solve!(s); s)

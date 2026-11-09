@@ -99,6 +99,7 @@ required\\_infeasibility\\_reduction        | 0.9             | required reducti
 feasibility\\_fallback       | `true`               | after a failure exit (a failed restoration phase or line search, a detected local infeasibility, diverging iterates), retry by projected gradient descent on the constraint violation, from where restoration started or from the current point; at most 3 times per solve
 feasibility\\_fallback\\_max\\_iter | 10000     | iteration limit of the fallback
 feasibility\\_fallback\\_reduction | 1e-2         | the fallback stops once the constraint violation falls by this factor
+feasibility\\_fallback\\_method | `:gradient`         | `:gradient` for projected gradient descent, `:gauss_newton` for Gauss-Newton steps solved by CGLS, with Jacobian products by finite differences of the constraints and at most 500 iterations
 ||
 __Line search__||
 ||
@@ -193,6 +194,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     feasibility_fallback::Bool = true
     feasibility_fallback_max_iter::Int = 10_000
     feasibility_fallback_reduction::T = 1.0e-2
+    feasibility_fallback_method::Symbol = :gradient
 
     # Line search
     obj_max_inc::T = 5.

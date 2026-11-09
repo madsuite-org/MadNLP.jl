@@ -41,6 +41,13 @@ mutable struct RobustRestorer{T, VT}
     g_fb::VT
     x_prev_fb::VT
     g_prev_fb::VT
+    # Gauss-Newton fallback
+    d_fb::VT
+    s_fb::VT
+    p_fb::VT
+    w_fb::VT
+    q_fb::VT
+    r_fb::VT
 end
 
 # State of the watchdog line search: the reference iterate and search direction it rolls back
