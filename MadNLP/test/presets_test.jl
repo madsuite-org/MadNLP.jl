@@ -24,7 +24,7 @@
     @test sh.linear_solver === (Base.USE_GPL_LIBS ? MadNLP.CHOLMODSolver : MadNLP.MumpsSolver)
     @test sh.kkt_scaler isa MadNLP.RuizScaler
     @test sh.dual_shift == 1.0e-10
-    @test sh.iterator === MadNLP.KrylovIterator
+    @test sh.iterator === MadNLP.SymCGIterator
     @test sh.barrier isa MadNLP.QualityFunctionUpdate{Float64}
     @test sh.barrier.sigma_max == 2.0 && sh.barrier.mu_min ≈ 1.0e-3 * sh.tol
     @test sh.slack_reset

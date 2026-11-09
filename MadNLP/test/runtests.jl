@@ -27,6 +27,7 @@ import SparseArrays: sparse
 
     @testset "Extensions" begin
         include("krylov_test.jl")
+        include("symcg_test.jl")
         # MKL Pardiso was not tested in CI before; enable once its tests pass.
         # include("pardiso_test.jl")
     end

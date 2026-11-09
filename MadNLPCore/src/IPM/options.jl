@@ -28,11 +28,10 @@ abstract type AbstractPreset end
 
 The default preset on a GPU: the augmented KKT system factorized LDLᵀ with small
 pivots bounded, after Ruiz scaling and with a dual shift (both 1e-10 in `Float64`, see
-[`preset_perturbation`](@ref MadNLPCore.preset_perturbation)), each solve refined by GMRES on the
-unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
+[`preset_perturbation`](@ref MadNLPCore.preset_perturbation)), each solve refined by conjugate
+gradients on the symmetrized unreduced, unshifted system (`SymCGIterator`), with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
 mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
-Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
-solve is refined by Richardson iterations. The options beyond the linear solver apply to
+Julia's GPL libraries), on an NVIDIA GPU cuDSS's. The options beyond the linear solver apply to
 `SparseKKTSystem` only. On AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's
 static LDLᵀ with the same pivot bound.
 """
@@ -94,8 +93,7 @@ function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where
         barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), sigma_min = T(0.1), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
         slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
     )
-    # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
-    return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))
+    return merge(shifted, (; iterator = SymCGIterator))
 end
 
 """
@@ -128,7 +126,7 @@ __General options__||
 rethrow\\_error                | true                 | rethrow any error encountered during the algorithm
 disable\\_garbage\\_collector  | false                | disable garbage collector in MadNLP
 blas\\_num\\_threads           | 1                    | number of threads to use in the BLAS backend
-iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `KrylovIterator` under `ShiftedPreset` where Krylov is loaded
+iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `SymCGIterator` under `ShiftedPreset`
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
 kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`

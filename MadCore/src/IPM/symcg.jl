@@ -46,11 +46,11 @@ struct SymCGIterator{T, KKT <: AbstractKKTSystem{T}, KV <: AbstractKKTVector{T},
 end
 
 function SymCGIterator(
-    kkt::AbstractKKTSystem{T};
-    opt = default_options(SymCGIterator, sqrt(eps(T))),
-    logger = MadNLPLogger(),
-    cnt = MadNLPCounters(),
-) where {T}
+        kkt::AbstractKKTSystem{T};
+        opt = default_options(SymCGIterator, sqrt(eps(T))),
+        logger = MadNLPLogger(),
+        cnt = MadNLPCounters(),
+    ) where {T}
     u = UnreducedKKTVector(kkt)
     v = UnreducedKKTVector(kkt)
     w() = similar(full(u))

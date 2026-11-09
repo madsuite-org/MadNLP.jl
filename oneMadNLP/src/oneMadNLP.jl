@@ -13,7 +13,7 @@ import oneAPI
 using oneAPI: oneVector, oneAPIBackend
 # SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
-import Krylov   # GMRES refinement (KrylovIterator) of ShiftedPreset
+import Krylov   # GMRES refinement (KrylovIterator)
 
 using MadNLPCore
 for name in names(MadNLPCore)

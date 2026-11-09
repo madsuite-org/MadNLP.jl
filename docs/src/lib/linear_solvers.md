@@ -51,6 +51,7 @@ accuracy of the solution returned by the linear solver.
 
 ```@docs
 solve_refine!
+SymCGIterator
 KrylovIterator
 
 ```
