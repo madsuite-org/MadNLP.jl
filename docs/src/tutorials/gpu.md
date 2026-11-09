@@ -30,9 +30,6 @@ We import ExaModels as:
 using ExaModels
 ```
 
-!!! info
-    MadNLP does not yet support solving sparse optimization problems on AMD GPUs.
-
 ### Evaluating the model on the GPU with ExaModels
 The first step requires implementing the model with ExaModels.
 

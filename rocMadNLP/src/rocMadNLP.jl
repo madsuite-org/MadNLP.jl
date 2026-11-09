@@ -13,6 +13,7 @@ using AMDGPU: ROCVector, ROCBackend
 import PrecompileTools
 # SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
+import Krylov   # GMRES refinement (KrylovIterator) of ShiftedPreset
 
 using MadNLPCore
 for name in names(MadNLPCore)
