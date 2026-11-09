@@ -96,7 +96,7 @@ __Feasible restoration__||
 ||
 soft\\_resto\\_pderror\\_reduction\\_factor | 0.9999          | required reduction in primal-dual error in the soft restoration phase
 required\\_infeasibility\\_reduction        | 0.9             | required reduction of infeasibility before leaving restoration phase
-feasibility\\_fallback       | `false`              | when the restoration phase fails, retry from its starting point by projected gradient descent on the constraint violation
+feasibility\\_fallback       | `true`               | when the restoration phase fails, or its line search does, retry from its starting point by projected gradient descent on the constraint violation; a detected local infeasibility is not retried
 feasibility\\_fallback\\_max\\_iter | 10000     | iteration limit of the fallback
 feasibility\\_fallback\\_reduction | 1e-2         | the fallback stops once the constraint violation falls by this factor
 ||
@@ -190,7 +190,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # restoration options
     soft_resto_pderror_reduction_factor::T = 0.9999
     required_infeasibility_reduction::T = 0.9
-    feasibility_fallback::Bool = false
+    feasibility_fallback::Bool = true
     feasibility_fallback_max_iter::Int = 10_000
     feasibility_fallback_reduction::T = 1.0e-2
 

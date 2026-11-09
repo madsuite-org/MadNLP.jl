@@ -525,7 +525,7 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
     copyto!(RR.x_entry, full(get_x(solver)))
     theta_entry = get_theta(get_c(solver))
     status = robust_phase!(solver)
-    status in (RESTORATION_FAILED, INFEASIBLE_PROBLEM_DETECTED) || return status
+    status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL) || return status
     # Retry from where the restoration phase started.
     copyto!(full(get_x(solver)), RR.x_entry)
     eval_cons_wrapper!(solver, get_c(solver), get_x(solver))
