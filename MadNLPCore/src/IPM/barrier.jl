@@ -289,6 +289,9 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     # Get primal and dual infeasibility directly from the values in RHS p
     res_primal = norm(dual(get_p(solver)))
     res_dual = norm(primal(get_p(solver)))
+    # mean absolute infeasibilities, for the safeguard below
+    mean_pr = get_m(solver) > 0 ? norm(dual(get_p(solver)), 1) / get_m(solver) : zero(T)
+    mean_du = norm(primal(get_p(solver)), 1) / get_n(solver)
     # Get approximate solution without iterative refinement
     copyto!(full(step_aff), full(get_p(solver)))
     solve_kkt!(get_kkt(solver), step_aff)
@@ -318,18 +321,19 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     sigma_opt = _run_golden_search!(solver, barrier, sigma_min, sigma_max, step_aff, step_cen, res_primal, res_dual)
     # Increment counter
     barrier.n_update += 1
-    return clamp(sigma_opt * mu, lower_mu_safeguard(solver, barrier), barrier.mu_max)
+    return clamp(sigma_opt * mu, lower_mu_safeguard(barrier, mean_pr, mean_du), barrier.mu_max)
 end
 
-# As Ipopt's adaptive_mu_safeguard_factor: mu stays above a multiple of the primal and dual
-# infeasibilities, each relative to its first value (at least 1), so that it does not reach its
-# floor while the iterate is far from a stationary point.
-function lower_mu_safeguard(solver::AbstractMadNLPSolver{T}, barrier::QualityFunctionUpdate{T}) where T
+# A form of Ipopt's adaptive_mu_safeguard_factor: mu stays above a multiple of the smaller of the
+# mean absolute primal and dual infeasibilities, each relative to its first value (at least 1), so
+# that it does not reach its floor while the iterate is far from both feasibility and stationarity.
+# Ipopt takes the larger; with it, a spike of one infeasibility after a poor step lifts mu and the
+# iterates cycle.
+function lower_mu_safeguard(barrier::QualityFunctionUpdate{T}, mean_pr, mean_du) where T
     barrier.mu_safeguard_factor > 0 || return barrier.mu_min
-    inf_pr, inf_du = get_inf_pr(solver), get_inf_du(solver)
-    barrier.ref_inf_pr < 0 && (barrier.ref_inf_pr = max(one(T), inf_pr))
-    barrier.ref_inf_du < 0 && (barrier.ref_inf_du = max(one(T), inf_du))
-    return max(barrier.mu_min, barrier.mu_safeguard_factor * max(inf_pr / barrier.ref_inf_pr, inf_du / barrier.ref_inf_du))
+    barrier.ref_inf_pr < 0 && (barrier.ref_inf_pr = max(one(T), mean_pr))
+    barrier.ref_inf_du < 0 && (barrier.ref_inf_du = max(one(T), mean_du))
+    return max(barrier.mu_min, barrier.mu_safeguard_factor * min(mean_pr / barrier.ref_inf_pr, mean_du / barrier.ref_inf_du))
 end
 
 function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::LOQOUpdate{T}) where T
