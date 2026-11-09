@@ -1,7 +1,9 @@
 # Option presets for models whose data live on a GPU. The GPU entry points choose the linear
 # solvers through `default_sparse_solver` and `default_dense_solver`, and the options of a sparse
 # solver through `default_options(nlp, preset, kkt_system, linear_solver)`.
-# The preset (`ShiftedPreset` by default) sets the rest, as on the host.
+# The preset sets the rest; on a GPU it is `ShiftedPreset` by default.
+
+MadNLPCore.default_preset(::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}) where {T} = MadNLPCore.ShiftedPreset
 
 function MadNLPCore.MadNLPOptions{T}(
         nlp::MadNLPCore.AbstractNLPModel{T, VT};

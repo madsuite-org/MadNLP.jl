@@ -22,9 +22,7 @@ struct MyLDL end
 
     @testset "Solve with LDLFactorizations" begin
         using LDLFactorizations
-        # The expected point is the local minimizer the monotone barrier rule reaches; under
-        # ShiftedPreset the solve ends at HS15's other minimizer, (0.5, 2) with objective 306.5.
-        stats = madnlp(nlp; linear_solver = LDLSolver, preset = AugmentedPreset, print_level = MadNLPCore.ERROR)
+        stats = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
         @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         @test stats.solution ≈ [-0.79212, -1.26243] atol = 1e-4
         @test stats.objective ≈ 360.37976 atol = 1e-4

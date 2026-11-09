@@ -26,7 +26,7 @@ abstract type AbstractPreset end
 """
     ShiftedPreset
 
-The default preset, on the host and on a GPU: the augmented KKT system factorized LDLᵀ with small
+The default preset on a GPU: the augmented KKT system factorized LDLᵀ with small
 pivots bounded, after Ruiz scaling and with a dual shift of 1e-10, each solve refined by GMRES on the
 unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
 mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
@@ -41,12 +41,13 @@ struct ShiftedPreset <: AbstractPreset end
 """
     AugmentedPreset
 
-The augmented KKT system with the default sparse linear solver, its default options and the
-monotone barrier rule, as MadNLP's default was before `ShiftedPreset`.
+The default preset on the host: the augmented KKT system with the default sparse linear
+solver, its default options and the monotone barrier rule.
 """
 struct AugmentedPreset <: AbstractPreset end
 
-default_preset(nlp) = ShiftedPreset
+# The host default; the GPU option preset (MadNLPCoreGPUExt) makes it ShiftedPreset on GPU models.
+default_preset(nlp) = AugmentedPreset
 
 # The linear solver of the shifted preset on the host: the default sparse one, unless a package
 # with an LDLᵀ factorization that bounds small pivots provides one (MadNLP: CHOLMOD).
@@ -84,7 +85,7 @@ tol                            | 1e-8                 | termination tolerance on
 callback                       | [`SparseCallback`](@ref) | type of callback (`SparseCallback` or `DenseCallback`)
 kkt\\_system                   | [`SparseKKTSystem`](@ref) | type of primal-dual KKT system
 linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
-preset                         | [`ShiftedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`); options given explicitly take precedence
+preset                         | [`AugmentedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`); [`ShiftedPreset`](@ref) on a GPU; options given explicitly take precedence
 ||
 __General options__||
 ||
@@ -277,7 +278,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
 
     # KKT system options (passed through to create_kkt_system)
     kkt_options::Dict{Symbol, Any} = Dict{Symbol, Any}()
-    preset::Type{<:AbstractPreset} = ShiftedPreset
+    preset::Type{<:AbstractPreset} = AugmentedPreset
 end
 
 

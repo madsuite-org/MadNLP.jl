@@ -18,6 +18,7 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
         @testset "Option presets for CuVector models" begin
             nlp = MadNLPCore.SparseWrapperModel(CuVector, MadNLPCore.HS15Model())
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
+            @test opt.preset === MadNLPCore.ShiftedPreset
             @test opt.linear_solver === CUDSSSolver
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem
             @test opt.kkt_scaler isa MadCore.RuizScaler
