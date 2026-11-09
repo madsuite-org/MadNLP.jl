@@ -39,6 +39,8 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :none
             @test lopt.sds_pivot_epsilon == Float64(MadNLPCore.preset_perturbation(T))
+            stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # CondensedPreset
             co = MadNLPCore.MadNLPOptions{T}(nlp; preset = MadNLPCore.CondensedPreset)
             @test co.kkt_system === MadNLPCore.SparseCondensedKKTSystem

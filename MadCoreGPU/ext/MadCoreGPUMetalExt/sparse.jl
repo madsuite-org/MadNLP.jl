@@ -37,6 +37,9 @@ MtlSparseMatrixCSC{Tv, Ti}(A::SparseMatrixCSC) where {Tv, Ti} =
 Base.size(A::MtlSparseMatrixCSC) = A.dims
 SparseArrays.nnz(A::MtlSparseMatrixCSC) = length(A.nzVal)
 SparseArrays.nonzeros(A::MtlSparseMatrixCSC) = A.nzVal
+Base.copy(A::MtlSparseMatrixCSC{Tv, Ti}) where {Tv, Ti} = MtlSparseMatrixCSC{Tv, Ti}(
+    copy(A.colPtr), copy(A.rowVal), copy(A.nzVal), A.dims, copy(A.rowPtr), copy(A.colIdx), copy(A.perm),
+)
 SparseArrays.SparseMatrixCSC(A::MtlSparseMatrixCSC) =
     SparseMatrixCSC(A.dims..., Array(A.colPtr), Array(A.rowVal), Array(A.nzVal))
 
