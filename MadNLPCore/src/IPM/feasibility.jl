@@ -12,14 +12,44 @@ _fallback_lo(l, u) = l == u ? l : l + _fallback_margin(l, u)
 _fallback_hi(l, u) = l == u ? u : u - _fallback_margin(l, u)
 
 """
-    feasibility_fallback!(solver, theta_ref) -> Bool
+    feasibility_rescue!(solver, status) -> Status
+
+Run the feasibility fallback from the point where the failed restoration phase started. Return
+`REGULAR` if the regular phase resumes from the fallback's point. Otherwise put the solver back
+at the restoration phase's last iterate, where its gradient, multipliers and error measures
+still are, and return `status`, or the limit or stop that ended the fallback.
+"""
+function feasibility_rescue!(solver::AbstractMadNLPSolver{T}, status) where {T}
+    RR::RobustRestorer = get_RR(solver)
+    x, c = get_x(solver), get_c(solver)
+    copyto!(RR.x_last, full(x))
+    copyto!(RR.c_last, c)
+    obj_last = get_obj_val(solver)
+
+    copyto!(full(x), RR.x_ref)
+    eval_cons_wrapper!(solver, c, x)
+    result = feasibility_fallback!(solver, RR.theta_ref)
+    result === REGULAR && return REGULAR
+
+    copyto!(full(x), RR.x_last)
+    copyto!(c, RR.c_last)
+    set_obj_val!(solver, obj_last)
+    # the Jacobian was last evaluated at a point of the fallback
+    get_opt(solver).jacobian_constant || eval_jac_wrapper!(solver, get_kkt(solver), x)
+    return result === nothing ? status : result
+end
+
+"""
+    feasibility_fallback!(solver, theta_ref) -> Union{Status, Nothing}
 
 Minimize `½‖c(x)‖²` over the bounds by projected gradient descent, from the current iterate,
 with Barzilai-Borwein steps and a nonmonotone Armijo test over the last 10 values. Stop once
 `‖c‖∞` falls by the factor `feasibility_fallback_reduction`, or after
 `feasibility_fallback_max_iter` iterations. If the filter accepts the result and the
-violation is below `required_infeasibility_reduction * theta_ref`, set the multipliers and
-return `true`; otherwise restore the starting point and return `false`.
+violation is below `required_infeasibility_reduction * theta_ref`, set the multipliers,
+return to the regular phase and return `REGULAR`; otherwise return `nothing`. The wall time
+limit and the intermediate callback are checked at every iteration, and their status is
+returned when they end the fallback.
 """
 function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where {T}
     opt = get_opt(solver)
@@ -29,7 +59,6 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     xt, ct = get_x_trial(solver), get_c_trial(solver)
     l, u = full(get_xl(solver)), full(get_xu(solver))
     g, gp, xp = RR.g_fb, RR.g_prev_fb, RR.x_prev_fb
-    copyto!(RR.x_entry, full(x))
 
     tol = max(T(opt.tol), opt.feasibility_fallback_reduction * norm(c, Inf))
     phi = dot(c, c) / 2
@@ -38,8 +67,10 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     have_prev = false
     iter = 0
     while iter < opt.feasibility_fallback_max_iter && norm(c, Inf) > tol
+        time() - get_cnt(solver).start_time >= opt.max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
+        !(get_intermediate_callback(solver)(solver, UserCallbackRobust())::Bool) && return USER_REQUESTED_STOP
         iter += 1
-        eval_jac_wrapper!(solver, kkt, x)
+        opt.jacobian_constant || eval_jac_wrapper!(solver, kkt, x)
         jtprod!(g, kkt, c)
         # projected gradient, for a stationarity test
         full(xt) .= full(x) .- clamp.(full(x) .- g, _fallback_lo.(l, u), _fallback_hi.(l, u))
@@ -55,6 +86,7 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
         copyto!(xp, full(x))
         copyto!(gp, g)
         have_prev = true
+        gx = dot(g, xp)
         ref = maximum(hist)
         alpha = one(T)
         accepted = false
@@ -62,7 +94,7 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
             full(xt) .= clamp.(full(x) .- alpha .* tau .* g, _fallback_lo.(l, u), _fallback_hi.(l, u))
             eval_cons_wrapper!(solver, ct, xt)
             phi_t = dot(ct, ct) / 2
-            if isfinite(phi_t) && phi_t <= ref - T(1.0e-4) * dot(g, xp .- full(xt))
+            if isfinite(phi_t) && phi_t <= ref - T(1.0e-4) * (gx - dot(g, full(xt)))
                 accepted = true
                 phi = phi_t
                 break
@@ -82,17 +114,11 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     ok = is_filter_acceptable(get_filter(solver), theta, varphi) &&
         theta <= opt.required_infeasibility_reduction * theta_ref
     @debug(get_logger(solver), "Feasibility fallback: $iter iterations, theta $theta, accepted $ok.")
-    if !ok
-        copyto!(full(x), RR.x_entry)
-        eval_cons_wrapper!(solver, c, x)
-        set_obj_val!(solver, eval_f_wrapper(solver, x))
-        eval_jac_wrapper!(solver, kkt, x)  # the Jacobian was last evaluated at a trial point
-        return false
-    end
+    ok || return nothing
     eval_grad_f_wrapper!(solver, get_f(solver), x)
-    eval_jac_wrapper!(solver, kkt, x)
+    opt.jacobian_constant || eval_jac_wrapper!(solver, kkt, x)
     get_zl_r(solver) .= mu ./ (get_x_lr(solver) .- get_xl_r(solver))
     get_zu_r(solver) .= mu ./ (get_xu_r(solver) .- get_x_ur(solver))
     return_to_regular!(solver)
-    return true
+    return REGULAR
 end

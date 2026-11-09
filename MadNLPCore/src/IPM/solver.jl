@@ -522,17 +522,10 @@ function robust!(solver::AbstractMadNLPSolver{T}) where T
         wd.shortened_iter = 0
         wd.trial_iter = 0
     end
-    get_opt(solver).feasibility_fallback || return robust_phase!(solver)
-    get_RR(solver) === nothing && set_RR!(solver, RobustRestorer(solver))
-    RR::RobustRestorer = get_RR(solver)
-    copyto!(RR.x_entry, full(get_x(solver)))
-    theta_entry = get_theta(get_c(solver))
     status = robust_phase!(solver)
+    get_opt(solver).feasibility_fallback || return status
     status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL) || return status
-    # Retry from where the restoration phase started.
-    copyto!(full(get_x(solver)), RR.x_entry)
-    eval_cons_wrapper!(solver, get_c(solver), get_x(solver))
-    return feasibility_fallback!(solver, theta_entry) ? REGULAR : status
+    return feasibility_rescue!(solver, status)
 end
 
 function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
