@@ -24,6 +24,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             @test opt.preset === MadNLPCore.ShiftedPreset
             @test opt.linear_solver === SDSSolver
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem
+            @test opt.iterator === MadCore.KrylovIterator
             @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
             @test opt.barrier.sigma_max == 2.0 && opt.barrier.mu_min ≈ 1.0e-3 * opt.tol
             @test opt.slack_reset
