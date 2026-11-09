@@ -52,15 +52,20 @@ struct MyLDL end
     @testset "Feasibility fallback" begin
         using LDLFactorizations
         wb = WachBiegModel()
-        # The restoration phase ends at an infeasible stationary point of the violation.
-        stats = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
-        @test stats.status == MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
-        stats = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = true)
-        @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-        @test stats.solution ≈ [1.0, 0.0, 0.5] atol = 1.0e-6
-        # The option leaves a solve that never enters restoration unchanged.
-        a = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
-        b = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = true)
+        # A detected local infeasibility is not retried: the fallback changes nothing here.
+        off = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = false)
+        on = madnlp(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
+        @test off.status == on.status == MadNLPCore.INFEASIBLE_PROBLEM_DETECTED
+        @test off.iter == on.iter
+        # The fallback itself, from the point where that solve stopped: it reaches the solution.
+        solver = MadNLPSolver(wb; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
+        MadNLPCore.solve!(solver)
+        theta = MadNLPCore.get_theta(MadNLPCore.get_c(solver))
+        @test MadNLPCore.feasibility_fallback!(solver, theta)
+        @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta
+        # A solve that never enters restoration is unchanged.
+        a = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = false)
+        b = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
         @test a.iter == b.iter && a.objective == b.objective
     end
 
