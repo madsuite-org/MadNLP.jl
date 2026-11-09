@@ -8,7 +8,7 @@ function MadNLPCore.MadNLPOptions{T}(
         preset::MadNLPCore.AbstractPreset = MadNLPCore.default_preset(nlp),
         dense_callback = MadNLPCore.is_dense_callback(nlp),
         callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
-        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.SparseKKTSystem,
+        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.default_sparse_kkt_system(nlp),
         linear_solver = dense_callback ? MadNLPCore.default_dense_solver(nlp) : MadNLPCore.default_sparse_solver(nlp),
         tol = MadNLPCore.get_tolerance(T, kkt_system),
         bound_relax_factor = (kkt_system == MadNLPCore.SparseCondensedKKTSystem) ? tol : T(1.0e-8),

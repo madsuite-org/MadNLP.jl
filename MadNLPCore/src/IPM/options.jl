@@ -234,7 +234,10 @@ pivots bounded, after Ruiz scaling and with a dual shift of 1e-10, each solve re
 unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
 mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
-solve is refined by Richardson iterations.
+solve is refined by Richardson iterations. The options beyond the linear solver apply to
+`SparseKKTSystem` only; on AMD, Intel and Apple GPUs sparse models keep the condensed system by
+default (see `default_sparse_kkt_system`), so the preset takes effect there with
+`kkt_system = SparseKKTSystem`.
 """
 struct ShiftedPreset <: AbstractPreset end
 
@@ -274,7 +277,7 @@ function MadNLPOptions{T}(
     preset::AbstractPreset = default_preset(nlp),
     dense_callback = is_dense_callback(nlp),
     callback = dense_callback ? DenseCallback : SparseCallback,
-    kkt_system = dense_callback ? DenseCondensedKKTSystem : SparseKKTSystem,
+    kkt_system = dense_callback ? DenseCondensedKKTSystem : default_sparse_kkt_system(nlp),
     linear_solver = dense_callback ? default_dense_solver(nlp) :
         preset isa ShiftedPreset && kkt_system == SparseKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
     tol = get_tolerance(T,kkt_system)

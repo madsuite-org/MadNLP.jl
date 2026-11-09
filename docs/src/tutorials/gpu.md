@@ -86,12 +86,13 @@ nothing
 Note that we are using the sparse linear solver [NVIDIA cuDSS](https://docs.nvidia.com/cuda/cudss/getting_started.html)
 to solve the primal-dual KKT system entirely on the GPU.
 
-For a sparse model on the GPU, MadNLP by default:
+For a sparse model on an NVIDIA GPU, MadNLP's default preset, [`ShiftedPreset`](@ref):
 1. factorizes the augmented KKT system (`kkt_system = SparseKKTSystem`) with cuDSS, using an LDL' factorization with matching and with small pivots bounded (`cudss_pivot_epsilon = 1e-10`);
 2. factorizes a scaled and shifted copy of that matrix: Ruiz scaling (`kkt_scaler = RuizScaler()`) and a shift of `-1e-10` on the diagonal of the dual block (`dual_shift = 1e-10`). The inertia is read from this factorization;
-3. refines each solve with GMRES (`iterator = KrylovIterator`) on the unscaled and unshifted KKT system.
+3. refines each solve with GMRES (`iterator = KrylovIterator`) on the unscaled and unshifted KKT system;
+4. updates the barrier parameter with the quality-function rule (`barrier = QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)`, so `mu_min = 1e-11` at the default `tol`), which may raise it at most twofold per iteration, and moves the slacks onto the constraints after an accepted step (`slack_reset = true`).
 
-With the augmented KKT system, on any GPU, the barrier parameter follows the quality-function rule (`barrier = QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)`, so `mu_min = 1e-11` at the default `tol`), which may raise it at most twofold per iteration, and the slacks are moved onto the constraints after an accepted step (`slack_reset = true`).
+The same preset is the default on the CPU, with CHOLMOD's LDL' factorization. `preset = AugmentedPreset()` keeps the augmented system with the monotone barrier rule. On AMD, Intel and Apple GPUs, sparse models use the condensed KKT system below by default, since their sparse solver does not yet solve the augmented system with these options.
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 

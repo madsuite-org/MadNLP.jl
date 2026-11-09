@@ -10,10 +10,9 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
         # cuMadNLP loads CUDA and CUDSS, so the solvers of MadCoreGPU are available.
         @test MadCore.default_options(CUDSSSolver) isa MadCore.AbstractOptions
         @test MadCore.default_options(LapackCUDASolver) isa MadCore.AbstractOptions
-        # cuMadNLP's own option preset, more specific than the shared GPU preset of
-        # MadNLPCoreGPUExt, applies to CuVector models
+        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to CuVector models
         preset = which(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, CuVector{Float64}}})
-        @test preset.module === cuMadNLP
+        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
     if CUDA.functional()
         @testset "Option presets for CuVector models" begin
@@ -36,6 +35,13 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem)
             @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
             @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            # AugmentedPreset: the augmented system with cuDSS and the monotone rule
+            opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.AugmentedPreset())
+            @test opt.kkt_system === MadNLPCore.SparseKKTSystem && opt.linear_solver === CUDSSSolver
+            @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
+            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            stats = madnlp(nlp; preset = MadNLPCore.AugmentedPreset(), print_level = MadNLPCore.ERROR)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             stats = madnlp(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
