@@ -245,6 +245,9 @@ end
 function check_option_sanity(options)
     is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem || options.kkt_system <: SchurComplementKKTSystem
     is_hess_approx_dense = options.hessian_approximation <: Union{BFGS, DampedBFGS}
+    if !(options.feasibility_fallback_method in (:gradient, :gauss_newton))
+        error("[options] feasibility_fallback_method must be :gradient or :gauss_newton.")
+    end
     if input_type(options.linear_solver) == :csc && is_kkt_dense
         error("[options] Sparse Linear solver is not supported in dense mode.\n"*
               "Please use a dense linear solver or change `kkt_system` ")

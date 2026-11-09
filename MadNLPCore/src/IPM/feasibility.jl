@@ -1,5 +1,5 @@
-# Feasibility fallback: projected gradient descent on the constraint violation, used when the
-# restoration phase fails. It needs constraints and the transposed Jacobian product only.
+# Feasibility fallback: a descent on the constraint violation, run after a failure exit of the
+# restoration or the regular phase. It needs constraints and the transposed Jacobian product only.
 
 # Distance kept from a finite bound, so that the barrier stays defined at the result.
 function _fallback_margin(l::T, u::T) where {T}
@@ -41,6 +41,7 @@ function feasibility_rescue!(solver::AbstractMadNLPSolver{T}, status; from_entry
     else
         theta_ref = get_theta(c)
     end
+    @debug(get_logger(solver), "Feasibility rescue $(RR.n_rescues) after $status, from $(from_entry ? "the restoration entry point" : "the current point").")
     result = feasibility_fallback!(solver, theta_ref)
     result === REGULAR && return REGULAR
 
@@ -121,32 +122,32 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
                 continue
             end
         else
-        if have_prev
-            xp .= full(x) .- xp
-            gp .= g .- gp
-            sy = dot(xp, gp)
-            tau = sy > 0 ? clamp(dot(xp, xp) / sy, T(1.0e-10), T(1.0e10)) : 2tau
-        else
-            tau = one(T) / max(norm(g, Inf), one(T))
-        end
-        copyto!(xp, full(x))
-        copyto!(gp, g)
-        have_prev = true
-        gx = dot(g, xp)
-        ref = maximum(hist)
-        alpha = one(T)
-        accepted = false
-        for _ in 1:30
-            full(xt) .= clamp.(full(x) .- alpha .* tau .* g, _fallback_lo.(l, u), _fallback_hi.(l, u))
-            eval_cons_wrapper!(solver, ct, xt)
-            phi_t = dot(ct, ct) / 2
-            if isfinite(phi_t) && phi_t <= ref - T(1.0e-4) * (gx - dot(g, full(xt)))
-                accepted = true
-                phi = phi_t
-                break
+            if have_prev
+                xp .= full(x) .- xp
+                gp .= g .- gp
+                sy = dot(xp, gp)
+                tau = sy > 0 ? clamp(dot(xp, xp) / sy, T(1.0e-10), T(1.0e10)) : 2tau
+            else
+                tau = one(T) / max(norm(g, Inf), one(T))
             end
-            alpha /= 2
-        end
+            copyto!(xp, full(x))
+            copyto!(gp, g)
+            have_prev = true
+            gx = dot(g, xp)
+            ref = maximum(hist)
+            alpha = one(T)
+            accepted = false
+            for _ in 1:30
+                full(xt) .= clamp.(full(x) .- alpha .* tau .* g, _fallback_lo.(l, u), _fallback_hi.(l, u))
+                eval_cons_wrapper!(solver, ct, xt)
+                phi_t = dot(ct, ct) / 2
+                if isfinite(phi_t) && phi_t <= ref - T(1.0e-4) * (gx - dot(g, full(xt)))
+                    accepted = true
+                    phi = phi_t
+                    break
+                end
+                alpha /= 2
+            end
         end
         accepted || break
         copyto!(full(x), full(xt))

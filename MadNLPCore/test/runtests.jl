@@ -82,6 +82,27 @@ struct MyLDL end
             @test MadNLPCore.full(MadNLPCore.get_x(solver)) == x_last
             @test MadNLPCore.get_c(solver) == c_last
         end
+        # The rescue of a failed regular phase starts from the current point: it either resumes
+        # at a lower violation, or leaves the point as it was.
+        solver = solve_wb()
+        x_before = copy(MadNLPCore.full(MadNLPCore.get_x(solver)))
+        c_before = copy(MadNLPCore.get_c(solver))
+        theta_before = MadNLPCore.get_theta(c_before)
+        status = MadNLPCore.feasibility_rescue!(solver, MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL; from_entry = false)
+        if status == MadNLPCore.REGULAR
+            @test MadNLPCore.get_theta(MadNLPCore.get_c(solver)) < 0.9 * theta_before
+        else
+            @test status == MadNLPCore.SEARCH_DIRECTION_BECOMES_TOO_SMALL
+            @test MadNLPCore.full(MadNLPCore.get_x(solver)) == x_before
+            @test MadNLPCore.get_c(solver) == c_before
+        end
+        # Diverging iterates are retried a bounded number of times.
+        solver = MadNLPSolver(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, diverging_iterates_tol = 1.0)
+        stats = MadNLPCore.solve!(solver)
+        @test stats.status == MadNLPCore.DIVERGING_ITERATES
+        @test 1 <= MadNLPCore.get_RR(solver).n_rescues <= MadNLPCore.MAX_RESCUES
+        # An unknown method is refused.
+        @test_throws ErrorException madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback_method = :typo)
         # A solve that never enters restoration is unchanged.
         a = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, feasibility_fallback = false)
         b = madnlp(nlp; linear_solver = LDLSolver, print_level = MadNLPCore.ERROR)
