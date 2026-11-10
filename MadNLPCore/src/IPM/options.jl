@@ -64,6 +64,8 @@ struct CondensedPreset <: AbstractPreset end
 # The KKT system of a sparse model under a preset, when `kkt_system` is not given.
 preset_kkt_system(::Type{<:AbstractPreset}) = SparseKKTSystem
 preset_kkt_system(::Type{CondensedPreset}) = SparseCondensedKKTSystem
+# benchmark branch: ShiftedPreset on the condensed system by default
+preset_kkt_system(::Type{ShiftedPreset}) = SparseCondensedKKTSystem
 
 # The presets whose sparse KKT systems are factorized LDLᵀ with small pivots bounded: the condensed
 # system can keep dense rows uncondensed, which leaves it indefinite.
