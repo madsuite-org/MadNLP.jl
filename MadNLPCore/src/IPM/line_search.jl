@@ -49,13 +49,23 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
     end
 
     xl_step, xu_step = step_bounds(solver)
-    alpha_max = get_alpha_max(
-        primal(get_x(solver)),
-        xl_step,
-        xu_step,
-        primal(get_d(solver)),
-        get_tau(solver),
-    )
+    separate = get_opt(solver).separate_slack_step
+    nv = get_n(solver) - length(get_ind_ineq(solver))   # variables first, then slacks
+    alpha_s = T(Inf)
+    if separate
+        # the variables' bounds limit α, the slacks' bounds a separate α_s
+        xp = primal(get_x(solver)); dp = primal(get_d(solver)); np = length(xp)
+        alpha_max = get_alpha_max(view(xp, 1:nv), view(xl_step, 1:nv), view(xu_step, 1:nv), view(dp, 1:nv), get_tau(solver))
+        alpha_s = get_alpha_max(view(xp, (nv + 1):np), view(xl_step, (nv + 1):np), view(xu_step, (nv + 1):np), view(dp, (nv + 1):np), get_tau(solver))
+    else
+        alpha_max = get_alpha_max(
+            primal(get_x(solver)),
+            xl_step,
+            xu_step,
+            primal(get_d(solver)),
+            get_tau(solver),
+        )
+    end
     set_alpha_z!(solver, get_alpha_z(get_zl_r(solver),get_zu_r(solver),dual_lb(get_d(solver)),dual_ub(get_d(solver)),get_tau(solver)))
     alpha_min = get_alpha_min(theta,varphi_d,get_theta_min(solver),get_opt(solver).gamma_theta,get_opt(solver).gamma_phi,
                                 get_opt(solver).alpha_min_frac,get_opt(solver).delta,get_opt(solver).s_theta,get_opt(solver).s_phi)
@@ -72,6 +82,12 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
 
         copyto!(full(get_x_trial(solver)), full(get_x(solver)))
         axpy!(get_alpha(solver), primal(get_d(solver)), primal(get_x_trial(solver)))
+        if separate
+            # the slacks move by min(α, α_s)
+            np = length(primal(get_x(solver)))
+            view(primal(get_x_trial(solver)), (nv + 1):np) .= view(primal(get_x(solver)), (nv + 1):np) .+
+                min(get_alpha(solver), alpha_s) .* view(primal(get_d(solver)), (nv + 1):np)
+        end
         project_relaxed_slacks!(solver, get_x_trial(solver))
         set_obj_val_trial!(solver, eval_f_wrapper(solver, get_x_trial(solver)))
         eval_cons_wrapper!(solver, get_c_trial(solver), get_x_trial(solver))
