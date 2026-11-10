@@ -56,6 +56,17 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             stats = madnlp(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
+        @testset "Bound multipliers of fixed variables on the GPU" begin
+            # update_z! sums ∇cᵀy over the fixed columns with the GPU scatter-add; the
+            # multipliers must satisfy ∇f + ∇cᵀy - zl + zu = 0, checked on the host.
+            stats = madnlp(MadNLPCore.PrecompileChainModel(20, CuVector{Float64}(undef, 0); fixed = true); print_level = MadNLPCore.ERROR)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+            x, y = Array(stats.solution), Array(stats.multipliers)
+            host = MadNLPCore.PrecompileChainModel(20, Float64[]; fixed = true)
+            g = MadNLPCore.NLPModels.grad(host, x) .+ MadNLPCore.NLPModels.jtprod(host, x, y)
+            @test abs(y[1]) > 1e-3
+            @test g[1] - Array(stats.multipliers_L)[1] + Array(stats.multipliers_U)[1] ≈ 0 atol = 1e-8
+        end
         @testset "get_F accounts for upper bounds on the GPU" begin
             # Same case as the CPU test in MadNLP/test/regression_test.jl:
             # one variable with only an upper bound, (xu - x) * zu = (3 - 1) * 2.

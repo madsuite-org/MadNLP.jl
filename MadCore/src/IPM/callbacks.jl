@@ -172,12 +172,12 @@ function eval_lag_hess_wrapper!(
             jtprod!(jacl, kkt, l)
             yk .+= @view(jacl[1:n])                     # yₖ += J₊ᵀ l₊
             # Jᵀ l₊ with the Jacobian at the previous iterate, put back in the KKT system
-            jac_new = copy(jac)
+            copyto!(qn.jac_buffer, jac)
             copyto!(jac, qn.last_jac)
             compress_jacobian!(kkt)
             jtprod!(jacl, kkt, l)
             yk .-= @view(jacl[1:n])                     # yₖ += J₊ᵀ l₊ - Jᵀ l₊
-            copyto!(jac, jac_new)
+            copyto!(jac, qn.jac_buffer)
             compress_jacobian!(kkt)
             jtprod!(jacl, kkt, l)
         end
@@ -192,7 +192,10 @@ function eval_lag_hess_wrapper!(
 
     # Backup data for next step
     jac = get_jacobian(kkt)
-    length(qn.last_jac) == length(jac) || resize!(qn.last_jac, length(jac))
+    if length(qn.last_jac) != length(jac)
+        resize!(qn.last_jac, length(jac))
+        resize!(qn.jac_buffer, length(jac))
+    end
     copyto!(qn.last_jac, jac)
     copyto!(qn.last_x, 1, variable(get_x(solver)), 1, n)
     copyto!(qn.last_g, 1, variable(get_f(solver)), 1, n)

@@ -122,7 +122,7 @@ struct MyLDL end
         x, y = stats.solution, stats.multipliers
         g = NLPModels.grad(model, x) .+ NLPModels.jtprod(model, x, y)
         @test g[1] - stats.multipliers_L[1] + stats.multipliers_U[1] ≈ 0 atol = 1e-8
-        @test abs(g[1]) > 1e-3   # the fixed variable has a nonzero multiplier
+        @test abs(y[1]) > 1e-3   # the constraint term ∇cᵀy on the fixed variable is nonzero
     end
 
     @testset "Solve with LAPACK" begin
