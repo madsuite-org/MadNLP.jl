@@ -810,18 +810,6 @@ function _eval_grad_f_wrapper!(
     return grad
 end
 
-function _eval_jtprod_wrapper!(
-    cb::AbstractCallback,
-    x::AbstractVector,
-    v::AbstractVector,
-    jvt::AbstractVector,
-)
-    y = cb.con_buffer
-    y .= v .* cb.con_scale
-    NLPModels.jtprod!(cb.nlp, x, y, jvt)
-    return jvt
-end
-
 #=
     Callbacks: SparseCallback
 =#
@@ -995,22 +983,6 @@ function _eval_jac_wrapper!(
     return jac
 end
 
-function _eval_jtprod_wrapper!(
-    cb::SparseCallback{T, VT, VI, NLP, FH},
-    x::AbstractVector,
-    v::AbstractVector,
-    jvt::AbstractVector,
-) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
-    x_full = cb.fixed_handler.x_full
-    jvt_full = cb.fixed_handler.g_full
-    y = cb.con_buffer
-    y .= v .* cb.con_scale
-    NLPModels.jtprod!(cb.nlp, x_full, y, jvt_full)
-    jvt .= jvt_full[cb.fixed_handler.free]
-    return jvt
-end
-
 function _eval_lag_hess_wrapper!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
@@ -1093,23 +1065,22 @@ end
 # N.B.: by default do nothing as the bounds' multipliers are computed by the algorithm
 function update_z!(cb, x, y, zl, zu, jacl) end
 
-function update_z!(cb::AbstractCallback{T, VT, FH}, x, y, zl, zu, jacl) where {T, VT, FH<:MakeParameter}
-    fixed_handler = cb.fixed_handler::MakeParameter
-    ind_fixed = fixed_handler.fixed
-    g_full = fixed_handler.g_full
-    jtv = similar(g_full) ; fill!(jtv, zero(T))
+function update_z!(cb::DenseCallback{T, VT, VI, NLP, FH}, x, y, zl, zu, jacl) where {T, VT, VI, NLP, FH<:MakeParameter}
+    ind_fixed = cb.fixed_handler.fixed
+    g_full = cb.fixed_handler.g_full
+    jac = similar(g_full, length(y), length(g_full))
+    NLPModels.jac_dense!(cb.nlp, x, jac)
     NLPModels.grad!(cb.nlp, x, g_full)       # ∇f
-    NLPModels.jtprod!(cb.nlp, x, y, jtv)     # ∇cᵀ y
-    g_full .+= jtv                           # ∇f + ∇cᵀ y
+    mul!(g_full, jac', y, one(T), one(T))    # ∇f + ∇cᵀ y
     g_fixed = view(g_full, ind_fixed)
     zl[ind_fixed] .= cb.obj_sign .* max.(zero(T), cb.obj_sign .* g_fixed)
     zu[ind_fixed] .= cb.obj_sign .* max.(zero(T), .-cb.obj_sign .* g_fixed)
     return
 end
 
-# With SparseCallback, ∇cᵀ y on the fixed columns comes from the Jacobian entries in those
-# columns, evaluated at the solution with `jac_coord!`, instead of `jtprod!`: some models
+# ∇cᵀ y comes from the Jacobian, evaluated at the solution, instead of `jtprod!`: some models
 # (ExaModels on the GPU with buffered subexpressions) implement `jtprod!` on the host only.
+# With SparseCallback, only the entries in the fixed columns are used.
 function update_z!(cb::SparseCallback{T, VT, VI, NLP, FH}, x, y, zl, zu, jacl) where {T, VT, VI, NLP, FH<:MakeParameter}
     fixed_handler = cb.fixed_handler
     ind_fixed = fixed_handler.fixed

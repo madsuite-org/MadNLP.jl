@@ -167,10 +167,19 @@ function eval_lag_hess_wrapper!(
         copyto!(yk, 1, variable(get_f(solver)), 1, n)   # yₖ = ∇f₊
         axpy!(-one(T), qn.last_g, yk)              # yₖ = ∇f₊ - ∇f
         if m > 0
-            jtprod!(get_jacl(solver), kkt, l)
-            yk .+= @view(get_jacl(solver)[1:n])         # yₖ += J₊ᵀ l₊
-            _eval_jtprod_wrapper!(cb, qn.last_x, l, qn.last_jv)
-            axpy!(-one(T), qn.last_jv, yk)         # yₖ += J₊ᵀ l₊ - Jᵀ l₊
+            jacl = get_jacl(solver)
+            jac = get_jacobian(kkt)
+            jtprod!(jacl, kkt, l)
+            yk .+= @view(jacl[1:n])                     # yₖ += J₊ᵀ l₊
+            # Jᵀ l₊ with the Jacobian at the previous iterate, put back in the KKT system
+            jac_new = copy(jac)
+            copyto!(jac, qn.last_jac)
+            compress_jacobian!(kkt)
+            jtprod!(jacl, kkt, l)
+            yk .-= @view(jacl[1:n])                     # yₖ += J₊ᵀ l₊ - Jᵀ l₊
+            copyto!(jac, jac_new)
+            compress_jacobian!(kkt)
+            jtprod!(jacl, kkt, l)
         end
         # Update quasi-Newton approximation.
         update!(qn, Bk, sk, yk)
@@ -182,6 +191,9 @@ function eval_lag_hess_wrapper!(
     end
 
     # Backup data for next step
+    jac = get_jacobian(kkt)
+    length(qn.last_jac) == length(jac) || resize!(qn.last_jac, length(jac))
+    copyto!(qn.last_jac, jac)
     copyto!(qn.last_x, 1, variable(get_x(solver)), 1, n)
     copyto!(qn.last_g, 1, variable(get_f(solver)), 1, n)
 

@@ -88,7 +88,7 @@ struct BFGS{T, VT <: AbstractVector{T}} <: AbstractQuasiNewton{T, VT}
     bsk::VT
     last_g::VT
     last_x::VT
-    last_jv::VT
+    last_jac::VT     # Jacobian values at last_x (resized on first use)
 end
 
 function create_quasi_newton(
@@ -105,7 +105,7 @@ function create_quasi_newton(
         VT(undef, n),
         VT(undef, n),
         VT(undef, n),
-        VT(undef, n),
+        VT(undef, 0),
     )
 end
 
@@ -138,7 +138,7 @@ struct DampedBFGS{T, VT <: AbstractVector{T}} <: AbstractQuasiNewton{T, VT}
     rk::VT
     last_g::VT
     last_x::VT
-    last_jv::VT
+    last_jac::VT     # Jacobian values at last_x (resized on first use)
 end
 
 function create_quasi_newton(
@@ -156,7 +156,7 @@ function create_quasi_newton(
         VT(undef, n),
         VT(undef, n),
         VT(undef, n),
-        VT(undef, n),
+        VT(undef, 0),
     )
 end
 
@@ -215,7 +215,7 @@ mutable struct CompactLBFGS{T, VT <: AbstractVector{T}, MT <: AbstractMatrix{T},
     yk::VT
     last_g::VT
     last_x::VT
-    last_jv::VT
+    last_jac::VT     # Jacobian values at last_x (resized on first use)
     init_value::T
     sigma_min::T
     sigma_max::T
@@ -251,7 +251,7 @@ function create_quasi_newton(
         fill!(create_array(cb, n), zero(T)),
         fill!(create_array(cb, n), zero(T)),
         fill!(create_array(cb, n), zero(T)),
-        fill!(create_array(cb, n), zero(T)),
+        create_array(cb, 0),
         T(options.init_value),
         T(options.sigma_min),
         T(options.sigma_max),
@@ -295,7 +295,6 @@ function _reset!(qn::CompactLBFGS{T, VT, MT}) where {T, VT, MT}
     n, _ = size(qn)
     qn.current_mem = 0
     qn.skipped_iter = 0
-    fill!(qn.last_jv, zero(T))
     qn.Dk = VT(undef, 0)
     qn.Sk = MT(undef, n, 0)
     qn.Yk = MT(undef, n, 0)
