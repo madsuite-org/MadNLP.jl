@@ -19,7 +19,7 @@ export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, Mad
 export AbstractPreset, ShiftedPreset, AugmentedPreset, CondensedPreset
 Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver, KrylovIterator
-export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
+export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler, AugmentedRuizScaler
 
 # MUMPS is the default sparse linear solver of MadNLP. MadCore and MadNLPCore have none.
 MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = MumpsSolver

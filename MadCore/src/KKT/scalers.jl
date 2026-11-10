@@ -43,6 +43,21 @@ which drive the infinity norm of every row of `W K W` towards one.
     sweeps::Int = 4
 end
 
+"""
+    AugmentedRuizScaler(sweeps = 4)
+
+Ruiz's equilibration of the augmented system, before condensation, for `SparseCondensedKKTSystem`
+(on the host). The sweeps run on `[H + Σx  Jᵀ; J  Σd - Σs⁻¹]` and give a primal scaling `Wx` and a
+constraint scaling `Wy`; the condensed matrix is scaled by `Wx` (`Wy` cancels in `Jᵀ D J`) and the
+rows kept in the border by `Wy`. Unlike `RuizScaler` on the condensed matrix, a row whose `D` is
+very large (a tightly relaxed constraint) is equilibrated on its own before it is summed into the
+condensed block. With another KKT system the matrix is not scaled.
+"""
+@kwdef struct AugmentedRuizScaler <: AbstractScaler
+    sweeps::Int = 4
+end
+
 scaler_sweeps(::NoScaler) = 0
+scaler_sweeps(::AugmentedRuizScaler) = 0   # set by the KKT system, see update_kkt_scaling!
 scaler_sweeps(::MaxNormScaler) = 1
 scaler_sweeps(s::RuizScaler) = s.sweeps

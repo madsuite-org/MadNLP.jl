@@ -589,6 +589,7 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
         # no row kept, so no equality row: the slacks are the rows
         kkt.diag_buffer .= Σs ./ (1 .- (Σd .- kkt.slack_shift) .* Σs)
         build_condensed_aug_coord!(kkt)
+        update_kkt_scaling!(kkt, kkt.linear_solver)
         return
     end
     # D = Σs / (1 - Σd Σs) on the inequality rows (zero on the equality rows, which are kept);
@@ -604,8 +605,13 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     view(nonzeros(kkt.aug_com), b.cmap) .= nonzeros(b.aug_c)
     view(nonzeros(kkt.aug_com), b.dmap_pos) .= view(nonzeros(kkt.jt_csc), b.dmap_src)
     view(nonzeros(kkt.aug_com), b.epos) .= view(kkt.buffer2, b.ind_D) .- b.delta[1]
+    update_kkt_scaling!(kkt, kkt.linear_solver)
     return
 end
+
+# A scaling of the factorized matrix computed from the KKT system rather than from that matrix
+# (AugmentedRuizScaler); the linear solvers that scale specialize this.
+update_kkt_scaling!(kkt, linear_solver) = nothing
 
 get_jacobian(kkt::SparseCondensedKKTSystem) = kkt.jac
 

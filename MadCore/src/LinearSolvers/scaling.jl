@@ -123,6 +123,56 @@ function update_scaling!(M::ScaledShiftedSolver{T}, scaler::AbstractScaler) wher
     return
 end
 
+# AugmentedRuizScaler: the scaling is set by the KKT system before factorize! (update_kkt_scaling!)
+update_scaling!(M::ScaledShiftedSolver, ::AugmentedRuizScaler) = nothing
+
+update_kkt_scaling!(kkt, ls::LinearSolverBarrier) = update_kkt_scaling!(kkt, getfield(ls, :wrapped))
+update_kkt_scaling!(kkt::SparseCondensedKKTSystem, M::ScaledShiftedSolver) =
+    M.scaler isa AugmentedRuizScaler ? augmented_ruiz_scaling!(M, kkt, M.scaler.sweeps) : nothing
+
+# Ruiz sweeps on the augmented system [H + Σx  Jᵀ; J  a] of a condensed KKT system, a = Σd - Σs⁻¹ on
+# the inequality rows and Σd on the others; Wx scales the condensed block and Wy the border rows.
+function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensedKKTSystem, sweeps) where {T}
+    M.d isa Vector || error("AugmentedRuizScaler runs on the host only")
+    H = kkt.hess_com
+    Jt = kkt.jt_csc
+    n, m = size(Jt)
+    ns = length(kkt.ind_ineq)
+    a = copy(Array(kkt.du_diag))
+    Σs = Array(view(kkt.pr_diag, (n + 1):(n + ns)))
+    view(a, Array(kkt.ind_ineq)) .-= one(T) ./ Σs
+    p = Array(view(kkt.pr_diag, 1:n))
+    dx = ones(T, n)
+    dy = ones(T, m)
+    rx = zeros(T, n)
+    ry = zeros(T, m)
+    for _ in 1:sweeps
+        rx .= abs.(p) .* dx .^ 2
+        ry .= abs.(a) .* dy .^ 2
+        for j in 1:n, k in H.colptr[j]:(H.colptr[j + 1] - 1)   # H holds one triangle
+            i = H.rowval[k]
+            v = abs(H.nzval[k]) * dx[i] * dx[j]
+            i == j && (v = abs(H.nzval[k] + p[i]) * dx[i]^2)
+            rx[i] = max(rx[i], v)
+            rx[j] = max(rx[j], v)
+        end
+        for c in 1:m, k in Jt.colptr[c]:(Jt.colptr[c + 1] - 1)
+            i = Jt.rowval[k]
+            v = abs(Jt.nzval[k]) * dx[i] * dy[c]
+            rx[i] = max(rx[i], v)
+            ry[c] = max(ry[c], v)
+        end
+        dx .= ifelse.(rx .> 0, dx ./ sqrt.(rx), dx)
+        dy .= ifelse.(ry .> 0, dy ./ sqrt.(ry), dy)
+    end
+    view(M.d, 1:n) .= dx
+    ind_D = kkt.border.ind_D
+    for (t, c) in enumerate(Array(ind_D))
+        M.d[n + t] = dy[c]
+    end
+    return
+end
+
 function factorize!(M::ScaledShiftedSolver{T}) where {T}
     update_scaling!(M, M.scaler)
     scaling_nzval(M.fac) .= scaling_nzval(M.A) .* view(M.d, M.arow) .* view(M.d, M.acol)
