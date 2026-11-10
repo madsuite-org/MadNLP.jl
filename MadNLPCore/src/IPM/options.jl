@@ -32,7 +32,7 @@ pivots bounded, after Ruiz scaling and with a dual shift (both 1e-10 in `Float64
 unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
 mu_decrease_max = 10, mu_min = 1e-3 tol)`) and slack reset. With `kkt_system = SparseCondensedKKTSystem` the
 same options apply to the condensed system: the equalities are enforced and kept uncondensed, with
-the inequality rows of 20 or more nonzeros, as the border of the condensed matrix, and the other
+the inequality rows of 50 or more nonzeros, as the border of the condensed matrix, and the other
 inequality rows are condensed (`kkt_options = Dict(:condense_max_nnz => N)` sets the threshold;
 the KKT options given are merged over the preset's).
 On the host the factorization is CHOLMOD's (MUMPS without
@@ -79,7 +79,7 @@ shifted_sparse_solver(nlp) = default_sparse_solver(nlp)
 
 const SHIFTED_SIGMA_MAX = 2.0
 # under ShiftedPreset, SparseCondensedKKTSystem condenses the inequality rows with fewer nonzeros
-const SHIFTED_CONDENSE_MAX_NNZ = 20
+const SHIFTED_CONDENSE_MAX_NNZ = 50
 # under ShiftedPreset the barrier parameter decreases at most tenfold per iteration
 const SHIFTED_MU_DECREASE_MAX = 10.0
 const SHIFTED_MU_MIN_RATIO = 1.0e-3
