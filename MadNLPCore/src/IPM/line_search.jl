@@ -48,10 +48,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         theta, varphi, varphi_d = wd.theta_ref, wd.varphi_ref, wd.varphi_d_ref
     end
 
+    xl_step, xu_step = step_bounds(solver)
     alpha_max = get_alpha_max(
         primal(get_x(solver)),
-        primal(get_xl(solver)),
-        primal(get_xu(solver)),
+        xl_step,
+        xu_step,
         primal(get_d(solver)),
         get_tau(solver),
     )
@@ -71,6 +72,7 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
 
         copyto!(full(get_x_trial(solver)), full(get_x(solver)))
         axpy!(get_alpha(solver), primal(get_d(solver)), primal(get_x_trial(solver)))
+        project_relaxed_slacks!(solver, get_x_trial(solver))
         set_obj_val_trial!(solver, eval_f_wrapper(solver, get_x_trial(solver)))
         eval_cons_wrapper!(solver, get_c_trial(solver), get_x_trial(solver))
 

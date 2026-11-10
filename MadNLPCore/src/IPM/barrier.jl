@@ -7,27 +7,81 @@ Update barrier using the rule in `barrier`. Store the results in `solver.mu`.
 """
 function update_barrier! end
 
-# Weights of the bounds in the complementarity measures: 0 on the two bounds of a slack that
-# relaxes an equality (RelaxEquality), 1 elsewhere; `nothing` (all ones) unless
-# relaxed_equality_complementarity is false. Cached per solver.
+# Weights of the bounds in the complementarity measures. A slack that relaxes an equality
+# (RelaxEquality) has two bounds: with relaxed_equality_complementarity = false both get 0, with
+# relaxed_equality_active_side = true the side with the larger dual gets 1 and the other 0
+# (recomputed at each call); every other bound gets 1. `nothing` (all ones) with the defaults.
+# The pairing is cached per solver.
 const RELAXED_PAIR_WEIGHTS = WeakKeyDict{Any, Any}()
 complementarity_weights(solver::AbstractMadNLPSolver) = nothing
 function complementarity_weights(solver::MadNLPSolver{T}) where {T}
-    get_opt(solver).relaxed_equality_complementarity && return nothing
+    opt = get_opt(solver)
+    opt.relaxed_equality_complementarity && !opt.relaxed_equality_active_side && return nothing
+    wl0, wu0, pl, pu = relaxed_pairs(solver)
+    opt.relaxed_equality_active_side || return (wl0, wu0)
+    # the active side of each relaxed pair: the bound with the larger dual
+    wl = copy(wl0); wu = copy(wu0)
+    zl = view(get_zl_r(solver), pl); zu = view(get_zu_r(solver), pu)
+    view(wl, pl) .= ifelse.(zl .>= zu, one(T), zero(T))
+    view(wu, pu) .= ifelse.(zl .>= zu, zero(T), one(T))
+    return (wl, wu)
+end
+
+# The bounds of the relaxed equalities, cached per solver: static weights (0 on the pairs, 1
+# elsewhere), the position of each pair in the lower and upper bound lists, and its primal index.
+function relaxed_pairs(solver::MadNLPSolver{T}) where {T}
     return get!(RELAXED_PAIR_WEIGHTS, solver) do
         cb = get_cb(solver)
         ind = Array(get_ind_ineq(solver))
         nv = get_n(solver) - length(ind)
         eq = Array(cb.nlp.meta.lcon)[ind] .== Array(cb.nlp.meta.ucon)[ind]
-        w(idx) = T[(i > nv && eq[i - nv]) ? zero(T) : one(T) for i in Array(idx)]
-        wl = similar(get_zl_r(solver)); copyto!(wl, w(cb.ind_lb))
-        wu = similar(get_zu_r(solver)); copyto!(wu, w(cb.ind_ub))
-        (wl, wu)
+        relaxed(i) = i > nv && eq[i - nv]
+        ilb = Array(cb.ind_lb); iub = Array(cb.ind_ub)
+        w(idx) = T[relaxed(i) ? zero(T) : one(T) for i in idx]
+        posu = Dict(i => k for (k, i) in enumerate(iub))
+        pairs = [(k, posu[i]) for (k, i) in enumerate(ilb) if relaxed(i) && haskey(posu, i)]
+        wl = similar(get_zl_r(solver)); copyto!(wl, w(ilb))
+        wu = similar(get_zu_r(solver)); copyto!(wu, w(iub))
+        dv(v) = (o = similar(get_ind_ineq(solver), Int, length(v)); copyto!(o, v); o)
+        (wl, wu, dv(first.(pairs)), dv(last.(pairs)), dv([ilb[k] for (k, _) in pairs]))
     end
 end
 
+step_bounds(solver::AbstractMadNLPSolver) = (primal(get_xl(solver)), primal(get_xu(solver)))
+project_relaxed_slacks!(solver::AbstractMadNLPSolver, x) = nothing
+
+# relaxed_equality_step_active_side: the primal bounds the step length sees, with the inactive side
+# of each relaxed pair opened (the side with the smaller dual)
+function step_bounds(solver::MadNLPSolver{T}) where {T}
+    xl = primal(get_xl(solver)); xu = primal(get_xu(solver))
+    get_opt(solver).relaxed_equality_step_active_side || return xl, xu
+    _, _, pl, pu, gi = relaxed_pairs(solver)
+    lower = view(get_zl_r(solver), pl) .>= view(get_zu_r(solver), pu)
+    xl_e = copy(xl); xu_e = copy(xu)
+    view(xl_e, gi) .= ifelse.(lower, view(xl, gi), T(-Inf))
+    view(xu_e, gi) .= ifelse.(lower, T(Inf), view(xu, gi))
+    return xl_e, xu_e
+end
+
+# keep the slack of each relaxed pair strictly inside its interval after a step that only the
+# active side limited
+function project_relaxed_slacks!(solver::MadNLPSolver{T}, x) where {T}
+    get_opt(solver).relaxed_equality_step_active_side || return
+    _, _, _, _, gi = relaxed_pairs(solver)
+    s = view(primal(x), gi)
+    l = view(primal(get_xl(solver)), gi); u = view(primal(get_xu(solver)), gi)
+    theta = T(1e-2)
+    s .= clamp.(s, l .+ theta .* (u .- l), u .- theta .* (u .- l))
+    return
+end
+
+# the weights the barrier update uses: none (every bound) with relaxed_equality_termination_only
+barrier_weights(solver::AbstractMadNLPSolver) =
+    get_opt(solver).relaxed_equality_termination_only ? nothing : complementarity_weights(solver)
+
 function MadCore.get_inf_compl(solver::MadNLPSolver{T}, sc::T; mu = get_mu(solver)) where {T}
-    w = complementarity_weights(solver)
+    # at μ = 0 this is the termination test; at μ > 0 the barrier update
+    w = iszero(mu) ? complementarity_weights(solver) : barrier_weights(solver)
     w === nothing && return MadCore.get_inf_compl(get_x_lr(solver), get_xl_r(solver), get_zl_r(solver),
         get_xu_r(solver), get_x_ur(solver), get_zu_r(solver), mu, sc)
     wl, wu = w
@@ -37,7 +91,7 @@ function MadCore.get_inf_compl(solver::MadNLPSolver{T}, sc::T; mu = get_mu(solve
 end
 
 function MadCore.get_average_complementarity(solver::MadNLPSolver{T}) where {T}
-    w = complementarity_weights(solver)
+    w = barrier_weights(solver)
     w === nothing && return MadCore.get_average_complementarity(get_x_lr(solver), get_xl_r(solver), get_zl_r(solver),
         get_x_ur(solver), get_xu_r(solver), get_zu_r(solver))
     wl, wu = w
@@ -226,7 +280,7 @@ function _evaluate_quality_function(solver::AbstractMadNLPSolver{T}, sigma, step
         dual_ub(d),
         tau,
     )
-    w = complementarity_weights(solver)
+    w = barrier_weights(solver)
     # ||(X + αp ΔX - Xl) (Zl + αd ΔZl)||^2, without the bounds of relaxed equalities if so set
     inf_compl_lb = w === nothing ? mapreduce(
         (x, xl, dx, z, dz) -> ((x + alpha_pr * dx - xl) * (z + alpha_du * dz))^2,

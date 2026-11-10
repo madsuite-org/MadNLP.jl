@@ -213,6 +213,9 @@ jacobian\\_regularization\\_value  | 1e-8                 | size of regularizati
 ||
 slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`; `true` under `ShiftedPreset`
 relaxed\\_equality\\_complementarity | `true`     | with `RelaxEquality`, count the complementarity of the two bounds of a relaxed equality in the termination test and the barrier update; `false` leaves them out (they are an artifact of the relaxation: the equality needs only `|g - b| ≤ tol` and its multiplier `zˡ - zᵘ`)
+relaxed\\_equality\\_active\\_side | `false`    | with `RelaxEquality`, count only the active side (the larger dual) of the two bounds of each relaxed equality in the termination test and the barrier update
+relaxed\\_equality\\_step\\_active\\_side | `false` | with `RelaxEquality`, only the active side (the larger dual) of each relaxed equality limits the primal step (fraction to the boundary); the slack of the trial point is projected back inside its interval
+relaxed\\_equality\\_termination\\_only | `false` | apply `relaxed_equality_complementarity` and `relaxed_equality_active_side` to the termination test only; the barrier update counts every bound
 slack\\_reset\\_tol             | 1e-6                 | violation of the original rows allowed for the slack reset
 watchdog                      | `true`               | watchdog line search: after `watchdog_shortened_iter_trigger` consecutive shortened steps, take up to `watchdog_trial_iter_max` full steps and roll back if they make no progress
 watchdog\\_shortened\\_iter\\_trigger | 10            | consecutive shortened steps that start the watchdog
@@ -333,6 +336,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     slack_reset::Bool = false
     slack_reset_tol::T = 1.0e-6
     relaxed_equality_complementarity::Bool = true
+    relaxed_equality_active_side::Bool = false
+    relaxed_equality_step_active_side::Bool = false
+    relaxed_equality_termination_only::Bool = false
     watchdog::Bool = true
     watchdog_shortened_iter_trigger::Int = 10
     watchdog_trial_iter_max::Int = 3
