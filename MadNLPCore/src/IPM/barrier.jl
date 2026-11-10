@@ -63,15 +63,17 @@ function step_bounds(solver::MadNLPSolver{T}) where {T}
     return xl_e, xu_e
 end
 
-# keep the slack of each relaxed pair strictly inside its interval after a step that only the
-# active side limited
+# keep the slack of each relaxed pair inside its interval on the inactive side after a step that
+# only the active side limited; the active side is left to the fraction to the boundary, so the
+# slack can still reach the bound it ends at
 function project_relaxed_slacks!(solver::MadNLPSolver{T}, x) where {T}
     get_opt(solver).relaxed_equality_step_active_side || return
-    _, _, _, _, gi = relaxed_pairs(solver)
+    _, _, pl, pu, gi = relaxed_pairs(solver)
+    lower = view(get_zl_r(solver), pl) .>= view(get_zu_r(solver), pu)
     s = view(primal(x), gi)
     l = view(primal(get_xl(solver)), gi); u = view(primal(get_xu(solver)), gi)
     theta = T(1e-2)
-    s .= clamp.(s, l .+ theta .* (u .- l), u .- theta .* (u .- l))
+    s .= ifelse.(lower, min.(s, u .- theta .* (u .- l)), max.(s, l .+ theta .* (u .- l)))
     return
 end
 
