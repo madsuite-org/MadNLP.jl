@@ -192,7 +192,7 @@ MadNLP provides the monotone update rule inspired by the Fiacco-McCormick rule, 
 and two adaptive update rules, implemented in the solver respectively as [`QualityFunctionUpdate`](@ref)
 and [`LOQOUpdate`](@ref). By default MadNLP uses `MonotoneUpdate` on the host
 ([`AugmentedPreset`](@ref)); [`ShiftedPreset`](@ref), the default on a GPU, uses
-`QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)` with the augmented KKT system.
+`QualityFunctionUpdate(sigma_max = 2, mu_decrease_max = 10, mu_min = 1e-3 * tol)` with the augmented KKT system.
 The user can change the barrier update, e.g. by setting the option
 ```
 barrier=QualityFunctionUpdate()

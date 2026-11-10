@@ -448,7 +448,8 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
             get_zu_r(solver),
             get_mu(solver),
         )
-        if F_trial > get_opt(solver).soft_resto_pderror_reduction_factor*F
+        # a trial point whose error is not finite (an evaluation at it failed) falls back too
+        if !(F_trial <= get_opt(solver).soft_resto_pderror_reduction_factor * F)
             copyto!(primal(get_x(solver)), primal(get__w1(solver)))
             copyto!(get_y(solver), dual(get__w1(solver)))
             copyto!(get_c(solver), dual(get__w2(solver))) # restore the previous primal iterate

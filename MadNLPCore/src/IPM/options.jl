@@ -30,7 +30,7 @@ The default preset on a GPU: the augmented KKT system factorized LDLᵀ with sma
 pivots bounded, after Ruiz scaling and with a dual shift (both 1e-10 in `Float64`, see
 [`preset_perturbation`](@ref MadNLPCore.preset_perturbation)), each solve refined by GMRES on the
 unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
-mu_min = 1e-3 tol)`) and slack reset. With `kkt_system = SparseCondensedKKTSystem` the same options
+mu_decrease_max = 10, mu_min = 1e-3 tol)`) and slack reset. With `kkt_system = SparseCondensedKKTSystem` the same options
 apply to the condensed system: the equalities are enforced and kept uncondensed, with the
 inequality rows of 20 or more nonzeros, as the border of the condensed matrix, and the other
 inequality rows are condensed (`kkt_options = Dict(:condense_max_nnz => N)` sets the threshold;
@@ -80,6 +80,8 @@ shifted_sparse_solver(nlp) = default_sparse_solver(nlp)
 const SHIFTED_SIGMA_MAX = 2.0
 # under ShiftedPreset, SparseCondensedKKTSystem condenses the inequality rows with fewer nonzeros
 const SHIFTED_CONDENSE_MAX_NNZ = 20
+# under ShiftedPreset the barrier parameter decreases at most tenfold per iteration
+const SHIFTED_MU_DECREASE_MAX = 10.0
 const SHIFTED_MU_MIN_RATIO = 1.0e-3
 
 """
@@ -98,7 +100,7 @@ preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} =
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
     kkt_system in (SparseKKTSystem, SparseCondensedKKTSystem) || return (;)
     shifted = (;
-        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), sigma_min = T(0.1), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
+        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
         slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
     )
     if kkt_system == SparseCondensedKKTSystem
@@ -237,7 +239,7 @@ rho                            | 1000.0               | value in penalty paramet
 ||
 __Barrier__||
 ||
-barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter; `QualityFunctionUpdate(sigma_max = 2, mu_min = 1e-3 * tol)` under `ShiftedPreset`
+barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter; `QualityFunctionUpdate(sigma_max = 2, mu_decrease_max = 10, mu_min = 1e-3 * tol)` under `ShiftedPreset`
 tau\\_min                      | 0.99                 | lower bound on fraction-to-the-boundary parameter tau
 ||
 """
