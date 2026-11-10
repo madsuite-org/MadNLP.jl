@@ -1114,7 +1114,8 @@ function update_z!(cb::SparseCallback{T, VT, VI, NLP, FH}, x, y, zl, zu, jacl) w
     fixed_handler = cb.fixed_handler
     ind_fixed = fixed_handler.fixed
     g_fixed = similar(x, length(ind_fixed))
-    jac = NLPModels.jac_coord!(cb.nlp, x, similar(cb.jac_buffer))
+    jac = similar(cb.jac_buffer)
+    NLPModels.jac_coord!(cb.nlp, x, jac)
     NLPModels.grad!(cb.nlp, x, fixed_handler.g_full)     # ∇f
     _transfer!(g_fixed, jac[fixed_handler.ind_jac_fixed] .* y[fixed_handler.jac_fixed_rows], fixed_handler.jac_fixed_cols)
     g_fixed .+= fixed_handler.g_full[ind_fixed]          # ∇f + ∇cᵀ y on the fixed columns
