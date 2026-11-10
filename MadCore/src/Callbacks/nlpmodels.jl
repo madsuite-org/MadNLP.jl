@@ -1107,15 +1107,16 @@ function update_z!(cb::AbstractCallback{T, VT, FH}, x, y, zl, zu, jacl) where {T
     return
 end
 
-# With SparseCallback, ∇cᵀ y on the fixed columns comes from the Jacobian values of the
-# last evaluation, which `jac_buffer` keeps for every column, instead of `jtprod!`: some
-# models (ExaModels on the GPU with buffered subexpressions) implement it on the host only.
+# With SparseCallback, ∇cᵀ y on the fixed columns comes from the Jacobian entries in those
+# columns, evaluated at the solution with `jac_coord!`, instead of `jtprod!`: some models
+# (ExaModels on the GPU with buffered subexpressions) implement `jtprod!` on the host only.
 function update_z!(cb::SparseCallback{T, VT, VI, NLP, FH}, x, y, zl, zu, jacl) where {T, VT, VI, NLP, FH<:MakeParameter}
     fixed_handler = cb.fixed_handler
     ind_fixed = fixed_handler.fixed
     g_fixed = similar(x, length(ind_fixed))
+    jac = NLPModels.jac_coord!(cb.nlp, x, similar(cb.jac_buffer))
     NLPModels.grad!(cb.nlp, x, fixed_handler.g_full)     # ∇f
-    _transfer!(g_fixed, cb.jac_buffer[fixed_handler.ind_jac_fixed] .* y[fixed_handler.jac_fixed_rows], fixed_handler.jac_fixed_cols)
+    _transfer!(g_fixed, jac[fixed_handler.ind_jac_fixed] .* y[fixed_handler.jac_fixed_rows], fixed_handler.jac_fixed_cols)
     g_fixed .+= fixed_handler.g_full[ind_fixed]          # ∇f + ∇cᵀ y on the fixed columns
     zl[ind_fixed] .= cb.obj_sign .* max.(zero(T), cb.obj_sign .* g_fixed)
     zu[ind_fixed] .= cb.obj_sign .* max.(zero(T), .-cb.obj_sign .* g_fixed)
