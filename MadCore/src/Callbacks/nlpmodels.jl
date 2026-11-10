@@ -62,7 +62,15 @@ struct MakeParameter{T, VT,VI} <: AbstractFixedVariableTreatment
     hash_x::Base.RefValue{T}
     x_full::VT
     g_full::VT
+    # Jacobian entries in the fixed columns: index in the full Jacobian, row, and
+    # position of the column among the fixed variables. Empty with DenseCallback.
+    ind_jac_fixed::VI
+    jac_fixed_rows::VI
+    jac_fixed_cols::VI
 end
+MakeParameter(free, fixed, ind_jac_free, ind_hess_free, hash_x, x_full, g_full) =
+    MakeParameter(free, fixed, ind_jac_free, ind_hess_free, hash_x, x_full, g_full,
+                  similar(fixed, 0), similar(fixed, 0), similar(fixed, 0))
 
 """
     RelaxBound <: AbstractFixedVariableTreatment
@@ -295,6 +303,11 @@ function create_sparse_fixed_handler(
 
     ind_jac_free = findall(@view(isfree[jac_J]))
     ind_hess_free = findall(@view(isfree[hess_I]) .&& @view(isfree[hess_J]))
+    ind_jac_fixed = findall(@view(isfixed[jac_J]))
+    map_full_to_fixed = similar(jac_I, n) ; fill!(map_full_to_fixed, -1)
+    map_full_to_fixed[fixed] .= 1:nfixed
+    jac_fixed_rows = jac_I[ind_jac_fixed]
+    jac_fixed_cols = map_full_to_fixed[jac_J[ind_jac_fixed]]
 
     nnzh = length(ind_hess_free)
     Hi, Hj = similar(hess_I, nnzh), similar(hess_J, nnzh)
@@ -324,6 +337,9 @@ function create_sparse_fixed_handler(
         Ref(NaN),
         x_full,
         similar(lvar, n),
+        ind_jac_fixed,
+        jac_fixed_rows,
+        jac_fixed_cols,
     )
 
     return fixed_handler, nx, nnzj, nnzh
@@ -1086,6 +1102,21 @@ function update_z!(cb::AbstractCallback{T, VT, FH}, x, y, zl, zu, jacl) where {T
     NLPModels.jtprod!(cb.nlp, x, y, jtv)     # ∇cᵀ y
     g_full .+= jtv                           # ∇f + ∇cᵀ y
     g_fixed = view(g_full, ind_fixed)
+    zl[ind_fixed] .= cb.obj_sign .* max.(zero(T), cb.obj_sign .* g_fixed)
+    zu[ind_fixed] .= cb.obj_sign .* max.(zero(T), .-cb.obj_sign .* g_fixed)
+    return
+end
+
+# With SparseCallback, ∇cᵀ y on the fixed columns comes from the Jacobian values of the
+# last evaluation, which `jac_buffer` keeps for every column, instead of `jtprod!`: some
+# models (ExaModels on the GPU with buffered subexpressions) implement it on the host only.
+function update_z!(cb::SparseCallback{T, VT, VI, NLP, FH}, x, y, zl, zu, jacl) where {T, VT, VI, NLP, FH<:MakeParameter}
+    fixed_handler = cb.fixed_handler
+    ind_fixed = fixed_handler.fixed
+    g_fixed = similar(x, length(ind_fixed))
+    NLPModels.grad!(cb.nlp, x, fixed_handler.g_full)     # ∇f
+    _transfer!(g_fixed, cb.jac_buffer[fixed_handler.ind_jac_fixed] .* y[fixed_handler.jac_fixed_rows], fixed_handler.jac_fixed_cols)
+    g_fixed .+= fixed_handler.g_full[ind_fixed]          # ∇f + ∇cᵀ y on the fixed columns
     zl[ind_fixed] .= cb.obj_sign .* max.(zero(T), cb.obj_sign .* g_fixed)
     zu[ind_fixed] .= cb.obj_sign .* max.(zero(T), .-cb.obj_sign .* g_fixed)
     return

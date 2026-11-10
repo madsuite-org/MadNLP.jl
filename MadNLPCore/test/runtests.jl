@@ -113,6 +113,18 @@ struct MyLDL end
         @test a.iter == b.iter && a.objective == b.objective
     end
 
+    @testset "Bound multipliers of fixed variables (MakeParameter)" begin
+        # x₁ is fixed and appears in a constraint: its multipliers come from the stored
+        # Jacobian, and must satisfy ∇f + ∇cᵀy - zl + zu = 0 as computed with jtprod!.
+        model = MadNLPCore.PrecompileChainModel(20, Float64[]; fixed = true)
+        stats = madnlp(model; print_level = MadNLPCore.ERROR, linear_solver = LDLSolver)
+        @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+        x, y = stats.solution, stats.multipliers
+        g = NLPModels.grad(model, x) .+ NLPModels.jtprod(model, x, y)
+        @test g[1] - stats.multipliers_L[1] + stats.multipliers_U[1] ≈ 0 atol = 1e-8
+        @test abs(g[1]) > 1e-3   # the fixed variable has a nonzero multiplier
+    end
+
     @testset "Solve with LAPACK" begin
         stats = madnlp(
             nlp;
