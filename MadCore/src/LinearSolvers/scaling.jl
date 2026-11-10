@@ -133,9 +133,9 @@ update_kkt_scaling!(kkt::SparseCondensedKKTSystem, M::ScaledShiftedSolver) =
 # Ruiz sweeps on the augmented system [H + Σx  Jᵀ; J  a] of a condensed KKT system, a = Σd - Σs⁻¹ on
 # the inequality rows and Σd on the others; Wx scales the condensed block and Wy the border rows.
 function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensedKKTSystem, sweeps, bounds = :folded) where {T}
-    M.d isa Vector || error("AugmentedRuizScaler runs on the host only")
-    H = kkt.hess_com
-    Jt = kkt.jt_csc
+    # on a GPU the sweeps run on host copies of the KKT data and the scaling is copied back
+    H = kkt.hess_com isa SparseMatrixCSC ? kkt.hess_com : SparseMatrixCSC(kkt.hess_com)
+    Jt = kkt.jt_csc isa SparseMatrixCSC ? kkt.jt_csc : SparseMatrixCSC(kkt.jt_csc)
     n, m = size(Jt)
     ns = length(kkt.ind_ineq)
     a = copy(Array(kkt.du_diag))
@@ -191,11 +191,13 @@ function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensed
         dx .= ifelse.(rx .> 0, dx ./ sqrt.(rx), dx)
         dy .= ifelse.(ry .> 0, dy ./ sqrt.(ry), dy)
     end
-    view(M.d, 1:n) .= dx
-    ind_D = kkt.border.ind_D
-    for (t, c) in enumerate(Array(ind_D))
-        M.d[n + t] = dy[c]
+    ind_D = Array(kkt.border.ind_D)
+    d = Vector{T}(undef, n + length(ind_D))
+    d[1:n] .= dx
+    for (t, c) in enumerate(ind_D)
+        d[n + t] = dy[c]
     end
+    copyto!(M.d, d)
     return
 end
 
