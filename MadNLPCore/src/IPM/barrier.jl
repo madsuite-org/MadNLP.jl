@@ -311,7 +311,8 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
         sigma_min = one(T)
         sigma_max = min(barrier.sigma_max, barrier.mu_max / mu)
     else
-        sigma_min = max(barrier.sigma_min, barrier.mu_min / mu)
+        # μ_new = σ μ_avg ≥ μ / mu_decrease_max, μ the current barrier parameter
+        sigma_min = max(barrier.sigma_min, barrier.mu_min / mu, get_mu(solver) / (barrier.mu_decrease_max * mu))
         sigma_max = min(max(sigma_min, sigma_1m), barrier.mu_max / mu)
     end
     # Run Golden-section search (assume the quality function is unimodal)
