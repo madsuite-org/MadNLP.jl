@@ -32,7 +32,7 @@ function _missing_extension_hint(io, exc, argtypes, kwargs)
     M = exc.args[1]
     (M isa Type && hasmethod(backend_package, Tuple{Type{M}})) || return
     print(io, "\n$(nameof(M)) is implemented in a package extension that is not loaded. ")
-    print(io, "Load $(backend_package(M)) to use $(nameof(M)).")
+    return print(io, "Load $(backend_package(M)) to use $(nameof(M)).")
 end
 
 """
@@ -85,8 +85,8 @@ struct DummySolver{T} <: AbstractLinearSolver{T} end
 function DummySolver(args...; kwargs...)
     error(
         "No sparse linear solver is selected. Pass the option `linear_solver` " *
-        "(for example `linear_solver = LDLSolver` with LDLFactorizations loaded), " *
-        "or load MadNLP, which uses MUMPS by default.",
+            "(for example `linear_solver = LDLSolver` with LDLFactorizations loaded), " *
+            "or load MadNLP, which uses MUMPS by default.",
     )
 end
 default_options(::Type{DummySolver}) = DummySolverOptions()
@@ -105,10 +105,32 @@ and defines its `default_options`.
 struct KrylovIterator end
 backend_package(::Type{KrylovIterator}) = "Krylov"
 
+"""
+    SymKrylovIterator
+
+Select GMRES iterative refinement of the unreduced KKT system made symmetric, with the option
+`iterator = SymKrylovIterator`. Scaling the bound-multiplier columns of the unreduced system by
+`Z^½` and their rows by `∓Z^-½` (`Z` the bound multipliers, `S` the distances to the bounds)
+makes it symmetric:
+
+    [W + δ   Jᵀ   -Zₗ^½   Zᵤ^½]
+    [J       D     0       0  ]
+    [-Zₗ^½   0    -Sₗ      0  ]
+    [Zᵤ^½    0     0      -Sᵤ ]
+
+GMRES runs on this system, right-preconditioned by the factorized KKT system scaled the same
+way, with the options and restarts of [`KrylovIterator`](@ref). A bound whose multiplier is zero
+(as in the least-squares estimate of the constraint multipliers) has a row holding only its
+diagonal: it is solved directly and left out of the GMRES system. The extension loaded by
+`Krylov` makes `SymKrylovIterator(kkt; opt, cnt, logger)` build the iterator.
+"""
+struct SymKrylovIterator end
+backend_package(::Type{SymKrylovIterator}) = "Krylov"
+
 # HSL solvers, implemented in the extension loaded by `HSL`.
 
-@enum(HSLOrdering::Int, AMD = 1, METIS = 3,)
-@enum(HSLScaling::Int, SCALING_NONE = 0, MC64 = 1, MC77 = 2, MC30 = 4,)
+@enum(HSLOrdering::Int, AMD = 1, METIS = 3)
+@enum(HSLScaling::Int, SCALING_NONE = 0, MC64 = 1, MC77 = 2, MC30 = 4)
 
 for (name, number) in ((:Ma27Solver, 27), (:Ma57Solver, 57), (:Ma77Solver, 77), (:Ma86Solver, 86), (:Ma97Solver, 97))
     doc = """
