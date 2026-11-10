@@ -27,6 +27,7 @@
     @test sh.iterator === MadNLP.KrylovIterator
     @test sh.barrier isa MadNLP.QualityFunctionUpdate{Float64}
     @test sh.barrier.sigma_max == 2.0 && sh.barrier.mu_min ≈ 1.0e-3 * sh.tol
+    @test sh.barrier.mu_decrease_max == 10.0 && sh.barrier.sigma_min == 1.0e-6
     @test sh.slack_reset
     if Base.USE_GPL_LIBS
         lopt = MC.default_options(nlp, sh.preset, sh.kkt_system, sh.linear_solver)
