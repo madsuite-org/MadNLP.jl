@@ -97,6 +97,11 @@ preset_perturbation(::Type{T}) where {T} =
 
 # The options of a preset beyond the KKT system and the linear solver.
 preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} = (;)
+# CondensedPreset keeps the inequality rows of CONDENSED_CONDENSE_MAX_NNZ or more nonzeros out of the
+# condensation, as the border of the condensed matrix
+const CONDENSED_CONDENSE_MAX_NNZ = 20
+preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) where {T} =
+    kkt_system == SparseCondensedKKTSystem ? (; kkt_options = Dict{Symbol, Any}(:condense_max_nnz => CONDENSED_CONDENSE_MAX_NNZ)) : (;)
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
     kkt_system in (SparseKKTSystem, SparseCondensedKKTSystem) || return (;)
     shifted = (;

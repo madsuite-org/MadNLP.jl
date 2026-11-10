@@ -81,6 +81,11 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     ind_lb::VI
     ind_ub::VI
 
+    # dual shift of the eliminated slack rows: the factorized matrix condenses each row with
+    # D = Σs / (1 - (Σd - slack_shift) Σs), which keeps D below 1 / slack_shift; the KKT operator
+    # (mul!) does not see it, so iterative refinement solves the unshifted system
+    slack_shift::T
+
     # extra
     ext::EXT
 end
@@ -210,6 +215,7 @@ function create_kkt_system(
         border,
         _linear_solver,
         ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), cb.ind_lb, cb.ind_ub,
+        T(dual_shift),
         ext
     )
 end
@@ -581,14 +587,14 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     b = kkt.border
     if isempty(b)
         # no row kept, so no equality row: the slacks are the rows
-        kkt.diag_buffer .= Σs ./ (1 .- Σd .* Σs)
+        kkt.diag_buffer .= Σs ./ (1 .- (Σd .- kkt.slack_shift) .* Σs)
         build_condensed_aug_coord!(kkt)
         return
     end
     # D = Σs / (1 - Σd Σs) on the inequality rows (zero on the equality rows, which are kept);
     # the border diagonal Σd - 1/Σs on the inequality rows, Σd on the equality rows
     fill!(kkt.diag_buffer, zero(T))
-    view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- view(Σd, kkt.ind_ineq) .* Σs)
+    view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (view(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
     kkt.buffer2 .= Σd
     view(kkt.buffer2, kkt.ind_ineq) .-= one(T) ./ Σs
     # condensed block of the sparse rows, then the border
