@@ -80,6 +80,11 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     ind_lb::VI
     ind_ub::VI
 
+    # dual shift of the eliminated slack rows: the factorized matrix condenses each row with
+    # D = Σs / (1 - (Σd - slack_shift) Σs), which keeps D below 1 / slack_shift; the KKT operator
+    # (mul!) does not see it, so iterative refinement solves the unshifted system
+    slack_shift::T
+
     # extra
     ext::EXT
 end
@@ -196,6 +201,7 @@ function create_kkt_system(
         border,
         _linear_solver,
         ind_ineq, cb.ind_lb, cb.ind_ub,
+        T(dual_shift),
         ext
     )
 end
@@ -553,7 +559,7 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     Σs = view(kkt.pr_diag, (n + 1):(n + m))
     Σd = kkt.du_diag
 
-    kkt.diag_buffer .= Σs ./ (1 .- Σd .* Σs)
+    kkt.diag_buffer .= Σs ./ (1 .- (Σd .- kkt.slack_shift) .* Σs)
     b = kkt.border
     if isempty(b)
         build_condensed_aug_coord!(kkt)
