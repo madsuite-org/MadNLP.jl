@@ -66,6 +66,10 @@ function _csc_grouping(cscmap::AbstractVector)
     return grouping
 end
 
+# The scatter-add `vec1[map[k]] += vec2[k]` of MadCore, on the GPU.
+MadCore._transfer!(vec1::AbstractGPUVector, vec2::AbstractGPUVector, map::AbstractGPUVector) =
+    _transfer_coo_to_csc!(vec1, vec2, map)
+
 function _transfer_coo_to_csc!(nzval::AbstractGPUVector, V, cscmap)
     ptr, ptrptr = _csc_grouping(cscmap)
     fill!(nzval, zero(eltype(nzval)))
