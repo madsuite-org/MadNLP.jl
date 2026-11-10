@@ -7,6 +7,47 @@ Update barrier using the rule in `barrier`. Store the results in `solver.mu`.
 """
 function update_barrier! end
 
+# Weights of the bounds in the complementarity measures: 0 on the two bounds of a slack that
+# relaxes an equality (RelaxEquality), 1 elsewhere; `nothing` (all ones) unless
+# relaxed_equality_complementarity is false. Cached per solver.
+const RELAXED_PAIR_WEIGHTS = WeakKeyDict{Any, Any}()
+complementarity_weights(solver::AbstractMadNLPSolver) = nothing
+function complementarity_weights(solver::MadNLPSolver{T}) where {T}
+    get_opt(solver).relaxed_equality_complementarity && return nothing
+    return get!(RELAXED_PAIR_WEIGHTS, solver) do
+        cb = get_cb(solver)
+        ind = Array(get_ind_ineq(solver))
+        nv = get_n(solver) - length(ind)
+        eq = Array(cb.nlp.meta.lcon)[ind] .== Array(cb.nlp.meta.ucon)[ind]
+        w(idx) = T[(i > nv && eq[i - nv]) ? zero(T) : one(T) for i in Array(idx)]
+        wl = similar(get_zl_r(solver)); copyto!(wl, w(cb.ind_lb))
+        wu = similar(get_zu_r(solver)); copyto!(wu, w(cb.ind_ub))
+        (wl, wu)
+    end
+end
+
+function MadCore.get_inf_compl(solver::MadNLPSolver{T}, sc::T; mu = get_mu(solver)) where {T}
+    w = complementarity_weights(solver)
+    w === nothing && return MadCore.get_inf_compl(get_x_lr(solver), get_xl_r(solver), get_zl_r(solver),
+        get_xu_r(solver), get_x_ur(solver), get_zu_r(solver), mu, sc)
+    wl, wu = w
+    a = mapreduce((x, l, z, c) -> c * abs((x - l) * z - mu), max, get_x_lr(solver), get_xl_r(solver), get_zl_r(solver), wl; init = zero(T))
+    b = mapreduce((u, x, z, c) -> c * abs((u - x) * z - mu), max, get_xu_r(solver), get_x_ur(solver), get_zu_r(solver), wu; init = zero(T))
+    return max(a, b) / sc
+end
+
+function MadCore.get_average_complementarity(solver::MadNLPSolver{T}) where {T}
+    w = complementarity_weights(solver)
+    w === nothing && return MadCore.get_average_complementarity(get_x_lr(solver), get_xl_r(solver), get_zl_r(solver),
+        get_x_ur(solver), get_xu_r(solver), get_zu_r(solver))
+    wl, wu = w
+    n = sum(wl; init = zero(T)) + sum(wu; init = zero(T))
+    n > 0 || return zero(T)
+    a = mapreduce((x, l, z, c) -> c * (x - l) * z, +, get_x_lr(solver), get_xl_r(solver), get_zl_r(solver), wl; init = zero(T))
+    b = mapreduce((u, x, z, c) -> c * (u - x) * z, +, get_xu_r(solver), get_x_ur(solver), get_zu_r(solver), wu; init = zero(T))
+    return (a + b) / n
+end
+
 # Implement monotone update in a dedicated function as this code is reused
 # throughout all the barrier updates.
 function _update_monotone!(
@@ -185,27 +226,42 @@ function _evaluate_quality_function(solver::AbstractMadNLPSolver{T}, sigma, step
         dual_ub(d),
         tau,
     )
-    # ||(X + αp ΔX - Xl) (Zl + αd ΔZl)||^2
-    inf_compl_lb = mapreduce(
+    w = complementarity_weights(solver)
+    # ||(X + αp ΔX - Xl) (Zl + αd ΔZl)||^2, without the bounds of relaxed equalities if so set
+    inf_compl_lb = w === nothing ? mapreduce(
         (x, xl, dx, z, dz) -> ((x + alpha_pr * dx - xl) * (z + alpha_du * dz))^2,
         +,
         get_x_lr(solver), get_xl_r(solver), get_dx_lr(solver), get_zl_r(solver), dual_lb(d);
         init=zero(T),
+    ) : mapreduce(
+        (x, xl, dx, z, dz, c) -> c * ((x + alpha_pr * dx - xl) * (z + alpha_du * dz))^2,
+        +,
+        get_x_lr(solver), get_xl_r(solver), get_dx_lr(solver), get_zl_r(solver), dual_lb(d), w[1];
+        init=zero(T),
     )
 
     # ||(Xu - X - αp ΔX) (Zu + αd ΔZu)||^2
-    inf_compl_ub = mapreduce(
+    inf_compl_ub = w === nothing ? mapreduce(
         (x, xu, dx, z, dz) -> ((xu - x - alpha_pr * dx) * (z + alpha_du * dz))^2,
         +,
         get_x_ur(solver), get_xu_r(solver), get_dx_ur(solver), get_zu_r(solver), dual_ub(d);
         init=zero(T),
+    ) : mapreduce(
+        (x, xu, dx, z, dz, c) -> c * ((xu - x - alpha_pr * dx) * (z + alpha_du * dz))^2,
+        +,
+        get_x_ur(solver), get_xu_r(solver), get_dx_ur(solver), get_zu_r(solver), dual_ub(d), w[2];
+        init=zero(T),
     )
+    if w !== nothing
+        nlb = sum(w[1]; init = zero(T))
+        nub = sum(w[2]; init = zero(T))
+    end
     # Primal infeasibility
     inf_pr = (m > 0) ? (one(T) - alpha_pr)^2 * res_primal^2 / m : zero(T)
     # Dual infeasibility
     inf_du = (one(T) - alpha_du)^2 * res_dual^2 / n
     # Complementarity infeasibility
-    inf_compl = (inf_compl_lb + inf_compl_ub ) / (nlb + nub)
+    inf_compl = (nlb + nub) > 0 ? (inf_compl_lb + inf_compl_ub ) / (nlb + nub) : zero(T)
 
     @debug(get_logger(solver), @sprintf("sigma=%4.1e inf_pr=%4.2e inf_du=%4.2e inf_cc=%4.2e a_pr=%4.2e a_du=%4.2e", sigma, inf_pr, inf_du, inf_compl, alpha_pr, alpha_du))
 

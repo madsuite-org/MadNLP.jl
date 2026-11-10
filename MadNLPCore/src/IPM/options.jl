@@ -212,6 +212,7 @@ jacobian\\_regularization\\_exponent | 1/4                | exponent for mu in t
 jacobian\\_regularization\\_value  | 1e-8                 | size of regularization for rank-deficient Jacobian
 ||
 slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`; `true` under `ShiftedPreset`
+relaxed\\_equality\\_complementarity | `true`     | with `RelaxEquality`, count the complementarity of the two bounds of a relaxed equality in the termination test and the barrier update; `false` leaves them out (they are an artifact of the relaxation: the equality needs only `|g - b| ≤ tol` and its multiplier `zˡ - zᵘ`)
 slack\\_reset\\_tol             | 1e-6                 | violation of the original rows allowed for the slack reset
 watchdog                      | `true`               | watchdog line search: after `watchdog_shortened_iter_trigger` consecutive shortened steps, take up to `watchdog_trial_iter_max` full steps and roll back if they make no progress
 watchdog\\_shortened\\_iter\\_trigger | 10            | consecutive shortened steps that start the watchdog
@@ -331,6 +332,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     kappa_soc::T = 0.99
     slack_reset::Bool = false
     slack_reset_tol::T = 1.0e-6
+    relaxed_equality_complementarity::Bool = true
     watchdog::Bool = true
     watchdog_shortened_iter_trigger::Int = 10
     watchdog_trial_iter_max::Int = 3

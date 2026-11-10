@@ -128,11 +128,11 @@ update_scaling!(M::ScaledShiftedSolver, ::AugmentedRuizScaler) = nothing
 
 update_kkt_scaling!(kkt, ls::LinearSolverBarrier) = update_kkt_scaling!(kkt, getfield(ls, :wrapped))
 update_kkt_scaling!(kkt::SparseCondensedKKTSystem, M::ScaledShiftedSolver) =
-    M.scaler isa AugmentedRuizScaler ? augmented_ruiz_scaling!(M, kkt, M.scaler.sweeps) : nothing
+    M.scaler isa AugmentedRuizScaler ? augmented_ruiz_scaling!(M, kkt, M.scaler.sweeps, M.scaler.bounds) : nothing
 
 # Ruiz sweeps on the augmented system [H + Σx  Jᵀ; J  a] of a condensed KKT system, a = Σd - Σs⁻¹ on
 # the inequality rows and Σd on the others; Wx scales the condensed block and Wy the border rows.
-function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensedKKTSystem, sweeps) where {T}
+function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensedKKTSystem, sweeps, bounds = :folded) where {T}
     M.d isa Vector || error("AugmentedRuizScaler runs on the host only")
     H = kkt.hess_com
     Jt = kkt.jt_csc
@@ -141,7 +141,19 @@ function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensed
     a = copy(Array(kkt.du_diag))
     Σs = Array(view(kkt.pr_diag, (n + 1):(n + ns)))
     view(a, Array(kkt.ind_ineq)) .-= one(T) ./ Σs
-    p = Array(view(kkt.pr_diag, 1:n))
+    sym = bounds === :symmetrized
+    bounds in (:folded, :symmetrized) || error("AugmentedRuizScaler: bounds is :folded or :symmetrized")
+    # symmetrized: the primal diagonal keeps only the regularization; each bound of a variable (not of
+    # a slack) is a row with coupling √z and diagonal |x - xˡ| (|xᵘ - x|)
+    p = sym ? Array(view(kkt.reg, 1:n)) : Array(view(kkt.pr_diag, 1:n))
+    lb = sym ? Array(kkt.ind_lb) : Int[]
+    ub = sym ? Array(kkt.ind_ub) : Int[]
+    zl = sym ? sqrt.(Array(kkt.l_lower)) : T[]
+    zu = sym ? sqrt.(Array(kkt.u_lower)) : T[]
+    gl = sym ? abs.(Array(kkt.l_diag)) : T[]
+    gu = sym ? abs.(Array(kkt.u_diag)) : T[]
+    dl = ones(T, length(lb)); rl = similar(dl)
+    du = ones(T, length(ub)); ru = similar(du)
     dx = ones(T, n)
     dy = ones(T, m)
     rx = zeros(T, n)
@@ -149,6 +161,20 @@ function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensed
     for _ in 1:sweeps
         rx .= abs.(p) .* dx .^ 2
         ry .= abs.(a) .* dy .^ 2
+        rl .= gl .* dl .^ 2
+        ru .= gu .* du .^ 2
+        for (k, i) in enumerate(lb)
+            i <= n || continue
+            v = zl[k] * dx[i] * dl[k]
+            rx[i] = max(rx[i], v); rl[k] = max(rl[k], v)
+        end
+        for (k, i) in enumerate(ub)
+            i <= n || continue
+            v = zu[k] * dx[i] * du[k]
+            rx[i] = max(rx[i], v); ru[k] = max(ru[k], v)
+        end
+        dl .= ifelse.(rl .> 0, dl ./ sqrt.(rl), dl)
+        du .= ifelse.(ru .> 0, du ./ sqrt.(ru), du)
         for j in 1:n, k in H.colptr[j]:(H.colptr[j + 1] - 1)   # H holds one triangle
             i = H.rowval[k]
             v = abs(H.nzval[k]) * dx[i] * dx[j]

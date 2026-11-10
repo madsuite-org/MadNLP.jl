@@ -52,9 +52,14 @@ constraint scaling `Wy`; the condensed matrix is scaled by `Wx` (`Wy` cancels in
 rows kept in the border by `Wy`. Unlike `RuizScaler` on the condensed matrix, a row whose `D` is
 very large (a tightly relaxed constraint) is equilibrated on its own before it is summed into the
 condensed block. With another KKT system the matrix is not scaled.
+
+With `bounds = :symmetrized` the sweeps run on the symmetrized 3×3 system instead: each bound of a
+variable is a row of its own, coupled to the variable by `√z` and with diagonal `x - xˡ` (`xᵘ - x`),
+where `:folded` (the default) sums the bounds into `Σx`. The bounds of the slacks stay in `Σs`.
 """
 @kwdef struct AugmentedRuizScaler <: AbstractScaler
     sweeps::Int = 4
+    bounds::Symbol = :folded
 end
 
 scaler_sweeps(::NoScaler) = 0
