@@ -50,9 +50,11 @@ end
 # Continuation on the equality relaxation (relaxed_equality_continuation = κ > 0): the slack of a
 # relaxed equality g(x) = b is bounded by b ± τ, τ = max(τ_min, κ μ max(1, |b|)) with τ_min the
 # relaxation of bound_relax_factor. τ is set once at initialization and tightened after every
-# barrier update (never widened), so it is τ_min at convergence; the slack is kept inside the
-# tightened box and its bound multipliers are reset to μ over the gap. Cached per solver: the
-# relaxed slacks' indices, their centers b and final half-widths τ_min, and the current τ.
+# barrier update (never widened), so it is τ_min at convergence. At a tightening each slack is
+# scaled about b by τ_new / τ_old, which keeps its relative position in the box: with τ = κ μ
+# every complementarity product of the pair scales as μ does, so the multipliers stay consistent
+# and none is reset. Cached per solver: the relaxed slacks' indices, their centers b and final
+# half-widths τ_min, and the current τ.
 const RELAXED_CONTINUATION = WeakKeyDict{Any, Any}()
 continuation_tighten!(solver::AbstractMadNLPSolver, mu; widen = false) = nothing
 function continuation_tighten!(solver::MadNLPSolver{T}, mu; widen = false) where {T}
@@ -65,14 +67,16 @@ function continuation_tighten!(solver::MadNLPSolver{T}, mu; widen = false) where
     end
     isempty(gi) && return
     target = max.(tmin, T(kappa) * T(mu) .* max.(one(T), abs.(b)))
-    tau .= widen ? target : min.(tau, target)
+    s = view(primal(get_x(solver)), gi)
+    if widen
+        tau .= target                                  # the slack, inside the narrower box, stays
+    else
+        s .= b .+ (s .- b) .* (min.(tau, target) ./ tau)   # same relative position in the box
+        tau .= min.(tau, target)
+    end
     xl = view(primal(get_xl(solver)), gi); xu = view(primal(get_xu(solver)), gi)
     xl .= b .- tau
     xu .= b .+ tau
-    s = view(primal(get_x(solver)), gi)
-    s .= clamp.(s, xl .+ T(1e-2) .* tau, xu .- T(1e-2) .* tau)
-    view(get_zl_r(solver), pl) .= T(mu) ./ (s .- xl)
-    view(get_zu_r(solver), pu) .= T(mu) ./ (xu .- s)
     return
 end
 
