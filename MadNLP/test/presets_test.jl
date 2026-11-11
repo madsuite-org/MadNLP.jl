@@ -53,7 +53,8 @@
     @test co.kkt_system === MadNLP.SparseCondensedKKTSystem
     @test co.equality_treatment === MadNLP.RelaxEquality
     @test co.linear_solver === (Base.USE_GPL_LIBS ? MadNLP.CHOLMODSolver : MadNLP.MumpsSolver)
-    @test co.kkt_scaler isa MadNLP.NoScaler && co.barrier isa MadNLP.MonotoneUpdate
+    @test co.kkt_scaler isa MadNLP.AugmentedRuizScaler && co.barrier isa MadNLP.QualityFunctionUpdate && co.slack_reset
+    @test co.iterator === MadNLP.KrylovIterator && co.kkt_options[:condense_max_nnz] == 20
     if Base.USE_GPL_LIBS
         lopt = MC.default_options(nlp, co.preset, co.kkt_system, co.linear_solver)
         @test lopt.cholmod_algorithm == MadNLP.LDL && lopt.cholmod_dbound == 1.0e-10

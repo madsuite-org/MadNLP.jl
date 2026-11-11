@@ -19,6 +19,20 @@ function MadCore.default_options(
     return opt
 end
 
+# cuDSS on the condensed system under CondensedPreset: the same, without a pivot bound (the bound
+# breaks the scaled condensed factorization on GPUs)
+function MadCore.default_options(
+        nlp::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.CondensedPreset}, ::Type{MadNLPCore.SparseCondensedKKTSystem},
+        ::Type{CUDSSSolver},
+    ) where {T, VT <: CuVector{T}}
+    opt = MadCore.default_options(CUDSSSolver)
+    opt.cudss_algorithm = MadCore.LDL
+    opt.cudss_pivot_epsilon = 0.0
+    opt.cudss_matching = true
+    opt.cudss_deferred_analysis = true
+    return opt
+end
+
 # cuDSS on the augmented system under AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting and
 # matching, redone when iterative refinement rejects a solve (the matching can go stale as the
 # values change). Refactorization would keep the first factorization's pivot sequence, so it is

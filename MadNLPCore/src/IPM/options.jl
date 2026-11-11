@@ -55,9 +55,13 @@ struct AugmentedPreset <: AbstractPreset end
     CondensedPreset
 
 The condensed KKT system (`SparseCondensedKKTSystem`): the equality constraints relaxed as pairs
-of inequalities and the bounds relaxed, with zero initial multipliers, factorized by the same
-pivot-bounded LDLᵀ as `ShiftedPreset` (dense rows may be left uncondensed, which keeps the system
-indefinite), with the monotone barrier rule.
+of inequalities and the bounds relaxed, with zero initial multipliers. The inequality rows of 20 or
+more nonzeros are kept uncondensed, as the border of the condensed matrix, which keeps it
+indefinite; it is factorized LDLᵀ with small pivots bounded on the host (CHOLMOD, as `ShiftedPreset`)
+and without a pivot bound on an NVIDIA GPU (cuDSS). The condensed matrix is scaled by Ruiz's
+equilibration of the augmented system before condensation (`AugmentedRuizScaler`), each solve is
+refined by GMRES where the Krylov package is loaded, and the barrier rule and slack reset are those
+of `ShiftedPreset` (`QualityFunctionUpdate(sigma_max = 2, mu_decrease_max = 10, mu_min = 1e-3 tol)`).
 """
 struct CondensedPreset <: AbstractPreset end
 
@@ -100,8 +104,16 @@ preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} =
 # CondensedPreset keeps the inequality rows of CONDENSED_CONDENSE_MAX_NNZ or more nonzeros out of the
 # condensation, as the border of the condensed matrix
 const CONDENSED_CONDENSE_MAX_NNZ = 20
-preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) where {T} =
-    kkt_system == SparseCondensedKKTSystem ? (; kkt_options = Dict{Symbol, Any}(:condense_max_nnz => CONDENSED_CONDENSE_MAX_NNZ)) : (;)
+function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) where {T}
+    kkt_system == SparseCondensedKKTSystem || return (;)
+    condensed = (;
+        kkt_options = Dict{Symbol, Any}(:condense_max_nnz => CONDENSED_CONDENSE_MAX_NNZ),
+        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
+        slack_reset = true, kkt_scaler = AugmentedRuizScaler(),
+    )
+    # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
+    return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? condensed : merge(condensed, (; iterator = KrylovIterator))
+end
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
     kkt_system in (SparseKKTSystem, SparseCondensedKKTSystem) || return (;)
     shifted = (;
