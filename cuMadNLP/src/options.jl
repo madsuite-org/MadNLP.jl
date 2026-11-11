@@ -20,7 +20,7 @@ function MadCore.default_options(
 end
 
 # cuDSS on the condensed system under CondensedPreset: LDLᵀ without a pivot bound and without
-# matching. With the matrix equilibrated before condensation (AugmentedRuizScaler), matching makes
+# matching (so without the deferred analysis matching needs). With the matrix equilibrated before condensation (AugmentedRuizScaler), matching makes
 # the factorization useless as a preconditioner: on case24464_goc_polar one factorized solve leaves
 # a residual 3e5 times the right-hand side, GMRES runs to its cap and the solver refactorizes with a
 # larger perturbation at nearly every iteration; without matching the solve is as accurate as with
