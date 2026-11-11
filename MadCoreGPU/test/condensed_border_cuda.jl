@@ -151,18 +151,21 @@ end
     results = MadNLP.solve!(solver)
     @test results.status == MadNLP.SOLVE_SUCCEEDED
     @test results.objective ≈ results_ref.objective atol = 1.0e-6
-    @test Array(results.solution) ≈ Array(results_ref.solution) atol = 1.0e-6
-    @test Array(results.multipliers)[n + 1] ≈ results_ref.multipliers[n + 1] atol = 1.0e-6
+    # the condensed system relaxes the bounds: the solution agrees with the augmented one to that accuracy
+    @test Array(results.solution) ≈ Array(results_ref.solution) atol = 1.0e-4
+    @test Array(results.multipliers)[n + 1] ≈ results_ref.multipliers[n + 1] atol = 1.0e-4
 
-    # with the CondensedPreset thresholds the dense row is condensed: the plain condensed system
+    # with a threshold above the row's nonzeros the dense row is condensed: the plain condensed system
     solver0 = MadNLPSolver(
         BorderQPGPU(CUDA.zeros(Float64, n)); print_level = MadNLP.ERROR, preset = MadNLP.CondensedPreset,
-        kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadCoreGPU.CUDSSSolver, tol = 1.0e-8
+        kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadCoreGPU.CUDSSSolver, tol = 1.0e-8,
+        kkt_options = Dict{Symbol, Any}(:condense_max_nnz => n + 1),
     )
     @test isempty(MadNLP.get_kkt(solver0).border.ind_D)
     results0 = MadNLP.solve!(solver0)
     @test results0.status == MadNLP.SOLVE_SUCCEEDED
-    @test Array(results0.solution) ≈ Array(results_ref.solution) atol = 1.0e-6
+    # the two condensed solves, with and without the border, agree to the tolerance
+    @test Array(results0.solution) ≈ Array(results.solution) atol = 1.0e-6
 end
 
 # ShiftedPreset (the GPU default) on the condensed system: the equalities, and the inequality rows
