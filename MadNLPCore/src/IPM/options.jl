@@ -209,6 +209,8 @@ kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passe
 kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
+equality\\_shift\\_adaptive      | `false`              | move `equality_shift` tenfold from Richardson refinement feedback (slow steady contraction: smaller; stagnation: larger), within [1e-10, 1e-4]
+equality\\_shift\\_scaled        | `false`              | scale the shift of each condensed equality row by ‖J_i‖²
 equality\\_shift               | 0.0                  | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 0 keeps the KKT option `equality_shift` (1e-8 in `Float64` under `EqCondensedPreset`)
 __Output options__||
 ||
@@ -352,6 +354,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # the shift δ of the equality rows that SparseCondensedKKTSystem condenses (condense_equalities);
     # 0 keeps the KKT system's value (EqCondensedPreset: 100 preset_perturbation(T))
     equality_shift::T = 0.
+    # δ from Richardson refinement feedback, and δ_i = δ ‖J_i‖² (SparseCondensedKKTSystem, condense_equalities)
+    equality_shift_adaptive::Bool = false
+    equality_shift_scaled::Bool = false
 
     # initialization options
     dual_initialized::Bool = false
@@ -512,5 +517,7 @@ function factorization_options(opt)
     iszero(opt.primal_shift) || (kw = merge(kw, (; primal_shift = opt.primal_shift)))
     iszero(opt.dual_shift) || (kw = merge(kw, (; dual_shift = opt.dual_shift)))
     iszero(opt.equality_shift) || (kw = merge(kw, (; equality_shift = Float64(opt.equality_shift))))
+    opt.equality_shift_adaptive && (kw = merge(kw, (; equality_shift_adaptive = true)))
+    opt.equality_shift_scaled && (kw = merge(kw, (; equality_shift_scaled = true)))
     return kw
 end

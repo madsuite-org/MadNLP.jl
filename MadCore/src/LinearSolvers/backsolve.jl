@@ -34,6 +34,7 @@ function solve_refine!(
 
     norm_b = norm(full(b), Inf)
     residual_ratio = zero(T)
+    first_ratio = zero(T)
 
     fill!(full(x), zero(T))
 
@@ -57,6 +58,7 @@ function solve_refine!(
             end
             @debug(iterator.logger, @sprintf("%4i %6.2e", iterator.cnt.ir, residual_ratio))
             iterator.cnt.ir += 1
+            iterator.cnt.ir == 1 && (first_ratio = residual_ratio)
 
             if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
                 break
@@ -72,6 +74,7 @@ function solve_refine!(
         ),
     )
 
+    norm_b != zero(T) && refinement_feedback!(iterator.kkt, iterator.cnt.ir, first_ratio, residual_ratio, residual_ratio < iterator.opt.richardson_tol)
     return residual_ratio < iterator.opt.richardson_acceptable_tol
 end
 

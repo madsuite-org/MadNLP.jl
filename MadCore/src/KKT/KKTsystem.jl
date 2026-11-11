@@ -284,6 +284,22 @@ reports 73 negative eigenvalues too many; with `δ_c = 10⁻⁸ μ^¼` alone the
 """
 always_regularize_dual(kkt::AbstractKKTSystem) = false
 
+"""
+    refinement_feedback!(kkt, steps, r_first, r_last, converged)
+
+Called by Richardson refinement after each refined solve with the number of steps and the first and
+last residual ratios; a KKT system may adapt its factorized matrix for the next factorization.
+"""
+refinement_feedback!(kkt::AbstractKKTSystem, steps, r_first, r_last, converged) = nothing
+
+"""
+    retry_with_larger_shift!(kkt)
+
+Called when the regular phase would enter restoration: a KKT system that can make its next step
+more robust does so and returns `true`, and the solver retries the regular phase at the same iterate.
+"""
+retry_with_larger_shift!(kkt::AbstractKKTSystem) = false
+
 compress_hessian!(kkt::AbstractKKTSystem) = nothing
 
 include("scalers.jl")

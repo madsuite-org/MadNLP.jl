@@ -155,8 +155,15 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT, AS
     # Info
     ind_ineq::VI
     ind_eq::VI
-    # equality rows condensed with D = 1 / (eq_shift - Σd); eq_shift[1] == 0 keeps them in the border
+    # equality rows condensed with D = 1 / (δ_i - Σd), δ_i = eq_shift[1] (times ‖J_i‖² when
+    # eq_scaled); eq_shift[1] == 0 keeps them in the border. eq_shift[2] is 1 once the refinement
+    # feedback has moved δ since the last build (eq_adaptive), so δ moves at most once per factorization.
     eq_shift::Vector{T}
+    eq_adaptive::Bool
+    eq_scaled::Bool
+    eq_rownorm::VT     # ‖J_i‖² of every row (eq_scaled), else empty
+    eq_ones::VT        # ones(n) (eq_scaled), else empty
+    jt_sq::MT          # the pattern of jt_csc with squared values (eq_scaled), else jt_csc
     ind_lb::VI
     ind_ub::VI
 
@@ -216,6 +223,8 @@ function create_kkt_system(
         condense_max_nnz::Union{Nothing, Int} = nothing,
     condense_equalities::Bool = false,
     equality_shift::Float64 = 1e-10,
+    equality_shift_adaptive::Bool = false,
+    equality_shift_scaled::Bool = false,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -302,7 +311,10 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T)], cb.ind_lb, cb.ind_ub,
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T)],
+        condense_equalities && equality_shift_adaptive, condense_equalities && equality_shift_scaled,
+        (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
+        cb.ind_lb, cb.ind_ub,
         T(dual_shift),
         aug_scaling,
         ext
@@ -453,7 +465,10 @@ end
 # num_variables (which counts the slacks) is NOT the primal block size.
 block_structure(kkt::SparseCondensedKKTSystem) = (size(kkt.hess_com, 1), num_border_rows(kkt.border))
 should_regularize_dual(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg) = true
-always_regularize_dual(kkt::SparseCondensedKKTSystem) = true
+# with the equalities condensed through the shift (eq_shift > 0) the matrix is positive definite
+# without delta_c, and a per-iteration delta_c would make every step that of a regularized system
+# (on case9241_pegase at delta = 1e-6: 110 iterations without it, the iteration limit with it)
+always_regularize_dual(kkt::SparseCondensedKKTSystem) = iszero(kkt.eq_shift[1])
 
 Base.size(kkt::SparseCondensedKKTSystem,n::Int) = size(kkt.aug_com,n)
 
@@ -667,6 +682,50 @@ end
 
 build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_aug_coord!(kkt, kkt.aug_com, kkt.jt_csc, kkt.diag_buffer)
 
+# The weights of the condensed equality rows: D_i = 1 / (δ_i - Σd_i), with δ_i = δ ‖J_i‖² when
+# eq_scaled (a row of zero norm takes ‖J_i‖² = 1e-8).
+function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
+    kkt.eq_shift[2] = zero(T)
+    δ = kkt.eq_shift[1]
+    if kkt.eq_scaled
+        nonzeros(kkt.jt_sq) .= nonzeros(kkt.jt_csc) .^ 2
+        mul!(kkt.eq_rownorm, kkt.jt_sq', kkt.eq_ones)
+        view(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (δ .* max.(view(kkt.eq_rownorm, kkt.ind_eq), T(1e-8)) .- view(Σd, kkt.ind_eq))
+    else
+        view(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (δ .- view(Σd, kkt.ind_eq))
+    end
+    return
+end
+
+# Refinement feedback (eq_adaptive): a refinement that contracts steadily but slowly means δ is
+# too large (the preconditioner is far from the operator), one that stagnates or diverges means the
+# factorization is inaccurate and δ is too small. δ moves tenfold, at most once per factorization,
+# within [1e-10, 1e-4]; the next build_kkt! uses it.
+const EQ_SHIFT_MIN = 1e-10
+const EQ_SHIFT_MAX = 1e-4
+function refinement_feedback!(kkt::SparseCondensedKKTSystem{T}, steps, r_first, r_last, converged) where {T}
+    (kkt.eq_adaptive && iszero(kkt.eq_shift[2]) && steps >= 2) || return
+    ρ = (r_last / max(r_first, floatmin(T)))^(one(T) / (steps - 1))
+    δ = kkt.eq_shift[1]
+    if !converged && ρ > T(0.9)
+        δ = min(δ * 10, T(EQ_SHIFT_MAX))
+    elseif steps >= 4 && ρ <= T(0.9)
+        δ = max(δ / 10, T(EQ_SHIFT_MIN))
+    end
+    if δ != kkt.eq_shift[1]
+        kkt.eq_shift[1] = δ
+        kkt.eq_shift[2] = one(T)
+    end
+    return
+end
+
+# Before the restoration phase (eq_adaptive): retry with δ a hundredfold larger, up to EQ_SHIFT_MAX.
+function retry_with_larger_shift!(kkt::SparseCondensedKKTSystem{T}) where {T}
+    (kkt.eq_adaptive && kkt.eq_shift[1] < T(EQ_SHIFT_MAX)) || return false
+    kkt.eq_shift[1] = min(kkt.eq_shift[1] * 100, T(EQ_SHIFT_MAX))
+    return true
+end
+
 function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     n = size(kkt.hess_com, 1)
     ns = length(kkt.ind_ineq)
@@ -686,7 +745,7 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
         # every row condensed, the equality rows through the shift: D = 1 / (δ - Σd)
         fill!(kkt.diag_buffer, zero(T))
         view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (view(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
-        view(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (kkt.eq_shift[1] .- view(Σd, kkt.ind_eq))
+        _set_eq_weights!(kkt, Σd)
         build_condensed_aug_coord!(kkt)
         update_kkt_scaling!(kkt, kkt.linear_solver)
         return
@@ -697,7 +756,7 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (view(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
     if !iszero(kkt.eq_shift[1])
         # condensed equality rows: D = 1 / (δ - Σd); the kept ones are zeroed with ind_D below
-        view(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (kkt.eq_shift[1] .- view(Σd, kkt.ind_eq))
+        _set_eq_weights!(kkt, Σd)
     end
     kkt.buffer2 .= Σd
     view(kkt.buffer2, kkt.ind_ineq) .-= one(T) ./ Σs
