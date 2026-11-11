@@ -229,6 +229,7 @@ function create_kkt_system(
     equality_shift_adaptive::Bool = false,
     equality_shift_scaled::Bool = false,
     equality_shift_from_weights::Bool = false,
+    equality_shift_max::Float64 = 1e-4,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -315,7 +316,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -692,9 +693,13 @@ build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_a
 function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
     kkt.eq_shift[2] = zero(T)
     δ = kkt.eq_shift[1]
-    if kkt.eq_from_weights && !isempty(kkt.ind_ineq)
-        Dmax = maximum(view(kkt.diag_buffer, kkt.ind_ineq))
-        δ = clamp(one(T) / max(Dmax, floatmin(T)), δ, max(T(1e-6), δ))
+    if kkt.eq_from_weights
+        if !isempty(kkt.ind_ineq)
+            Dmax = maximum(view(kkt.diag_buffer, kkt.ind_ineq))
+            δ = clamp(one(T) / max(Dmax, floatmin(T)), δ, max(T(1e-6), δ))
+        end
+        # a lower bound raised by a retry decays tenfold per factorization back to the base
+        kkt.eq_shift[1] = max(kkt.eq_shift[3], kkt.eq_shift[1] / 10)
     end
     if kkt.eq_scaled
         nonzeros(kkt.jt_sq) .= nonzeros(kkt.jt_csc) .^ 2
@@ -717,7 +722,7 @@ function refinement_feedback!(kkt::SparseCondensedKKTSystem{T}, steps, r_first, 
     ρ = (r_last / max(r_first, floatmin(T)))^(one(T) / (steps - 1))
     δ = kkt.eq_shift[1]
     if !converged && ρ > T(0.9)
-        δ = min(δ * 10, T(EQ_SHIFT_MAX))
+        δ = min(δ * 10, kkt.eq_shift[4])
     elseif steps >= 4 && ρ <= T(0.9)
         δ = max(δ / 10, T(EQ_SHIFT_MIN))
     end
@@ -730,8 +735,10 @@ end
 
 # Before the restoration phase (eq_adaptive): retry with δ a hundredfold larger, up to EQ_SHIFT_MAX.
 function retry_with_larger_shift!(kkt::SparseCondensedKKTSystem{T}) where {T}
-    (kkt.eq_adaptive && kkt.eq_shift[1] < T(EQ_SHIFT_MAX)) || return false
-    kkt.eq_shift[1] = min(kkt.eq_shift[1] * 100, T(EQ_SHIFT_MAX))
+    # only from the base shift: if the retried step fails too, or the shift is still raised, the
+    # restoration phase runs as usual
+    (kkt.eq_adaptive && kkt.eq_shift[1] <= kkt.eq_shift[3] && kkt.eq_shift[1] < kkt.eq_shift[4]) || return false
+    kkt.eq_shift[1] = min(kkt.eq_shift[1] * 100, kkt.eq_shift[4])
     return true
 end
 
