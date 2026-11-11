@@ -300,6 +300,25 @@ more robust does so and returns `true`, and the solver retries the regular phase
 """
 retry_with_larger_shift!(kkt::AbstractKKTSystem) = false
 
+"""
+    pivot_feedback!(kkt)
+
+Called after each factorization; a KKT system may adapt its matrix from the factorization's pivots
+and return `true` to be rebuilt and refactorized at once.
+"""
+pivot_feedback!(kkt::AbstractKKTSystem) = false
+
+"""
+    begin_factorization!(kkt)
+    improve_kkt!(kkt)
+
+`begin_factorization!` is called before each fresh factorization. `improve_kkt!` is called when a
+refined solve failed, before the linear solver's `improve!`: a KKT system that can change its
+factorized matrix does so and returns `true`, and the caller rebuilds, refactorizes and solves again.
+"""
+begin_factorization!(kkt::AbstractKKTSystem) = nothing
+improve_kkt!(kkt::AbstractKKTSystem) = false
+
 compress_hessian!(kkt::AbstractKKTSystem) = nothing
 
 include("scalers.jl")

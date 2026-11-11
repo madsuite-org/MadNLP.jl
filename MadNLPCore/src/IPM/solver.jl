@@ -24,12 +24,100 @@ function madnlp(@nospecialize(model::AbstractNLPModel); specialize_model::Bool =
 end
 
 function _madnlp(nlp::AbstractNLPModel; kwargs...)
+    get(kwargs, :fallback, :none) === :none || return _solve_with_fallback(nlp, Dict{Symbol, Any}(kwargs))
     solver = MadNLPSolver(nlp; kwargs...)
     # The solver type depends on runtime options, so it is not inferred here. A direct
     # call would make inference compile solve! for the abstract MadNLPSolver type, and
     # loading any package that adds methods reached from it would invalidate madnlp.
     # invokelatest is opaque to inference; solve! is compiled for the concrete type.
     return Base.invokelatest(solve!, solver)
+end
+
+# Fallback (option `fallback`): when the solve fails, or a refined KKT solve fails after the linear
+# solver's improve! has run out (`fallback_on_solve_failure`), solve again from where it stopped
+# (`fallback_warm_start`: its primal point and constraint multipliers, else the original starting
+# point), with
+#   :partial  the same options plus GMRES refinement and the quality-function barrier of ShiftedPreset,
+#   :shifted  ShiftedPreset, keeping only the tolerances, output and callback options,
+#   :partial_then_shifted  both in turn.
+# The stages share the iteration and wall-time budgets, and the returned counters cover all of them.
+const FALLBACK_DONE = (SOLVE_SUCCEEDED, SOLVED_TO_ACCEPTABLE_LEVEL, USER_REQUESTED_STOP, MAXIMUM_WALLTIME_EXCEEDED)
+const FALLBACK_KEEP = (:tol, :acceptable_tol, :acceptable_iter, :print_level, :file_print_level, :output_file,
+    :intermediate_callback, :callback, :max_iter, :max_wall_time)
+
+# Stops the solve (as a user callback) at the first iteration after a refined solve failed for good.
+struct FallbackTrigger{CB} <: AbstractUserCallback
+    inner::CB
+    on_failure::Bool
+    fired::Base.RefValue{Bool}
+end
+function (t::FallbackTrigger)(solver, status::AbstractUserCallbackStatus)
+    if t.on_failure && get_cnt(solver).solve_failure_cnt > 0
+        t.fired[] = true
+        return false
+    end
+    return t.inner(solver, status)
+end
+
+function _fallback_kwargs(kw, stage, ::Type{T}, tol) where {T}
+    if stage === :shifted
+        out = Dict{Symbol, Any}(k => v for (k, v) in kw if k in FALLBACK_KEEP)
+        out[:preset] = ShiftedPreset
+    else
+        out = copy(kw)
+        out[:barrier] = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * T(tol))
+        Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing || (out[:iterator] = KrylovIterator)
+    end
+    out[:fallback] = :none
+    return out
+end
+
+function _add_counters!(c::MadNLPCounters, p::MadNLPCounters)
+    for f in (:linear_solver_time, :eval_function_time, :solver_time, :total_time, :init_time, :obj_cnt, :obj_grad_cnt,
+            :con_cnt, :con_jac_cnt, :lag_hess_cnt, :factorization_cnt, :backsolve_cnt, :solve_failure_cnt)
+        setfield!(c, f, getfield(c, f) + getfield(p, f))
+    end
+    return c
+end
+
+function _solve_with_fallback(nlp, kw)
+    fired = Ref(false)
+    user_cb = get(kw, :intermediate_callback, NoUserCallback())
+    solver = MadNLPSolver(nlp; kw..., intermediate_callback = FallbackTrigger(user_cb, get(kw, :fallback_on_solve_failure, true), fired))
+    opt = get_opt(solver)
+    T = eltype(get_x0(nlp))
+    max_iter, wall, tol = opt.max_iter, opt.max_wall_time, opt.tol
+    stages = opt.fallback === :partial ? (:partial,) : opt.fallback === :shifted ? (:shifted,) : (:partial, :shifted)
+    stats = Base.invokelatest(solve!, solver)
+    iters, counters = stats.iter, stats.counters
+    for (i, stage) in enumerate(stages)
+        (stats.status in FALLBACK_DONE && !fired[]) && break
+        rem_iter, rem_wall = max_iter - iters, wall - counters.total_time
+        (rem_iter <= 0 || rem_wall <= 0) && break
+        @notice(get_logger(solver), "Falling back ($(stage)) after $(iters) iterations ($(fired[] ? "KKT solve failure" : string(stats.status))).")
+        kw2 = _fallback_kwargs(kw, stage, T, tol)
+        kw2[:max_iter] = rem_iter
+        kw2[:max_wall_time] = rem_wall
+        last = i == length(stages)
+        fired[] = false
+        last || (kw2[:intermediate_callback] = FallbackTrigger(user_cb, get(kw, :fallback_on_solve_failure, true), fired))
+        x0, y0 = copy(get_x0(nlp)), copy(get_y0(nlp))
+        try
+            if opt.fallback_warm_start
+                copyto!(get_x0(nlp), stats.solution)
+                copyto!(get_y0(nlp), stats.multipliers)
+                kw2[:dual_initialized] = true
+            end
+            stats = Base.invokelatest(solve!, MadNLPSolver(nlp; kw2...))
+        finally
+            copyto!(get_x0(nlp), x0)
+            copyto!(get_y0(nlp), y0)
+        end
+        iters += stats.iter
+        counters = _add_counters!(stats.counters, counters)
+        stats.iter = iters
+    end
+    return stats
 end
 
 function initialize!(solver::AbstractMadNLPSolver{T}) where T

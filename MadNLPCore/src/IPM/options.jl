@@ -363,6 +363,16 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     equality_shift_max::T = 1e-4
     # primal shift of the condensed factorization = primal_shift_ratio * the equality shift (0: off)
     primal_shift_ratio::T = 0.
+    # equality_shift_from_weights: delta = clamp(factor / max D_I, equality_shift, 1e-6)
+    equality_shift_weight_factor::T = 1.
+    # pivot feedback: keep the smallest/largest pivot ratio of the condensed factorization at this target (0: off)
+    equality_shift_pivot_target::T = 0.
+    # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
+    # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
+    # failed after improve! ran out; warm start from where it stopped
+    fallback::Symbol = :none
+    fallback_on_solve_failure::Bool = true
+    fallback_warm_start::Bool = true
 
     # initialization options
     dual_initialized::Bool = false
@@ -528,5 +538,7 @@ function factorization_options(opt)
     opt.equality_shift_from_weights && (kw = merge(kw, (; equality_shift_from_weights = true)))
     opt.equality_shift_max == 1e-4 || (kw = merge(kw, (; equality_shift_max = Float64(opt.equality_shift_max))))
     iszero(opt.primal_shift_ratio) || (kw = merge(kw, (; primal_shift_ratio = Float64(opt.primal_shift_ratio))))
+    opt.equality_shift_weight_factor == 1 || (kw = merge(kw, (; equality_shift_weight_factor = Float64(opt.equality_shift_weight_factor))))
+    iszero(opt.equality_shift_pivot_target) || (kw = merge(kw, (; equality_shift_pivot_target = Float64(opt.equality_shift_pivot_target))))
     return kw
 end

@@ -161,6 +161,7 @@ end
 
 # the primal shift of the next factorization (SparseCondensedKKTSystem, primal_shift_ratio)
 _set_primal_shift!(M::ScaledShiftedSolver, s) = (M.primal_shift = s; nothing)
+pivot_ratio(M::ScaledShiftedSolver) = pivot_ratio(M.inner)
 
 function factorize!(M::ScaledShiftedSolver{T}) where {T}
     update_scaling!(M, M.scaler)

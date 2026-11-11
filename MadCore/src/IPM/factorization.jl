@@ -5,13 +5,21 @@ function solve_refine_wrapper!(d, solver, p, w)
         if solve_refine!(d, get_iterator(solver), p, w)
             result = true
         else
-            if improve!(get_kkt(solver).linear_solver)
+            # the KKT system first (a condensed system adjusts its equality shift), then the linear solver
+            while !result && improve_kkt!(get_kkt(solver))
+                build_kkt!(get_kkt(solver))
+                factorize!(get_kkt(solver).linear_solver)
+                get_cnt(solver).factorization_cnt += 1
+                result = solve_refine!(d, get_iterator(solver), p, w)
+            end
+            if !result && improve!(get_kkt(solver).linear_solver)
                 if solve_refine!(d, get_iterator(solver), p, w)
                     result = true
                 end
             end
         end
     end
+    result || (get_cnt(solver).solve_failure_cnt += 1)
     # Get number of iterations in Richardson's iterative refinement
     iter_richardson = get_cnt(solver).ir
     get_cnt(solver).backsolve_cnt += iter_richardson
@@ -20,9 +28,17 @@ end
 
 function factorize_wrapper!(solver::AbstractMadNLPSolver)
     @trace(get_logger(solver),"Factorization started.")
+    begin_factorization!(get_kkt(solver))
     build_kkt!(get_kkt(solver))
     @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
     get_cnt(solver).factorization_cnt += 1
+    # at most two immediate refactorizations from the pivot feedback
+    for _ in 1:2
+        pivot_feedback!(get_kkt(solver)) || break
+        build_kkt!(get_kkt(solver))
+        @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
+        get_cnt(solver).factorization_cnt += 1
+    end
     return
 end
 

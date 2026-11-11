@@ -256,6 +256,18 @@ end
 MadCore.is_supported(::Type{CUDSSState}, ::Type{Float32}) = true
 MadCore.is_supported(::Type{CUDSSState}, ::Type{Float64}) = true
 MadCore.introduce(M::CUDSSState) = "cuDSS v$(CUDSS.version())"
+# the pivots of the last factorization, through `buffer` (free between factorization and solve);
+# cuDSS reports the diagonal of the factor, squared for Cholesky
+function MadCore.pivot_ratio(M::CUDSSState)
+    M.inner.matrix.nbatch == 1 || return nothing
+    CUDSS.cudss_get(M.inner, "info") == 0 || return nothing
+    CUDSS.cudss_set(M.inner, "diag", M.buffer)
+    CUDSS.cudss_get(M.inner, "diag")
+    lo, hi = minimum(abs, M.buffer), maximum(abs, M.buffer)
+    hi > 0 || return nothing
+    r = lo / hi
+    return M.opt.cudss_algorithm == MadCore.CHOLESKY ? r^2 : r
+end
 MadCore.is_async(M::CUDSSState) = M.opt.cudss_asynchronous
 
 function MadCore.default_options(::MadCore.AbstractNLPModel{T, VT}, ::Type{MadCore.SparseCondensedKKTSystem}, linear_solver::Type{MadCoreGPU.CUDSSSolver}) where {T, VT <: CuVector{T}}

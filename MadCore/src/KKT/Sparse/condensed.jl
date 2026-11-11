@@ -231,6 +231,8 @@ function create_kkt_system(
     equality_shift_from_weights::Bool = false,
     equality_shift_max::Float64 = 1e-4,
     primal_shift_ratio::Float64 = 0.0,
+    equality_shift_weight_factor::Float64 = 1.0,
+    equality_shift_pivot_target::Float64 = 0.0,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -317,7 +319,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -694,14 +696,17 @@ build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_a
 function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
     kkt.eq_shift[2] = zero(T)
     δ = kkt.eq_shift[1]
-    if kkt.eq_from_weights
+    override = kkt.eq_shift[11] > 0
+    override && (δ = kkt.eq_shift[11])
+    if kkt.eq_from_weights && !override
         if !isempty(kkt.ind_ineq)
             Dmax = maximum(view(kkt.diag_buffer, kkt.ind_ineq))
-            δ = clamp(one(T) / max(Dmax, floatmin(T)), δ, max(T(1e-6), δ))
+            δ = clamp(kkt.eq_shift[6] / max(Dmax, floatmin(T)), δ, max(T(1e-6), δ))
         end
         # a lower bound raised by a retry decays tenfold per factorization back to the base
         kkt.eq_shift[1] = max(kkt.eq_shift[3], kkt.eq_shift[1] / 10)
     end
+    kkt.eq_shift[7] = δ
     # the primal shift of the factorization follows the equality shift (primal_shift_ratio > 0)
     kkt.eq_shift[5] > 0 && _set_primal_shift!(kkt.linear_solver.wrapped, kkt.eq_shift[5] * δ)
     if kkt.eq_scaled
@@ -716,6 +721,44 @@ end
 
 _set_primal_shift!(M, s) = nothing
 
+# A fresh factorization uses the base equality shift (any adjustment of the last one is dropped).
+function begin_factorization!(kkt::SparseCondensedKKTSystem{T}) where {T}
+    kkt.eq_shift[10] = zero(T)
+    kkt.eq_shift[11] = zero(T)
+    return
+end
+
+# After a refined solve failed: adjust the equality shift of this factorization, at most twice, a
+# hundredfold down if the refinement still contracted (the shifted matrix is too far from the
+# operator) and up if it stagnated (the factorization is inaccurate), within [1e-10, 1e-4].
+# Returns whether the matrix changed (the caller rebuilds, refactorizes and solves again).
+function improve_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
+    (!iszero(kkt.eq_shift[1]) && !isempty(kkt.ind_eq) && kkt.eq_shift[10] < 2) || return false
+    δ = kkt.eq_shift[7]
+    δnew = kkt.eq_shift[9] <= T(0.9) ? max(δ / 100, T(1e-10)) : min(δ * 100, T(1e-4))
+    δnew == δ && return false
+    kkt.eq_shift[10] += 1
+    kkt.eq_shift[11] = δnew
+    return true
+end
+
+# Pivot feedback (equality_shift_pivot_target = τ > 0): after a factorization, the ratio r of the
+# smallest to the largest pivot of the condensed matrix is about δ λ_min / ‖J_E‖², proportional to δ,
+# so δ τ / r brings it to τ. Below τ / 10 the factorization is refactorized at once with the new δ;
+# otherwise the new δ applies from the next factorization. Within [equality_shift, equality_shift_max].
+# Returns whether the KKT system wants to be rebuilt and refactorized.
+function pivot_feedback!(kkt::SparseCondensedKKTSystem{T}) where {T}
+    τ = kkt.eq_shift[8]
+    (τ > 0 && !isempty(kkt.ind_eq)) || return false
+    r = pivot_ratio(kkt.linear_solver)
+    r === nothing && return false
+    r = max(T(r), floatmin(T))
+    δ_used = kkt.eq_shift[7]
+    δ = clamp(δ_used * τ / r, kkt.eq_shift[3], kkt.eq_shift[4])
+    kkt.eq_shift[1] = δ
+    return r < τ / 10 && δ > δ_used
+end
+
 # Refinement feedback (eq_adaptive): a refinement that contracts steadily but slowly means δ is
 # too large (the preconditioner is far from the operator), one that stagnates or diverges means the
 # factorization is inaccurate and δ is too small. δ moves tenfold, at most once per factorization,
@@ -723,8 +766,10 @@ _set_primal_shift!(M, s) = nothing
 const EQ_SHIFT_MIN = 1e-10
 const EQ_SHIFT_MAX = 1e-4
 function refinement_feedback!(kkt::SparseCondensedKKTSystem{T}, steps, r_first, r_last, converged) where {T}
-    (kkt.eq_adaptive && !kkt.eq_from_weights && iszero(kkt.eq_shift[2]) && steps >= 2) || return
+    steps >= 2 || return
     ρ = (r_last / max(r_first, floatmin(T)))^(one(T) / (steps - 1))
+    kkt.eq_shift[9] = ρ
+    (kkt.eq_adaptive && !kkt.eq_from_weights && iszero(kkt.eq_shift[2])) || return
     δ = kkt.eq_shift[1]
     if !converged && ρ > T(0.9)
         δ = min(δ * 10, kkt.eq_shift[4])
