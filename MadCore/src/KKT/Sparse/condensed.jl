@@ -446,6 +446,7 @@ end
 # num_variables (which counts the slacks) is NOT the primal block size.
 block_structure(kkt::SparseCondensedKKTSystem) = (size(kkt.hess_com, 1), num_border_rows(kkt.border))
 should_regularize_dual(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg) = true
+always_regularize_dual(kkt::SparseCondensedKKTSystem) = true
 
 Base.size(kkt::SparseCondensedKKTSystem,n::Int) = size(kkt.aug_com,n)
 

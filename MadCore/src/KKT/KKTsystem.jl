@@ -271,6 +271,19 @@ function should_regularize_dual(kkt::AbstractKKTSystem, num_pos, num_zero, num_n
     return num_zero != 0
 end
 
+"""
+    always_regularize_dual(kkt::AbstractKKTSystem)
+
+Whether the KKT system takes the dual regularization `δ_c` from the first factorization of
+each iteration, before any inertia is seen. `false` here; `true` for the condensed system, whose
+unperturbed matrix carries `D = Σs` on every condensed row, unbounded as the slack gap of a
+relaxed row closes: at a regular iterate it fails the inertia test, and the solver would answer
+with a Hessian perturbation and a second factorization every iteration, while `δ_c` alone, which
+bounds `D` by `1 / δ_c`, passes it (on case24464_goc_polar with cuDSS the unperturbed matrix
+reports 73 negative eigenvalues too many; with `δ_c = 10⁻⁸ μ^¼` alone the inertia is correct).
+"""
+always_regularize_dual(kkt::AbstractKKTSystem) = false
+
 compress_hessian!(kkt::AbstractKKTSystem) = nothing
 
 include("scalers.jl")

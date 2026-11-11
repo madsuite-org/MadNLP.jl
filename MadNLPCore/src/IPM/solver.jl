@@ -772,9 +772,10 @@ function inertia_correction!(
 
     @trace(get_logger(solver),"Inertia-based regularization started.")
 
-    # Proactive dual regularization once the Jacobian is determined degenerate: apply delta_c from
-    # the first factorization WITHOUT perturbing the Hessian (Ipopt IpPDPerturbationHandler).
-    if inertia_corrector.jac_degenerate
+    # Proactive dual regularization once the Jacobian is determined degenerate, and on a KKT system
+    # that always wants it: apply delta_c from the first factorization WITHOUT perturbing the
+    # Hessian (Ipopt IpPDPerturbationHandler).
+    if inertia_corrector.jac_degenerate || always_regularize_dual(get_kkt(solver))
         set_del_c!(solver, dc)
         regularize_diagonal!(get_kkt(solver), zero(T), get_del_c(solver) - del_c_prev)
         del_c_prev = get_del_c(solver)

@@ -217,3 +217,21 @@ end
     ref = MadNLP.madnlp(nlp; print_level = MadNLP.ERROR)
     @test res.solution ≈ ref.solution atol = 1.0e-4
 end
+
+# The condensed system takes the dual regularization from the first factorization of every
+# iteration (always_regularize_dual): no Hessian perturbation and one factorization per iteration
+# on a problem whose condensed matrix has the right inertia with δ_c alone.
+@testset "dual regularization from the first factorization" begin
+    n = 40
+    nlp = BorderQP(n)
+    solver = MadNLP.MadNLPSolver(nlp; preset = MadNLP.CondensedPreset, print_level = MadNLP.ERROR)
+    res = MadNLP.solve!(solver)
+    @test res.status == MadNLP.SOLVE_SUCCEEDED
+    @test MadNLP.MadCore.always_regularize_dual(MadNLP.get_kkt(solver))
+    @test MadNLP.MadCore.get_del_c(solver) > 0
+    @test MadNLP.MadCore.get_del_w(solver) == 0
+    @test solver.cnt.factorization_cnt == solver.cnt.k + 1   # the initial factorization, then one per iteration
+    aug = MadNLP.MadNLPSolver(nlp; print_level = MadNLP.ERROR)
+    MadNLP.solve!(aug)
+    @test !MadNLP.MadCore.always_regularize_dual(MadNLP.get_kkt(aug))
+end
