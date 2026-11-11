@@ -48,11 +48,11 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             @test !lopt.cudss_refactorization
             stats = madnlp(nlp; preset = MadNLPCore.AugmentedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-            # CondensedPreset: the condensed system, cuDSS LDLᵀ with matching and no pivot bound
+            # CondensedPreset: the condensed system, cuDSS LDLᵀ without a pivot bound and without matching
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.CondensedPreset)
             @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem && opt.barrier isa MadNLPCore.QualityFunctionUpdate
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
-            @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 0.0 && lopt.cudss_matching
+            @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 0.0 && !lopt.cudss_matching
             stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             stats = madnlp(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem, print_level = MadNLPCore.ERROR)

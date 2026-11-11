@@ -19,8 +19,13 @@ function MadCore.default_options(
     return opt
 end
 
-# cuDSS on the condensed system under CondensedPreset: the same, without a pivot bound (the bound
-# breaks the scaled condensed factorization on GPUs)
+# cuDSS on the condensed system under CondensedPreset: LDLᵀ without a pivot bound and without
+# matching. With the matrix equilibrated before condensation (AugmentedRuizScaler), matching makes
+# the factorization useless as a preconditioner: on case24464_goc_polar one factorized solve leaves
+# a residual 3e5 times the right-hand side, GMRES runs to its cap and the solver refactorizes with a
+# larger perturbation at nearly every iteration; without matching the solve is as accurate as with
+# no scaling (residual 1, 4 backsolves per iteration against 31). The pivot bound has the same effect
+# (residual 5e6).
 function MadCore.default_options(
         nlp::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.CondensedPreset}, ::Type{MadNLPCore.SparseCondensedKKTSystem},
         ::Type{CUDSSSolver},
@@ -28,8 +33,7 @@ function MadCore.default_options(
     opt = MadCore.default_options(CUDSSSolver)
     opt.cudss_algorithm = MadCore.LDL
     opt.cudss_pivot_epsilon = 0.0
-    opt.cudss_matching = true
-    opt.cudss_deferred_analysis = true
+    opt.cudss_matching = false
     return opt
 end
 
