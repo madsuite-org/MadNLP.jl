@@ -47,6 +47,35 @@ function relaxed_pairs(solver::MadNLPSolver{T}) where {T}
     end
 end
 
+# Continuation on the equality relaxation (relaxed_equality_continuation = κ > 0): the slack of a
+# relaxed equality g(x) = b is bounded by b ± τ, τ = max(τ_min, κ μ max(1, |b|)) with τ_min the
+# relaxation of bound_relax_factor. τ is set once at initialization and tightened after every
+# barrier update (never widened), so it is τ_min at convergence; the slack is kept inside the
+# tightened box and its bound multipliers are reset to μ over the gap. Cached per solver: the
+# relaxed slacks' indices, their centers b and final half-widths τ_min, and the current τ.
+const RELAXED_CONTINUATION = WeakKeyDict{Any, Any}()
+continuation_tighten!(solver::AbstractMadNLPSolver, mu; widen = false) = nothing
+function continuation_tighten!(solver::MadNLPSolver{T}, mu; widen = false) where {T}
+    kappa = get_opt(solver).relaxed_equality_continuation
+    kappa > 0 || return
+    pl, pu, gi, b, tmin, tau = get!(RELAXED_CONTINUATION, solver) do
+        _, _, pl, pu, gi = relaxed_pairs(solver)
+        xl = view(primal(get_xl(solver)), gi); xu = view(primal(get_xu(solver)), gi)
+        (pl, pu, gi, (xl .+ xu) ./ 2, (xu .- xl) ./ 2, (xu .- xl) ./ 2)
+    end
+    isempty(gi) && return
+    target = max.(tmin, T(kappa) * T(mu) .* max.(one(T), abs.(b)))
+    tau .= widen ? target : min.(tau, target)
+    xl = view(primal(get_xl(solver)), gi); xu = view(primal(get_xu(solver)), gi)
+    xl .= b .- tau
+    xu .= b .+ tau
+    s = view(primal(get_x(solver)), gi)
+    s .= clamp.(s, xl .+ T(1e-2) .* tau, xu .- T(1e-2) .* tau)
+    view(get_zl_r(solver), pl) .= T(mu) ./ (s .- xl)
+    view(get_zu_r(solver), pu) .= T(mu) ./ (xu .- s)
+    return
+end
+
 step_bounds(solver::AbstractMadNLPSolver) = (primal(get_xl(solver)), primal(get_xu(solver)))
 project_relaxed_slacks!(solver::AbstractMadNLPSolver, x) = nothing
 

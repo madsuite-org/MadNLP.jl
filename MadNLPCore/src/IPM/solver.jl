@@ -69,6 +69,8 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
         )
     end
 
+    # the relaxed equalities start wide under the continuation
+    continuation_tighten!(solver, opt.barrier.mu_init; widen = true)
     # Initializing KKT system
     initialize!(get_kkt(solver))
 
@@ -288,6 +290,7 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         @trace(get_logger(solver),"Updating the barrier parameter.")
         mu_prev = get_mu(solver)
         update_barrier!(get_opt(solver).barrier, solver, sc)
+        continuation_tighten!(solver, get_mu(solver))
         # The tiny-step flag is about the last step only: clear it whichever barrier rule ran.
         get_cnt(solver).tiny_step = false
         # A change of the barrier parameter keeps a watchdog going, with the reference values
