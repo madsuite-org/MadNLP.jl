@@ -51,14 +51,16 @@ end
 # b ± τ with τ_min, the relaxation of bound_relax_factor, as its final value. Two drivers:
 # relaxed_equality_continuation = κ > 0 gives τ = max(τ_min, κ μ max(1, |b|)), set at
 # initialization and tightened after every barrier update, never widened.
-# relaxed_equality_residual_continuation = κ_r > 0 gives every relaxed row the same relative
-# width, τ = max(τ_min, κ_r R max(1, |b|)) with R the largest relative violation |g(x) - b| /
-# max(1, |b|) over the relaxed rows, set from the initial point and updated after every accepted
-# step, both ways: the box always lies inside the current violation, so the solver has to move
-# g(x) towards b to close the slack rows, and no row is held at its final width while the iterate
-# is still infeasible elsewhere (a per-row width did that on case9241_pegase, and the rows it
-# pinned early stalled the solve). At a tightening each slack is scaled about b by τ_new / τ_old,
-# which keeps its relative position in the box, so no multiplier is reset; at a widening it stays.
+# relaxed_equality_residual_continuation = κ_r > 0 gives each relaxed row τ = max(τ_min, κ_r
+# |g(x) - b|), its own current violation, set from the initial point and updated after every
+# accepted step, both ways: the box always lies inside the row's violation, so the solver has to
+# move g(x) towards b to close the slack row; a row that is feasible keeps its final width, and a
+# row whose violation grows gets a box that follows it rather than pinning its slack (a width that
+# only ever tightened pinned the rows of case9241_pegase that were feasible early and became
+# violated later; one width for all rows, from the largest violation, freed the 79% of its rows
+# that start feasible and lost the optimum). At a tightening each slack is scaled about b by
+# τ_new / τ_old, which keeps its relative position in the box, so no multiplier is reset; at a
+# widening it stays.
 # Cached per solver: the relaxed slacks' indices, their rows, their centers b and final
 # half-widths τ_min, and the current τ.
 const RELAXED_CONTINUATION = WeakKeyDict{Any, Any}()
@@ -78,9 +80,8 @@ function continuation_tighten!(solver::MadNLPSolver{T}, mu; widen = false) where
     s = view(primal(get_x(solver)), gi)
     scale = max.(one(T), abs.(b))
     if kappar > 0
-        # the largest relative violation of a relaxed equality at the current point (g(x) = c + s)
-        R = maximum(abs.(view(get_c(solver), ci) .+ s .- b) ./ scale)
-        target = max.(tmin, T(kappar) * R .* scale)
+        # each row's own violation at the current point (g(x) = c + s on a slack row)
+        target = max.(tmin, T(kappar) .* abs.(view(get_c(solver), ci) .+ s .- b))
         s .= b .+ (s .- b) .* min.(target ./ tau, one(T))   # scaled inward at a tightening, kept at a widening
         tau .= target
     else
