@@ -69,8 +69,6 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
         )
     end
 
-    # the relaxed equalities start wide under the continuation
-    continuation_tighten!(solver, opt.barrier.mu_init; widen = true)
     # Initializing KKT system
     initialize!(get_kkt(solver))
 
@@ -87,6 +85,8 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
     # Initializing
     set_obj_val!(solver, eval_f_wrapper(solver, get_x(solver)))
     eval_cons_wrapper!(solver, get_c(solver), get_x(solver))
+    # the relaxed equalities start wide under a continuation
+    continuation_tighten!(solver, opt.barrier.mu_init; widen = true)
     eval_lag_hess_wrapper!(solver, get_kkt(solver), get_x(solver), get_y(solver))
 
     theta = get_theta(get_c(solver))
@@ -357,6 +357,8 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         @trace(get_logger(solver),"Updating primal-dual variables.")
         copyto!(full(get_x(solver)), full(get_x_trial(solver)))
         copyto!(get_c(solver), get_c_trial(solver))
+        # under the residual-driven continuation the relaxation follows every accepted step
+        get_opt(solver).relaxed_equality_residual_continuation > 0 && continuation_tighten!(solver, get_mu(solver))
         set_obj_val!(solver, get_obj_val_trial(solver))
         adjust_boundary!(get_x_lr(solver),get_xl_r(solver),get_x_ur(solver),get_xu_r(solver),get_mu(solver))
 

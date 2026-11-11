@@ -229,6 +229,7 @@ relaxed\\_equality\\_active\\_side | `false`    | with `RelaxEquality`, count on
 relaxed\\_equality\\_step\\_active\\_side | `false` | with `RelaxEquality`, only the active side (the larger dual) of each relaxed equality limits the primal step (fraction to the boundary); the slack of the trial point is projected back inside its interval
 relaxed\\_equality\\_termination\\_only | `false` | apply `relaxed_equality_complementarity` and `relaxed_equality_active_side` to the termination test only; the barrier update counts every bound
 relaxed\\_equality\\_continuation | `0`                  | with `RelaxEquality`, a continuation on the relaxation of each equality `g(x) = b`: its slack is bounded by `b ± τ` with `τ = max(τ_min, κ μ max(1, |b|))`, `κ` this value, `τ_min` the relaxation of `bound_relax_factor`; `τ` is tightened after every barrier update, never widened, and is `τ_min` at convergence. `0` keeps `τ_min` throughout
+relaxed\\_equality\\_residual\\_continuation | `0`         | the same continuation driven by the residual of each equality instead of `μ`: `τ = max(τ_min, κ_r |g(x) - b|)` with `κ_r` this value (below 1), set from the initial point and tightened after every accepted step, so the box always lies inside the current violation and is never widened; at termination the violation is at most `tol / (1 - κ_r)`
 separate\\_slack\\_step         | `false`              | in the filter line search, the fraction to the boundary of the variables limits their step α and that of the slacks a separate step α_s; the slacks move by min(α, α_s), so a slack at its bound does not hold back the variables
 slack\\_reset\\_tol             | 1e-6                 | violation of the original rows allowed for the slack reset
 watchdog                      | `true`               | watchdog line search: after `watchdog_shortened_iter_trigger` consecutive shortened steps, take up to `watchdog_trial_iter_max` full steps and roll back if they make no progress
@@ -355,6 +356,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     relaxed_equality_termination_only::Bool = false
     separate_slack_step::Bool = false
     relaxed_equality_continuation::T = 0.0
+    relaxed_equality_residual_continuation::T = 0.0
     watchdog::Bool = true
     watchdog_shortened_iter_trigger::Int = 10
     watchdog_trial_iter_max::Int = 3
