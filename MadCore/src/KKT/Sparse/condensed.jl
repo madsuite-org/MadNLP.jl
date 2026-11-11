@@ -163,7 +163,7 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT, AS
     eq_scaled::Bool
     # δ = clamp(1 / max D_I, eq_shift[1], max(1e-6, eq_shift[1])) from the inequality weights (eq_shift[1]
     # is the lower bound, raised by retry_with_larger_shift!)
-    eq_from_D::Bool
+    eq_from_weights::Bool
     eq_rownorm::VT     # ‖J_i‖² of every row (eq_scaled), else empty
     eq_ones::VT        # ones(n) (eq_scaled), else empty
     jt_sq::MT          # the pattern of jt_csc with squared values (eq_scaled), else jt_csc
@@ -228,7 +228,7 @@ function create_kkt_system(
     equality_shift::Float64 = 1e-10,
     equality_shift_adaptive::Bool = false,
     equality_shift_scaled::Bool = false,
-    equality_shift_from_D::Bool = false,
+    equality_shift_from_weights::Bool = false,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -316,8 +316,8 @@ function create_kkt_system(
         border,
         _linear_solver,
         ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T)],
-        condense_equalities && (equality_shift_adaptive || equality_shift_from_D), condense_equalities && equality_shift_scaled,
-        condense_equalities && equality_shift_from_D,
+        condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
+        condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
         cb.ind_lb, cb.ind_ub,
         T(dual_shift),
@@ -692,7 +692,7 @@ build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_a
 function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
     kkt.eq_shift[2] = zero(T)
     δ = kkt.eq_shift[1]
-    if kkt.eq_from_D && !isempty(kkt.ind_ineq)
+    if kkt.eq_from_weights && !isempty(kkt.ind_ineq)
         Dmax = maximum(view(kkt.diag_buffer, kkt.ind_ineq))
         δ = clamp(one(T) / max(Dmax, floatmin(T)), δ, max(T(1e-6), δ))
     end
@@ -713,7 +713,7 @@ end
 const EQ_SHIFT_MIN = 1e-10
 const EQ_SHIFT_MAX = 1e-4
 function refinement_feedback!(kkt::SparseCondensedKKTSystem{T}, steps, r_first, r_last, converged) where {T}
-    (kkt.eq_adaptive && !kkt.eq_from_D && iszero(kkt.eq_shift[2]) && steps >= 2) || return
+    (kkt.eq_adaptive && !kkt.eq_from_weights && iszero(kkt.eq_shift[2]) && steps >= 2) || return
     ρ = (r_last / max(r_first, floatmin(T)))^(one(T) / (steps - 1))
     δ = kkt.eq_shift[1]
     if !converged && ρ > T(0.9)
