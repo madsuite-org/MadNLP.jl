@@ -4,6 +4,11 @@ MadCore.@kwdef mutable struct CudssSolverOptions <: MadCore.AbstractOptions
     cudss_ordering::ORDERING = DEFAULT_ORDERING
     cudss_perm::Vector{Cint} = Cint[]
     cudss_ir::Int = 0
+    # Cholesky: the largest relative error accepted in a pivot. A pivot d_i that cancelled from its
+    # diagonal entry A_ii carries a relative rounding error of about eps A_ii / d_i; when that exceeds
+    # this tolerance for some i, the factorization is reported with incorrect inertia, so inertia
+    # correction perturbs the matrix (0: off)
+    cudss_pivot_rel_error::Float64 = 0.0
     cudss_ir_tol::Float64 = 1.0e-8  # currently ignored by cuDSS
     cudss_pivot_threshold::Float64 = 0.0
     cudss_pivot_epsilon::Float64 = 0.0
@@ -227,6 +232,10 @@ function MadCore.inertia(M::CUDSSState)
 
     return if M.opt.cudss_algorithm == MadCore.CHOLESKY
         if info == 0
+            if M.opt.cudss_pivot_rel_error > 0
+                r = pivot_cancellation(M)
+                eps(eltype(M.buffer)) / r > M.opt.cudss_pivot_rel_error && return (n - 1, 0, 1)
+            end
             return (n, 0, 0)
         else
             return (n - 2, 1, 1) # if factorization fails, return a dummy inertia
@@ -256,6 +265,20 @@ end
 MadCore.is_supported(::Type{CUDSSState}, ::Type{Float32}) = true
 MadCore.is_supported(::Type{CUDSSState}, ::Type{Float64}) = true
 MadCore.introduce(M::CUDSSState) = "cuDSS v$(CUDSS.version())"
+# Cholesky: min_i L_ii^2 / A_ii over the last factorization (cuDSS returns the diagonal of L in the
+# original order). The diagonal of A is the first entry of each column of the lower triangle.
+const _DIAG_POS = IdDict{Any, Any}()
+function pivot_cancellation(M::CUDSSState{T}) where {T}
+    dpos = get!(_DIAG_POS, M) do
+        cp = Array(M.tril.colPtr)
+        CuVector{Int}(Int.(cp[1:(end - 1)]))
+    end
+    CUDSS.cudss_set(M.inner, "diag", M.buffer)
+    CUDSS.cudss_get(M.inner, "diag")
+    n = size(M.tril, 1)
+    return minimum(view(M.buffer, 1:n) .^ 2 ./ view(nonzeros(M.tril), dpos))
+end
+
 # the pivots of the last factorization, through `buffer` (free between factorization and solve);
 # cuDSS reports the diagonal of the factor, squared for Cholesky
 function MadCore.pivot_ratio(M::CUDSSState)
