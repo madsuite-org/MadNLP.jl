@@ -46,20 +46,17 @@ end
 """
     AugmentedRuizScaler(sweeps = 4)
 
-Ruiz's equilibration of the augmented system, before condensation, for `SparseCondensedKKTSystem`
-(on the host). The sweeps run on `[H + Σx  Jᵀ; J  Σd - Σs⁻¹]` and give a primal scaling `Wx` and a
-constraint scaling `Wy`; the condensed matrix is scaled by `Wx` (`Wy` cancels in `Jᵀ D J`) and the
-rows kept in the border by `Wy`. Unlike `RuizScaler` on the condensed matrix, a row whose `D` is
-very large (a tightly relaxed constraint) is equilibrated on its own before it is summed into the
-condensed block. With another KKT system the matrix is not scaled.
-
-With `bounds = :symmetrized` the sweeps run on the symmetrized 3×3 system instead: each bound of a
-variable is a row of its own, coupled to the variable by `√z` and with diagonal `x - xˡ` (`xᵘ - x`),
-where `:folded` (the default) sums the bounds into `Σx`. The bounds of the slacks stay in `Σs`.
+Ruiz's equilibration of the augmented system, before condensation, for `SparseCondensedKKTSystem`.
+The sweeps run on `[H + Σx  Jᵀ; J  Σd - Σs⁻¹]` (`Σd` alone on an equality row) and give a primal
+scaling `Wx` and a constraint scaling `Wy`; the condensed matrix is scaled by `Wx` (`Wy` cancels in
+`Jᵀ D J`) and the rows kept in the border by `Wy`. Unlike `RuizScaler` on the condensed matrix, a
+row whose `D` is very large (a tightly relaxed constraint) is equilibrated on its own before it is
+summed into the condensed block. The sweeps run on the device of the KKT system, over a pattern of
+the augmented matrix built once ([`AugmentedRuizState`](@ref MadCore.AugmentedRuizState)). With
+another KKT system the matrix is not scaled.
 """
 @kwdef struct AugmentedRuizScaler <: AbstractScaler
     sweeps::Int = 4
-    bounds::Symbol = :folded
 end
 
 scaler_sweeps(::NoScaler) = 0

@@ -26,6 +26,83 @@ end
 Base.isempty(b::BorderedRows) = isempty(b.ind_D)
 num_border_rows(b::BorderedRows) = length(b.ind_D)
 
+"""
+    AugmentedRuizState{T, VT, VI}
+
+The pattern and buffers of [`AugmentedRuizScaler`](@ref) on a [`SparseCondensedKKTSystem`](@ref):
+the augmented matrix `[H + Σx  Jᵀ; J  a]` with both triangles, stored by columns, each nonzero
+mapped to its source in the KKT system, and the scaling `d` of its `n + m` rows. Built once from
+the sparsity patterns; `augmented_ruiz_scaling!` gathers the values and runs the sweeps on the
+device of the KKT system at every factorization.
+"""
+mutable struct AugmentedRuizState{T, VT <: AbstractVector{T}, VI <: AbstractVector}
+    sweeps::Int
+    colptr::VI
+    rowval::VI
+    long_cols::VI      # columns with more than SCALING_LONG_COLUMN nonzeros (GPU sweeps)
+    absnz::VT          # |entry| on the pattern
+    d::VT
+    dnew::VT
+    a::VT              # the dual diagonal: Σd, less 1 / Σs on the inequality rows
+    h_pos::VI          # off-diagonal entries of H, both triangles, and their nonzero of hess_com
+    h_src::VI
+    hd_pos::VI         # diagonal entries of H: position, nonzero of hess_com, variable
+    hd_src::VI
+    hd_var::VI
+    pd_pos::VI         # diagonal entries without an entry of H: position, variable
+    pd_var::VI
+    j_pos::VI          # entries of J, both triangles, and their nonzero of jt_csc
+    j_src::VI
+    a_pos::VI          # the dual diagonal: position, row
+    a_row::VI
+    bpos::VI           # n + ind_D, the rows of d that scale the border
+end
+
+function AugmentedRuizState(::Type{T}, hess_com, jt_csc, aug_com, ind_D::Vector{Int}, sweeps::Int) where {T}
+    hcolptr, hrow = scaling_host_pattern(hess_com)   # lower triangle
+    jcolptr, jrow = scaling_host_pattern(jt_csc)     # column c = constraint c, row i = variable i
+    n = length(hcolptr) - 1
+    m = length(jcolptr) - 1
+    rows = Int[]; cols = Int[]; kind = Int[]; src = Int[]
+    entry(i, j, k, s) = (push!(rows, i); push!(cols, j); push!(kind, k); push!(src, s))
+    hasdiag = falses(n)
+    for j in 1:n, k in hcolptr[j]:(hcolptr[j + 1] - 1)
+        i = hrow[k]
+        if i == j
+            hasdiag[j] = true
+            entry(i, i, 2, k)
+        else
+            entry(i, j, 1, k); entry(j, i, 1, k)
+        end
+    end
+    for i in 1:n
+        hasdiag[i] || entry(i, i, 3, i)
+    end
+    for c in 1:m, k in jcolptr[c]:(jcolptr[c + 1] - 1)
+        i = jrow[k]
+        entry(n + c, i, 4, k); entry(i, n + c, 4, k)
+    end
+    for c in 1:m
+        entry(n + c, n + c, 5, c)
+    end
+    S = sparse(rows, cols, 1:length(rows), n + m, n + m)
+    nnz(S) == length(rows) || error("AugmentedRuizScaler: the Hessian or Jacobian pattern has a repeated entry")
+    q = nonzeros(S)   # position in the pattern -> entry
+    pos(kd) = findall(e -> kind[e] == kd, q)
+    p1, p2, p3, p4, p5 = pos(1), pos(2), pos(3), pos(4), pos(5)
+    Ti = scaling_index_type(aug_com)
+    dv(v) = scaling_device(aug_com, v)
+    di(v) = dv(Ti.(v))
+    long = findall(>(SCALING_LONG_COLUMN), diff(S.colptr))
+    N = n + m
+    return AugmentedRuizState(
+        sweeps, di(S.colptr), di(S.rowval), di(long),
+        dv(zeros(T, length(q))), dv(ones(T, N)), dv(ones(T, N)), dv(zeros(T, m)),
+        di(p1), di(src[q[p1]]), di(p2), di(src[q[p2]]), di(rows[q[p2]]), di(p3), di(rows[q[p3]]),
+        di(p4), di(src[q[p4]]), di(p5), di(rows[q[p5]] .- n), di(n .+ ind_D),
+    )
+end
+
 
 """
     SparseCondensedKKTSystem{T, VT, MT, QN} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
@@ -33,7 +110,7 @@ num_border_rows(b::BorderedRows) = length(b.ind_D)
 Implement the [`AbstractCondensedKKTSystem`](@ref) in sparse COO format.
 
 """
-struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
+struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT, AS} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
     # Hessian
     hess::VT
     hess_raw::SparseMatrixCOO{T, Int32, VT, VI32}
@@ -85,6 +162,9 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     # D = Σs / (1 - (Σd - slack_shift) Σs), which keeps D below 1 / slack_shift; the KKT operator
     # (mul!) does not see it, so iterative refinement solves the unshifted system
     slack_shift::T
+
+    # the pattern and buffers of AugmentedRuizScaler (nothing with another scaler)
+    aug_scaling::AS
 
     # extra
     ext::EXT
@@ -203,6 +283,7 @@ function create_kkt_system(
 
     # tell the linear solver the saddle-point partition before it analyzes
     _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
+    aug_scaling = kkt_scaler isa AugmentedRuizScaler ? AugmentedRuizState(T, hess_com, jt_csc, aug_com, ind_D, kkt_scaler.sweeps) : nothing
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
         hess, hess_raw, hess_com, hess_csc_map,
@@ -216,6 +297,7 @@ function create_kkt_system(
         _linear_solver,
         ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), cb.ind_lb, cb.ind_ub,
         T(dual_shift),
+        aug_scaling,
         ext
     )
 end

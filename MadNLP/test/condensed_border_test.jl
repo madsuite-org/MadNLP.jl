@@ -148,3 +148,72 @@ end
         @test isempty(MadNLP.get_kkt(solver).border.ind_D)
     end
 end
+
+# The Ruiz sweeps on the augmented system [H + Σx  Jᵀ; J  Σd - Σs⁻¹] written out on host arrays
+# (H lower triangular, Jt with a column per constraint): the scaling of the condensed block and of
+# the rows kept in the border, as AugmentedRuizState must reproduce it.
+function reference_augmented_ruiz(H, Jt, p, du, Σs, ind_ineq, ind_D, sweeps)
+    n, m = size(Jt)
+    a = copy(du); a[ind_ineq] .-= 1 ./ Σs
+    d = ones(n + m)
+    for _ in 1:sweeps
+        r = zeros(n + m)
+        for i in 1:n
+            r[i] = abs(p[i]) * d[i]^2
+        end
+        for j in 1:n, k in H.colptr[j]:(H.colptr[j + 1] - 1)
+            i = H.rowval[k]
+            v = i == j ? abs(H.nzval[k] + p[i]) * d[i]^2 : abs(H.nzval[k]) * d[i] * d[j]
+            r[i] = max(r[i], v); r[j] = max(r[j], v)
+        end
+        for c in 1:m
+            r[n + c] = abs(a[c]) * d[n + c]^2
+        end
+        for c in 1:m, k in Jt.colptr[c]:(Jt.colptr[c + 1] - 1)
+            i = Jt.rowval[k]
+            v = abs(Jt.nzval[k]) * d[i] * d[n + c]
+            r[i] = max(r[i], v); r[n + c] = max(r[n + c], v)
+        end
+        d .= ifelse.(r .> 0, d ./ sqrt.(r), d)
+    end
+    return [d[1:n]; d[n .+ ind_D]]
+end
+
+@testset "AugmentedRuizScaler on the bordered condensed system" begin
+    n = 40
+    nlp = BorderQP(n)
+    kkt_options = Dict{Symbol, Any}(:condense_max_nnz => 10)   # the dense row (n nonzeros) is kept
+    solver = MadNLP.MadNLPSolver(
+        nlp; preset = MadNLP.CondensedPreset, kkt_scaler = MadNLP.AugmentedRuizScaler(), kkt_options,
+        max_iter = 5, print_level = MadNLP.ERROR,
+    )
+    MadNLP.solve!(solver)
+    kkt = MadNLP.get_kkt(solver)
+    @test kkt.border.ind_D == [n + 1]
+    @test kkt.aug_scaling isa MadNLP.MadCore.AugmentedRuizState
+    MadNLP.build_kkt!(kkt)
+    M = getfield(kkt.linear_solver, :wrapped)
+    @test M isa MadNLP.MadCore.ScaledShiftedSolver
+    ns = length(kkt.ind_ineq)
+    d = reference_augmented_ruiz(
+        kkt.hess_com, kkt.jt_csc, kkt.pr_diag[1:n], kkt.du_diag, kkt.pr_diag[(n + 1):(n + ns)],
+        kkt.ind_ineq, kkt.border.ind_D, 4,
+    )
+    @test length(M.d) == n + 1
+    @test M.d ≈ d rtol = 1.0e-12
+    @test !all(==(1.0), M.d)
+    # and with no row kept, the scaling has no border part
+    solver0 = MadNLP.MadNLPSolver(
+        nlp; preset = MadNLP.CondensedPreset, kkt_options = Dict{Symbol, Any}(:condense_max_nnz => n + 1),
+        max_iter = 5, print_level = MadNLP.ERROR,
+    )
+    MadNLP.solve!(solver0)
+    kkt0 = MadNLP.get_kkt(solver0)
+    @test isempty(kkt0.border.ind_D) && length(getfield(kkt0.linear_solver, :wrapped).d) == n
+
+    res = MadNLP.madnlp(nlp; preset = MadNLP.CondensedPreset, kkt_options, print_level = MadNLP.ERROR)
+    @test res.status == MadNLP.SOLVE_SUCCEEDED
+    # the condensed system relaxes the bounds: the solution agrees with the augmented one to that accuracy
+    ref = MadNLP.madnlp(nlp; print_level = MadNLP.ERROR)
+    @test res.solution ≈ ref.solution atol = 1.0e-4
+end

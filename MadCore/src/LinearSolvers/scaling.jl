@@ -128,76 +128,34 @@ update_scaling!(M::ScaledShiftedSolver, ::AugmentedRuizScaler) = nothing
 
 update_kkt_scaling!(kkt, ls::LinearSolverBarrier) = update_kkt_scaling!(kkt, getfield(ls, :wrapped))
 update_kkt_scaling!(kkt::SparseCondensedKKTSystem, M::ScaledShiftedSolver) =
-    M.scaler isa AugmentedRuizScaler ? augmented_ruiz_scaling!(M, kkt, M.scaler.sweeps, M.scaler.bounds) : nothing
+    kkt.aug_scaling === nothing ? nothing : augmented_ruiz_scaling!(M, kkt, kkt.aug_scaling)
 
 # Ruiz sweeps on the augmented system [H + Σx  Jᵀ; J  a] of a condensed KKT system, a = Σd - Σs⁻¹ on
-# the inequality rows and Σd on the others; Wx scales the condensed block and Wy the border rows.
-function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensedKKTSystem, sweeps, bounds = :folded) where {T}
-    # on a GPU the sweeps run on host copies of the KKT data and the scaling is copied back
-    H = kkt.hess_com isa SparseMatrixCSC ? kkt.hess_com : SparseMatrixCSC(kkt.hess_com)
-    Jt = kkt.jt_csc isa SparseMatrixCSC ? kkt.jt_csc : SparseMatrixCSC(kkt.jt_csc)
-    n, m = size(Jt)
+# the inequality rows and Σd on the others, over the pattern of `s` (both triangles, by columns):
+# the values are gathered from the KKT system and `scaling_sweep!` runs on its device. The first n
+# entries of the scaling (Wx) scale the condensed block, the entries of the rows kept (Wy) the border.
+function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensedKKTSystem{T}, s::AugmentedRuizState) where {T}
+    n = size(kkt.hess_com, 1)
     ns = length(kkt.ind_ineq)
-    a = copy(Array(kkt.du_diag))
-    Σs = Array(view(kkt.pr_diag, (n + 1):(n + ns)))
-    view(a, Array(kkt.ind_ineq)) .-= one(T) ./ Σs
-    sym = bounds === :symmetrized
-    bounds in (:folded, :symmetrized) || error("AugmentedRuizScaler: bounds is :folded or :symmetrized")
-    # symmetrized: the primal diagonal keeps only the regularization; each bound of a variable (not of
-    # a slack) is a row with coupling √z and diagonal |x - xˡ| (|xᵘ - x|)
-    p = sym ? Array(view(kkt.reg, 1:n)) : Array(view(kkt.pr_diag, 1:n))
-    lb = sym ? Array(kkt.ind_lb) : Int[]
-    ub = sym ? Array(kkt.ind_ub) : Int[]
-    zl = sym ? sqrt.(Array(kkt.l_lower)) : T[]
-    zu = sym ? sqrt.(Array(kkt.u_lower)) : T[]
-    gl = sym ? abs.(Array(kkt.l_diag)) : T[]
-    gu = sym ? abs.(Array(kkt.u_diag)) : T[]
-    dl = ones(T, length(lb)); rl = similar(dl)
-    du = ones(T, length(ub)); ru = similar(du)
-    dx = ones(T, n)
-    dy = ones(T, m)
-    rx = zeros(T, n)
-    ry = zeros(T, m)
-    for _ in 1:sweeps
-        rx .= abs.(p) .* dx .^ 2
-        ry .= abs.(a) .* dy .^ 2
-        rl .= gl .* dl .^ 2
-        ru .= gu .* du .^ 2
-        for (k, i) in enumerate(lb)
-            i <= n || continue
-            v = zl[k] * dx[i] * dl[k]
-            rx[i] = max(rx[i], v); rl[k] = max(rl[k], v)
-        end
-        for (k, i) in enumerate(ub)
-            i <= n || continue
-            v = zu[k] * dx[i] * du[k]
-            rx[i] = max(rx[i], v); ru[k] = max(ru[k], v)
-        end
-        dl .= ifelse.(rl .> 0, dl ./ sqrt.(rl), dl)
-        du .= ifelse.(ru .> 0, du ./ sqrt.(ru), du)
-        for j in 1:n, k in H.colptr[j]:(H.colptr[j + 1] - 1)   # H holds one triangle
-            i = H.rowval[k]
-            v = abs(H.nzval[k]) * dx[i] * dx[j]
-            i == j && (v = abs(H.nzval[k] + p[i]) * dx[i]^2)
-            rx[i] = max(rx[i], v)
-            rx[j] = max(rx[j], v)
-        end
-        for c in 1:m, k in Jt.colptr[c]:(Jt.colptr[c + 1] - 1)
-            i = Jt.rowval[k]
-            v = abs(Jt.nzval[k]) * dx[i] * dy[c]
-            rx[i] = max(rx[i], v)
-            ry[c] = max(ry[c], v)
-        end
-        dx .= ifelse.(rx .> 0, dx ./ sqrt.(rx), dx)
-        dy .= ifelse.(ry .> 0, dy ./ sqrt.(ry), dy)
+    hnz = nonzeros(kkt.hess_com)
+    jnz = nonzeros(kkt.jt_csc)
+    p = view(kkt.pr_diag, 1:n)
+    Σs = view(kkt.pr_diag, (n + 1):(n + ns))
+    s.a .= kkt.du_diag
+    view(s.a, kkt.ind_ineq) .-= one(T) ./ Σs
+    view(s.absnz, s.h_pos) .= abs.(view(hnz, s.h_src))
+    # the primal diagonal counts as the larger of |Σx| and |H + Σx|
+    view(s.absnz, s.hd_pos) .= max.(abs.(view(p, s.hd_var)), abs.(view(hnz, s.hd_src) .+ view(p, s.hd_var)))
+    view(s.absnz, s.pd_pos) .= abs.(view(p, s.pd_var))
+    view(s.absnz, s.j_pos) .= abs.(view(jnz, s.j_src))
+    view(s.absnz, s.a_pos) .= abs.(view(s.a, s.a_row))
+    fill!(s.d, one(T))
+    for _ in 1:s.sweeps
+        scaling_sweep!(s.dnew, s.d, s.colptr, s.rowval, s.absnz, s.long_cols)
+        s.d, s.dnew = s.dnew, s.d
     end
-    ind_D = Array(kkt.border.ind_D)
-    d = Vector{T}(undef, n + length(ind_D))
-    d[1:n] .= dx
-    for (t, c) in enumerate(ind_D)
-        d[n + t] = dy[c]
-    end
-    copyto!(M.d, d)
+    view(M.d, 1:n) .= view(s.d, 1:n)
+    view(M.d, (n + 1):length(M.d)) .= view(s.d, s.bpos)
     return
 end
 

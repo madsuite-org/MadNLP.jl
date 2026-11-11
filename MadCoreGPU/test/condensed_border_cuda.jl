@@ -1,5 +1,6 @@
 using CUDA
 using NLPModels
+using SparseArrays
 
 # Dense Jacobian rows kept out of the condensation as a border, factored by cuDSS's LDLᵀ.
 # The problem has n sparse rows x_i - x_{i+1} <= 1 (cyclic) and one dense row sum(x) <= n/2;
@@ -185,4 +186,68 @@ end
     @test results.status == MadNLP.SOLVE_SUCCEEDED
     @test Array(results.solution) ≈ Array(ref.solution) atol = 1.0e-6
     @test Array(results.multipliers) ≈ Array(ref.multipliers) atol = 1.0e-6
+end
+
+# The Ruiz sweeps on the augmented system [H + Σx  Jᵀ; J  Σd - Σs⁻¹] written out on host arrays
+# (H lower triangular, Jt with a column per constraint): the scaling of the condensed block and of
+# the rows kept in the border, as AugmentedRuizState must reproduce it.
+function reference_augmented_ruiz(H, Jt, p, du, Σs, ind_ineq, ind_D, sweeps)
+    n, m = size(Jt)
+    a = copy(du); a[ind_ineq] .-= 1 ./ Σs
+    d = ones(n + m)
+    for _ in 1:sweeps
+        r = zeros(n + m)
+        for i in 1:n
+            r[i] = abs(p[i]) * d[i]^2
+        end
+        for j in 1:n, k in H.colptr[j]:(H.colptr[j + 1] - 1)
+            i = H.rowval[k]
+            v = i == j ? abs(H.nzval[k] + p[i]) * d[i]^2 : abs(H.nzval[k]) * d[i] * d[j]
+            r[i] = max(r[i], v); r[j] = max(r[j], v)
+        end
+        for c in 1:m
+            r[n + c] = abs(a[c]) * d[n + c]^2
+        end
+        for c in 1:m, k in Jt.colptr[c]:(Jt.colptr[c + 1] - 1)
+            i = Jt.rowval[k]
+            v = abs(Jt.nzval[k]) * d[i] * d[n + c]
+            r[i] = max(r[i], v); r[n + c] = max(r[n + c], v)
+        end
+        d .= ifelse.(r .> 0, d ./ sqrt.(r), d)
+    end
+    return [d[1:n]; d[n .+ ind_D]]
+end
+
+# the sweeps run on the device and must give the scaling of the sweeps written out on host copies
+@testset "MadNLP -- CUDSSSolver: AugmentedRuizScaler on SparseCondensedKKTSystem" begin
+    n = 40
+    kkt_options = Dict{Symbol, Any}(:condense_max_nnz => 10)   # the dense row (n nonzeros) is kept
+    solver = MadNLPSolver(
+        BorderQPGPU(CUDA.zeros(Float64, n)); preset = MadNLP.CondensedPreset, kkt_scaler = MadNLP.AugmentedRuizScaler(),
+        kkt_options, linear_solver = MadCoreGPU.CUDSSSolver, max_iter = 5, print_level = MadNLP.ERROR,
+    )
+    MadNLP.solve!(solver)
+    kkt = MadNLP.get_kkt(solver)
+    @test Array(kkt.border.ind_D) == [n + 1]
+    @test kkt.aug_scaling isa MadNLP.MadCore.AugmentedRuizState
+    @test kkt.aug_scaling.absnz isa CuVector
+    MadNLP.build_kkt!(kkt)
+    M = getfield(kkt.linear_solver, :wrapped)
+    @test M.d isa CuVector
+    ns = length(kkt.ind_ineq)
+    pr = Array(kkt.pr_diag)
+    d = reference_augmented_ruiz(
+        SparseMatrixCSC(kkt.hess_com), SparseMatrixCSC(kkt.jt_csc), pr[1:n], Array(kkt.du_diag),
+        pr[(n + 1):(n + ns)], Array(kkt.ind_ineq), Array(kkt.border.ind_D), 4,
+    )
+    @test Array(M.d) ≈ d rtol = 1.0e-12
+    @test !all(==(1.0), Array(M.d))
+
+    results = MadNLP.solve!(
+        MadNLPSolver(
+            BorderQPGPU(CUDA.zeros(Float64, n)); preset = MadNLP.CondensedPreset, kkt_options,
+            linear_solver = MadCoreGPU.CUDSSSolver, print_level = MadNLP.ERROR,
+        )
+    )
+    @test results.status == MadNLP.SOLVE_SUCCEEDED
 end
