@@ -159,6 +159,9 @@ function augmented_ruiz_scaling!(M::ScaledShiftedSolver{T}, kkt::SparseCondensed
     return
 end
 
+# the primal shift of the next factorization (SparseCondensedKKTSystem, primal_shift_ratio)
+_set_primal_shift!(M::ScaledShiftedSolver, s) = (M.primal_shift = s; nothing)
+
 function factorize!(M::ScaledShiftedSolver{T}) where {T}
     update_scaling!(M, M.scaler)
     scaling_nzval(M.fac) .= scaling_nzval(M.A) .* view(M.d, M.arow) .* view(M.d, M.acol)

@@ -361,6 +361,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     equality_shift_from_weights::Bool = false
     # the largest equality shift the adaptive rules and the retry before restoration may reach
     equality_shift_max::T = 1e-4
+    # primal shift of the condensed factorization = primal_shift_ratio * the equality shift (0: off)
+    primal_shift_ratio::T = 0.
 
     # initialization options
     dual_initialized::Bool = false
@@ -525,5 +527,6 @@ function factorization_options(opt)
     opt.equality_shift_scaled && (kw = merge(kw, (; equality_shift_scaled = true)))
     opt.equality_shift_from_weights && (kw = merge(kw, (; equality_shift_from_weights = true)))
     opt.equality_shift_max == 1e-4 || (kw = merge(kw, (; equality_shift_max = Float64(opt.equality_shift_max))))
+    iszero(opt.primal_shift_ratio) || (kw = merge(kw, (; primal_shift_ratio = Float64(opt.primal_shift_ratio))))
     return kw
 end

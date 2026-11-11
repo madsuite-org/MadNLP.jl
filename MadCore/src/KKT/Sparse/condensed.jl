@@ -230,6 +230,7 @@ function create_kkt_system(
     equality_shift_scaled::Bool = false,
     equality_shift_from_weights::Bool = false,
     equality_shift_max::Float64 = 1e-4,
+    primal_shift_ratio::Float64 = 0.0,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -303,7 +304,7 @@ function create_kkt_system(
     )
 
     # tell the linear solver the saddle-point partition before it analyzes
-    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
+    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift = max(primal_shift, primal_shift_ratio * equality_shift), dual_shift))
     aug_scaling = kkt_scaler isa AugmentedRuizScaler ? AugmentedRuizState(T, hess_com, jt_csc, aug_com, ind_D, kkt_scaler.sweeps) : nothing
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
@@ -316,7 +317,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -701,6 +702,8 @@ function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
         # a lower bound raised by a retry decays tenfold per factorization back to the base
         kkt.eq_shift[1] = max(kkt.eq_shift[3], kkt.eq_shift[1] / 10)
     end
+    # the primal shift of the factorization follows the equality shift (primal_shift_ratio > 0)
+    kkt.eq_shift[5] > 0 && _set_primal_shift!(kkt.linear_solver.wrapped, kkt.eq_shift[5] * δ)
     if kkt.eq_scaled
         nonzeros(kkt.jt_sq) .= nonzeros(kkt.jt_csc) .^ 2
         mul!(kkt.eq_rownorm, kkt.jt_sq', kkt.eq_ones)
@@ -710,6 +713,8 @@ function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
     end
     return
 end
+
+_set_primal_shift!(M, s) = nothing
 
 # Refinement feedback (eq_adaptive): a refinement that contracts steadily but slowly means δ is
 # too large (the preconditioner is far from the operator), one that stagnates or diverges means the
