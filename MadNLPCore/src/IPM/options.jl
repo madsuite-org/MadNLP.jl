@@ -357,6 +357,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # δ from Richardson refinement feedback, and δ_i = δ ‖J_i‖² (SparseCondensedKKTSystem, condense_equalities)
     equality_shift_adaptive::Bool = false
     equality_shift_scaled::Bool = false
+    # δ = clamp(1 / max D_I, equality_shift, 1e-6) from the condensed inequality weights, with the retry before restoration
+    equality_shift_from_D::Bool = false
 
     # initialization options
     dual_initialized::Bool = false
@@ -519,5 +521,6 @@ function factorization_options(opt)
     iszero(opt.equality_shift) || (kw = merge(kw, (; equality_shift = Float64(opt.equality_shift))))
     opt.equality_shift_adaptive && (kw = merge(kw, (; equality_shift_adaptive = true)))
     opt.equality_shift_scaled && (kw = merge(kw, (; equality_shift_scaled = true)))
+    opt.equality_shift_from_D && (kw = merge(kw, (; equality_shift_from_D = true)))
     return kw
 end
