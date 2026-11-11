@@ -50,12 +50,16 @@ end
 # Continuation on the equality relaxation: the slack of a relaxed equality g(x) = b is bounded by
 # b ± τ with τ_min, the relaxation of bound_relax_factor, as its final value. Two drivers:
 # relaxed_equality_continuation = κ > 0 gives τ = max(τ_min, κ μ max(1, |b|)), set at
-# initialization and tightened after every barrier update; relaxed_equality_residual_continuation
-# = κ_r > 0 gives τ = max(τ_min, κ_r |g(x) - b|), set from the initial point and tightened after
-# every accepted step, so the box always lies inside the current violation and the solver has to
-# move g(x) towards b to close the slack row. τ is never widened. At a tightening each slack is
-# scaled about b by τ_new / τ_old, which keeps its relative position in the box, so no multiplier
-# is reset. Cached per solver: the relaxed slacks' indices, their rows, their centers b and final
+# initialization and tightened after every barrier update, never widened.
+# relaxed_equality_residual_continuation = κ_r > 0 gives every relaxed row the same relative
+# width, τ = max(τ_min, κ_r R max(1, |b|)) with R the largest relative violation |g(x) - b| /
+# max(1, |b|) over the relaxed rows, set from the initial point and updated after every accepted
+# step, both ways: the box always lies inside the current violation, so the solver has to move
+# g(x) towards b to close the slack rows, and no row is held at its final width while the iterate
+# is still infeasible elsewhere (a per-row width did that on case9241_pegase, and the rows it
+# pinned early stalled the solve). At a tightening each slack is scaled about b by τ_new / τ_old,
+# which keeps its relative position in the box, so no multiplier is reset; at a widening it stays.
+# Cached per solver: the relaxed slacks' indices, their rows, their centers b and final
 # half-widths τ_min, and the current τ.
 const RELAXED_CONTINUATION = WeakKeyDict{Any, Any}()
 continuation_tighten!(solver::AbstractMadNLPSolver, mu; widen = false) = nothing
@@ -72,17 +76,21 @@ function continuation_tighten!(solver::MadNLPSolver{T}, mu; widen = false) where
     end
     isempty(gi) && return
     s = view(primal(get_x(solver)), gi)
-    target = if kappar > 0
-        # the violation of the equality at the current point: g(x) = c + s on a slack row
-        max.(tmin, T(kappar) .* abs.(view(get_c(solver), ci) .+ s .- b))
+    scale = max.(one(T), abs.(b))
+    if kappar > 0
+        # the largest relative violation of a relaxed equality at the current point (g(x) = c + s)
+        R = maximum(abs.(view(get_c(solver), ci) .+ s .- b) ./ scale)
+        target = max.(tmin, T(kappar) * R .* scale)
+        s .= b .+ (s .- b) .* min.(target ./ tau, one(T))   # scaled inward at a tightening, kept at a widening
+        tau .= target
     else
-        max.(tmin, T(kappa) * T(mu) .* max.(one(T), abs.(b)))
-    end
-    if widen
-        tau .= target                                  # the slack, inside the narrower box, stays
-    else
-        s .= b .+ (s .- b) .* (min.(tau, target) ./ tau)   # same relative position in the box
-        tau .= min.(tau, target)
+        target = max.(tmin, T(kappa) * T(mu) .* scale)
+        if widen
+            tau .= target                                  # the slack, inside the narrower box, stays
+        else
+            s .= b .+ (s .- b) .* (min.(tau, target) ./ tau)   # same relative position in the box
+            tau .= min.(tau, target)
+        end
     end
     xl = view(primal(get_xl(solver)), gi); xu = view(primal(get_xu(solver)), gi)
     xl .= b .- tau
