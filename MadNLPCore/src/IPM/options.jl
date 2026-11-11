@@ -65,9 +65,24 @@ of `ShiftedPreset` (`QualityFunctionUpdate(sigma_max = 2, mu_decrease_max = 10, 
 """
 struct CondensedPreset <: AbstractPreset end
 
+"""
+    EqCondensedPreset
+
+The condensed KKT system (`SparseCondensedKKTSystem`) with the equality constraints enforced and
+condensed through a dual shift δ (`kkt_options` `:condense_equalities => true`, `:equality_shift`,
+1e-8 in `Float64`): the multiplier of an equality row is eliminated with the weight 1 / (δ - Σd), so
+the condensed matrix is positive definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU,
+CHOLMOD on the host) without pivoting, with the monotone barrier rule and Richardson refinement on
+the unshifted system. A model with dense Jacobian rows (the rule of `SparseCondensedKKTSystem`'s
+`dense_row_abs`, `dense_row_rel` and `dense_row_fill_min`, at their defaults) is solved with
+[`ShiftedPreset`](@ref) instead; `dense_row_fallback = false` keeps this preset.
+"""
+struct EqCondensedPreset <: AbstractPreset end
+
 # The KKT system of a sparse model under a preset, when `kkt_system` is not given.
 preset_kkt_system(::Type{<:AbstractPreset}) = SparseKKTSystem
 preset_kkt_system(::Type{CondensedPreset}) = SparseCondensedKKTSystem
+preset_kkt_system(::Type{EqCondensedPreset}) = SparseCondensedKKTSystem
 
 # The presets whose sparse KKT systems are factorized LDLᵀ with small pivots bounded: the condensed
 # system can keep dense rows uncondensed, which leaves it indefinite.
@@ -98,6 +113,20 @@ scale, between the unit roundoff and 1 (about 3e-5 in `Float32`).
 """
 preset_perturbation(::Type{T}) where {T} =
     T(1.0e-10 * exp2(5 * (exponent(eps(T)) - exponent(eps(Float64))) / 8))
+
+# EqCondensedPreset falls back to ShiftedPreset on a model with dense Jacobian rows, which would
+# either be kept as an indefinite border (not factorizable by Cholesky) or fill the condensed matrix.
+resolve_preset(nlp, preset) = preset
+resolve_preset(nlp, ::Type{EqCondensedPreset}) = has_dense_rows(nlp) ? ShiftedPreset : EqCondensedPreset
+
+function has_dense_rows(nlp)
+    m = MadCore.get_ncon(nlp)
+    m == 0 && return false
+    I = similar(MadCore.get_x0(nlp), Int, MadCore.get_nnzj(nlp))
+    J = similar(I)
+    MadCore.jac_structure!(nlp, I, J)
+    return !isempty(MadCore._select_dense_rows(Array(I), MadCore.get_nvar(nlp), m, MadCore.get_nnzh(nlp), 512, 0.10, 1e7))
+end
 
 # The options of a preset beyond the KKT system and the linear solver.
 preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} = (;)
@@ -134,6 +163,14 @@ function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where
     end
     # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
     return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))
+end
+function preset_options(::Type{EqCondensedPreset}, ::Type{T}, kkt_system, tol) where {T}
+    kkt_system == SparseCondensedKKTSystem || return (;)
+    return (;
+        equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
+        dual_initialization_method = DualInitializeLeastSquares,
+        kkt_options = Dict{Symbol, Any}(:condense_equalities => true, :equality_shift => Float64(100 * preset_perturbation(T))),
+    )
 end
 
 """
@@ -380,11 +417,19 @@ end
 function MadNLPOptions{T}(
     nlp::AbstractNLPModel{T};
     preset::Type{<:AbstractPreset} = default_preset(nlp),
+    dense_row_fallback::Bool = true,
+    kwargs...,
+) where {T}
+    return _preset_madnlp_options(T, nlp; preset = dense_row_fallback ? resolve_preset(nlp, preset) : preset, kwargs...)
+end
+function _preset_madnlp_options(
+    ::Type{T}, nlp::AbstractNLPModel{T};
+    preset::Type{<:AbstractPreset},
     dense_callback = is_dense_callback(nlp),
     callback = dense_callback ? DenseCallback : SparseCallback,
     kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
     linear_solver = dense_callback ? default_dense_solver(nlp) :
-        preset <: PivotBoundedPreset && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
+        preset <: Union{PivotBoundedPreset, EqCondensedPreset} && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
     tol = get_tolerance(T,kkt_system)
 ) where {T}
     return MadNLPOptions{T}(;

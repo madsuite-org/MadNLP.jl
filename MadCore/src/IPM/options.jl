@@ -52,7 +52,7 @@ function _get_primary_options(options)
     primary_opt = Dict{Symbol,Any}()
     remaining_opt = Dict{Symbol,Any}()
     for (k,v) in options
-        if k in [:tol, :linear_solver, :callback, :kkt_system, :preset]
+        if k in [:tol, :linear_solver, :callback, :kkt_system, :preset, :dense_row_fallback]
             primary_opt[k] = v
         else
             remaining_opt[k] = v

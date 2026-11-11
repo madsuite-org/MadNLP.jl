@@ -155,6 +155,8 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT, AS
     # Info
     ind_ineq::VI
     ind_eq::VI
+    # equality rows condensed with D = 1 / (eq_shift - Σd); eq_shift[1] == 0 keeps them in the border
+    eq_shift::Vector{T}
     ind_lb::VI
     ind_ub::VI
 
@@ -212,6 +214,8 @@ function create_kkt_system(
     border_delta::Float64 = 1e-8,
     border_delta_exp::Float64 = 0.25,
         condense_max_nnz::Union{Nothing, Int} = nothing,
+    condense_equalities::Bool = false,
+    equality_shift::Float64 = 1e-10,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -239,16 +243,19 @@ function create_kkt_system(
     ind_D = if condense_max_nnz === nothing
         _select_dense_rows(jac_sparsity_I, n, m, n_hess, dense_row_abs, dense_row_rel, dense_row_fill_min, ind_ineq_h)
     else
-        _select_rows_by_nnz(jac_sparsity_I, m, condense_max_nnz, ind_ineq_h)
+        _select_rows_by_nnz(jac_sparsity_I, m, condense_max_nnz, condense_equalities ? collect(1:m) : ind_ineq_h)
     end
+    # the equality rows kept in the border: all of them, or with condense_equalities only the
+    # dense ones selected above
+    eq_kept = condense_equalities ? intersect(ind_D, ind_eq_h) : ind_eq_h
     if !_factors_indefinite(opt_linear_solver)
-        isempty(ind_eq_h) || error("$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix, which an equality-constrained problem requires.")
+        isempty(eq_kept) || error("$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix, which an equality-constrained problem requires.")
         if !isempty(ind_D)
             Base.@warn "$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix; the $(length(ind_D)) dense Jacobian rows are condensed."
             ind_D = Int[]
         end
     end
-    ind_D = sort!(union(ind_D, ind_eq_h))
+    ind_D = sort!(union(ind_D, eq_kept))
     mD = length(ind_D)
 
     reg = VT(undef, n_tot)
@@ -295,7 +302,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), cb.ind_lb, cb.ind_ub,
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T)], cb.ind_lb, cb.ind_ub,
         T(dual_shift),
         aug_scaling,
         ext
@@ -668,9 +675,18 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     Σd = kkt.du_diag
 
     b = kkt.border
-    if isempty(b)
-        # no row kept, so no equality row: the slacks are the rows
+    if isempty(b) && isempty(kkt.ind_eq)
+        # no row kept and no equality row: the slacks are the rows
         kkt.diag_buffer .= Σs ./ (1 .- (Σd .- kkt.slack_shift) .* Σs)
+        build_condensed_aug_coord!(kkt)
+        update_kkt_scaling!(kkt, kkt.linear_solver)
+        return
+    end
+    if isempty(b)
+        # every row condensed, the equality rows through the shift: D = 1 / (δ - Σd)
+        fill!(kkt.diag_buffer, zero(T))
+        view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (view(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
+        view(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (kkt.eq_shift[1] .- view(Σd, kkt.ind_eq))
         build_condensed_aug_coord!(kkt)
         update_kkt_scaling!(kkt, kkt.linear_solver)
         return
@@ -679,6 +695,10 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     # the border diagonal Σd - 1/Σs on the inequality rows, Σd on the equality rows
     fill!(kkt.diag_buffer, zero(T))
     view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (view(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
+    if !iszero(kkt.eq_shift[1])
+        # condensed equality rows: D = 1 / (δ - Σd); the kept ones are zeroed with ind_D below
+        view(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (kkt.eq_shift[1] .- view(Σd, kkt.ind_eq))
+    end
     kkt.buffer2 .= Σd
     view(kkt.buffer2, kkt.ind_ineq) .-= one(T) ./ Σs
     # condensed block of the sparse rows, then the border

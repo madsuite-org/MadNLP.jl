@@ -16,7 +16,7 @@ for name in MadCore.internal_names(MadNLPCore)
 end
 
 export MadNLPSolver, MadNLPOptions, LDLSolver, LapackCPUSolver, MumpsSolver, MadNLPExecutionStats, madnlp, solve!, madsuite, SchurComplementKKTSystem
-export AbstractPreset, ShiftedPreset, AugmentedPreset, CondensedPreset
+export AbstractPreset, ShiftedPreset, AugmentedPreset, CondensedPreset, EqCondensedPreset
 Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver, KrylovIterator
 export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler, AugmentedRuizScaler
@@ -36,6 +36,15 @@ if Base.USE_GPL_LIBS
         opt = MadCore.default_options(MadCore.CHOLMODSolver)
         opt.cholmod_algorithm = MadCore.LDL
         opt.cholmod_dbound = Float64(MadNLPCore.preset_perturbation(T))
+        return opt
+    end
+    # CHOLMOD under EqCondensedPreset: Cholesky of the positive definite condensed matrix
+    function MadCore.default_options(
+            ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.EqCondensedPreset}, ::Type{MadCore.SparseCondensedKKTSystem},
+            ::Type{MadCore.CHOLMODSolver},
+        ) where {T}
+        opt = MadCore.default_options(MadCore.CHOLMODSolver)
+        opt.cholmod_algorithm = MadCore.CHOLESKY
         return opt
     end
 end

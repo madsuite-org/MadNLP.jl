@@ -37,6 +37,21 @@ function MadCore.default_options(
     return opt
 end
 
+# cuDSS under EqCondensedPreset: Cholesky of the positive definite condensed matrix, without
+# pivoting or matching.
+function MadCore.default_options(
+        ::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.EqCondensedPreset}, ::Type{MadCore.SparseCondensedKKTSystem},
+        ::Type{CUDSSSolver},
+    ) where {T, VT <: CuVector{T}}
+    opt = MadCore.default_options(CUDSSSolver)
+    opt.cudss_algorithm = MadCore.CHOLESKY
+    opt.cudss_pivot_epsilon = 0.0
+    opt.cudss_pivoting = false
+    opt.cudss_matching = false
+    opt.cudss_deferred_analysis = true
+    return opt
+end
+
 # cuDSS on the augmented system under AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting and
 # matching, redone when iterative refinement rejects a solve (the matching can go stale as the
 # values change). Refactorization would keep the first factorization's pivot sequence, so it is

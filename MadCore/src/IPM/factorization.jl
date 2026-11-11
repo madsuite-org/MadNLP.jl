@@ -155,7 +155,7 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
 
     reduce_rhs!(kkt, w)
 
-    if mD == 0
+    if mD == 0 && ns == m
         kkt.buffer .= kkt.diag_buffer .* (wz .+ ws ./ Σs)
 
         mul!(wx, kkt.jt_csc, kkt.buffer, one(T), one(T))
