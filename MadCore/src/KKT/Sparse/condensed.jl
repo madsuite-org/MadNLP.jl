@@ -233,6 +233,7 @@ function create_kkt_system(
     primal_shift_ratio::Float64 = 0.0,
     equality_shift_weight_factor::Float64 = 1.0,
     equality_shift_pivot_target::Float64 = 0.0,
+    equality_shift_inertia_retry::Int = 0,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -319,7 +320,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -705,6 +706,9 @@ function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
         end
         # a lower bound raised by a retry decays tenfold per factorization back to the base
         kkt.eq_shift[1] = max(kkt.eq_shift[3], kkt.eq_shift[1] / 10)
+    elseif kkt.eq_shift[12] == 3 && !override
+        # a base raised by the inertia retry (mode 3) decays tenfold per factorization
+        kkt.eq_shift[1] = max(kkt.eq_shift[3], kkt.eq_shift[1] / 10)
     end
     kkt.eq_shift[7] = δ
     # the primal shift of the factorization follows the equality shift (primal_shift_ratio > 0)
@@ -725,7 +729,37 @@ _set_primal_shift!(M, s) = nothing
 function begin_factorization!(kkt::SparseCondensedKKTSystem{T}) where {T}
     kkt.eq_shift[10] = zero(T)
     kkt.eq_shift[11] = zero(T)
+    kkt.eq_shift[13] = zero(T)
+    kkt.eq_shift[14] > 0 && (kkt.eq_shift[14] -= one(T))
     return
+end
+
+# Wrong inertia (equality_shift_inertia_retry > 0): before the Hessian is perturbed, the factorization
+# is retried with δ a hundredfold larger, at most twice per step, up to equality_shift_max. A larger δ
+# reduces the cancellation in the pivots of the null space of the equality Jacobian (cont5_2_1_l:
+# δ = 1e-8 needs δ_w ≈ 1e-3 on 85% of the iterations and stalls at the iteration limit; δ = 1e-6 needs
+# δ_w on 17% and converges). Mode 1 drops the raised δ after this step; mode 2 keeps it as the base of
+# the next factorizations; mode 3 keeps it and lets it decay tenfold per factorization back to the base;
+# mode 4 keeps it and lowers it tenfold after a slowly contracting refinement (refinement_feedback!).
+# Returns whether the matrix changed (the caller rebuilds and refactorizes).
+function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
+    mode = kkt.eq_shift[12]
+    (mode > 0 && !iszero(kkt.eq_shift[1]) && !isempty(kkt.ind_eq) && kkt.eq_shift[13] < 2) || return false
+    # mode 5: after a step whose retries all failed (a genuinely indefinite matrix), no retry for the
+    # next 10 factorizations
+    if mode >= 5 && kkt.eq_shift[14] > 0
+        return false
+    end
+    δ = kkt.eq_shift[7]
+    if δ >= kkt.eq_shift[4]
+        mode >= 5 && (kkt.eq_shift[14] = T(10))
+        return false
+    end
+    δnew = min(δ * 100, kkt.eq_shift[4])
+    kkt.eq_shift[13] += 1
+    kkt.eq_shift[11] = δnew
+    mode >= 2 && (kkt.eq_shift[1] = δnew)
+    return true
 end
 
 # After a refined solve failed: adjust the equality shift of this factorization, at most twice, a
@@ -769,6 +803,13 @@ function refinement_feedback!(kkt::SparseCondensedKKTSystem{T}, steps, r_first, 
     steps >= 2 || return
     ρ = (r_last / max(r_first, floatmin(T)))^(one(T) / (steps - 1))
     kkt.eq_shift[9] = ρ
+    # inertia retry mode 4: a base raised by the retry comes down tenfold when the refinement
+    # contracts slowly (the propagation factor δ / (σ_min + δ) is large: δ is above the smallest
+    # eigenvalue of J H⁻¹ Jᵀ), at most once per factorization
+    if kkt.eq_shift[12] >= 4 && iszero(kkt.eq_shift[2]) && ρ > T(0.5) && kkt.eq_shift[1] > kkt.eq_shift[3]
+        kkt.eq_shift[1] = max(kkt.eq_shift[3], kkt.eq_shift[1] / 10)
+        kkt.eq_shift[2] = one(T)
+    end
     (kkt.eq_adaptive && !kkt.eq_from_weights && iszero(kkt.eq_shift[2])) || return
     δ = kkt.eq_shift[1]
     if !converged && ρ > T(0.9)

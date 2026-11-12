@@ -890,6 +890,18 @@ function inertia_correction!(
     else
         false
     end
+    # the KKT system may change its factorized matrix before the Hessian is perturbed
+    while !solve_status && inertia_retry!(get_kkt(solver))
+        build_kkt!(get_kkt(solver))
+        factorize!(get_kkt(solver).linear_solver)
+        get_cnt(solver).factorization_cnt += 1
+        num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
+        solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+            solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver))
+        else
+            false
+        end
+    end
     # δ_c alone must give an accurate solve; otherwise the joint schedule takes over
     if solve_status && get_del_c(solver) != zero(T) && !started_dw
         solve_status = accurate_solve(solver)

@@ -367,6 +367,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     equality_shift_weight_factor::T = 1.
     # pivot feedback: keep the smallest/largest pivot ratio of the condensed factorization at this target (0: off)
     equality_shift_pivot_target::T = 0.
+    # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
+    # the Hessian is perturbed (0: off; 1: for that step; 2: kept as the base; 3: kept, decaying tenfold per factorization)
+    equality_shift_inertia_retry::Int = 0
     # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
     # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
     # failed after improve! ran out; warm start from where it stopped
@@ -532,6 +535,9 @@ function factorization_options(opt)
     opt.kkt_scaler isa NoScaler || (kw = merge(kw, (; kkt_scaler = opt.kkt_scaler)))
     iszero(opt.primal_shift) || (kw = merge(kw, (; primal_shift = opt.primal_shift)))
     iszero(opt.dual_shift) || (kw = merge(kw, (; dual_shift = opt.dual_shift)))
+    # the equality-shift options belong to SparseCondensedKKTSystem; another KKT system (the dense-row
+    # fallback to ShiftedPreset) refuses them
+    opt.kkt_system <: SparseCondensedKKTSystem || return kw
     iszero(opt.equality_shift) || (kw = merge(kw, (; equality_shift = Float64(opt.equality_shift))))
     opt.equality_shift_adaptive && (kw = merge(kw, (; equality_shift_adaptive = true)))
     opt.equality_shift_scaled && (kw = merge(kw, (; equality_shift_scaled = true)))
@@ -540,5 +546,6 @@ function factorization_options(opt)
     iszero(opt.primal_shift_ratio) || (kw = merge(kw, (; primal_shift_ratio = Float64(opt.primal_shift_ratio))))
     opt.equality_shift_weight_factor == 1 || (kw = merge(kw, (; equality_shift_weight_factor = Float64(opt.equality_shift_weight_factor))))
     iszero(opt.equality_shift_pivot_target) || (kw = merge(kw, (; equality_shift_pivot_target = Float64(opt.equality_shift_pivot_target))))
+    iszero(opt.equality_shift_inertia_retry) || (kw = merge(kw, (; equality_shift_inertia_retry = opt.equality_shift_inertia_retry)))
     return kw
 end
