@@ -740,25 +740,28 @@ end
 # δ = 1e-8 needs δ_w ≈ 1e-3 on 85% of the iterations and stalls at the iteration limit; δ = 1e-6 needs
 # δ_w on 17% and converges). Mode 1 drops the raised δ after this step; mode 2 keeps it as the base of
 # the next factorizations; mode 3 keeps it and lets it decay tenfold per factorization back to the base;
-# mode 4 keeps it and lowers it tenfold after a slowly contracting refinement (refinement_feedback!).
+# mode 4 keeps it and lowers it tenfold after a slowly contracting refinement (refinement_feedback!);
+# mode 5 is mode 4 with a backoff after a step whose retries failed; mode 6 is mode 1 with that backoff.
 # Returns whether the matrix changed (the caller rebuilds and refactorizes).
 function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
     mode = kkt.eq_shift[12]
     (mode > 0 && !iszero(kkt.eq_shift[1]) && !isempty(kkt.ind_eq) && kkt.eq_shift[13] < 2) || return false
-    # mode 5: after a step whose retries all failed (a genuinely indefinite matrix), no retry for the
-    # next 10 factorizations
-    if mode >= 5 && kkt.eq_shift[14] > 0
+    # modes 5 and 6: after a step whose retries all failed (a genuinely indefinite matrix), no retry
+    # for the next 10 factorizations
+    backoff = mode >= 5
+    if backoff && kkt.eq_shift[14] > 0
         return false
     end
     δ = kkt.eq_shift[7]
     if δ >= kkt.eq_shift[4]
-        mode >= 5 && (kkt.eq_shift[14] = T(10))
+        backoff && (kkt.eq_shift[14] = T(10))
         return false
     end
     δnew = min(δ * 100, kkt.eq_shift[4])
     kkt.eq_shift[13] += 1
     kkt.eq_shift[11] = δnew
-    mode >= 2 && (kkt.eq_shift[1] = δnew)
+    # modes 2 to 5 keep the raised shift; modes 1 and 6 drop it after this step
+    2 <= mode <= 5 && (kkt.eq_shift[1] = δnew)
     return true
 end
 
@@ -806,7 +809,7 @@ function refinement_feedback!(kkt::SparseCondensedKKTSystem{T}, steps, r_first, 
     # inertia retry mode 4: a base raised by the retry comes down tenfold when the refinement
     # contracts slowly (the propagation factor δ / (σ_min + δ) is large: δ is above the smallest
     # eigenvalue of J H⁻¹ Jᵀ), at most once per factorization
-    if kkt.eq_shift[12] >= 4 && iszero(kkt.eq_shift[2]) && ρ > T(0.5) && kkt.eq_shift[1] > kkt.eq_shift[3]
+    if 4 <= kkt.eq_shift[12] <= 5 && iszero(kkt.eq_shift[2]) && ρ > T(0.5) && kkt.eq_shift[1] > kkt.eq_shift[3]
         kkt.eq_shift[1] = max(kkt.eq_shift[3], kkt.eq_shift[1] / 10)
         kkt.eq_shift[2] = one(T)
     end

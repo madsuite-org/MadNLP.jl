@@ -368,7 +368,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # pivot feedback: keep the smallest/largest pivot ratio of the condensed factorization at this target (0: off)
     equality_shift_pivot_target::T = 0.
     # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
-    # the Hessian is perturbed (0: off; 1: for that step; 2: kept as the base; 3: kept, decaying tenfold per factorization)
+    # the Hessian is perturbed (0: off; 1: for that step; 2: kept as the base; 3: kept, decaying tenfold per factorization;
+    # 4: kept, lowered after a slowly contracting refinement; 5: as 4 with a backoff after failed retries; 6: as 1 with that backoff)
     equality_shift_inertia_retry::Int = 0
     # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
     # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
