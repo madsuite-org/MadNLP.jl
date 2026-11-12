@@ -279,13 +279,6 @@ function solve!(
                     set_status!(solver, feasibility_rescue!(solver, get_status(solver); from_entry = false))
                 end
             end
-            # a KKT system that can make its step more robust (a larger equality shift) retries the
-            # regular phase at the same iterate before the restoration phase
-            if get_status(solver) == RESTORE && retry_with_larger_shift!(get_kkt(solver))
-                @debug(get_logger(solver), "Retrying the step with a larger equality shift instead of the restoration phase.")
-                set_status!(solver, REGULAR)
-                continue
-            end
             get_status(solver) == RESTORE && (set_status!(solver, restore!(solver)))
             get_status(solver) == ROBUST && (set_status!(solver, robust!(solver)))
         end
@@ -891,7 +884,7 @@ function inertia_correction!(
         false
     end
     # the KKT system may change its factorized matrix before the Hessian is perturbed
-    while !solve_status && get_mu(solver) <= get_opt(solver).equality_shift_retry_mu && inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
+    while !solve_status && inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
         build_kkt!(get_kkt(solver))
         factorize!(get_kkt(solver).linear_solver)
         get_cnt(solver).factorization_cnt += 1

@@ -169,7 +169,7 @@ function preset_options(::Type{EqCondensedPreset}, ::Type{T}, kkt_system, tol) w
     return (;
         equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
         dual_initialization_method = DualInitializeLeastSquares,
-        kkt_options = Dict{Symbol, Any}(:condense_equalities => true, :equality_shift => Float64(100 * preset_perturbation(T)), :equality_shift_inertia_retry => 1),
+        kkt_options = Dict{Symbol, Any}(:condense_equalities => true, :equality_shift => Float64(100 * preset_perturbation(T))),
     )
 end
 
@@ -209,9 +209,8 @@ kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passe
 kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
-equality\\_shift\\_adaptive      | `false`              | move `equality_shift` tenfold from Richardson refinement feedback (slow steady contraction: smaller; stagnation: larger), within [1e-10, 1e-4]
-equality\\_shift\\_scaled        | `false`              | scale the shift of each condensed equality row by ‖J_i‖²
 equality\\_shift               | 0.0                  | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 0 keeps the KKT option `equality_shift` (1e-8 in `Float64` under `EqCondensedPreset`)
+equality\\_shift\\_retry         | `true`               | on a wrong inertia, retry the condensed factorization with a hundredfold larger equality shift (at most twice) before the Hessian is perturbed
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path
@@ -354,30 +353,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # the shift δ of the equality rows that SparseCondensedKKTSystem condenses (condense_equalities);
     # 0 keeps the KKT system's value (EqCondensedPreset: 100 preset_perturbation(T))
     equality_shift::T = 0.
-    # δ from Richardson refinement feedback, and δ_i = δ ‖J_i‖² (SparseCondensedKKTSystem, condense_equalities)
-    equality_shift_adaptive::Bool = false
-    equality_shift_scaled::Bool = false
-    # δ = clamp(1 / max D_I, equality_shift, 1e-6) from the condensed inequality weights, with the retry before restoration
-    equality_shift_from_weights::Bool = false
-    # the largest equality shift the adaptive rules and the retry before restoration may reach
-    equality_shift_max::T = 1e-4
-    # primal shift of the condensed factorization = primal_shift_ratio * the equality shift (0: off)
-    primal_shift_ratio::T = 0.
-    # equality_shift_from_weights: delta = clamp(factor / max D_I, equality_shift, 1e-6)
-    equality_shift_weight_factor::T = 1.
-    # pivot feedback: keep the smallest/largest pivot ratio of the condensed factorization at this target (0: off)
-    equality_shift_pivot_target::T = 0.
-    # wrong inertia: retry the condensed factorization with a larger equality shift before the Hessian is
-    # perturbed (-1 keeps the KKT system's value: 1 under EqCondensedPreset; 0: off; 1: for that step;
-    # 2: kept as the base; 3: kept, decaying tenfold per factorization; 4: kept, lowered after a slowly
-    # contracting refinement; 5: as 4 with a backoff after failed retries; 6: as 1 with that backoff)
-    equality_shift_inertia_retry::Int = -1
-    # the retry only once the barrier parameter is at most this (the stall it addresses is near the solution)
-    equality_shift_retry_mu::T = Inf
-    # the factor by which each retry raises the equality shift
-    equality_shift_retry_factor::T = 100.
-    # multiplier on the refinement's step budget for a retried factorization
-    equality_shift_retry_refinement::Int = 3
+    # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
+    # the Hessian is perturbed (SparseCondensedKKTSystem, condense_equalities)
+    equality_shift_retry::Bool = true
     # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
     # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
     # failed after improve! ran out; warm start from where it stopped
@@ -547,15 +525,6 @@ function factorization_options(opt)
     # fallback to ShiftedPreset) refuses them
     opt.kkt_system <: SparseCondensedKKTSystem || return kw
     iszero(opt.equality_shift) || (kw = merge(kw, (; equality_shift = Float64(opt.equality_shift))))
-    opt.equality_shift_adaptive && (kw = merge(kw, (; equality_shift_adaptive = true)))
-    opt.equality_shift_scaled && (kw = merge(kw, (; equality_shift_scaled = true)))
-    opt.equality_shift_from_weights && (kw = merge(kw, (; equality_shift_from_weights = true)))
-    opt.equality_shift_max == 1e-4 || (kw = merge(kw, (; equality_shift_max = Float64(opt.equality_shift_max))))
-    iszero(opt.primal_shift_ratio) || (kw = merge(kw, (; primal_shift_ratio = Float64(opt.primal_shift_ratio))))
-    opt.equality_shift_weight_factor == 1 || (kw = merge(kw, (; equality_shift_weight_factor = Float64(opt.equality_shift_weight_factor))))
-    iszero(opt.equality_shift_pivot_target) || (kw = merge(kw, (; equality_shift_pivot_target = Float64(opt.equality_shift_pivot_target))))
-    opt.equality_shift_inertia_retry < 0 || (kw = merge(kw, (; equality_shift_inertia_retry = opt.equality_shift_inertia_retry)))
-    opt.equality_shift_retry_factor == 100 || (kw = merge(kw, (; equality_shift_retry_factor = Float64(opt.equality_shift_retry_factor))))
-    opt.equality_shift_retry_refinement == 3 || (kw = merge(kw, (; equality_shift_retry_refinement = opt.equality_shift_retry_refinement)))
+    opt.equality_shift_retry || (kw = merge(kw, (; equality_shift_retry = false)))
     return kw
 end

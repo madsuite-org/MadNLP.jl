@@ -32,13 +32,6 @@ function factorize_wrapper!(solver::AbstractMadNLPSolver)
     build_kkt!(get_kkt(solver))
     @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
     get_cnt(solver).factorization_cnt += 1
-    # at most two immediate refactorizations from the pivot feedback
-    for _ in 1:2
-        pivot_feedback!(get_kkt(solver)) || break
-        build_kkt!(get_kkt(solver))
-        @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
-        get_cnt(solver).factorization_cnt += 1
-    end
     return
 end
 

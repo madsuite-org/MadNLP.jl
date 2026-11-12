@@ -151,15 +151,6 @@ struct LinearSolverBarrier{T} <: AbstractLinearSolver{T}
 end
 LinearSolverBarrier(s::LinearSolverBarrier) = s
 
-"""
-    pivot_ratio(linear_solver)
-
-The ratio of the smallest to the largest pivot (in absolute value) of the last factorization, or
-`nothing` when the solver does not report its pivots.
-"""
-pivot_ratio(M) = nothing
-pivot_ratio(M::LinearSolverBarrier) = pivot_ratio(getfield(M, :wrapped))
-
 Base.getproperty(s::LinearSolverBarrier, name::Symbol) =
     name === :wrapped ? getfield(s, :wrapped) : getproperty(getfield(s, :wrapped), name)
 Base.hasproperty(s::LinearSolverBarrier, name::Symbol) =
