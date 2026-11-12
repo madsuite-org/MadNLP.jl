@@ -320,7 +320,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), zero(T)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -760,8 +760,14 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
     δnew = min(δ * 100, kkt.eq_shift[4])
     kkt.eq_shift[13] += 1
     kkt.eq_shift[11] = δnew
+    kkt.eq_shift[15] = zero(T)
     return true
 end
+
+# A retried step replaces the regularized one only if its refinement converged (to richardson_tol,
+# not merely to the acceptable tolerance): far from the solution an inaccurate step on the true
+# system is worse than an accurate one on the perturbed system (NARX_CFy: restoration failures).
+retry_converged(kkt::SparseCondensedKKTSystem) = kkt.eq_shift[15] > 0
 
 # A retried factorization gave the correct inertia and an accurate step: modes 2 to 5 keep its shift
 # as the base of the next factorizations (modes 1 and 6 drop it). A shift whose retry failed is never
@@ -809,6 +815,7 @@ end
 const EQ_SHIFT_MIN = 1e-10
 const EQ_SHIFT_MAX = 1e-4
 function refinement_feedback!(kkt::SparseCondensedKKTSystem{T}, steps, r_first, r_last, converged) where {T}
+    kkt.eq_shift[15] = converged ? one(T) : zero(T)
     steps >= 2 || return
     ρ = (r_last / max(r_first, floatmin(T)))^(one(T) / (steps - 1))
     kkt.eq_shift[9] = ρ

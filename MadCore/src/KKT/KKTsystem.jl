@@ -196,6 +196,7 @@ function regularize_diagonal! end
 # perturbed (SparseCondensedKKTSystem: a larger equality shift). Returns whether it did.
 inertia_retry!(::AbstractKKTSystem) = false
 inertia_retry_keep!(::AbstractKKTSystem) = nothing
+retry_converged(::AbstractKKTSystem) = true
 
 """
     is_inertia_correct(kkt::AbstractKKTSystem, n::Int, m::Int, p::Int)
