@@ -234,6 +234,7 @@ function create_kkt_system(
     equality_shift_weight_factor::Float64 = 1.0,
     equality_shift_pivot_target::Float64 = 0.0,
     equality_shift_inertia_retry::Int = 0,
+    equality_shift_retry_factor::Float64 = 100.0,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -320,7 +321,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), T(equality_shift_retry_factor)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -757,7 +758,7 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
         backoff && (kkt.eq_shift[14] = T(10))
         return false
     end
-    δnew = min(δ * 100, kkt.eq_shift[4])
+    δnew = min(δ * kkt.eq_shift[15], kkt.eq_shift[4])
     kkt.eq_shift[13] += 1
     kkt.eq_shift[11] = δnew
     return true

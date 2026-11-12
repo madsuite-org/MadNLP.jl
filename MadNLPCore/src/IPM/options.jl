@@ -373,6 +373,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     equality_shift_inertia_retry::Int = 0
     # the retry only once the barrier parameter is at most this (the stall it addresses is near the solution)
     equality_shift_retry_mu::T = Inf
+    # the factor by which each retry raises the equality shift
+    equality_shift_retry_factor::T = 100.
     # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
     # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
     # failed after improve! ran out; warm start from where it stopped
@@ -550,5 +552,6 @@ function factorization_options(opt)
     opt.equality_shift_weight_factor == 1 || (kw = merge(kw, (; equality_shift_weight_factor = Float64(opt.equality_shift_weight_factor))))
     iszero(opt.equality_shift_pivot_target) || (kw = merge(kw, (; equality_shift_pivot_target = Float64(opt.equality_shift_pivot_target))))
     iszero(opt.equality_shift_inertia_retry) || (kw = merge(kw, (; equality_shift_inertia_retry = opt.equality_shift_inertia_retry)))
+    opt.equality_shift_retry_factor == 100 || (kw = merge(kw, (; equality_shift_retry_factor = Float64(opt.equality_shift_retry_factor))))
     return kw
 end
