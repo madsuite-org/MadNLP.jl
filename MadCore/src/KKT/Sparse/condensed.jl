@@ -737,7 +737,8 @@ function begin_factorization!(kkt::SparseCondensedKKTSystem{T}) where {T}
 end
 
 # Wrong inertia (equality_shift_inertia_retry > 0): before the Hessian is perturbed, the factorization
-# is retried with δ a hundredfold larger, at most twice per step, up to equality_shift_max. A larger δ
+# is retried with δ a hundredfold larger, at most twice per step, up to equality_shift_max, then
+# once with δ a hundredfold smaller than the base. A larger δ
 # reduces the cancellation in the pivots of the null space of the equality Jacobian (cont5_2_1_l:
 # δ = 1e-8 needs δ_w ≈ 1e-3 on 85% of the iterations and stalls at the iteration limit; δ = 1e-6 needs
 # δ_w on 17% and converges). Mode 1 drops the raised δ after this step; mode 2 keeps it as the base of
@@ -752,11 +753,12 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}, k::Integer, inf_pr, to
     # for the next 2^n factorizations after n consecutive failed steps (at most 64); a successful
     # retry resets it (inertia_retry_keep!). arki0009 and NARX_CFy spent two factorizations per
     # iteration on retries that never succeeded.
-    if kkt.eq_shift[13] >= 2
-        if kkt.eq_shift[13] == 2
+    n = kkt.eq_shift[13]
+    if n >= 3
+        if n == 3
             kkt.eq_shift[21] = min(kkt.eq_shift[21] + 1, T(6))
             kkt.eq_shift[14] = T(2)^kkt.eq_shift[21]
-            kkt.eq_shift[13] = T(3)
+            kkt.eq_shift[13] = T(4)
         end
         return false
     end
@@ -776,9 +778,16 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}, k::Integer, inf_pr, to
         k < kkt.eq_shift[20] && return false
     end
     kkt.eq_shift[19] += one(T)
-    δ = kkt.eq_shift[7]
-    δ >= kkt.eq_shift[4] && return false
-    δnew = min(δ * kkt.eq_shift[15], kkt.eq_shift[4])
+    if n == 2
+        # third attempt, a hundredfold smaller shift than the base: the condensed matrix can be
+        # indefinite at the base shift and positive definite at a smaller one, where JᵀJ/δ dominates
+        # (clnlbeam: δ = 1e-8 needs δ_w ≈ 3e-4 on most iterations and stalls; δ = 1e-10 needs none)
+        δnew = kkt.eq_shift[3] / 100
+    else
+        δ = kkt.eq_shift[7]
+        δ >= kkt.eq_shift[4] && return false
+        δnew = min(δ * kkt.eq_shift[15], kkt.eq_shift[4])
+    end
     kkt.eq_shift[13] += 1
     kkt.eq_shift[11] = δnew
     return true
