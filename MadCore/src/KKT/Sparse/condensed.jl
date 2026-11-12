@@ -764,6 +764,11 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
     return true
 end
 
+# A retried factorization (a larger shift) contracts the refinement more slowly: three times the
+# steps (case8387_pegase_polar: 10 steps leave the equality residual at 3e-8 and the solve stalls at
+# the iteration limit; 30 steps converge in 180 iterations, as without the retry).
+refinement_budget(kkt::SparseCondensedKKTSystem) = kkt.eq_shift[13] > 0 ? 3 : 1
+
 # A retried factorization gave the correct inertia and an accurate step: modes 2 to 5 keep its shift
 # as the base of the next factorizations (modes 1 and 6 drop it). A shift whose retry failed is never
 # kept: the next factorizations would run at a shift that only worsened the refinement.

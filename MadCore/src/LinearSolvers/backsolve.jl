@@ -60,7 +60,7 @@ function solve_refine!(
             iterator.cnt.ir += 1
             iterator.cnt.ir == 1 && (first_ratio = residual_ratio)
 
-            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
+            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter * refinement_budget(iterator.kkt)) || (residual_ratio < iterator.opt.richardson_tol)
                 break
             end
         end

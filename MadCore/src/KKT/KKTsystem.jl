@@ -196,6 +196,9 @@ function regularize_diagonal! end
 # perturbed (SparseCondensedKKTSystem: a larger equality shift). Returns whether it did.
 inertia_retry!(::AbstractKKTSystem) = false
 inertia_retry_keep!(::AbstractKKTSystem) = nothing
+# Multiplier on the refinement's step budget for the current factorization (a retried condensed
+# factorization, at a larger equality shift, contracts more slowly).
+refinement_budget(::AbstractKKTSystem) = 1
 
 """
     is_inertia_correct(kkt::AbstractKKTSystem, n::Int, m::Int, p::Int)
