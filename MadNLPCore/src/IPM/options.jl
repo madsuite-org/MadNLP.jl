@@ -376,6 +376,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     equality_shift_retry_mu::T = Inf
     # the factor by which each retry raises the equality shift
     equality_shift_retry_factor::T = 100.
+    # multiplier on the refinement's step budget for a retried factorization
+    equality_shift_retry_refinement::Int = 3
     # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
     # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
     # failed after improve! ran out; warm start from where it stopped
@@ -554,5 +556,6 @@ function factorization_options(opt)
     iszero(opt.equality_shift_pivot_target) || (kw = merge(kw, (; equality_shift_pivot_target = Float64(opt.equality_shift_pivot_target))))
     opt.equality_shift_inertia_retry < 0 || (kw = merge(kw, (; equality_shift_inertia_retry = opt.equality_shift_inertia_retry)))
     opt.equality_shift_retry_factor == 100 || (kw = merge(kw, (; equality_shift_retry_factor = Float64(opt.equality_shift_retry_factor))))
+    opt.equality_shift_retry_refinement == 3 || (kw = merge(kw, (; equality_shift_retry_refinement = opt.equality_shift_retry_refinement)))
     return kw
 end

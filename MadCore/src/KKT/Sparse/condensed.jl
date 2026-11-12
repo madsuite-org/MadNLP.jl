@@ -235,6 +235,7 @@ function create_kkt_system(
     equality_shift_pivot_target::Float64 = 0.0,
     equality_shift_inertia_retry::Int = 0,
     equality_shift_retry_factor::Float64 = 100.0,
+    equality_shift_retry_refinement::Int = 3,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -321,7 +322,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), T(equality_shift_retry_factor)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), T(equality_shift_retry_factor), T(equality_shift_retry_refinement)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -764,10 +765,10 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
     return true
 end
 
-# A retried factorization (a larger shift) contracts the refinement more slowly: three times the
-# steps (case8387_pegase_polar: 10 steps leave the equality residual at 3e-8 and the solve stalls at
+# A retried factorization (a larger shift) contracts the refinement more slowly: equality_shift_retry_refinement
+# times the steps (case8387_pegase_polar: 10 steps leave the equality residual at 3e-8 and the solve stalls at
 # the iteration limit; 30 steps converge in 180 iterations, as without the retry).
-refinement_budget(kkt::SparseCondensedKKTSystem) = kkt.eq_shift[13] > 0 ? 3 : 1
+refinement_budget(kkt::SparseCondensedKKTSystem) = kkt.eq_shift[13] > 0 ? Int(kkt.eq_shift[16]) : 1
 
 # A retried factorization gave the correct inertia and an accurate step: modes 2 to 5 keep its shift
 # as the base of the next factorizations (modes 1 and 6 drop it). A shift whose retry failed is never
