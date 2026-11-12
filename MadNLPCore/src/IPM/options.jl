@@ -169,7 +169,7 @@ function preset_options(::Type{EqCondensedPreset}, ::Type{T}, kkt_system, tol) w
     return (;
         equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
         dual_initialization_method = DualInitializeLeastSquares,
-        kkt_options = Dict{Symbol, Any}(:condense_equalities => true, :equality_shift => Float64(100 * preset_perturbation(T))),
+        kkt_options = Dict{Symbol, Any}(:condense_equalities => true, :equality_shift => Float64(100 * preset_perturbation(T)), :equality_shift_inertia_retry => 1),
     )
 end
 
@@ -367,10 +367,11 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     equality_shift_weight_factor::T = 1.
     # pivot feedback: keep the smallest/largest pivot ratio of the condensed factorization at this target (0: off)
     equality_shift_pivot_target::T = 0.
-    # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
-    # the Hessian is perturbed (0: off; 1: for that step; 2: kept as the base; 3: kept, decaying tenfold per factorization;
-    # 4: kept, lowered after a slowly contracting refinement; 5: as 4 with a backoff after failed retries; 6: as 1 with that backoff)
-    equality_shift_inertia_retry::Int = 0
+    # wrong inertia: retry the condensed factorization with a larger equality shift before the Hessian is
+    # perturbed (-1 keeps the KKT system's value: 1 under EqCondensedPreset; 0: off; 1: for that step;
+    # 2: kept as the base; 3: kept, decaying tenfold per factorization; 4: kept, lowered after a slowly
+    # contracting refinement; 5: as 4 with a backoff after failed retries; 6: as 1 with that backoff)
+    equality_shift_inertia_retry::Int = -1
     # the retry only once the barrier parameter is at most this (the stall it addresses is near the solution)
     equality_shift_retry_mu::T = Inf
     # the factor by which each retry raises the equality shift
@@ -551,7 +552,7 @@ function factorization_options(opt)
     iszero(opt.primal_shift_ratio) || (kw = merge(kw, (; primal_shift_ratio = Float64(opt.primal_shift_ratio))))
     opt.equality_shift_weight_factor == 1 || (kw = merge(kw, (; equality_shift_weight_factor = Float64(opt.equality_shift_weight_factor))))
     iszero(opt.equality_shift_pivot_target) || (kw = merge(kw, (; equality_shift_pivot_target = Float64(opt.equality_shift_pivot_target))))
-    iszero(opt.equality_shift_inertia_retry) || (kw = merge(kw, (; equality_shift_inertia_retry = opt.equality_shift_inertia_retry)))
+    opt.equality_shift_inertia_retry < 0 || (kw = merge(kw, (; equality_shift_inertia_retry = opt.equality_shift_inertia_retry)))
     opt.equality_shift_retry_factor == 100 || (kw = merge(kw, (; equality_shift_retry_factor = Float64(opt.equality_shift_retry_factor))))
     return kw
 end
