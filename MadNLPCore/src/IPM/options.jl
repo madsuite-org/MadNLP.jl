@@ -371,6 +371,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # the Hessian is perturbed (0: off; 1: for that step; 2: kept as the base; 3: kept, decaying tenfold per factorization;
     # 4: kept, lowered after a slowly contracting refinement; 5: as 4 with a backoff after failed retries; 6: as 1 with that backoff)
     equality_shift_inertia_retry::Int = 0
+    # the retry only once the barrier parameter is at most this (the stall it addresses is near the solution)
+    equality_shift_retry_mu::T = Inf
     # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
     # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
     # failed after improve! ran out; warm start from where it stopped
