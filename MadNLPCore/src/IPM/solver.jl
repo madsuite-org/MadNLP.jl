@@ -897,7 +897,7 @@ function inertia_correction!(
         get_cnt(solver).factorization_cnt += 1
         num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
         solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
-            solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver)) && retry_converged(get_kkt(solver))
+            solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver))
         else
             false
         end
