@@ -589,10 +589,11 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
         set_aug_rhs!(solver, get_kkt(solver), get_c(solver), get_mu(solver))
 
         dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
-        factorize_wrapper!(solver)
-        solve_refine_wrapper!(
-            get_d(solver), solver, get_p(solver), get__w4(solver)
-        )
+        # the step with inertia correction, as in the regular phase: a factorization that needs the
+        # matrix regularized (a Cholesky factorization of a nonconvex problem fails outright without
+        # it) must not hand back an unregularized, possibly non-finite step
+        inertia_correction!(get_inertia_corrector(solver), solver) || return ROBUST
+        all(isfinite, full(get_d(solver))) || return ROBUST
 
         set_ftype!(solver, "f")
     end
