@@ -49,10 +49,10 @@ function MadCore.default_options(
     opt.cudss_pivoting = false
     opt.cudss_matching = false
     opt.cudss_deferred_analysis = true
-    # conservative inertia: a pivot that cancelled to a relative rounding error above 3% of its
-    # diagonal entry counts as incorrect inertia (case9241_pegase: 83 and 89 iterations instead of
-    # 2594 and the iteration limit)
-    opt.cudss_pivot_rel_error = 0.03
+    # conservative inertia: a pivot whose relative rounding error (eps A_ii / d_i) exceeds 10% counts
+    # as incorrect inertia; benchmark job 179 (GPU, 1579 of 1582 instances): 1429 solved against 1423
+    # without it, ACOPF 128 and CUTEst 1206 (0.03 also gave ACOPF 128 but lost CUTEst instances)
+    opt.cudss_pivot_rel_error = 0.1
     return opt
 end
 
