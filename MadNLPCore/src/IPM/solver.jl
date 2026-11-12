@@ -891,7 +891,7 @@ function inertia_correction!(
         false
     end
     # the KKT system may change its factorized matrix before the Hessian is perturbed
-    while !solve_status && get_mu(solver) <= get_opt(solver).equality_shift_retry_mu && inertia_retry!(get_kkt(solver))
+    while !solve_status && get_mu(solver) <= get_opt(solver).equality_shift_retry_mu && inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
         build_kkt!(get_kkt(solver))
         factorize!(get_kkt(solver).linear_solver)
         get_cnt(solver).factorization_cnt += 1

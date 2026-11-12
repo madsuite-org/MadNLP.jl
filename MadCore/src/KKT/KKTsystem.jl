@@ -194,7 +194,7 @@ function regularize_diagonal! end
 
 # A KKT system may change its factorized matrix after a wrong inertia, before the Hessian is
 # perturbed (SparseCondensedKKTSystem: a larger equality shift). Returns whether it did.
-inertia_retry!(::AbstractKKTSystem) = false
+inertia_retry!(::AbstractKKTSystem, k, inf_pr, tol) = false
 inertia_retry_keep!(::AbstractKKTSystem) = nothing
 # Multiplier on the refinement's step budget for the current factorization (a retried condensed
 # factorization, at a larger equality shift, contracts more slowly).

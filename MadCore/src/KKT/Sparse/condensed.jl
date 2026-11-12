@@ -322,7 +322,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), T(equality_shift_retry_factor), T(equality_shift_retry_refinement)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), T(equality_shift_retry_factor), T(equality_shift_retry_refinement), zero(T), zero(T), zero(T), zero(T)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -745,9 +745,24 @@ end
 # mode 4 keeps it and lowers it tenfold after a slowly contracting refinement (refinement_feedback!);
 # mode 5 is mode 4 with a backoff after a step whose retries failed; mode 6 is mode 1 with that backoff.
 # Returns whether the matrix changed (the caller rebuilds and refactorizes).
-function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
+function inertia_retry!(kkt::SparseCondensedKKTSystem{T}, k::Integer, inf_pr, tol) where {T}
     mode = kkt.eq_shift[12]
     (mode > 0 && !iszero(kkt.eq_shift[1]) && !isempty(kkt.ind_eq) && kkt.eq_shift[13] < 2) || return false
+    # watchdog: a retried step whose refinement does not converge can leave the equality residual
+    # in place (case8387_pegase_rect, case2853_sdet_polar: the primal infeasibility stalls above the
+    # tolerance for hundreds of iterations). Every 20 iterations, if retries were used and the
+    # primal infeasibility is above the tolerance and did not halve, no retry for the next 100.
+    k < kkt.eq_shift[20] && return false
+    if k - kkt.eq_shift[17] >= 20
+        if kkt.eq_shift[19] > 0 && inf_pr > tol && inf_pr > kkt.eq_shift[18] / 2
+            kkt.eq_shift[20] = T(k + 100)
+        end
+        kkt.eq_shift[17] = T(k)
+        kkt.eq_shift[18] = T(inf_pr)
+        kkt.eq_shift[19] = zero(T)
+        k < kkt.eq_shift[20] && return false
+    end
+    kkt.eq_shift[19] += one(T)
     # modes 5 and 6: after a step whose retries all failed (a genuinely indefinite matrix), no retry
     # for the next 10 factorizations
     backoff = mode >= 5
