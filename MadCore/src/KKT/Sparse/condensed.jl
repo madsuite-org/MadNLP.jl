@@ -322,7 +322,7 @@ function create_kkt_system(
         aug_com, diag_buffer, dptr, hptr, jptr,
         border,
         _linear_solver,
-        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), T(equality_shift_retry_factor), T(equality_shift_retry_refinement), zero(T), zero(T), zero(T), zero(T)],
+        ind_ineq, _to_index_vector(ind_ineq, ind_eq_h), [condense_equalities ? T(equality_shift) : zero(T), zero(T), T(equality_shift), T(equality_shift_max), T(primal_shift_ratio), T(equality_shift_weight_factor), T(equality_shift), T(equality_shift_pivot_target), zero(T), zero(T), zero(T), T(equality_shift_inertia_retry), zero(T), zero(T), T(equality_shift_retry_factor), T(equality_shift_retry_refinement), zero(T), zero(T), zero(T), zero(T), zero(T)],
         condense_equalities && (equality_shift_adaptive || equality_shift_from_weights), condense_equalities && equality_shift_scaled,
         condense_equalities && equality_shift_from_weights,
         (condense_equalities && equality_shift_scaled ? (fill!(VT(undef, m), one(T)), fill!(VT(undef, n), one(T)), copy(jt_csc)) : (VT(undef, 0), VT(undef, 0), jt_csc))...,
@@ -743,11 +743,24 @@ end
 # δ_w on 17% and converges). Mode 1 drops the raised δ after this step; mode 2 keeps it as the base of
 # the next factorizations; mode 3 keeps it and lets it decay tenfold per factorization back to the base;
 # mode 4 keeps it and lowers it tenfold after a slowly contracting refinement (refinement_feedback!);
-# mode 5 is mode 4 with a backoff after a step whose retries failed; mode 6 is mode 1 with that backoff.
+# modes 5 and 6 are 4 and 1 (their fixed backoff is superseded by the exponential one below).
 # Returns whether the matrix changed (the caller rebuilds and refactorizes).
 function inertia_retry!(kkt::SparseCondensedKKTSystem{T}, k::Integer, inf_pr, tol) where {T}
     mode = kkt.eq_shift[12]
-    (mode > 0 && !iszero(kkt.eq_shift[1]) && !isempty(kkt.ind_eq) && kkt.eq_shift[13] < 2) || return false
+    (mode > 0 && !iszero(kkt.eq_shift[1]) && !isempty(kkt.ind_eq)) || return false
+    # both retries of this step failed (a genuinely indefinite matrix): exponential backoff, no retry
+    # for the next 2^n factorizations after n consecutive failed steps (at most 64); a successful
+    # retry resets it (inertia_retry_keep!). arki0009 and NARX_CFy spent two factorizations per
+    # iteration on retries that never succeeded.
+    if kkt.eq_shift[13] >= 2
+        if kkt.eq_shift[13] == 2
+            kkt.eq_shift[21] = min(kkt.eq_shift[21] + 1, T(6))
+            kkt.eq_shift[14] = T(2)^kkt.eq_shift[21]
+            kkt.eq_shift[13] = T(3)
+        end
+        return false
+    end
+    kkt.eq_shift[14] > 0 && return false
     # watchdog: a retried step whose refinement does not converge can leave the equality residual
     # in place (case8387_pegase_rect, case2853_sdet_polar: the primal infeasibility stalls above the
     # tolerance for hundreds of iterations). Every 20 iterations, if retries were used and the
@@ -763,17 +776,8 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}, k::Integer, inf_pr, to
         k < kkt.eq_shift[20] && return false
     end
     kkt.eq_shift[19] += one(T)
-    # modes 5 and 6: after a step whose retries all failed (a genuinely indefinite matrix), no retry
-    # for the next 10 factorizations
-    backoff = mode >= 5
-    if backoff && kkt.eq_shift[14] > 0
-        return false
-    end
     δ = kkt.eq_shift[7]
-    if δ >= kkt.eq_shift[4]
-        backoff && (kkt.eq_shift[14] = T(10))
-        return false
-    end
+    δ >= kkt.eq_shift[4] && return false
     δnew = min(δ * kkt.eq_shift[15], kkt.eq_shift[4])
     kkt.eq_shift[13] += 1
     kkt.eq_shift[11] = δnew
@@ -789,6 +793,7 @@ refinement_budget(kkt::SparseCondensedKKTSystem) = kkt.eq_shift[13] > 0 ? Int(kk
 # as the base of the next factorizations (modes 1 and 6 drop it). A shift whose retry failed is never
 # kept: the next factorizations would run at a shift that only worsened the refinement.
 function inertia_retry_keep!(kkt::SparseCondensedKKTSystem{T}) where {T}
+    kkt.eq_shift[21] = zero(T)
     2 <= kkt.eq_shift[12] <= 5 && kkt.eq_shift[11] > 0 && (kkt.eq_shift[1] = kkt.eq_shift[11])
     return
 end
