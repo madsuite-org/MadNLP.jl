@@ -901,6 +901,7 @@ function inertia_correction!(
         else
             false
         end
+        solve_status && inertia_retry_keep!(get_kkt(solver))
     end
     # δ_c alone must give an accurate solve; otherwise the joint schedule takes over
     if solve_status && get_del_c(solver) != zero(T) && !started_dw

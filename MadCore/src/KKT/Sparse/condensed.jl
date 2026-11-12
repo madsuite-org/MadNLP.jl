@@ -760,9 +760,15 @@ function inertia_retry!(kkt::SparseCondensedKKTSystem{T}) where {T}
     δnew = min(δ * 100, kkt.eq_shift[4])
     kkt.eq_shift[13] += 1
     kkt.eq_shift[11] = δnew
-    # modes 2 to 5 keep the raised shift; modes 1 and 6 drop it after this step
-    2 <= mode <= 5 && (kkt.eq_shift[1] = δnew)
     return true
+end
+
+# A retried factorization gave the correct inertia and an accurate step: modes 2 to 5 keep its shift
+# as the base of the next factorizations (modes 1 and 6 drop it). A shift whose retry failed is never
+# kept: the next factorizations would run at a shift that only worsened the refinement.
+function inertia_retry_keep!(kkt::SparseCondensedKKTSystem{T}) where {T}
+    2 <= kkt.eq_shift[12] <= 5 && kkt.eq_shift[11] > 0 && (kkt.eq_shift[1] = kkt.eq_shift[11])
+    return
 end
 
 # After a refined solve failed: adjust the equality shift of this factorization, at most twice, a

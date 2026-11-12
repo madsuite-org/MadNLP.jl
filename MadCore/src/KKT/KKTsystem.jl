@@ -195,6 +195,7 @@ function regularize_diagonal! end
 # A KKT system may change its factorized matrix after a wrong inertia, before the Hessian is
 # perturbed (SparseCondensedKKTSystem: a larger equality shift). Returns whether it did.
 inertia_retry!(::AbstractKKTSystem) = false
+inertia_retry_keep!(::AbstractKKTSystem) = nothing
 
 """
     is_inertia_correct(kkt::AbstractKKTSystem, n::Int, m::Int, p::Int)
