@@ -110,9 +110,102 @@ end
 
 `view(x, I)` without the bounds check, for an index vector `I` built by the solver and
 valid by construction. On a GPU the check of an index vector is a device reduction whose
-result the host waits for, so a checked view costs a synchronization on every call.
+result the host waits for, so a checked view costs a synchronization on every call. A view
+of a view stays nested: merging the indices would index the outer range by `I`, which on a
+GPU allocates a new index vector on every call.
 """
-@inline _iview(x, I) = Base.unsafe_view(x, I)
+@inline _iview(x, I) = SubArray(x, (I,))
+
+# Deferred reductions -------------------------------------------------------
+#
+# A scalar reduction over device arrays makes the host wait for the device. `_reduce` may
+# return a deferred scalar instead of a number, `_lazy` combines numbers and deferred scalars,
+# and `_values` returns the numbers of several at once, with one wait. A function written with
+# them computes its value right away on host arrays; `_deferred(f, args...)` is the deferred
+# form of `f`, which a GPU backend defines for the reductions on the iteration path.
+
+"""
+    AbstractDeferredScalar
+
+A scalar that may still be on the device; [`_values`](@ref) returns its value.
+"""
+abstract type AbstractDeferredScalar end
+
+"""
+    _reduce(f, op, init, A, As...)
+
+`mapreduce(f, op, A, As...; init)`. A GPU backend returns an [`AbstractDeferredScalar`](@ref).
+"""
+_reduce(f::F, op::OP, init, As...) where {F, OP} = mapreduce(f, op, As...; init = init)
+
+struct LazyScalar{F, A <: Tuple} <: AbstractDeferredScalar
+    f::F
+    args::A
+end
+
+"""
+    _lazy(f, args...)
+
+`f(args...)`, deferred until [`_values`](@ref) when an argument is deferred.
+"""
+_lazy(f::F, args...) where {F} = any(a -> a isa AbstractDeferredScalar, args) ? LazyScalar(f, args) : f(args...)
+
+"""
+    _values(xs...)
+
+The values of numbers and deferred scalars, as a tuple; a GPU backend waits for the device once.
+"""
+function _values(xs...)
+    foreach(_fetch!, xs)
+    vals = map(_value, xs)
+    foreach(_release!, xs)
+    return vals
+end
+_value1(x) = only(_values(x))
+
+_value(x) = x
+_value(x::LazyScalar) = x.f(map(_value, x.args)...)
+_fetch!(x) = nothing
+_fetch!(x::LazyScalar) = foreach(_fetch!, x.args)
+_release!(x) = nothing
+_release!(x::LazyScalar) = foreach(_release!, x.args)
+
+"""
+    _deferred(f, args...)
+
+The deferred form of the reduction `f(args...)`; by default, `f(args...)`.
+"""
+_deferred(f::F, args...) where {F} = f(args...)
+
+"""
+    _reset_deferred!()
+
+Discard deferred reductions that were never read (after an exception, say). A backend that
+defers reductions adds its reset to `_DEFERRED_RESETS`.
+"""
+_reset_deferred!() = foreach(f -> f(), _DEFERRED_RESETS)
+const _DEFERRED_RESETS = Any[]
+
+"""
+    _assign!(dest, f, args...)
+
+`dest .= f.(args...)` for arrays `args` (capture scalars in `f`), where `dest` overlaps none of
+`args` except elementwise (an argument may be `dest` itself). Broadcasting copies an argument that might overlap `dest`, which
+it cannot rule out for views of one vector through an index vector; a GPU backend runs one
+kernel without the copy.
+"""
+_assign!(dest, f::F, args...) where {F} = (dest .= f.(args...); dest)
+
+"""
+    _assign2!(dest1, f1, args1::Tuple, dest2, f2, args2::Tuple)
+
+[`_assign!`](@ref) twice; the two must be independent. A GPU backend runs both in one kernel.
+"""
+function _assign2!(dest1, f1::F1, args1::Tuple, dest2, f2::F2, args2::Tuple) where {F1, F2}
+    _assign!(dest1, f1, args1...)
+    _assign!(dest2, f2, args2...)
+    return
+end
 
 """
     _spmv!(y, A, x, alpha, beta)

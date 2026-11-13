@@ -21,6 +21,7 @@ end
     include("cpu_test.jl")
     include("gpu_test.jl")
     include("timer_test.jl")
+    include("reductions_test.jl")
     include("augmented_transfer_test.jl")
     if HAS_CUDA && CUDA.functional()
         test_augmented_transfer(CuArray, MadCoreGPU.LapackCUDASolver)

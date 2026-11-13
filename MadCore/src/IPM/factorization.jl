@@ -200,7 +200,7 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     _spmv!(kkt.buffer2, kkt.jt_csc', wx, one(T), zero(T))
     _iview(wz, b.ind_S) .= _iview(kkt.diag_buffer, b.ind_S) .* (_iview(kkt.buffer2, b.ind_S) .- _iview(kkt.buffer, b.ind_S))
     _iview(wz, b.ind_D) .= pdy
-    ws .= (ws .+ _iview(wz, kkt.ind_ineq)) ./ Σs
+    _assign!(ws, (s, z, Σ) -> (s + z) / Σ, ws, _iview(wz, kkt.ind_ineq), Σs)
 
     finish_aug_solve!(kkt, w)
     return w
