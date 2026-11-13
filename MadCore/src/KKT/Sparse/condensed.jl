@@ -477,7 +477,7 @@ end
 
 function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVector)
     n = size(kkt.hess_com, 1)
-    mul!(view(y, 1:n), kkt.jt_csc, x)
+    _spmv!(view(y, 1:n), kkt.jt_csc, x, one(eltype(y)), zero(eltype(y)))
     view(y, (n + 1):length(y)) .= .-_iview(x, kkt.ind_ineq)
     return y
 end

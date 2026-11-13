@@ -102,9 +102,9 @@ function MadCore.mul!(
     ws = view(MadCore.full(w), (n + 1):(n + ns))
     wz = view(MadCore.full(w), (n + ns + 1):(n + ns + m))
 
-    MadCore.mul!(wx, kkt.hess_com, xx, alpha, beta)
-    MadCore.mul!(wx, kkt.hess_com', xx, alpha, one(T))
-    MadCore.mul!(wx, kkt.jt_csc, xz, alpha, one(T))
+    MadCore._spmv!(wx, kkt.hess_com, xx, alpha, beta)
+    MadCore._spmv!(wx, kkt.hess_com', xx, alpha, one(T))
+    MadCore._spmv!(wx, kkt.jt_csc, xz, alpha, one(T))
     if !isempty(kkt.ext.diag_map_to)
         backend = get_backend(MadCore.full(w))
         _diag_operation_kernel!(backend)(
@@ -118,7 +118,7 @@ function MadCore.mul!(
         )
     end
 
-    MadCore.mul!(wz, kkt.jt_csc', xx, alpha, beta)
+    MadCore._spmv!(wz, kkt.jt_csc', xx, alpha, beta)
     MadCore._condensed_slack_mul!(ws, wz, xs, xz, kkt.ind_ineq, alpha, beta)
     return MadCore._kktmul!(
         w,
