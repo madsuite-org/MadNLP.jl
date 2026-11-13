@@ -324,6 +324,25 @@ end
     @test isa(time_madnlp.time_callbacks, NamedTuple)
 end
 
+@testset "MadNLP profiling counters" begin
+    nlp = MadNLPTests.HS15Model()
+    solver = MadNLPSolver(nlp; print_level=MadNLP.ERROR)
+    stats = MadNLP.solve!(solver)
+    cnt = solver.cnt
+    @test stats.status == MadNLP.SOLVE_SUCCEEDED
+    @test isempty(cnt.timer.starts)
+    eval_times = (cnt.eval_obj_time, cnt.eval_grad_time, cnt.eval_cons_time, cnt.eval_jac_time, cnt.eval_hess_time)
+    @test all(>(0), eval_times)
+    @test cnt.factorization_time > 0 && cnt.solve_time > 0
+    # the per-category regions are nested in the totals
+    @test sum(eval_times) <= cnt.eval_function_time
+    @test sum(eval_times) >= 0.5 * cnt.eval_function_time
+    @test cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time
+    @test cnt.factorization_time + cnt.solve_time >= 0.5 * cnt.linear_solver_time
+    @test cnt.backsolve_cnt >= cnt.k
+    @test cnt.factorization_cnt >= cnt.k
+end
+
 @testset "Adaptive barrier" begin
     nlp = MadNLPTests.HS15Model(; x0=[1.0, 1.0])
     ref = madnlp(nlp; print_level = MadNLP.ERROR)
