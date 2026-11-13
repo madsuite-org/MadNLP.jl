@@ -19,7 +19,6 @@ function solve_refine_wrapper!(d, solver, p, w)
             end
         end
     end
-    result || (get_cnt(solver).solve_failure_cnt += 1)
     # Get number of iterations in Richardson's iterative refinement
     iter_richardson = get_cnt(solver).ir
     get_cnt(solver).backsolve_cnt += iter_richardson

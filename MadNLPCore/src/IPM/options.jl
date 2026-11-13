@@ -356,12 +356,6 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
     # the Hessian is perturbed (SparseCondensedKKTSystem, condense_equalities)
     equality_shift_retry::Bool = true
-    # fallback: :none, :partial (GMRES + quality-function barrier), :shifted (ShiftedPreset) or
-    # :partial_then_shifted, after a failed solve or (fallback_on_solve_failure) a refined KKT solve that
-    # failed after improve! ran out; warm start from where it stopped
-    fallback::Symbol = :none
-    fallback_on_solve_failure::Bool = true
-    fallback_warm_start::Bool = true
 
     # initialization options
     dual_initialized::Bool = false

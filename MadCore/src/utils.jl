@@ -209,7 +209,6 @@ end
 
     factorization_cnt::Int = 0
     backsolve_cnt::Int = 0
-    solve_failure_cnt::Int = 0 # refined solves that failed after improve! ran out
 
     t1::Float64 = 0.
     t2::Float64 = 0.
