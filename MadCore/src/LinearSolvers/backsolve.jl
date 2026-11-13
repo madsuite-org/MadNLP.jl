@@ -47,7 +47,8 @@ function solve_refine!(
             axpy!(one(T), full(w), full(x))
             copyto!(full(w), full(b))
 
-            mul!(w, iterator.kkt, x, -one(T), one(T))
+            @timed_region iterator.cnt :kkt_mul_time mul!(w, iterator.kkt, x, -one(T), one(T))
+            iterator.cnt.kkt_mul_cnt += 1
 
             norm_w = norm(full(w), Inf)
             norm_x = norm(full(x), Inf)

@@ -145,10 +145,17 @@ calls forwarded below dispatch dynamically, a few times per iteration. They forw
 through `Base.invokelatest`, so linear solver methods added by packages loaded later do
 not invalidate the compiled interior-point code. Fields of the
 wrapped solver are reachable as fields of the barrier; the solver itself is `wrapped`.
+
+Once [`attach_counters!`](@ref) has given the barrier a `MadNLPCounters`, every
+`solve_linear_system!` through it is counted in `triangular_solve_cnt` and timed in
+`triangular_solve_time`.
 """
 struct LinearSolverBarrier{T} <: AbstractLinearSolver{T}
     wrapped::AbstractLinearSolver{T}
+    counters::Base.RefValue{Union{Nothing, MadNLPCounters}}
 end
+LinearSolverBarrier(s::AbstractLinearSolver{T}) where {T} =
+    LinearSolverBarrier{T}(s, Ref{Union{Nothing, MadNLPCounters}}(nothing))
 LinearSolverBarrier(s::LinearSolverBarrier) = s
 
 Base.getproperty(s::LinearSolverBarrier, name::Symbol) =
@@ -156,14 +163,27 @@ Base.getproperty(s::LinearSolverBarrier, name::Symbol) =
 Base.hasproperty(s::LinearSolverBarrier, name::Symbol) =
     name === :wrapped || hasproperty(getfield(s, :wrapped), name)
 
+"""
+    attach_counters!(linear_solver, cnt::MadNLPCounters)
+
+Count and time the triangular solves of `linear_solver` in `cnt`. Only a
+[`LinearSolverBarrier`](@ref) records them; for other solvers this does nothing.
+"""
+attach_counters!(s::LinearSolverBarrier, cnt::MadNLPCounters) = (getfield(s, :counters)[] = cnt; nothing)
+attach_counters!(s, cnt) = nothing
+
+function _timed_triangular_solve!(s::LinearSolverBarrier, x)
+    cnt = getfield(s, :counters)[]
+    cnt === nothing && return Base.invokelatest(solve_linear_system!, s.wrapped, x)
+    cnt.triangular_solve_cnt += 1
+    return @timed_region cnt :triangular_solve_time Base.invokelatest(solve_linear_system!, s.wrapped, x)
+end
+
 introduce(s::LinearSolverBarrier) = Base.invokelatest(introduce, s.wrapped)
 factorize!(s::LinearSolverBarrier) = (Base.invokelatest(factorize!, s.wrapped); s)
-solve_linear_system!(s::LinearSolverBarrier, x::AbstractVector) =
-    Base.invokelatest(solve_linear_system!, s.wrapped, x)
-solve_linear_system!(s::LinearSolverBarrier, x::AbstractKKTVector) =
-    Base.invokelatest(solve_linear_system!, s.wrapped, x)
-solve_linear_system!(s::LinearSolverBarrier, X::AbstractMatrix) =
-    Base.invokelatest(solve_linear_system!, s.wrapped, X)
+solve_linear_system!(s::LinearSolverBarrier, x::AbstractVector) = _timed_triangular_solve!(s, x)
+solve_linear_system!(s::LinearSolverBarrier, x::AbstractKKTVector) = _timed_triangular_solve!(s, x)
+solve_linear_system!(s::LinearSolverBarrier, X::AbstractMatrix) = _timed_triangular_solve!(s, X)
 is_factorized(s::LinearSolverBarrier) = Base.invokelatest(is_factorized, s.wrapped)::Bool
 is_inertia(s::LinearSolverBarrier) = Base.invokelatest(is_inertia, s.wrapped)::Bool
 inertia(s::LinearSolverBarrier) = Base.invokelatest(inertia, s.wrapped)

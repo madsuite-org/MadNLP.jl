@@ -6,7 +6,7 @@ function solve_refine_wrapper!(d, solver, p, w)
         result = _timed_solve_refine!(d, solver, p, w)
         # the KKT system first (a condensed system adjusts its equality shift), then the linear solver
         while !result && improve_kkt!(kkt)
-            build_kkt!(kkt)
+            @timed_region cnt :build_kkt_time build_kkt!(kkt)
             @timed_region cnt :factorization_time factorize!(kkt.linear_solver)
             cnt.factorization_cnt += 1
             result = _timed_solve_refine!(d, solver, p, w)
@@ -29,8 +29,10 @@ function factorize_wrapper!(solver::AbstractMadNLPSolver)
     @trace(get_logger(solver),"Factorization started.")
     cnt = get_cnt(solver)
     begin_factorization!(get_kkt(solver))
-    build_kkt!(get_kkt(solver))
-    @timed_region cnt :linear_solver_time @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
+    @timed_region cnt :linear_solver_time begin
+        @timed_region cnt :build_kkt_time build_kkt!(get_kkt(solver))
+        @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
+    end
     cnt.factorization_cnt += 1
     return
 end
