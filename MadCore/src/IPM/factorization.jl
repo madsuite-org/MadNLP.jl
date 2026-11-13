@@ -155,10 +155,10 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     if mD == 0
         kkt.buffer .= kkt.diag_buffer .* (wz .+ ws ./ Σs)
 
-        mul!(wx, kkt.jt_csc, kkt.buffer, one(T), one(T))
+        _spmv!(wx, kkt.jt_csc, kkt.buffer, one(T), one(T))
         solve_linear_system!(kkt.linear_solver, wx)
 
-        mul!(kkt.buffer2, kkt.jt_csc', wx) # TODO: investigate why directly using wz here is causing an error
+        _spmv!(kkt.buffer2, kkt.jt_csc', wx, one(T), zero(T)) # TODO: investigate why directly using wz here is causing an error
 
         wz .= .- kkt.buffer .+ kkt.diag_buffer .* kkt.buffer2
         ws .= (ws .+ wz) ./ Σs
@@ -175,14 +175,14 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     pdx = view(b.pd_buffer, 1:n)
     pdy = view(b.pd_buffer, (n + 1):(n + mD))
     pdx .= wx
-    mul!(pdx, kkt.jt_csc, kkt.buffer3, one(T), one(T))
+    _spmv!(pdx, kkt.jt_csc, kkt.buffer3, one(T), one(T))
     pdy .= _iview(kkt.buffer, b.ind_D)
 
     solve_linear_system!(kkt.linear_solver, b.pd_buffer)
 
     wx .= pdx
     # multipliers: recovered for the condensed rows, solved for the kept rows
-    mul!(kkt.buffer2, kkt.jt_csc', wx)
+    _spmv!(kkt.buffer2, kkt.jt_csc', wx, one(T), zero(T))
     _iview(wz, b.ind_S) .= _iview(kkt.diag_buffer, b.ind_S) .* (_iview(kkt.buffer2, b.ind_S) .- _iview(kkt.buffer, b.ind_S))
     _iview(wz, b.ind_D) .= pdy
     ws .= (ws .+ wz) ./ Σs
