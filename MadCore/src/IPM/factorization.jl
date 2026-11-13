@@ -171,20 +171,20 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     # J_Sᵀ D_S r_S to the primal block, the kept rows enter the border
     kkt.buffer .= wz .+ ws ./ Σs
     kkt.buffer3 .= kkt.diag_buffer .* kkt.buffer
-    view(kkt.buffer3, b.ind_D) .= zero(T)
+    _iview(kkt.buffer3, b.ind_D) .= zero(T)
     pdx = view(b.pd_buffer, 1:n)
     pdy = view(b.pd_buffer, (n + 1):(n + mD))
     pdx .= wx
     mul!(pdx, kkt.jt_csc, kkt.buffer3, one(T), one(T))
-    pdy .= view(kkt.buffer, b.ind_D)
+    pdy .= _iview(kkt.buffer, b.ind_D)
 
     solve_linear_system!(kkt.linear_solver, b.pd_buffer)
 
     wx .= pdx
     # multipliers: recovered for the condensed rows, solved for the kept rows
     mul!(kkt.buffer2, kkt.jt_csc', wx)
-    view(wz, b.ind_S) .= view(kkt.diag_buffer, b.ind_S) .* (view(kkt.buffer2, b.ind_S) .- view(kkt.buffer, b.ind_S))
-    view(wz, b.ind_D) .= pdy
+    _iview(wz, b.ind_S) .= _iview(kkt.diag_buffer, b.ind_S) .* (_iview(kkt.buffer2, b.ind_S) .- _iview(kkt.buffer, b.ind_S))
+    _iview(wz, b.ind_D) .= pdy
     ws .= (ws .+ wz) ./ Σs
 
     finish_aug_solve!(kkt, w)

@@ -561,11 +561,11 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     end
     # condensed block of the sparse rows, then the border
     nonzeros(b.jt_s) .= view(nonzeros(kkt.jt_csc), b.smap)
-    b.dbuf_s .= view(kkt.diag_buffer, b.ind_S)
+    b.dbuf_s .= _iview(kkt.diag_buffer, b.ind_S)
     _build_condensed_aug_coord!(kkt, b.aug_c, b.jt_s, b.dbuf_s)
     view(nonzeros(kkt.aug_com), b.cmap) .= nonzeros(b.aug_c)
     view(nonzeros(kkt.aug_com), b.dmap_pos) .= view(nonzeros(kkt.jt_csc), b.dmap_src)
-    view(nonzeros(kkt.aug_com), b.epos) .= view(Σd, b.ind_D) .- 1 ./ view(Σs, b.ind_D) .- b.delta[1]
+    view(nonzeros(kkt.aug_com), b.epos) .= _iview(Σd, b.ind_D) .- 1 ./ _iview(Σs, b.ind_D) .- b.delta[1]
     return
 end
 
