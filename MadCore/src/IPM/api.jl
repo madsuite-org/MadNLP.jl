@@ -59,7 +59,7 @@ function get_inf_pr_orig(solver::AbstractMadNLPSolver{T}) where {T}
         bound_violation.(c .+ s, slack(get_xl(solver)), slack(get_xu(solver))),
         abs.(y) .* abs.(c),
     )
-    return norm(buf, Inf)
+    return _value1(_reduce(abs, max, zero(T), buf))
 end
 # The convergence test uses this measure in place of the slack residual; the filter and the
 # barrier sub-problem keep the slack residual.

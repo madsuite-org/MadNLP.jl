@@ -24,11 +24,8 @@ end
 
 default_options(::Type{RichardsonIterator}, tol) = RichardsonOptions(richardson_tol=tol^(5/4), richardson_acceptable_tol=tol^(5/8))
 
-# (‖a‖∞, ‖b‖∞) in one reduction, so a GPU solve waits for the device once per refinement step
-_norm_inf_pair(a, b) = mapreduce(
-    (u, v) -> (abs(u), abs(v)), (p, q) -> (max(p[1], q[1]), max(p[2], q[2])), a, b;
-    init = (zero(eltype(a)), zero(eltype(b))),
-)
+# (‖a‖∞, ‖b‖∞), read together, so a GPU solve waits for the device once per refinement step
+_norm_inf_pair(a, b) = _values(_reduce(abs, max, zero(eltype(a)), a), _reduce(abs, max, zero(eltype(b)), b))
 
 function solve_refine!(
     x::VT,

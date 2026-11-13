@@ -32,9 +32,10 @@ function reset_slacks!(solver::AbstractMadNLPSolver{T}) where {T}
 end
 
 function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
-    theta = get_theta(get_c(solver))
-    varphi= get_varphi(get_obj_val(solver),get_x_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_ur(solver),get_mu(solver))
-    varphi_d = get_varphi_d(
+    # the reductions of the step are read together below (one wait on a GPU)
+    theta = _deferred(get_theta, get_c(solver))
+    varphi = _deferred(get_varphi, get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
+    varphi_d = _deferred(get_varphi_d,
         primal(get_f(solver)),
         primal(get_x(solver)),
         primal(get_xl(solver)),
@@ -42,27 +43,31 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         primal(get_d(solver)),
         get_mu(solver),
     )
-    # During a watchdog, steps are accepted relative to the saved reference, as in Ipopt.
-    if watchdog_active(solver)
-        wd = watchdog_state(solver)
-        theta, varphi, varphi_d = wd.theta_ref, wd.varphi_ref, wd.varphi_d_ref
-    end
 
-    alpha_max = get_alpha_max(
+    alpha_max = _deferred(get_alpha_max,
         primal(get_x(solver)),
         primal(get_xl(solver)),
         primal(get_xu(solver)),
         primal(get_d(solver)),
         get_tau(solver),
     )
-    set_alpha_z!(solver, get_alpha_z(get_zl_r(solver),get_zu_r(solver),dual_lb(get_d(solver)),dual_ub(get_d(solver)),get_tau(solver)))
+    alpha_z = _deferred(get_alpha_z, get_zl_r(solver), get_zu_r(solver), dual_lb(get_d(solver)), dual_ub(get_d(solver)), get_tau(solver))
+    rel_search_norm = _deferred(get_rel_search_norm, primal(get_x(solver)), primal(get_d(solver)))
+    theta, varphi, varphi_d, alpha_max, alpha_z, rel_search_norm =
+        _values(theta, varphi, varphi_d, alpha_max, alpha_z, rel_search_norm)
+    # During a watchdog, steps are accepted relative to the saved reference, as in Ipopt.
+    if watchdog_active(solver)
+        wd = watchdog_state(solver)
+        theta, varphi, varphi_d = wd.theta_ref, wd.varphi_ref, wd.varphi_d_ref
+    end
+    set_alpha_z!(solver, alpha_z)
     alpha_min = get_alpha_min(theta,varphi_d,get_theta_min(solver),get_opt(solver).gamma_theta,get_opt(solver).gamma_phi,
                                 get_opt(solver).alpha_min_frac,get_opt(solver).delta,get_opt(solver).s_theta,get_opt(solver).s_phi)
     get_cnt(solver).l = 1
     set_alpha!(solver, alpha_max)
     varphi_trial= zero(T)
     theta_trial = zero(T)
-    small_search_norm = get_rel_search_norm(primal(get_x(solver)), primal(get_d(solver))) < 10*eps(T)
+    small_search_norm = rel_search_norm < 10*eps(T)
     switching_condition = is_switching(varphi_d,get_alpha(solver),get_opt(solver).s_phi,get_opt(solver).delta,theta,get_opt(solver).s_theta)
     armijo_condition = false
     unsuccessful_iterate = false
@@ -74,8 +79,10 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         set_obj_val_trial!(solver, eval_f_wrapper(solver, get_x_trial(solver)))
         eval_cons_wrapper!(solver, get_c_trial(solver), get_x_trial(solver))
 
-        theta_trial = get_theta(get_c_trial(solver))
-        varphi_trial= get_varphi(get_obj_val_trial(solver),get_x_trial_lr(solver),get_xl_r(solver),get_xu_r(solver),get_x_trial_ur(solver),get_mu(solver))
+        theta_trial, varphi_trial = _values(
+            _deferred(get_theta, get_c_trial(solver)),
+            _deferred(get_varphi, get_obj_val_trial(solver), get_x_trial_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_trial_ur(solver), get_mu(solver)),
+        )
         armijo_condition = is_armijo(varphi_trial,varphi,get_opt(solver).eta_phi,get_alpha(solver),varphi_d)
 
         # A tiny step is accepted and flagged; the barrier update then decreases μ once. During a
