@@ -1,7 +1,7 @@
 module MadCoreGPUCUDAExt
 
 import LinearAlgebra
-import SparseArrays: SparseMatrixCSC, nonzeros, nnz
+import SparseArrays: SparseMatrixCSC, nonzeros, nnz, rowvals
 import LinearAlgebra: Symmetric, mul!
 
 import MadCore
@@ -38,6 +38,7 @@ include("cusolver.jl")
 include("cuda.jl")
 include("timer.jl")
 include("scaling.jl")
+include("spmv.jl")
 
 MadCore.create_linear_solver(::Type{MadCoreGPU.LapackCUDASolver}, A; kwargs...) = LapackCUDAState(A; kwargs...)
 MadCore.default_options(::Type{MadCoreGPU.LapackCUDASolver}) = MadCore.default_options(LapackCUDAState)

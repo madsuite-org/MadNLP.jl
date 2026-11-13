@@ -344,7 +344,7 @@ function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVe
     n = size(kkt.hess_com, 1)
     m = size(kkt.jt_csc, 2)
 
-    mul!(view(y, 1:n), kkt.jt_csc, x)
+    _spmv!(view(y, 1:n), kkt.jt_csc, x, one(eltype(y)), zero(eltype(y)))
     y[size(kkt.jt_csc,1)+1:end] .= -x
 end
 

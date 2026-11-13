@@ -105,6 +105,14 @@ macro blas_safe_threads(args...)
     return esc(code)
 end
 
+"""
+    _spmv!(y, A, x, alpha, beta)
+
+`y = alpha A x + beta y` for a sparse `A`. A GPU backend may keep a plan for `A` across
+calls; the default is `mul!`.
+"""
+_spmv!(y, A, x, alpha, beta) = mul!(y, A, x, alpha, beta)
+
 # unsafe wrap
 function _madnlp_unsafe_wrap(vec::VT, n, shift=1) where VT
     return unsafe_wrap(VT, pointer(vec,shift), n)
