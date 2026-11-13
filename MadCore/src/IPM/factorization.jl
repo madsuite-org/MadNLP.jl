@@ -1,36 +1,37 @@
 function solve_refine_wrapper!(d, solver, p, w)
-    result = false
-
-    @timed_region get_cnt(solver) :linear_solver_time begin
-        if solve_refine!(d, get_iterator(solver), p, w)
-            result = true
-        else
-            # the KKT system first (a condensed system adjusts its equality shift), then the linear solver
-            while !result && improve_kkt!(get_kkt(solver))
-                build_kkt!(get_kkt(solver))
-                factorize!(get_kkt(solver).linear_solver)
-                get_cnt(solver).factorization_cnt += 1
-                result = solve_refine!(d, get_iterator(solver), p, w)
-            end
-            if !result && improve!(get_kkt(solver).linear_solver)
-                if solve_refine!(d, get_iterator(solver), p, w)
-                    result = true
-                end
-            end
+    cnt = get_cnt(solver)
+    kkt = get_kkt(solver)
+    # solve_refine! resets cnt.ir, so backsolves are added after each attempt
+    @timed_region cnt :linear_solver_time begin
+        result = _timed_solve_refine!(d, solver, p, w)
+        # the KKT system first (a condensed system adjusts its equality shift), then the linear solver
+        while !result && improve_kkt!(kkt)
+            build_kkt!(kkt)
+            @timed_region cnt :factorization_time factorize!(kkt.linear_solver)
+            cnt.factorization_cnt += 1
+            result = _timed_solve_refine!(d, solver, p, w)
+        end
+        if !result && improve!(kkt.linear_solver)
+            result = _timed_solve_refine!(d, solver, p, w)
         end
     end
-    # Get number of iterations in Richardson's iterative refinement
-    iter_richardson = get_cnt(solver).ir
-    get_cnt(solver).backsolve_cnt += iter_richardson
+    return result
+end
+
+function _timed_solve_refine!(d, solver, p, w)
+    cnt = get_cnt(solver)
+    result = @timed_region cnt :solve_time solve_refine!(d, get_iterator(solver), p, w)
+    cnt.backsolve_cnt += cnt.ir
     return result
 end
 
 function factorize_wrapper!(solver::AbstractMadNLPSolver)
     @trace(get_logger(solver),"Factorization started.")
+    cnt = get_cnt(solver)
     begin_factorization!(get_kkt(solver))
     build_kkt!(get_kkt(solver))
-    @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
-    get_cnt(solver).factorization_cnt += 1
+    @timed_region cnt :linear_solver_time @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
+    cnt.factorization_cnt += 1
     return
 end
 

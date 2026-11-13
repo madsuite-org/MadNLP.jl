@@ -195,8 +195,15 @@ end
     start_time::Float64
     timer::AbstractTimer = WallTimer()
 
-    linear_solver_time::Float64 = 0.
-    eval_function_time::Float64 = 0.
+    linear_solver_time::Float64 = 0. # factorization_time + solve_time
+    factorization_time::Float64 = 0.
+    solve_time::Float64 = 0.
+    eval_function_time::Float64 = 0. # sum of the eval_*_time fields below
+    eval_obj_time::Float64 = 0.
+    eval_grad_time::Float64 = 0.
+    eval_cons_time::Float64 = 0.
+    eval_jac_time::Float64 = 0.
+    eval_hess_time::Float64 = 0.
     solver_time::Float64 = 0.
     total_time::Float64 = 0.
     init_time::Float64 = 0.
