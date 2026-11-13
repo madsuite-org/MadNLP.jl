@@ -478,7 +478,7 @@ end
 function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVector)
     n = size(kkt.hess_com, 1)
     mul!(view(y, 1:n), kkt.jt_csc, x)
-    view(y, (n + 1):length(y)) .= .-view(x, kkt.ind_ineq)
+    view(y, (n + 1):length(y)) .= .-_iview(x, kkt.ind_ineq)
     return y
 end
 
@@ -685,7 +685,7 @@ build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_a
 function _set_eq_weights!(kkt::SparseCondensedKKTSystem{T}, Σd) where {T}
     δ = kkt.eq_shift[3] > 0 ? kkt.eq_shift[3] : kkt.eq_shift[1]
     kkt.eq_shift[2] = δ
-    view(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (δ .- view(Σd, kkt.ind_eq))
+    _iview(kkt.diag_buffer, kkt.ind_eq) .= one(T) ./ (δ .- _iview(Σd, kkt.ind_eq))
     return
 end
 
@@ -794,7 +794,7 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     if isempty(b)
         # every row condensed, the equality rows through the shift: D = 1 / (δ - Σd)
         fill!(kkt.diag_buffer, zero(T))
-        view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (view(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
+        _iview(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (_iview(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
         _set_eq_weights!(kkt, Σd)
         build_condensed_aug_coord!(kkt)
         update_kkt_scaling!(kkt, kkt.linear_solver)
@@ -803,20 +803,20 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     # D = Σs / (1 - Σd Σs) on the inequality rows (zero on the equality rows, which are kept);
     # the border diagonal Σd - 1/Σs on the inequality rows, Σd on the equality rows
     fill!(kkt.diag_buffer, zero(T))
-    view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (view(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
+    _iview(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- (_iview(Σd, kkt.ind_ineq) .- kkt.slack_shift) .* Σs)
     if !iszero(kkt.eq_shift[1])
         # condensed equality rows: D = 1 / (δ - Σd); the kept ones are zeroed with ind_D below
         _set_eq_weights!(kkt, Σd)
     end
     kkt.buffer2 .= Σd
-    view(kkt.buffer2, kkt.ind_ineq) .-= one(T) ./ Σs
+    _iview(kkt.buffer2, kkt.ind_ineq) .-= one(T) ./ Σs
     # condensed block of the sparse rows, then the border
     nonzeros(b.jt_s) .= view(nonzeros(kkt.jt_csc), b.smap)
-    b.dbuf_s .= view(kkt.diag_buffer, b.ind_S)
+    b.dbuf_s .= _iview(kkt.diag_buffer, b.ind_S)
     _build_condensed_aug_coord!(kkt, b.aug_c, b.jt_s, b.dbuf_s)
     view(nonzeros(kkt.aug_com), b.cmap) .= nonzeros(b.aug_c)
     view(nonzeros(kkt.aug_com), b.dmap_pos) .= view(nonzeros(kkt.jt_csc), b.dmap_src)
-    view(nonzeros(kkt.aug_com), b.epos) .= view(kkt.buffer2, b.ind_D) .- b.delta[1]
+    view(nonzeros(kkt.aug_com), b.epos) .= _iview(kkt.buffer2, b.ind_D) .- b.delta[1]
     update_kkt_scaling!(kkt, kkt.linear_solver)
     return
 end

@@ -24,6 +24,12 @@ end
 
 default_options(::Type{RichardsonIterator}, tol) = RichardsonOptions(richardson_tol=tol^(5/4), richardson_acceptable_tol=tol^(5/8))
 
+# (‖a‖∞, ‖b‖∞) in one reduction, so a GPU solve waits for the device once per refinement step
+_norm_inf_pair(a, b) = mapreduce(
+    (u, v) -> (abs(u), abs(v)), (p, q) -> (max(p[1], q[1]), max(p[2], q[2])), a, b;
+    init = (zero(eltype(a)), zero(eltype(b))),
+)
+
 function solve_refine!(
     x::VT,
     iterator::R,
@@ -50,8 +56,7 @@ function solve_refine!(
             @timed_region iterator.cnt :kkt_mul_time mul!(w, iterator.kkt, x, -one(T), one(T))
             iterator.cnt.kkt_mul_cnt += 1
 
-            norm_w = norm(full(w), Inf)
-            norm_x = norm(full(x), Inf)
+            norm_w, norm_x = _norm_inf_pair(full(w), full(x))
             residual_ratio = norm_w / (min(norm_x, 1e6 * norm_b) + norm_b)
 
             if mod(iterator.cnt.ir, 10)==0

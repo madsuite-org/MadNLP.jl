@@ -105,6 +105,15 @@ macro blas_safe_threads(args...)
     return esc(code)
 end
 
+"""
+    _iview(x, I)
+
+`view(x, I)` without the bounds check, for an index vector `I` built by the solver and
+valid by construction. On a GPU the check of an index vector is a device reduction whose
+result the host waits for, so a checked view costs a synchronization on every call.
+"""
+@inline _iview(x, I) = Base.unsafe_view(x, I)
+
 # unsafe wrap
 function _madnlp_unsafe_wrap(vec::VT, n, shift=1) where VT
     return unsafe_wrap(VT, pointer(vec,shift), n)

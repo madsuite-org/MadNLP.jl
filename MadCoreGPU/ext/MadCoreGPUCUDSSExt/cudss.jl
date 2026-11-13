@@ -276,7 +276,7 @@ function pivot_cancellation(M::CUDSSState{T}) where {T}
     CUDSS.cudss_set(M.inner, "diag", M.buffer)
     CUDSS.cudss_get(M.inner, "diag")
     n = size(M.tril, 1)
-    return minimum(view(M.buffer, 1:n) .^ 2 ./ view(nonzeros(M.tril), dpos))
+    return minimum(view(M.buffer, 1:n) .^ 2 ./ MadCore._iview(nonzeros(M.tril), dpos))
 end
 
 MadCore.is_async(M::CUDSSState) = M.opt.cudss_asynchronous

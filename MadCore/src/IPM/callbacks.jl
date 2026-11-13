@@ -45,7 +45,7 @@ function eval_cons_wrapper!(solver::AbstractMadNLPSolver, c::AbstractVector{T}, 
         variable(x),
         c,
     )
-    view(c,get_ind_ineq(solver)) .-= slack(x)
+    _iview(c, get_ind_ineq(solver)) .-= slack(x)
     c .-= get_rhs(solver)
     cnt.con_cnt+=1
     if cnt.con_cnt == 1 && !is_valid(c)

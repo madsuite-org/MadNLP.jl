@@ -28,8 +28,8 @@ end
 
 function _set_aug_diagonal!(kkt::AbstractKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
-    @views kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
-    @views kkt.pr_diag[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
+    _iview(kkt.pr_diag, kkt.ind_lb) .-= kkt.l_lower ./ kkt.l_diag
+    _iview(kkt.pr_diag, kkt.ind_ub) .-= kkt.u_lower ./ kkt.u_diag
     return
 end
 

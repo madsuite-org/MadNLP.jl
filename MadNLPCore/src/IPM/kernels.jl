@@ -23,6 +23,9 @@ get_theta(solver::AbstractMadNLPSolver) = get_theta(get_c(solver))
 get_varphi(solver::AbstractMadNLPSolver) = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
 
 function print_iter(solver::AbstractMadNLPSolver; is_resto=false)
+    # the residuals below cost reductions on the device; skip them when nothing is printed
+    logger = get_logger(solver)
+    get_level(logger) <= INFO || (get_file(logger) !== nothing && get_file_level(logger) <= INFO) || return
     obj_scale = get_cb(solver).obj_scale[]
     mod(get_cnt(solver).k,10)==0&& @info(get_logger(solver),@sprintf(
         "iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls"))
