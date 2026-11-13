@@ -377,8 +377,8 @@ function _parse_indexes(lvar::AbstractVector{T}, uvar, lcon, ucon, equality_trea
             ind_eq = similar(lvar, Int, 0)
             ind_ineq = similar(lvar, Int, m) .= 1:m
         end
-        xl = [lvar; view(lcon, ind_ineq)]
-        xu = [uvar; view(ucon, ind_ineq)]
+        xl = [lvar; @inbounds(view(lcon, ind_ineq))]
+        xu = [uvar; @inbounds(view(ucon, ind_ineq))]
     else
         ind_eq = similar(lvar, Int, 0)
         ind_ineq = similar(lvar, Int, 0)
@@ -631,10 +631,10 @@ function initialize!(
 
     _eval_cons_wrapper!(cb, x0, con_buffer)
 
-    slack(xl) .= view(lcon, ind_ineq)
-    slack(xu) .= view(ucon, ind_ineq)
+    slack(xl) .= @inbounds(view(lcon, ind_ineq))
+    slack(xu) .= @inbounds(view(ucon, ind_ineq))
     _treat_equality_initialize!(cb.equality_handler, rhs, lcon, ucon)
-    copyto!(slack(x), @view(con_buffer[ind_ineq]))
+    copyto!(slack(x), @inbounds(view(con_buffer, ind_ineq)))
 
     set_initial_bounds!(slack(xl), slack(xu), tol)
     initialize_variables!(slack(x), slack(xl), slack(xu), bound_push, bound_fac)
@@ -724,7 +724,7 @@ function set_scaling!(
     _eval_grad_f_wrapper!(cb, x0, grad_buffer)
     set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
 
-    con_scale_slk = @view(con_scale[ind_ineq])
+    con_scale_slk = @inbounds(view(con_scale, ind_ineq))
     y0 ./= con_scale
     rhs .*= con_scale
     slack(x) .*= con_scale_slk
@@ -761,7 +761,7 @@ function set_scaling!(
     NLPModels.grad!(nlp, x0, grad_buffer)
     set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
 
-    con_scale_slk = @view(con_scale[ind_ineq])
+    con_scale_slk = @inbounds(view(con_scale, ind_ineq))
     y0 ./= con_scale
     rhs .*= con_scale
     slack(x) .*= con_scale_slk
@@ -974,7 +974,7 @@ function _eval_jac_wrapper!(
     x_full = cb.fixed_handler.x_full
     @assert length(jac_full) == nnzj_orig
     NLPModels.jac_coord!(cb.nlp, x_full, jac_full)
-    jac .= jac_full[cb.fixed_handler.ind_jac_free]
+    jac .= @inbounds(view(jac_full, cb.fixed_handler.ind_jac_free))
     jac .*= cb.jac_scale
     return jac
 end
@@ -1015,7 +1015,7 @@ function _eval_lag_hess_wrapper!(
         hess_full;
         obj_weight = obj_weight * cb.obj_scale[],
     )
-    hess .= hess_full[cb.fixed_handler.ind_hess_free]
+    hess .= @inbounds(view(hess_full, cb.fixed_handler.ind_hess_free))
     return hess
 end
 
@@ -1032,9 +1032,9 @@ function _eval_grad_f_wrapper!(
     grad .*= cb.obj_scale[]
     map!(
          (x, y) -> x - y,
-         @view(grad[cb.fixed_handler.fixed]),
-         @view(x[cb.fixed_handler.fixed]),
-         @view(get_lvar(cb.nlp)[cb.fixed_handler.fixed])
+        @inbounds(view(grad, cb.fixed_handler.fixed)),
+        @inbounds(view(x, cb.fixed_handler.fixed)),
+        @inbounds(view(get_lvar(cb.nlp), cb.fixed_handler.fixed))
     )
     return grad
 end
@@ -1085,7 +1085,7 @@ function update_z!(cb::AbstractCallback{T, VT, FH}, x, y, zl, zu, jacl) where {T
     NLPModels.grad!(cb.nlp, x, g_full)       # ∇f
     NLPModels.jtprod!(cb.nlp, x, y, jtv)     # ∇cᵀ y
     g_full .+= jtv                           # ∇f + ∇cᵀ y
-    g_fixed = view(g_full, ind_fixed)
+    g_fixed = @inbounds(view(g_full, ind_fixed))
     zl[ind_fixed] .= cb.obj_sign .* max.(zero(T), cb.obj_sign .* g_fixed)
     zu[ind_fixed] .= cb.obj_sign .* max.(zero(T), .-cb.obj_sign .* g_fixed)
     return

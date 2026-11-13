@@ -52,10 +52,10 @@ function get_inf_pr_orig(solver::AbstractMadNLPSolver{T}) where {T}
     buf = dual(get__w4(solver))
     ind_ineq = get_ind_ineq(solver)
     copyto!(buf, get_c(solver))
-    c = view(get_c(solver), ind_ineq)
-    y = view(get_y(solver), ind_ineq)
+    c = @inbounds(view(get_c(solver), ind_ineq))
+    y = @inbounds(view(get_y(solver), ind_ineq))
     s = slack(get_x(solver))
-    view(buf, ind_ineq) .= max.(
+    @inbounds(view(buf, ind_ineq)) .= max.(
         bound_violation.(c .+ s, slack(get_xl(solver)), slack(get_xu(solver))),
         abs.(y) .* abs.(c),
     )

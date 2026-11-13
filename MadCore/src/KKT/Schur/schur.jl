@@ -912,7 +912,7 @@ function jtprod!(y::AbstractVector, kkt::SchurComplementKKTSystem, x::AbstractVe
     yx = view(y, 1:nx)
     ys = view(y, 1+nx:nx+ns_ineq)
     mul!(yx, kkt.jt_csc, x)
-    ys .= -@view(x[kkt.ind_ineq])
+    ys .= -@inbounds(view(x, kkt.ind_ineq))
     return
 end
 
@@ -936,7 +936,7 @@ function build_kkt!(kkt::SchurComplementKKTSystem{T, VT, MT}) where {T, VT, MT}
     # Compute condensing diagonal for inequalities
     if kkt.n_ineq > 0
         Sigma_s = view(kkt.pr_diag, n+1:n+kkt.n_ineq)
-        Sigma_d = @view(kkt.du_diag[kkt.ind_ineq])
+        Sigma_d = @inbounds(view(kkt.du_diag, kkt.ind_ineq))
         kkt.diag_buffer .= Sigma_s ./ (one(T) .- Sigma_d .* Sigma_s)
     end
 
@@ -1090,20 +1090,20 @@ function solve_kkt!(
     # Step 7: Recover inequality duals and slacks
     if kkt.n_ineq > 0
         # Stash eq duals; mul! below overwrites all of wy
-        copyto!(kkt.wy_eq_buf, view(wy, kkt.ind_eq))
+        copyto!(kkt.wy_eq_buf, @inbounds(view(wy, kkt.ind_eq)))
 
         # J * Δx via sparse: (jt_csc)' * wx
         mul!(wy, kkt.jt_csc', wx)
 
         # Restore equality duals
-        view(wy, kkt.ind_eq) .= kkt.wy_eq_buf
+        @inbounds(view(wy, kkt.ind_eq)) .= kkt.wy_eq_buf
 
         # Inequality dual recovery
         @inbounds for idx in 1:length(kkt.ind_ineq)
             gi = kkt.ind_ineq[idx]
             wy[gi] = kkt.diag_buffer[idx] * wy[gi] - kkt.buffer[gi]
         end
-        ws .= (ws .+ view(wy, kkt.ind_ineq)) ./ Sigma_s
+        ws .= (ws .+ @inbounds(view(wy, kkt.ind_ineq))) ./ Sigma_s
     end
 
     finish_aug_solve!(kkt, w)
@@ -1121,7 +1121,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementKKTSystem{T}, x::Abst
     xx = @view(primal(x)[1:n])
     xs = @view(primal(x)[n+1:end])
     xy = dual(x)
-    xz = @view(dual(x)[kkt.ind_ineq])
+    xz = @inbounds(view(dual(x), kkt.ind_ineq))
 
     # H * xx → wx (using sparse symmetric Hessian)
     wx .= beta .* wx
@@ -1135,7 +1135,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementKKTSystem{T}, x::Abst
         wy .= beta .* wy
     end
     ws .= beta.*ws .- alpha.* xz
-    @view(dual(w)[kkt.ind_ineq]) .-= alpha.* xs
+    @inbounds(view(dual(w), kkt.ind_ineq)) .-= alpha .* xs
     _kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
