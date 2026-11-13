@@ -340,6 +340,11 @@ end
     @test cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time
     @test cnt.factorization_time + cnt.solve_time >= 0.5 * cnt.linear_solver_time
     @test cnt.backsolve_cnt >= cnt.k
+    @test cnt.build_kkt_time > 0 && cnt.triangular_solve_time > 0 && cnt.kkt_mul_time > 0
+    @test cnt.triangular_solve_time + cnt.kkt_mul_time <= cnt.solve_time
+    @test cnt.build_kkt_time + cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time
+    @test cnt.kkt_mul_cnt == cnt.backsolve_cnt
+    @test cnt.triangular_solve_cnt >= cnt.backsolve_cnt
     @test cnt.factorization_cnt >= cnt.k
 end
 

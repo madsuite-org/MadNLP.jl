@@ -15,8 +15,10 @@ end
 function factorize_wrapper!(solver::AbstractMadNLPSolver)
     @trace(get_logger(solver),"Factorization started.")
     cnt = get_cnt(solver)
-    build_kkt!(get_kkt(solver))
-    @timed_region cnt :linear_solver_time @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
+    @timed_region cnt :linear_solver_time begin
+        @timed_region cnt :build_kkt_time build_kkt!(get_kkt(solver))
+        @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
+    end
     cnt.factorization_cnt += 1
     return
 end

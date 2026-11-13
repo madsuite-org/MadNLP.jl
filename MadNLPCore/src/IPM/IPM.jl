@@ -162,6 +162,8 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
         (; ipm_opt.kkt_options..., factorization_options(ipm_opt)...)...,
     )
 
+    hasproperty(kkt, :linear_solver) && attach_counters!(kkt.linear_solver, cnt)
+
     @trace(logger,"Initializing iterative solver.")
     iterator = ipm_opt.iterator(kkt; cnt = cnt, logger = logger, opt = options.iterative_refinement)
 
