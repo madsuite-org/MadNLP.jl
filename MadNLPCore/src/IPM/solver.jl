@@ -492,9 +492,11 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
 
         dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
         factorize_wrapper!(solver)
+        # a failed refinement or a non-finite step (a failed Cholesky factorization of a nonconvex
+        # problem) goes to the robust restoration phase
         solve_refine_wrapper!(
             get_d(solver), solver, get_p(solver), get__w4(solver)
-        )
+        ) && all(isfinite, full(get_d(solver))) || return ROBUST
 
         set_ftype!(solver, "f")
     end
