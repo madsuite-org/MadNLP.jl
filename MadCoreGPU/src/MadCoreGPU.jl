@@ -22,8 +22,8 @@ import MadCore:
     factorize_cholesky!, factorize_lu!, factorize_qr!, factorize_evd!, factorize_bunchkaufman!,
     solve_cholesky!, solve_lu!, solve_qr!, solve_evd!, solve_bunchkaufman!
 import MadCore:
-    _get_varphi, get_varphi, get_inf_du, get_inf_compl, get_min_complementarity, get_average_complementarity,
-    get_varphi_d, get_alpha_max, get_alpha_z, get_rel_search_norm, SubVector, count_lu_bounds
+    get_inf_du, get_inf_compl, get_min_complementarity, get_average_complementarity,
+    get_alpha_max, get_alpha_z, SubVector, count_lu_bounds
 # AMD and Metis
 import AMD, Metis
 
