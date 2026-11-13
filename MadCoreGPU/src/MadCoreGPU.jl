@@ -87,14 +87,6 @@ extension loaded by SparseDirectSolver.
 struct SDSSolver end
 MadCore.backend_package(::Type{SDSSolver}) = "SparseDirectSolver"
 
-"""
-    sds_fused_default(backend)
-
-Whether [`SDSSolver`](@ref) runs the fused pipeline of SparseDirectSolver on `backend` by
-default. GPU extensions overload it for backends that cannot run it.
-"""
-sds_fused_default(backend) = true
-
 export LapackCUDASolver, CUDSSSolver, LapackROCmSolver, LapackOneMKLSolver, SDSSolver
 
 # Fallback that fires when a GPU array reaches sparse-matrix construction but no

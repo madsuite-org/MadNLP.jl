@@ -34,7 +34,8 @@ mu_decrease_max = 10, mu_min = 1e-3 tol)`) and slack reset. On the host the fact
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
 solve is refined by Richardson iterations. The options beyond the linear solver apply to
 `SparseKKTSystem` only. On AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's
-static LDLᵀ with the same pivot bound.
+static LDLᵀ after matching, with the same pivot bound and two steps of iterative refinement in
+the solver.
 """
 struct ShiftedPreset <: AbstractPreset end
 

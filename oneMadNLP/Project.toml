@@ -14,14 +14,13 @@ oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
 MadNLPCore = {path = "../MadNLPCore"}
-SparseDirectSolver = {url = "https://github.com/exanauts/SparseDirectSolver.jl", rev = "compat/madnlp-0.12"}
 
 [compat]
 Krylov = "0.10"
 MadCore = "=0.12.0"
 MadCoreGPU = "=0.12.0"
 MadNLPCore = "=0.12.0"
-SparseDirectSolver = "0.2"
+SparseDirectSolver = "0.4"
 Test = "1.10"
 julia = "1.13"
 oneAPI = "2.10"

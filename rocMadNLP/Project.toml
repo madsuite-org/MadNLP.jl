@@ -15,7 +15,6 @@ SparseDirectSolver = "dc8e0fd9-41f1-440b-9624-22817132f700"
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
 MadNLPCore = {path = "../MadNLPCore"}
-SparseDirectSolver = {url = "https://github.com/exanauts/SparseDirectSolver.jl", rev = "compat/madnlp-0.12"}
 
 [compat]
 AMDGPU = "2.10"
@@ -24,7 +23,7 @@ MadCore = "=0.12.0"
 MadCoreGPU = "=0.12.0"
 MadNLPCore = "=0.12.0"
 PrecompileTools = "1.2"
-SparseDirectSolver = "0.2"
+SparseDirectSolver = "0.4"
 Test = "1.10"
 julia = "1.13"
 
