@@ -1,41 +1,26 @@
 using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, SparseArrays
 
+# MadCoreGPU's tests of SDSSolver and the GPU presets, by path: this package has no CI leg on a GPU
+include(joinpath(@__DIR__, "..", "..", "MadCoreGPU", "test", "sds_test.jl"))
+
 @testset "mtlMadNLP" begin
     @testset "Exports" begin
         @test SDSSolver === MadCoreGPU.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test mtlMadNLP.MetalBackend === Metal.MetalBackend
-        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
-        @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
-        @test MadCore.input_type(SDSSolver) === :csc
         # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to MtlVector models
         preset = which(MadNLPCore.MadNLPOptions{Float32}, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}})
         @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
+    test_sds_extension()
     if Metal.functional()
-        @testset "Option presets for MtlVector models" begin
+        @testset "Default linear solver of MtlVector models" begin
             nlp = MadNLPCore.SparseWrapperModel(MtlVector, MadNLPCore.HS15Model(; T = Float32))
-            # the default, ShiftedPreset: the augmented system with SparseDirectSolver's static LDLᵀ
-            opt = MadNLPCore.MadNLPOptions{Float32}(nlp)
-            @test opt.preset === MadNLPCore.ShiftedPreset
-            @test opt.linear_solver === SDSSolver
-            @test opt.kkt_system === MadNLPCore.SparseKKTSystem
-            @test opt.dual_shift === MadNLPCore.preset_perturbation(Float32)
-            lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
-            @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :none
-            @test lopt.sds_pivot_epsilon == Float64(MadNLPCore.preset_perturbation(Float32))
-            stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
-            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-            # CondensedPreset
-            co = MadNLPCore.MadNLPOptions{Float32}(nlp; preset = MadNLPCore.CondensedPreset)
-            @test co.kkt_system === MadNLPCore.SparseCondensedKKTSystem
-            stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
-            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-            # The local minimum reached from the origin. Float32 and the relaxed bounds of
-            # the condensed KKT system shift the result slightly.
-            @test stats.objective ≈ 360.38f0 rtol = 1.0f-2
-            @test Array(stats.solution) ≈ Float32[-0.7921, -1.2624] rtol = 1.0f-2
+            @test MadNLPCore.MadNLPOptions{Float32}(nlp).linear_solver === SDSSolver
         end
+        test_gpu_presets(MtlArray, Float32)
+        test_sds_presets(MtlArray, Float32)
+        test_sds_linear_solver(MtlArray, Float32)
         @testset "MtlSparseMatrixCSC products" begin
             A = sprand(Float32, 40, 25, 0.2)
             dA = MadCore._get_sparse_csc(size(A), MtlVector(Int32.(A.colptr)), MtlVector(Int32.(A.rowval)), MtlVector(A.nzval))
