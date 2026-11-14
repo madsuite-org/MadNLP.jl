@@ -338,7 +338,8 @@ end
     # the regions are nested, so the parts add up to at most the totals
     tol = 1e-9
     @test sum(eval_times) <= cnt.eval_function_time + tol
-    @test cnt.build_kkt_time + cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time + tol
+    @test cnt.build_kkt_time + cnt.symbolic_time + cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time + tol
+    @test cnt.symbolic_cnt == 0 && cnt.symbolic_time >= 0   # the default linear solver analyzes on its own
     @test cnt.triangular_solve_time + cnt.kkt_mul_time <= cnt.solve_time + tol
     @test cnt.kkt_mul_cnt == cnt.backsolve_cnt
     @test cnt.triangular_solve_cnt >= cnt.backsolve_cnt >= cnt.k

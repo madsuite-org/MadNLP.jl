@@ -31,6 +31,7 @@ function factorize_wrapper!(solver::AbstractMadNLPSolver)
     begin_factorization!(get_kkt(solver))
     @timed_region cnt :linear_solver_time begin
         @timed_region cnt :build_kkt_time build_kkt!(get_kkt(solver))
+        cnt.symbolic_cnt += @timed_region cnt :symbolic_time analyze!(get_kkt(solver).linear_solver)
         @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
     end
     cnt.factorization_cnt += 1

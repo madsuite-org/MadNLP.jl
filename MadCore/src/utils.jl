@@ -308,8 +308,9 @@ end
     start_time::Float64
     timer::AbstractTimer = WallTimer()
 
-    linear_solver_time::Float64 = 0. # build_kkt_time + factorization_time + solve_time
+    linear_solver_time::Float64 = 0. # build_kkt_time + symbolic_time + factorization_time + solve_time
     build_kkt_time::Float64 = 0.
+    symbolic_time::Float64 = 0. # reordering and symbolic factorization (see analyze!)
     factorization_time::Float64 = 0.
     solve_time::Float64 = 0. # includes triangular_solve_time and kkt_mul_time
     triangular_solve_time::Float64 = 0.
@@ -331,6 +332,7 @@ end
     lag_hess_cnt::Int = 0
 
     factorization_cnt::Int = 0
+    symbolic_cnt::Int = 0
     backsolve_cnt::Int = 0 # iterative refinement steps
     triangular_solve_cnt::Int = 0 # solve_linear_system! calls with the factors
     kkt_mul_cnt::Int = 0 # products with the KKT matrix in iterative refinement

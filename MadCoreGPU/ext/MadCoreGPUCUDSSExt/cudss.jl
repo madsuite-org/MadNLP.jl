@@ -188,6 +188,16 @@ function CUDSSState(
     )
 end
 
+# the analysis deferred to the first factorization; not with an analysis at every
+# factorization, which factorize! runs itself
+function MadCore.analyze!(M::CUDSSState)
+    (M.analyzed || M.opt.cudss_analysis_each_factorization) && return false
+    CUDSS.cudss_update(M.inner.matrix, nonzeros(M.tril))
+    CUDSS.cudss("analysis", M.inner, M.x_gpu, M.b_gpu, asynchronous = M.opt.cudss_asynchronous)
+    M.analyzed = true
+    return true
+end
+
 function MadCore.factorize!(M::CUDSSState)
     CUDSS.cudss_update(M.inner.matrix, nonzeros(M.tril))
     M.improved = false
