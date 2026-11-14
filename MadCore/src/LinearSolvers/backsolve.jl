@@ -28,7 +28,8 @@ function solve_refine!(
     x::VT,
     iterator::R,
     b::VT,
-    w::VT
+    w::VT;
+    max_iter_factor::Integer = 1,   # times richardson_max_iter (a retried factorization of the condensed system)
     ) where {T, VT, R <: RichardsonIterator{T}}
     @debug(iterator.logger, "Iterative solver initiated")
 
@@ -58,7 +59,7 @@ function solve_refine!(
             @debug(iterator.logger, @sprintf("%4i %6.2e", iterator.cnt.ir, residual_ratio))
             iterator.cnt.ir += 1
 
-            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
+            if (iterator.cnt.ir >= max_iter_factor * iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
                 break
             end
         end
