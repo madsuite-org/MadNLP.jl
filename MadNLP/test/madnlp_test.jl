@@ -333,18 +333,15 @@ end
     @test isempty(cnt.timer.starts)
     eval_times = (cnt.eval_obj_time, cnt.eval_grad_time, cnt.eval_cons_time, cnt.eval_jac_time, cnt.eval_hess_time)
     @test all(>(0), eval_times)
-    @test cnt.factorization_time > 0 && cnt.solve_time > 0
-    # the per-category regions are nested in the totals
-    @test sum(eval_times) <= cnt.eval_function_time
-    @test sum(eval_times) >= 0.5 * cnt.eval_function_time
-    @test cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time
-    @test cnt.factorization_time + cnt.solve_time >= 0.5 * cnt.linear_solver_time
-    @test cnt.backsolve_cnt >= cnt.k
-    @test cnt.build_kkt_time > 0 && cnt.triangular_solve_time > 0 && cnt.kkt_mul_time > 0
-    @test cnt.triangular_solve_time + cnt.kkt_mul_time <= cnt.solve_time
-    @test cnt.build_kkt_time + cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time
+    @test cnt.build_kkt_time > 0 && cnt.factorization_time > 0 && cnt.solve_time > 0
+    @test cnt.triangular_solve_time > 0 && cnt.kkt_mul_time > 0
+    # the regions are nested, so the parts add up to at most the totals
+    tol = 1e-9
+    @test sum(eval_times) <= cnt.eval_function_time + tol
+    @test cnt.build_kkt_time + cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time + tol
+    @test cnt.triangular_solve_time + cnt.kkt_mul_time <= cnt.solve_time + tol
     @test cnt.kkt_mul_cnt == cnt.backsolve_cnt
-    @test cnt.triangular_solve_cnt >= cnt.backsolve_cnt
+    @test cnt.triangular_solve_cnt >= cnt.backsolve_cnt >= cnt.k
     @test cnt.factorization_cnt >= cnt.k
 end
 

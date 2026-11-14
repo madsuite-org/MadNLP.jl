@@ -125,11 +125,14 @@ not allocate.
 """
 abstract type AbstractTimer end
 
+# seconds on the monotonic clock
+_now() = 1.0e-9 * time_ns()
+
 """
     WallTimer <: AbstractTimer
 
-Measures host wall-clock time. Used for host arrays, where every region
-has finished when it returns.
+Measures host wall-clock time with the monotonic nanosecond clock. Used for host arrays,
+where every region has finished when it returns.
 """
 struct WallTimer <: AbstractTimer
     starts::Vector{Float64}
@@ -141,7 +144,7 @@ WallTimer() = WallTimer(Float64[])
 
 Mark the start of a timed region.
 """
-timer_start!(timer::WallTimer) = (push!(timer.starts, time()); nothing)
+timer_start!(timer::WallTimer) = (push!(timer.starts, _now()); nothing)
 
 """
     timer_stop!(timer::AbstractTimer, cnt::MadNLPCounters, ::Val{field})
@@ -151,7 +154,7 @@ Mark the end of the innermost open region and add its duration to
 later, in a subsequent call or in [`timer_flush!`](@ref).
 """
 function timer_stop!(timer::WallTimer, cnt, ::Val{field}) where {field}
-    setfield!(cnt, field, getfield(cnt, field) + (time() - pop!(timer.starts)))
+    setfield!(cnt, field, getfield(cnt, field) + (_now() - pop!(timer.starts)))
     return
 end
 
