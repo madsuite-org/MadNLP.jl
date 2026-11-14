@@ -8,7 +8,7 @@ import LinearAlgebra: Symmetric, mul!, norm, dot
 import Adapt: adapt
 import GPUArraysCore: AbstractGPUVector, AbstractGPUMatrix, AbstractGPUArray, @allowscalar
 # Kernels
-import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend, @localmem, @synchronize
+import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend, @localmem, @synchronize, @groupreduce
 
 import MadCore: NLPModels
 import MadCore
@@ -24,6 +24,7 @@ import MadCore:
 import MadCore:
     _get_varphi, get_varphi, get_inf_du, get_inf_compl, get_min_complementarity, get_average_complementarity,
     get_varphi_d, get_alpha_max, get_alpha_z, get_rel_search_norm, SubVector, count_lu_bounds
+import MadCore: _reduce, _lazy, _value1, _deferred, get_inf_pr, get_sd, get_sc
 # AMD and Metis
 import AMD, Metis
 
@@ -33,6 +34,7 @@ include("KKT/kernels_dense.jl")
 include("KKT/kernels_sparse.jl")
 include("KKT/kernels_qn.jl")
 include("utils.jl")
+include("reductions.jl")
 include("timer.jl")
 include("KKT/gpu_dense.jl")
 include("KKT/gpu_sparse.jl")
@@ -108,6 +110,10 @@ function MadCore._get_sparse_csc(dims, colptr::AbstractGPUVector, rowval, nzval)
             "extension is not loaded. Load the GPU package (CUDA, AMDGPU, oneAPI or Metal) before " *
         "solving a model with GPU arrays.",
     )
+end
+
+function __init__()
+    return push!(MadCore._DEFERRED_RESETS, _reset_reduction_buffers!)
 end
 
 end # module

@@ -108,12 +108,17 @@ end
     alpha,
     beta,
 )
-    primal(w) .+= alpha .* reg .* primal(x)
-    dual(w) .+= alpha .* du_diag .* dual(x)
-    w.xp_lr .-= alpha .* dual_lb(x)
-    w.xp_ur .+= alpha .* dual_ub(x)
-    dual_lb(w) .= beta .* dual_lb(w) .+ alpha .* (x.xp_lr .* l_lower .- dual_lb(x) .* l_diag)
-    dual_ub(w) .= beta .* dual_ub(w) .+ alpha .* (x.xp_ur .* u_lower .+ dual_ub(x) .* u_diag)
+    _assign2!(
+        primal(w), (w, r, x) -> w + alpha * r * x, (primal(w), reg, primal(x)),
+        dual(w), (w, r, x) -> w + alpha * r * x, (dual(w), du_diag, dual(x)),
+    )
+    # two kernels: a variable bounded on both sides is in both xp_lr and xp_ur
+    _assign!(w.xp_lr, (w, d) -> w - alpha * d, w.xp_lr, dual_lb(x))
+    _assign!(w.xp_ur, (w, d) -> w + alpha * d, w.xp_ur, dual_ub(x))
+    _assign2!(
+        dual_lb(w), (w, x, l, d, ld) -> beta * w + alpha * (x * l - d * ld), (dual_lb(w), x.xp_lr, l_lower, dual_lb(x), l_diag),
+        dual_ub(w), (w, x, u, d, ud) -> beta * w + alpha * (x * u + d * ud), (dual_ub(w), x.xp_ur, u_lower, dual_ub(x), u_diag),
+    )
     return
 end
 
@@ -121,8 +126,9 @@ end
     xp_lr, wl, l_diag,
     xp_ur, wu, u_diag,
 )
-    xp_lr .-= wl ./ l_diag
-    xp_ur .-= wu ./ u_diag
+    # two kernels: a variable bounded on both sides is in both xp_lr and xp_ur
+    _assign!(xp_lr, (x, w, l) -> x - w / l, xp_lr, wl, l_diag)
+    _assign!(xp_ur, (x, w, u) -> x - w / u, xp_ur, wu, u_diag)
     return
 end
 function reduce_rhs!(kkt::AbstractKKTSystem, d::AbstractKKTVector)
@@ -136,8 +142,10 @@ end
 function finish_aug_solve!(kkt::AbstractKKTSystem, d::AbstractKKTVector)
     dlb = dual_lb(d)
     dub = dual_ub(d)
-    dlb .= (.-dlb .+ kkt.l_lower .* d.xp_lr) ./ kkt.l_diag
-    dub .= (  dub .- kkt.u_lower .* d.xp_ur) ./ kkt.u_diag
+    _assign2!(
+        dlb, (dl, l, x, ld) -> (-dl + l * x) / ld, (dlb, kkt.l_lower, d.xp_lr, kkt.l_diag),
+        dub, (du, u, x, ud) -> (du - u * x) / ud, (dub, kkt.u_lower, d.xp_ur, kkt.u_diag),
+    )
     return
 end
 

@@ -173,6 +173,8 @@ function solve!(
     end
 
     _reset_regions!(get_cnt(solver))
+    # deferred reductions left unread by an earlier solve that threw
+    _reset_deferred!()
     try
         if get_status(solver) == INITIAL
             @notice(get_logger(solver),"This is $(introduce()), running with $(introduce(get_kkt(solver).linear_solver))\n")
@@ -298,19 +300,20 @@ end
 # residuals, printing and termination tests; a status to stop with (or nothing) and sc
 function _check_convergence!(solver::AbstractMadNLPSolver{T}) where {T}
     jtprod!(get_jacl(solver), get_kkt(solver), get_y(solver))
-    sd = get_sd(get_y(solver), get_zl_r(solver), get_zu_r(solver), T(get_opt(solver).s_max))
-    sc = get_sc(get_zl_r(solver), get_zu_r(solver), T(get_opt(solver).s_max))
-    set_inf_pr!(solver, get_inf_pr(get_c(solver)))
-    set_inf_du!(
-        solver, get_inf_du(
-            full(get_f(solver)),
-            full(get_zl(solver)),
-            full(get_zu(solver)),
-            get_jacl(solver),
-            sd,
-        )
+    # the residuals' reductions are read together (one wait on a GPU)
+    s_max = T(get_opt(solver).s_max)
+    sd = _deferred(get_sd, get_y(solver), get_zl_r(solver), get_zu_r(solver), s_max)
+    sc = _deferred(get_sc, get_zl_r(solver), get_zu_r(solver), s_max)
+    inf_pr = _deferred(get_inf_pr, get_c(solver))
+    inf_du = _deferred(get_inf_du, full(get_f(solver)), full(get_zl(solver)), full(get_zu(solver)), get_jacl(solver), sd)
+    inf_compl = _deferred(
+        get_inf_compl, get_x_lr(solver), get_xl_r(solver), get_zl_r(solver), get_xu_r(solver),
+        get_x_ur(solver), get_zu_r(solver), zero(T), sc,
     )
-    set_inf_compl!(solver, get_inf_compl(solver, sc; mu = zero(T)))
+    sd, sc, inf_pr, inf_du, inf_compl = _values(sd, sc, inf_pr, inf_du, inf_compl)
+    set_inf_pr!(solver, inf_pr)
+    set_inf_du!(solver, inf_du)
+    set_inf_compl!(solver, inf_compl)
 
     print_iter(solver)
 
