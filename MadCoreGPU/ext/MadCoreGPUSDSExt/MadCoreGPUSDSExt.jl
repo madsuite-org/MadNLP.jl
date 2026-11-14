@@ -31,7 +31,8 @@ Options of [`MadCoreGPU.SDSSolver`](@ref), passed as keywords of `madnlp`.
   profile of the GPU architecture.
 * `sds_user_perm`: a 1-based permutation that replaces the reordering.
 * `sds_fused`: run the fused pipeline (`true`) or the stock one (`false`); `nothing` lets
-  SparseDirectSolver choose. `:bk` always runs the stock pipeline.
+  SparseDirectSolver choose. `:bk` runs the stock pipeline; `sds_fused = true` with `:bk` raises
+  `SparseDirectSolver.InvalidValueError`.
 
 `nothing` keeps the default of SparseDirectSolver. The KKT system sets `n_primal` and
 `n_dual`, the sizes of the primal and dual blocks.
@@ -72,7 +73,7 @@ function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger()
         csc.colPtr, csc.rowVal, csc.nzVal, 'U';
         factorization = opt.sds_factorization,
         pivoting = opt.sds_pivoting,
-        fused = bk ? nothing : opt.sds_fused,
+        fused = opt.sds_fused,
         pivot_threshold = bk ? opt.sds_pivot_threshold : nothing,
         # LDLᵀ options, ignored for Cholesky so that a preset that sets them still allows it
         matching = ldl ? opt.sds_matching : "none",

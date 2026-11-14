@@ -194,6 +194,32 @@ cuda_testset = [
         ),
         ["infeasible", "lootsma", "eigmina", "lp_examodels_issue75"], # KKT system not PD
     ],
+    [
+        "SDS",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+        ),
+        [],
+    ],
+    [
+        "SDS-BUNCHKAUFMAN",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.AugmentedPreset,
+        ),
+        [],
+    ],
+    [
+        "SDS-CONDENSED",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.CondensedPreset,
+        ),
+        [],
+    ],
 ]
 
 rocm_testset = [
@@ -232,6 +258,32 @@ rocm_testset = [
             print_level=MadNLP.ERROR,
         ),
         ["infeasible", "lootsma", "eigmina", "lp_examodels_issue75"], # KKT system not PD
+    ],
+    [
+        "SDS",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+        ),
+        [],
+    ],
+    [
+        "SDS-BUNCHKAUFMAN",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.AugmentedPreset,
+        ),
+        [],
+    ],
+    [
+        "SDS-CONDENSED",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.CondensedPreset,
+        ),
+        [],
     ],
 ]
 

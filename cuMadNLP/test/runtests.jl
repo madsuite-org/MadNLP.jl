@@ -15,19 +15,32 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
         @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
     if CUDA.functional()
-        # the presets beyond the linear solver are tested in MadCoreGPU/test/sds_test.jl
-        @testset "Option presets for CuVector models: cuDSS" begin
+        @testset "Option presets for CuVector models" begin
             nlp = MadNLPCore.SparseWrapperModel(CuVector, MadNLPCore.HS15Model())
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
+            @test opt.preset === MadNLPCore.ShiftedPreset
             @test opt.linear_solver === CUDSSSolver
+            @test opt.kkt_system === MadNLPCore.SparseKKTSystem
+            @test opt.kkt_scaler isa MadCore.RuizScaler
+            @test opt.dual_shift == 1.0e-10
+            @test opt.iterator === MadCore.KrylovIterator
+            @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
+            @test opt.barrier.sigma_max == 2.0 && opt.barrier.mu_min ≈ 1.0e-3 * opt.tol
+            @test opt.slack_reset
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 1.0e-10
             @test lopt.cudss_matching && lopt.cudss_deferred_analysis
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-            # AugmentedPreset: the augmented system with cuDSS
+            # the condensed system keeps its own preset
+            opt = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem)
+            @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
+            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            # AugmentedPreset: the augmented system with cuDSS and the monotone rule
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.AugmentedPreset)
-            @test opt.linear_solver === CUDSSSolver
+            @test opt.kkt_system === MadNLPCore.SparseKKTSystem && opt.linear_solver === CUDSSSolver
+            @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
+            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.cudss_pivot_type == 'B' && lopt.cudss_matching && lopt.cudss_reanalyze_on_improve
             @test !lopt.cudss_refactorization
@@ -35,6 +48,7 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # CondensedPreset: the condensed system with the same cuDSS options as ShiftedPreset
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.CondensedPreset)
+            @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem && opt.barrier isa MadNLPCore.MonotoneUpdate
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 1.0e-10 && lopt.cudss_matching
             stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)

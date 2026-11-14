@@ -127,8 +127,6 @@ jobs:
               PackageSpec(path="./MadCoreGPU"),
               PackageSpec(path="./MadNLPTests"),
           ])
-          # for MadCoreGPU/test/sds_test.jl, which is skipped below Julia 1.13 (SparseDirectSolver's minimum)
-          VERSION >= v"1.13" && Pkg.add("SparseDirectSolver")
       # Julia 1.13's Pkg auto-precompile looks up changed indirect deps by name
       # and fails with "Unknown package"; the test step precompiles on load.
       - name: Add cuMadNLP
