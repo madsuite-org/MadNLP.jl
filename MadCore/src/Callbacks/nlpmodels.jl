@@ -974,7 +974,7 @@ function _eval_jac_wrapper!(
     x_full = cb.fixed_handler.x_full
     @assert length(jac_full) == nnzj_orig
     NLPModels.jac_coord!(cb.nlp, x_full, jac_full)
-    jac .= jac_full[cb.fixed_handler.ind_jac_free]
+    jac .= _iview(jac_full, cb.fixed_handler.ind_jac_free)
     jac .*= cb.jac_scale
     return jac
 end
@@ -1015,7 +1015,7 @@ function _eval_lag_hess_wrapper!(
         hess_full;
         obj_weight = obj_weight * cb.obj_scale[],
     )
-    hess .= hess_full[cb.fixed_handler.ind_hess_free]
+    hess .= _iview(hess_full, cb.fixed_handler.ind_hess_free)
     return hess
 end
 
