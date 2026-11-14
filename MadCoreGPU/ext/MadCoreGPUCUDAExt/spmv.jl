@@ -60,8 +60,10 @@ end
 function _spmv_run!(plan::SpMVPlan{T}, y, x, alpha, beta) where {T}
     descX = cuSPARSE.CuDenseVectorDescriptor(x)
     descY = cuSPARSE.CuDenseVectorDescriptor(y)
-    cuSPARSE.cusparseSpMV(cuSPARSE.handle(), plan.op, Ref{T}(alpha), plan.desc, descX, Ref{T}(beta), descY, T,
-        cuSPARSE.CUSPARSE_SPMV_ALG_DEFAULT, plan.buffer)
+    cuSPARSE.cusparseSpMV(
+        cuSPARSE.handle(), plan.op, Ref{T}(alpha), plan.desc, descX, Ref{T}(beta), descY, T,
+        cuSPARSE.CUSPARSE_SPMV_ALG_DEFAULT, plan.buffer
+    )
     return y
 end
 
@@ -71,7 +73,7 @@ function MadCore._spmv!(y::_DenseCuVec{T}, A::CuSparseMatrixCSC{T}, x::_DenseCuV
     return _spmv_run!(_spmv_plan(A, false, y, x), y, x, alpha, beta)
 end
 function MadCore._spmv!(
-    y::_DenseCuVec{T}, A::LinearAlgebra.Adjoint{T, <:CuSparseMatrixCSC{T}}, x::_DenseCuVec{T}, alpha, beta,
-) where {T <: Union{Float32, Float64}}
+        y::_DenseCuVec{T}, A::LinearAlgebra.Adjoint{T, <:CuSparseMatrixCSC{T}}, x::_DenseCuVec{T}, alpha, beta,
+    ) where {T <: Union{Float32, Float64}}
     return _spmv_run!(_spmv_plan(parent(A), true, y, x), y, x, alpha, beta)
 end
