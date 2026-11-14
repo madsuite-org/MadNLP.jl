@@ -270,9 +270,9 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         # factorize the KKT system and solve Newton step
         @trace(get_logger(solver),"Computing the Newton step.")
         @phase_region cnt :step_setup_time begin
-            set_aug_diagonal!(get_kkt(solver),solver)
+            set_aug_diagonal!(get_kkt(solver), solver)
             set_aug_rhs!(solver, get_kkt(solver), get_c(solver), get_mu(solver))
-            dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
+            dual_inf_perturbation!(primal(get_p(solver)), get_ind_llb(solver), get_ind_uub(solver), get_mu(solver), get_opt(solver).kappa_d)
         end
         (@phase_region cnt :inertia_time inertia_correction!(get_inertia_corrector(solver), solver)) || return ROBUST
 
@@ -296,42 +296,46 @@ end
 # The phases of an iteration of regular!, each timed in its own field of the counters.
 
 # residuals, printing and termination tests; a status to stop with (or nothing) and sc
-function _check_convergence!(solver::AbstractMadNLPSolver{T}) where T
+function _check_convergence!(solver::AbstractMadNLPSolver{T}) where {T}
     jtprod!(get_jacl(solver), get_kkt(solver), get_y(solver))
-    sd = get_sd(get_y(solver),get_zl_r(solver),get_zu_r(solver),T(get_opt(solver).s_max))
-    sc = get_sc(get_zl_r(solver),get_zu_r(solver),T(get_opt(solver).s_max))
+    sd = get_sd(get_y(solver), get_zl_r(solver), get_zu_r(solver), T(get_opt(solver).s_max))
+    sc = get_sc(get_zl_r(solver), get_zu_r(solver), T(get_opt(solver).s_max))
     set_inf_pr!(solver, get_inf_pr(get_c(solver)))
-    set_inf_du!(solver, get_inf_du(
-        full(get_f(solver)),
-        full(get_zl(solver)),
-        full(get_zu(solver)),
-        get_jacl(solver),
-        sd,
-    ))
-    set_inf_compl!(solver, get_inf_compl(solver, sc; mu=zero(T)))
+    set_inf_du!(
+        solver, get_inf_du(
+            full(get_f(solver)),
+            full(get_zl(solver)),
+            full(get_zu(solver)),
+            get_jacl(solver),
+            sd,
+        )
+    )
+    set_inf_compl!(solver, get_inf_compl(solver, sc; mu = zero(T)))
 
     print_iter(solver)
 
     # evaluate termination criteria
-    @trace(get_logger(solver),"Evaluating termination criteria.")
-    !(get_intermediate_callback(solver)(solver, UserCallbackRegular()) :: Bool) && return (USER_REQUESTED_STOP, sc)
+    @trace(get_logger(solver), "Evaluating termination criteria.")
+    !(get_intermediate_callback(solver)(solver, UserCallbackRegular())::Bool) && return (USER_REQUESTED_STOP, sc)
     inf_total = get_inf_total(solver)
     inf_total <= get_opt(solver).tol && return (SOLVE_SUCCEEDED, sc)
     inf_total <= get_opt(solver).acceptable_tol ?
-        (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
-        get_cnt(solver).acceptable_cnt+=1 : return (SOLVED_TO_ACCEPTABLE_LEVEL, sc)) : (get_cnt(solver).acceptable_cnt = 0)
+        (
+            get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
+            get_cnt(solver).acceptable_cnt += 1 : return (SOLVED_TO_ACCEPTABLE_LEVEL, sc)
+        ) : (get_cnt(solver).acceptable_cnt = 0)
     # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
     # A watchdog trial step may blow up the iterate before the rollback, so the test waits
     # until the watchdog ends.
     !watchdog_active(solver) &&
         norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return (DIVERGING_ITERATES, sc)
-    get_cnt(solver).k>=get_opt(solver).max_iter && return (MAXIMUM_ITERATIONS_EXCEEDED, sc)
-    time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return (MAXIMUM_WALLTIME_EXCEEDED, sc)
+    get_cnt(solver).k >= get_opt(solver).max_iter && return (MAXIMUM_ITERATIONS_EXCEEDED, sc)
+    time() - get_cnt(solver).start_time >= get_opt(solver).max_wall_time && return (MAXIMUM_WALLTIME_EXCEEDED, sc)
     return (nothing, sc)
 end
 
-function _update_barrier_parameter!(solver::AbstractMadNLPSolver{T}, sc) where T
-    @trace(get_logger(solver),"Updating the barrier parameter.")
+function _update_barrier_parameter!(solver::AbstractMadNLPSolver{T}, sc) where {T}
+    @trace(get_logger(solver), "Updating the barrier parameter.")
     mu_prev = get_mu(solver)
     update_barrier!(get_opt(solver).barrier, solver, sc)
     # The tiny-step flag is about the last step only: clear it whichever barrier rule ran.
@@ -348,7 +352,7 @@ function _update_barrier_parameter!(solver::AbstractMadNLPSolver{T}, sc) where T
 end
 
 # the watchdog, the filter line search and the slack reset; the line search status
-function _line_search_step!(solver::AbstractMadNLPSolver{T}) where T
+function _line_search_step!(solver::AbstractMadNLPSolver{T}) where {T}
     # After watchdog_shortened_iter_trigger consecutive shortened steps, the watchdog saves the
     # iterate and takes up to watchdog_trial_iter_max full steps, as in Ipopt.
     if get_opt(solver).watchdog && hasfield(typeof(solver), :watchdog)
@@ -362,7 +366,7 @@ function _line_search_step!(solver::AbstractMadNLPSolver{T}) where T
         end
     end
 
-    @trace(get_logger(solver),"Backtracking line search initiated.")
+    @trace(get_logger(solver), "Backtracking line search initiated.")
     status = filter_line_search!(solver)
     if watchdog_active(solver)
         wd = watchdog_state(solver)
@@ -396,14 +400,14 @@ function _line_search_step!(solver::AbstractMadNLPSolver{T}) where T
     return LINESEARCH_SUCCEEDED
 end
 
-function _update_iterate!(solver::AbstractMadNLPSolver{T}) where T
-    @trace(get_logger(solver),"Updating primal-dual variables.")
+function _update_iterate!(solver::AbstractMadNLPSolver{T}) where {T}
+    @trace(get_logger(solver), "Updating primal-dual variables.")
     copyto!(full(get_x(solver)), full(get_x_trial(solver)))
     copyto!(get_c(solver), get_c_trial(solver))
     set_obj_val!(solver, get_obj_val_trial(solver))
-    adjust_boundary!(get_x_lr(solver),get_xl_r(solver),get_x_ur(solver),get_xu_r(solver),get_mu(solver))
+    adjust_boundary!(get_x_lr(solver), get_xl_r(solver), get_x_ur(solver), get_xu_r(solver), get_mu(solver))
 
-    axpy!(get_alpha(solver),dual(get_d(solver)),get_y(solver))
+    axpy!(get_alpha(solver), dual(get_d(solver)), get_y(solver))
 
     get_zl_r(solver) .+= get_alpha_z(solver) .* dual_lb(get_d(solver))
     get_zu_r(solver) .+= get_alpha_z(solver) .* dual_ub(get_d(solver))
@@ -411,13 +415,13 @@ function _update_iterate!(solver::AbstractMadNLPSolver{T}) where T
         primal(get_zl(solver)),
         primal(get_x(solver)),
         primal(get_xl(solver)),
-        get_mu(solver),get_opt(solver).kappa_sigma,
+        get_mu(solver), get_opt(solver).kappa_sigma,
     )
     reset_bound_dual!(
         primal(get_zu(solver)),
         primal(get_xu(solver)),
         primal(get_x(solver)),
-        get_mu(solver),get_opt(solver).kappa_sigma,
+        get_mu(solver), get_opt(solver).kappa_sigma,
     )
     return
 end

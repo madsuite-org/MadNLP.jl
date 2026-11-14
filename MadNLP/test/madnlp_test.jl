@@ -326,7 +326,7 @@ end
 
 @testset "MadNLP profiling counters" begin
     nlp = MadNLPTests.HS15Model()
-    solver = MadNLPSolver(nlp; print_level=MadNLP.ERROR)
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR)
     stats = MadNLP.solve!(solver)
     cnt = solver.cnt
     @test stats.status == MadNLP.SOLVE_SUCCEEDED
@@ -336,7 +336,7 @@ end
     @test cnt.build_kkt_time > 0 && cnt.factorization_time > 0 && cnt.solve_time > 0
     @test cnt.triangular_solve_time > 0 && cnt.kkt_mul_time > 0
     # the regions are nested, so the parts add up to at most the totals
-    tol = 1e-9
+    tol = 1.0e-9
     @test sum(eval_times) <= cnt.eval_function_time + tol
     @test cnt.build_kkt_time + cnt.symbolic_time + cnt.factorization_time + cnt.solve_time <= cnt.linear_solver_time + tol
     @test cnt.symbolic_cnt == 0 && cnt.symbolic_time >= 0   # the default linear solver analyzes on its own
@@ -346,8 +346,10 @@ end
     @test cnt.factorization_cnt >= cnt.k
     # each phase is timed without the evaluations and linear algebra inside it, so the parts
     # add up to at most the solve time
-    phases = (cnt.initialize_time, cnt.convergence_time, cnt.barrier_time, cnt.step_setup_time,
-        cnt.inertia_time, cnt.line_search_time, cnt.update_time, cnt.restoration_time)
+    phases = (
+        cnt.initialize_time, cnt.convergence_time, cnt.barrier_time, cnt.step_setup_time,
+        cnt.inertia_time, cnt.line_search_time, cnt.update_time, cnt.restoration_time,
+    )
     @test all(>=(-tol), phases)
     @test cnt.convergence_time > 0 && cnt.line_search_time > 0 && cnt.update_time > 0
     @test cnt.init_time + cnt.eval_function_time + cnt.linear_solver_time + sum(phases) <= cnt.total_time + tol
