@@ -148,3 +148,32 @@ end
         @test isempty(MadNLP.get_kkt(solver).border.ind_D)
     end
 end
+
+# CondensedPreset: the equalities enforced and condensed through the shift, the dense row condensed
+# too (Cholesky cannot factor a border), no dual regularization and the retry on a wrong inertia
+@testset "CondensedPreset: equalities condensed through the shift" begin
+    n = 40
+    nlp = BorderQP(n)
+    solver = MadNLP.MadNLPSolver(nlp; preset = MadNLP.CondensedPreset, dense_row_fallback = false, print_level = MadNLP.ERROR)
+    kkt = MadNLP.get_kkt(solver)
+    @test kkt isa MadNLP.SparseCondensedKKTSystem && isempty(kkt.border.ind_D)
+    @test kkt.eq_shift.base == 1.0e-8 && kkt.eq_shift.retry
+    res = MadNLP.solve!(solver)
+    @test res.status == MadNLP.SOLVE_SUCCEEDED
+    @test MadNLP.MadCore.get_del_c(solver) == 0
+    ref = MadNLP.madnlp(nlp; print_level = MadNLP.ERROR)
+    @test res.objective ≈ ref.objective rtol = 1.0e-6
+    @test res.solution ≈ ref.solution atol = 1.0e-5
+    # the retry off: the same solve with the option
+    res0 = MadNLP.madnlp(nlp; preset = MadNLP.CondensedPreset, dense_row_fallback = false, equality_shift_retry = false, print_level = MadNLP.ERROR)
+    @test res0.status == MadNLP.SOLVE_SUCCEEDED
+    # a model with a dense Jacobian row (the rule of the condensed system at its defaults: more than
+    # 512 nonzeros, 10% of the variables, and a fill of 1e7 saved) is solved with ShiftedPreset
+    # instead, unless dense_row_fallback is off
+    big = BorderQP(6000)   # one row over every variable
+    @test MadNLP.MadNLPCore.has_dense_rows(big) && !MadNLP.MadNLPCore.has_dense_rows(nlp)
+    @test MadNLP.MadNLPOptions{Float64}(big; preset = MadNLP.CondensedPreset).preset === MadNLP.ShiftedPreset
+    @test MadNLP.MadNLPOptions{Float64}(big; preset = MadNLP.CondensedPreset, dense_row_fallback = false).preset === MadNLP.CondensedPreset
+    @test MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset).preset === MadNLP.CondensedPreset
+end
+

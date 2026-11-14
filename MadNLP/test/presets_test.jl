@@ -46,16 +46,21 @@
     @test cond.kkt_scaler isa MadNLP.NoScaler && iszero(cond.dual_shift)
     @test cond.barrier isa MadNLP.MonotoneUpdate && !cond.slack_reset
 
-    # CondensedPreset: the condensed system, factorized by the same pivot-bounded LDLᵀ
+    # CondensedPreset: the condensed system with the equalities enforced and condensed through the
+    # shift, factorized by Cholesky, with the monotone rule and Richardson refinement
     co = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset)
     @test co.preset === MadNLP.CondensedPreset
     @test co.kkt_system === MadNLP.SparseCondensedKKTSystem
-    @test co.equality_treatment === MadNLP.RelaxEquality
+    @test co.equality_treatment === MadNLP.EnforceEquality && co.fixed_variable_treatment === MadNLP.MakeParameter
+    @test co.dual_initialization_method === MadNLP.DualInitializeLeastSquares
     @test co.linear_solver === (Base.USE_GPL_LIBS ? MadNLP.CHOLMODSolver : MadNLP.MumpsSolver)
-    @test co.kkt_scaler isa MadNLP.NoScaler && co.barrier isa MadNLP.MonotoneUpdate
+    @test co.kkt_scaler isa MadNLP.NoScaler && co.barrier isa MadNLP.MonotoneUpdate && !co.slack_reset
+    @test co.iterator === MadNLP.RichardsonIterator && iszero(co.dual_shift)
+    @test co.equality_shift == 1.0e-8
+    @test co.equality_shift_retry
     if Base.USE_GPL_LIBS
         lopt = MC.default_options(nlp, co.preset, co.kkt_system, co.linear_solver)
-        @test lopt.cholmod_algorithm == MadNLP.LDL && lopt.cholmod_dbound == 1.0e-10
+        @test lopt.cholmod_algorithm == MadNLP.CHOLESKY && lopt.cholmod_dbound == 0.0
     end
 
     # Every preset solves, and an option given explicitly overrides the preset
