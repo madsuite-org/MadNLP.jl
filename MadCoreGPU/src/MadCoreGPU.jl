@@ -8,7 +8,7 @@ import LinearAlgebra: Symmetric, mul!, norm, dot
 import Adapt: adapt
 import GPUArraysCore: AbstractGPUVector, AbstractGPUMatrix, AbstractGPUArray, @allowscalar
 # Kernels
-import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend, @localmem, @synchronize
+import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend, @localmem, @synchronize, @groupreduce
 
 import MadCore: NLPModels
 import MadCore

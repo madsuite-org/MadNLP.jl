@@ -17,25 +17,16 @@ const _RED_SLOTS = 64       # columns, so reductions outstanding at once
 @kernel unsafe_indices = true function _block_reduce_kernel!(partials, op, init, bc, n, slot)
     gi = @index(Group, Linear)
     li = @index(Local, Linear)
-    shared = @localmem eltype(partials) (_RED_GROUPSIZE,)
     acc = init
     i = (gi - 1) * _RED_GROUPSIZE + li
     while i <= n
         @inbounds acc = op(acc, bc[i])
         i += _RED_GROUPS * _RED_GROUPSIZE
     end
-    @inbounds shared[li] = acc
-    @synchronize
-    s = _RED_GROUPSIZE ÷ 2
-    while s > 0
-        if li <= s
-            @inbounds shared[li] = op(shared[li], shared[li + s])
-        end
-        @synchronize
-        s ÷= 2
-    end
+    # `init` is the neutral element of `op`, or `op` is idempotent (`min`, `max`)
+    res = @groupreduce(op, acc, init; groupsize = _RED_GROUPSIZE)
     if li == 1
-        @inbounds partials[gi, slot] = shared[1]
+        @inbounds partials[gi, slot] = res
     end
 end
 
