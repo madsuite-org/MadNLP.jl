@@ -3,6 +3,7 @@ uuid = "94de30a0-4b21-4ba4-8ea5-b699003ba2ad"
 version = "0.12.0"
 
 [deps]
+Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
 MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
@@ -13,13 +14,13 @@ oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
 MadNLPCore = {path = "../MadNLPCore"}
-SparseDirectSolver = {url = "https://github.com/exanauts/SparseDirectSolver.jl", rev = "compat/madnlp-0.12"}
 
 [compat]
+Krylov = "0.10"
 MadCore = "=0.12.0"
 MadCoreGPU = "=0.12.0"
 MadNLPCore = "=0.12.0"
-SparseDirectSolver = "0.2"
+SparseDirectSolver = "0.4"
 Test = "1.10"
 julia = "1.13"
 oneAPI = "2.10"

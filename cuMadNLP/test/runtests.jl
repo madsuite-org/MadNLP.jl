@@ -10,21 +10,24 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
         # cuMadNLP loads CUDA and CUDSS, so the solvers of MadCoreGPU are available.
         @test MadCore.default_options(CUDSSSolver) isa MadCore.AbstractOptions
         @test MadCore.default_options(LapackCUDASolver) isa MadCore.AbstractOptions
-        # cuMadNLP's own option preset, more specific than the shared GPU preset of
-        # MadNLPCoreGPUExt, applies to CuVector models
+        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to CuVector models
         preset = which(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, CuVector{Float64}}})
-        @test preset.module === cuMadNLP
+        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
     end
     if CUDA.functional()
         @testset "Option presets for CuVector models" begin
             nlp = MadCore.SparseWrapperModel(CuVector, MadNLPCore.HS15Model())
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
+            @test opt.preset === MadNLPCore.ShiftedPreset
             @test opt.linear_solver === CUDSSSolver
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem
             @test opt.kkt_scaler isa MadCore.RuizScaler
             @test opt.dual_shift == 1.0e-10
             @test opt.iterator === MadCore.KrylovIterator
-            lopt = MadCore.default_options(nlp, opt.kkt_system, opt.linear_solver)
+            @test opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
+            @test opt.barrier.sigma_max == 2.0 && opt.barrier.mu_min ≈ 1.0e-3 * opt.tol
+            @test opt.slack_reset
+            lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 1.0e-10
             @test lopt.cudss_matching && lopt.cudss_deferred_analysis
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
@@ -32,6 +35,24 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             # the condensed system keeps its own preset
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem)
             @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
+            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            # AugmentedPreset: the augmented system with cuDSS and the monotone rule
+            opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.AugmentedPreset)
+            @test opt.kkt_system === MadNLPCore.SparseKKTSystem && opt.linear_solver === CUDSSSolver
+            @test opt.kkt_scaler isa MadCore.NoScaler && iszero(opt.dual_shift)
+            @test opt.barrier isa MadNLPCore.MonotoneUpdate && !opt.slack_reset
+            lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
+            @test lopt.cudss_pivot_type == 'B' && lopt.cudss_matching && lopt.cudss_reanalyze_on_improve
+            @test !lopt.cudss_refactorization
+            stats = madnlp(nlp; preset = MadNLPCore.AugmentedPreset, print_level = MadNLPCore.ERROR)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+            # CondensedPreset: the condensed system with the same cuDSS options as ShiftedPreset
+            opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.CondensedPreset)
+            @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem && opt.barrier isa MadNLPCore.MonotoneUpdate
+            lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
+            @test lopt.cudss_algorithm == MadCore.LDL && lopt.cudss_pivot_epsilon == 1.0e-10 && lopt.cudss_matching
+            stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
+            @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             stats = madnlp(nlp; kkt_system = MadNLPCore.SparseCondensedKKTSystem, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end

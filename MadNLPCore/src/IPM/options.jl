@@ -14,6 +14,107 @@ function parse_option(::Type{AbstractBarrierUpdate{T}}, barrier::AbstractBarrier
 end
 
 """
+    AbstractPreset
+
+A set of options chosen together for a sparse model, given as a type: `madnlp(nlp; preset =
+ShiftedPreset)`. The preset also chooses the options of the linear solver, through
+`default_options(nlp, preset, kkt_system, linear_solver)`. Options given explicitly take
+precedence over those of the preset.
+"""
+abstract type AbstractPreset end
+
+"""
+    ShiftedPreset
+
+The default preset on a GPU: the augmented KKT system factorized LDLᵀ with small
+pivots bounded, after Ruiz scaling and with a dual shift (both 1e-10 in `Float64`, see
+[`preset_perturbation`](@ref MadNLPCore.preset_perturbation)), each solve refined by GMRES on the
+unshifted system, with the quality-function barrier rule (`QualityFunctionUpdate(sigma_max = 2,
+mu_decrease_max = 10, mu_min = 1e-3 tol)`) and slack reset. On the host the factorization is CHOLMOD's (MUMPS without
+Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
+solve is refined by Richardson iterations. The options beyond the linear solver apply to
+`SparseKKTSystem` only. On AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's
+static LDLᵀ after matching, with the same pivot bound and two steps of iterative refinement in
+the solver.
+"""
+struct ShiftedPreset <: AbstractPreset end
+
+"""
+    AugmentedPreset
+
+The default preset on the host: the augmented KKT system with the default sparse linear
+solver, its default options and the monotone barrier rule.
+"""
+struct AugmentedPreset <: AbstractPreset end
+
+"""
+    CondensedPreset
+
+The condensed KKT system (`SparseCondensedKKTSystem`): the equality constraints relaxed as pairs
+of inequalities and the bounds relaxed, with zero initial multipliers, factorized by the same
+pivot-bounded LDLᵀ as `ShiftedPreset` (dense rows may be left uncondensed, which keeps the system
+indefinite), with the monotone barrier rule.
+"""
+struct CondensedPreset <: AbstractPreset end
+
+# The KKT system of a sparse model under a preset, when `kkt_system` is not given.
+preset_kkt_system(::Type{<:AbstractPreset}) = SparseKKTSystem
+preset_kkt_system(::Type{CondensedPreset}) = SparseCondensedKKTSystem
+
+# The presets whose sparse KKT systems are factorized LDLᵀ with small pivots bounded: the condensed
+# system can keep dense rows uncondensed, which leaves it indefinite.
+const PivotBoundedPreset = Union{ShiftedPreset, CondensedPreset}
+const SparsePresetKKTSystem = Union{SparseKKTSystem, SparseCondensedKKTSystem}
+
+# The host default; the GPU option preset (MadNLPCoreGPUExt) makes it ShiftedPreset on GPU models.
+default_preset(nlp) = AugmentedPreset
+
+# The linear solver of the shifted preset on the host: the default sparse one, unless a package
+# with an LDLᵀ factorization that bounds small pivots provides one (MadNLP: CHOLMOD).
+shifted_sparse_solver(nlp) = default_sparse_solver(nlp)
+
+const SHIFTED_SIGMA_MAX = 2.0
+# under ShiftedPreset the barrier parameter decreases at most tenfold per iteration
+const SHIFTED_MU_DECREASE_MAX = 10.0
+const SHIFTED_MU_MIN_RATIO = 1.0e-3
+
+"""
+    preset_perturbation(T)
+
+The dual shift of [`ShiftedPreset`](@ref) and the pivot bound of its LDLᵀ factorization, and of
+[`CondensedPreset`](@ref)'s, in precision `T`: 1e-10 in `Float64`. In another precision it is
+scaled by `(eps(T) / eps(Float64))^(5/8)`, which keeps it at about the same place, on a logarithmic
+scale, between the unit roundoff and 1 (about 3e-5 in `Float32`).
+"""
+preset_perturbation(::Type{T}) where {T} =
+    T(1.0e-10 * exp2(5 * (exponent(eps(T)) - exponent(eps(Float64))) / 8))
+
+# The options of a preset beyond the KKT system and the linear solver.
+preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} = (;)
+function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
+    kkt_system == SparseKKTSystem || return (;)
+    shifted = (;
+        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
+        slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
+    )
+    # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
+    return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))
+end
+
+"""
+    default_options(nlp, preset, kkt_system, linear_solver)
+
+The options of `linear_solver` for the KKT system `kkt_system` of `nlp` under `preset`, which
+`load_options` reads. Falls back to `default_options(nlp, kkt_system, linear_solver)`. Packages
+specialize it per preset; the pivot-bounded LDLᵀ of `ShiftedPreset` and `CondensedPreset`
+dispatches on `PivotBoundedPreset` and `SparsePresetKKTSystem` (MadNLP for CHOLMOD, cuMadNLP for
+cuDSS, the GPU extension of MadNLPCore for SparseDirectSolver.jl).
+"""
+default_options(nlp::AbstractNLPModel, ::Type{<:AbstractPreset}, kkt_system, linear_solver) =
+    default_options(nlp, kkt_system, linear_solver)
+
+
+"""
 Option | Default Value | Description
 :--- | :--- | :---
 ||
@@ -22,19 +123,20 @@ __Primary options__||
 tol                            | 1e-8                 | termination tolerance on KKT residual
 callback                       | [`SparseCallback`](@ref) | type of callback (`SparseCallback` or `DenseCallback`)
 kkt\\_system                   | [`SparseKKTSystem`](@ref) | type of primal-dual KKT system
-linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system
+linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
+preset                         | [`AugmentedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`): `AugmentedPreset`, `ShiftedPreset` (the default on a GPU) or `CondensedPreset`; options given explicitly take precedence
 ||
 __General options__||
 ||
 rethrow\\_error                | true                 | rethrow any error encountered during the algorithm
 disable\\_garbage\\_collector  | false                | disable garbage collector in MadNLP
 blas\\_num\\_threads           | 1                    | number of threads to use in the BLAS backend
-iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system
+iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `KrylovIterator` under `ShiftedPreset` where Krylov is loaded
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
-kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`)
+kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
-dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system
+dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path
@@ -86,13 +188,20 @@ perturb\\_dec\\_fact               | 1/3                  | decrease factor for 
 jacobian\\_regularization\\_exponent | 1/4                | exponent for mu in the regularization of rank-deficient Jacobian
 jacobian\\_regularization\\_value  | 1e-8                 | size of regularization for rank-deficient Jacobian
 ||
-slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`
+slack\\_reset                   | `false`              | in the regular phase, move the slacks onto the constraints after an accepted step, if every original row holds to `slack_reset_tol`; `true` under `ShiftedPreset`
 slack\\_reset\\_tol             | 1e-6                 | violation of the original rows allowed for the slack reset
+watchdog                      | `true`               | watchdog line search: after `watchdog_shortened_iter_trigger` consecutive shortened steps, take up to `watchdog_trial_iter_max` full steps and roll back if they make no progress
+watchdog\\_shortened\\_iter\\_trigger | 10            | consecutive shortened steps that start the watchdog
+watchdog\\_trial\\_iter\\_max    | 3                    | full steps the watchdog tries before rolling back
 ||
 __Feasible restoration__||
 ||
 soft\\_resto\\_pderror\\_reduction\\_factor | 0.9999          | required reduction in primal-dual error in the soft restoration phase
 required\\_infeasibility\\_reduction        | 0.9             | required reduction of infeasibility before leaving restoration phase
+feasibility\\_fallback       | `true`               | after a failure exit (a failed restoration phase or line search, a detected local infeasibility, diverging iterates), retry by projected gradient descent on the constraint violation, from where restoration started or from the current point; at most 3 times per solve
+feasibility\\_fallback\\_max\\_iter | 10000     | iteration limit of the fallback
+feasibility\\_fallback\\_reduction | 1e-2         | the fallback stops once the constraint violation falls by this factor
+feasibility\\_fallback\\_method | `:gradient`         | `:gradient` for projected gradient descent, `:gauss_newton` for Gauss-Newton steps solved by CGLS, with Jacobian products by finite differences of the constraints and at most 500 iterations
 ||
 __Line search__||
 ||
@@ -112,7 +221,7 @@ rho                            | 1000.0               | value in penalty paramet
 ||
 __Barrier__||
 ||
-barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter
+barrier                        | [`MonotoneUpdate`](@ref) | algorithm to update barrier parameter; `QualityFunctionUpdate(sigma_max = 2, mu_decrease_max = 10, mu_min = 1e-3 * tol)` under `ShiftedPreset`
 tau\\_min                      | 0.99                 | lower bound on fraction-to-the-boundary parameter tau
 ||
 """
@@ -184,6 +293,10 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # restoration options
     soft_resto_pderror_reduction_factor::T = 0.9999
     required_infeasibility_reduction::T = 0.9
+    feasibility_fallback::Bool = true
+    feasibility_fallback_max_iter::Int = 10_000
+    feasibility_fallback_reduction::T = 1.0e-2
+    feasibility_fallback_method::Symbol = :gradient
 
     # Line search
     obj_max_inc::T = 5.
@@ -195,6 +308,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     kappa_soc::T = 0.99
     slack_reset::Bool = false
     slack_reset_tol::T = 1.0e-6
+    watchdog::Bool = true
+    watchdog_shortened_iter_trigger::Int = 10
+    watchdog_trial_iter_max::Int = 3
     gamma_theta::T = 1e-5
     gamma_phi::T = 1e-5
     delta::T = 1
@@ -209,28 +325,37 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
 
     # KKT system options (passed through to create_kkt_system)
     kkt_options::Dict{Symbol, Any} = Dict{Symbol, Any}()
+    preset::Type{<:AbstractPreset} = AugmentedPreset
 end
+
 
 # smart option presets
 function MadNLPOptions{T}(
     nlp::AbstractNLPModel{T};
+    preset::Type{<:AbstractPreset} = default_preset(nlp),
     dense_callback = is_dense_callback(nlp),
     callback = dense_callback ? DenseCallback : SparseCallback,
-    kkt_system = dense_callback ? DenseCondensedKKTSystem : SparseKKTSystem,
-    linear_solver = dense_callback ? default_dense_solver(nlp) : default_sparse_solver(nlp),
+    kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
+    linear_solver = dense_callback ? default_dense_solver(nlp) :
+        preset <: PivotBoundedPreset && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
     tol = get_tolerance(T,kkt_system)
 ) where {T}
-    return MadNLPOptions{T}(
+    return MadNLPOptions{T}(;
         tol = tol,
         callback = callback,
         kkt_system = kkt_system,
         linear_solver = linear_solver,
+        preset = preset,
+        preset_options(preset, T, kkt_system, tol)...,
     )
 end
 
 function check_option_sanity(options)
     is_kkt_dense = options.kkt_system <: AbstractDenseKKTSystem || options.kkt_system <: SchurComplementKKTSystem
     is_hess_approx_dense = options.hessian_approximation <: Union{BFGS, DampedBFGS}
+    if !(options.feasibility_fallback_method in (:gradient, :gauss_newton))
+        error("[options] feasibility_fallback_method must be :gradient or :gauss_newton.")
+    end
     if input_type(options.linear_solver) == :csc && is_kkt_dense
         error("[options] Sparse Linear solver is not supported in dense mode.\n"*
               "Please use a dense linear solver or change `kkt_system` ")
@@ -251,7 +376,7 @@ function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
 
     check_option_sanity(opt_ipm)
     # Initiate linear-solver options
-    opt_linear_solver = default_options(nlp, opt_ipm.kkt_system, opt_ipm.linear_solver)
+    opt_linear_solver = default_options(nlp, opt_ipm.preset, opt_ipm.kkt_system, opt_ipm.linear_solver)
     iterator_options = set_options!(opt_linear_solver, linear_solver_options)
     # Initiate iterator options
     opt_iterator = default_options(opt_ipm.iterator, opt_ipm.tol)

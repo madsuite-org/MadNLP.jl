@@ -4,11 +4,12 @@
 ######################################################
 
 function MadCore.transfer!(
-    dest::rocSPARSE.ROCSparseMatrixCSC,
-    src::MadCore.SparseMatrixCOO,
-    map,
-)
-    return copyto!(view(dest.nzVal, map), src.V)
+        dest::rocSPARSE.ROCSparseMatrixCSC,
+        src::MadCore.SparseMatrixCOO,
+        map,
+    )
+    MadCoreGPU._transfer_coo_to_csc!(dest.nzVal, src.V, map)
+    return dest
 end
 
 MadCore.nzval(H::rocSPARSE.ROCSparseMatrixCSC) = H.nzVal

@@ -519,6 +519,155 @@ end
     @test xs == s0
 end
 
+@testset "Barrier decrease after a tiny step" begin
+    function mu_after(tiny)
+        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
+        MadNLP.initialize!(solver)
+        mu = MadNLP.get_mu(solver)
+        # a barrier sub-problem far from solved
+        MadNLP.set_inf_pr!(solver, 1.0e3)
+        solver.cnt.tiny_step = tiny
+        MadNLP._update_monotone!(solver.opt.barrier, solver, 1.0)
+        return MadNLP.get_mu(solver) / mu, solver.cnt.tiny_step
+    end
+    @test mu_after(false) == (1.0, false)
+    ratio, flag = mu_after(true)
+    @test ratio < 1
+    @test !flag
+
+    # the flag does not outlive the iteration under an adaptive barrier, nor a resolve
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, barrier = MadNLP.QualityFunctionUpdate(1.0e-8, 10.0))
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    @test !solver.cnt.tiny_step
+    solver.cnt.tiny_step = true
+    MadNLP.reinitialize!(solver)
+    @test !solver.cnt.tiny_step
+end      
+      
+# min (x1 - 3)^4 + x2^2 subject to x1 + x2 = 1 written twice: the Jacobian is rank deficient
+struct RedundantEqualityModel <: NLPModels.AbstractNLPModel{Float64, Vector{Float64}}
+    meta::NLPModels.NLPModelMeta{Float64, Vector{Float64}}
+    counters::NLPModels.Counters
+end
+RedundantEqualityModel() = RedundantEqualityModel(
+    NLPModels.NLPModelMeta(2; ncon = 2, nnzj = 4, nnzh = 2, x0 = [-5.0, 9.0], lcon = [1.0, 1.0], ucon = [1.0, 1.0]),
+    NLPModels.Counters(),
+)
+NLPModels.obj(::RedundantEqualityModel, x::AbstractVector) = (x[1] - 3)^4 + x[2]^2
+function NLPModels.grad!(::RedundantEqualityModel, x::AbstractVector, g::AbstractVector)
+    g[1] = 4 * (x[1] - 3)^3
+    g[2] = 2 * x[2]
+    return g
+end
+NLPModels.cons!(::RedundantEqualityModel, x::AbstractVector, c::AbstractVector) = (c .= x[1] + x[2]; c)
+function NLPModels.jac_structure!(::RedundantEqualityModel, I::AbstractVector, J::AbstractVector)
+    I .= [1, 1, 2, 2]
+    J .= [1, 2, 1, 2]
+    return I, J
+end
+NLPModels.jac_coord!(::RedundantEqualityModel, x::AbstractVector, vals::AbstractVector) = (vals .= 1.0; vals)
+function NLPModels.hess_structure!(::RedundantEqualityModel, I::AbstractVector, J::AbstractVector)
+    I .= [1, 2]
+    J .= [1, 2]
+    return I, J
+end
+function NLPModels.hess_coord!(::RedundantEqualityModel, x, y, vals::AbstractVector; obj_weight = 1.0)
+    vals[1] = 12 * (x[1] - 3)^2 * obj_weight
+    vals[2] = 2 * obj_weight
+    return vals
+end
+
+@testset "Dual regularization without Hessian perturbation" begin
+    solver = MadNLPSolver(RedundantEqualityModel(); print_level = MadNLP.ERROR)
+    results = MadNLP.solve!(solver)
+    @test results.status == MadNLP.SOLVE_SUCCEEDED
+    @test sum(results.solution) ≈ 1 atol = 1.0e-6
+    # the dual block needed regularization at every iteration, so the Jacobian is taken as degenerate
+    @test solver.inertia_corrector.jac_degenerate
+    # and the Hessian was never perturbed
+    @test solver.del_w_last == 0
+
+    # a full-rank Jacobian is not taken as degenerate, on the augmented and the condensed system
+    for kkt_system in (MadNLP.SparseKKTSystem, MadNLP.SparseCondensedKKTSystem)
+        nlp = MadNLP.SparseWrapperModel(Array, MadNLPTests.HS15Model(; x0 = [1.0, 1.0]))
+        solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, kkt_system)
+        @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+        @test !solver.inertia_corrector.jac_degenerate
+    end
+
+    # a failed Cholesky factorization of the condensed system is not a singular dual block
+    if Base.USE_GPL_LIBS
+        nlp = MadNLP.SparseWrapperModel(Array, MadNLPTests.HS15Model(; x0 = [1.0, 1.0]))
+        reference = madnlp(nlp; print_level = MadNLP.ERROR)
+        solver = MadNLPSolver(
+            nlp; print_level = MadNLP.ERROR,
+            kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadNLP.CHOLMODSolver,
+        )
+        results = MadNLP.solve!(solver)
+        @test results.status == MadNLP.SOLVE_SUCCEEDED
+        @test !solver.inertia_corrector.jac_degenerate
+        @test results.solution ≈ reference.solution atol = 1.0e-6
+    end
+end
+
+
+# counts the tentative watchdog steps of a solve
+struct WatchdogSteps <: MadNLP.AbstractUserCallback
+    count::Base.RefValue{Int}
+end
+(cb::WatchdogSteps)(solver, mode) = (MadNLP.get_ftype(solver) == "w" && (cb.count[] += 1); true)
+
+@testset "Watchdog line search" begin
+    nlp = MadNLPTests.HS15Model(; x0 = [1.0, 1.0])
+    on = madnlp(nlp; print_level = MadNLP.ERROR)
+    off = madnlp(nlp; print_level = MadNLP.ERROR, watchdog = false)
+    @test on.status == off.status == MadNLP.SOLVE_SUCCEEDED
+    @test on.objective ≈ off.objective
+
+    # a watchdog started at every iteration still reaches the same solution
+    for trigger in (0, 1)
+        r = madnlp(nlp; print_level = MadNLP.ERROR, watchdog_shortened_iter_trigger = trigger)
+        @test r.status == MadNLP.SOLVE_SUCCEEDED
+        @test r.objective ≈ off.objective atol = 1.0e-6
+    end
+
+    # tentative watchdog steps are taken and the solve still reaches the solution
+    steps = WatchdogSteps(Ref(0))
+    nlp_far = MadNLPTests.HS15Model(; x0 = [-2.0, 1.0])
+    r = madnlp(nlp_far; print_level = MadNLP.ERROR, watchdog_shortened_iter_trigger = 0, intermediate_callback = steps)
+    @test r.status == MadNLP.SOLVE_SUCCEEDED
+    @test steps.count[] > 0
+    @test r.objective ≈ madnlp(nlp_far; print_level = MadNLP.ERROR, watchdog = false).objective atol = 1.0e-6
+
+    # the reference is restored exactly
+    solver = MadNLPSolver(nlp; print_level = MadNLP.ERROR, watchdog = true, watchdog_shortened_iter_trigger = 0)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    wd = MadNLP.WatchdogState(solver)
+    MadNLP.save_watchdog_iterate!(solver, wd)
+    # the reference values follow μ: at the saved μ they are unchanged
+    varphi_ref, varphi_d_ref = wd.varphi_ref, wd.varphi_d_ref
+    MadNLP.update_watchdog_reference!(wd, MadNLP.get_mu(solver))
+    @test wd.varphi_ref ≈ varphi_ref
+    @test wd.varphi_d_ref ≈ varphi_d_ref
+    x = copy(MadNLP.full(MadNLP.get_x(solver)))
+    y = copy(MadNLP.get_y(solver))
+    MadNLP.full(MadNLP.get_x(solver)) .+= 1.0
+    MadNLP.get_y(solver) .+= 1.0
+    MadNLP.restore_watchdog_iterate!(solver, wd)
+    @test MadNLP.full(MadNLP.get_x(solver)) == x
+    @test MadNLP.get_y(solver) == y
+
+    # a filter reset after the save (as by a change of μ) survives the rollback
+    MadNLP.save_watchdog_iterate!(solver, wd)
+    push!(MadNLP.get_filter(solver), (1.0, 1.0))
+    empty!(MadNLP.get_filter(solver))
+    push!(MadNLP.get_filter(solver), (MadNLP.get_theta_max(solver), -Inf))
+    MadNLP.restore_watchdog_iterate!(solver, wd)
+    @test MadNLP.get_filter(solver) == [(MadNLP.get_theta_max(solver), -Inf)]
+end
+
+
 @testset "Barrier parameter floor" begin
     # μ stops at tol / (barrier_tol_factor + 1) when mu_min is smaller
     @test MadNLP.get_mu(1.0e-9, 1.0e-11, 0.2, 1.5, 1.0e-8, 10.0) ≈ 1.0e-8 / 11
@@ -528,6 +677,15 @@ end
     @test MadNLP.get_mu(1.0e-6, 1.0e-11, 0.2, 1.5, 1.0e-3, 10.0) ≈ 1.0e-4 / 11
 end
       
+@testset "Divergence test on the primal variables" begin
+    # From x0 = 0, the termination measure of HS15 reaches about 3e4 while |x| stays below 1.3:
+    # the divergence test looks at the variables only, as Ipopt does.
+    solver = MadNLPSolver(MadNLPTests.HS15Model(); print_level = MadNLP.ERROR, diverging_iterates_tol = 1e3)
+    @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
+    solver = MadNLPSolver(MadNLPTests.HS15Model(); print_level = MadNLP.ERROR, diverging_iterates_tol = 1.0)
+    @test MadNLP.solve!(solver).status == MadNLP.DIVERGING_ITERATES
+end
+
 @testset "Original constraint violation" begin
     solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
     @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED

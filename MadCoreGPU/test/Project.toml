@@ -6,6 +6,7 @@ MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+SparseDirectSolver = "dc8e0fd9-41f1-440b-9624-22817132f700"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [sources]
@@ -14,3 +15,6 @@ MadCoreGPU = {path = ".."}
 MadNLP = {path = "../../MadNLP"}
 MadNLPCore = {path = "../../MadNLPCore"}
 MadNLPTests = {path = "../../MadNLPTests"}
+
+[compat]
+SparseDirectSolver = "0.4"

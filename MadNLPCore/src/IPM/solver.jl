@@ -132,7 +132,12 @@ function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     set_mu!(solver, get_opt(solver).barrier.mu_init)
     set_tau!(solver, max(get_opt(solver).tau_min,one(T)-get_opt(solver).barrier.mu_init))
     empty!(get_filter(solver))
-    get_RR(solver) === nothing || (get_RR(solver).n_feasible_returns = 0)
+    if get_RR(solver) !== nothing
+        get_RR(solver).n_feasible_returns = 0
+        get_RR(solver).n_rescues = 0
+        get_RR(solver).infeasible_seen = false
+    end
+    get_cnt(solver).tiny_step = false
     push!(get_filter(solver), (get_theta_max(solver),-T(Inf)))
 
     return REGULAR
@@ -177,7 +182,13 @@ function solve!(
         end
 
         while get_status(solver) >= REGULAR
-            get_status(solver) == REGULAR && (set_status!(solver, regular!(solver)))
+            if get_status(solver) == REGULAR
+                set_status!(solver, regular!(solver))
+                # A failed regular phase gets the rescue from where it stopped.
+                if get_status(solver) in (SEARCH_DIRECTION_BECOMES_TOO_SMALL, DIVERGING_ITERATES) && get_opt(solver).feasibility_fallback
+                    set_status!(solver, feasibility_rescue!(solver, get_status(solver); from_entry = false))
+                end
+            end
             get_status(solver) == RESTORE && (set_status!(solver, restore!(solver)))
             get_status(solver) == ROBUST && (set_status!(solver, robust!(solver)))
         end
@@ -260,7 +271,11 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         inf_total <= get_opt(solver).acceptable_tol ?
             (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
             get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
-        inf_total >= get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
+        # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
+        # A watchdog trial step may blow up the iterate before the rollback, so the test waits
+        # until the watchdog ends.
+        !watchdog_active(solver) &&
+            norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
         time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
@@ -271,7 +286,18 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
 
         # update the barrier parameter
         @trace(get_logger(solver),"Updating the barrier parameter.")
+        mu_prev = get_mu(solver)
         update_barrier!(get_opt(solver).barrier, solver, sc)
+        # The tiny-step flag is about the last step only: clear it whichever barrier rule ran.
+        get_cnt(solver).tiny_step = false
+        # A change of the barrier parameter keeps a watchdog going, with the reference values
+        # re-evaluated at the new μ: the barrier objective and its directional derivative are
+        # affine in μ. This deviates from Ipopt, which resets the watchdog here. A later rollback
+        # restores the direction computed for the old μ, which need not be a descent direction
+        # for the new barrier objective; the filter and θ tests still guard acceptance.
+        if watchdog_active(solver) && get_mu(solver) != mu_prev
+            update_watchdog_reference!(watchdog_state(solver), get_mu(solver))
+        end
 
         # factorize the KKT system and solve Newton step
         @trace(get_logger(solver),"Computing the Newton step.")
@@ -280,8 +306,44 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
         inertia_correction!(get_inertia_corrector(solver), solver) || return ROBUST
 
+        # After watchdog_shortened_iter_trigger consecutive shortened steps, the watchdog saves the
+        # iterate and takes up to watchdog_trial_iter_max full steps, as in Ipopt.
+        if get_opt(solver).watchdog && hasfield(typeof(solver), :watchdog)
+            get_watchdog(solver) === nothing && set_watchdog!(solver, WatchdogState(solver))
+            wd = get_watchdog(solver)
+            if !wd.in_watchdog && wd.shortened_iter >= get_opt(solver).watchdog_shortened_iter_trigger
+                save_watchdog_iterate!(solver, wd)
+                wd.in_watchdog = true
+                wd.trial_iter = 0
+                wd.shortened_iter = 0
+            end
+        end
+
         @trace(get_logger(solver),"Backtracking line search initiated.")
         status = filter_line_search!(solver)
+        if watchdog_active(solver)
+            wd = watchdog_state(solver)
+            if status == LINESEARCH_SUCCEEDED && get_ftype(solver) != "w"
+                # a step accepted relative to the reference ends the watchdog
+                wd.in_watchdog = false
+            elseif status == LINESEARCH_SUCCEEDED
+                # a tentative full step, not acceptable relative to the reference
+                wd.trial_iter += 1
+                if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
+                    # no progress: roll back and take the usual line search from the reference.
+                    # A second-order correction there solves with the KKT system factorized at
+                    # the tentative point; the filter still vets any step it produces.
+                    restore_watchdog_iterate!(solver, wd)
+                    wd.in_watchdog = false
+                    status = filter_line_search!(solver)
+                end
+            else
+                # the watchdog failed: roll back and take the usual line search from the reference
+                restore_watchdog_iterate!(solver, wd)
+                wd.in_watchdog = false
+                status = filter_line_search!(solver)
+            end
+        end
         if status != LINESEARCH_SUCCEEDED
             return status
         end
@@ -313,6 +375,11 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         )
 
         eval_grad_f_wrapper!(solver, get_f(solver),get_x(solver))
+
+        # count consecutive shortened steps outside a watchdog
+        if get_opt(solver).watchdog && (wd = watchdog_state(solver)) !== nothing && !wd.in_watchdog
+            wd.shortened_iter = get_cnt(solver).l == 1 ? 0 : wd.shortened_iter + 1
+        end
 
         get_cnt(solver).k+=1
         @trace(get_logger(solver),"Proceeding to the next interior point iteration.")
@@ -381,7 +448,8 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
             get_zu_r(solver),
             get_mu(solver),
         )
-        if F_trial > get_opt(solver).soft_resto_pderror_reduction_factor*F
+        # a trial point whose error is not finite (an evaluation at it failed) falls back too
+        if !(F_trial <= get_opt(solver).soft_resto_pderror_reduction_factor * F)
             copyto!(primal(get_x(solver)), primal(get__w1(solver)))
             copyto!(get_y(solver), dual(get__w1(solver)))
             copyto!(get_c(solver), dual(get__w2(solver))) # restore the previous primal iterate
@@ -424,9 +492,11 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
 
         dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
         factorize_wrapper!(solver)
+        # a failed refinement or a non-finite step (a failed Cholesky factorization of a nonconvex
+        # problem) goes to the robust restoration phase
         solve_refine_wrapper!(
             get_d(solver), solver, get_p(solver), get__w4(solver)
-        )
+        ) && all(isfinite, full(get_d(solver))) || return ROBUST
 
         set_ftype!(solver, "f")
     end
@@ -457,6 +527,23 @@ function return_to_regular!(solver::AbstractMadNLPSolver{T}) where {T}
 end
 
 function robust!(solver::AbstractMadNLPSolver{T}) where T
+    # The watchdog belongs to the regular phase. Restoration entered from a tentative point
+    # starts from the reference instead.
+    if (wd = watchdog_state(solver)) !== nothing
+        wd.in_watchdog && restore_watchdog_iterate!(solver, wd)
+        wd.in_watchdog = false
+        wd.shortened_iter = 0
+        wd.trial_iter = 0
+    end
+    status = robust_phase!(solver)
+    get_opt(solver).feasibility_fallback || return status
+    status in (RESTORATION_FAILED, SEARCH_DIRECTION_BECOMES_TOO_SMALL, INFEASIBLE_PROBLEM_DETECTED) || return status
+    RR::RobustRestorer = get_RR(solver)
+    status == INFEASIBLE_PROBLEM_DETECTED && (RR.infeasible_seen = true)
+    return restoration_verdict(RR, feasibility_rescue!(solver, status; from_entry = true))
+end
+
+function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
     initialize_robust_restorer!(solver)
     RR = get_RR(solver)
     while true
@@ -591,15 +678,16 @@ function second_order_correction(solver::AbstractMadNLPSolver,alpha_max,theta,va
                                  theta_trial,varphi_d,switching_condition::Bool)
     @trace(get_logger(solver),"Second-order correction started.")
 
+    # The correction step is solved into _w1; c_soc lives in _w2, which the solve does not overwrite.
     wx = primal(get__w1(solver))
-    wy = dual(get__w1(solver))
-    copyto!(wy, get_c_trial(solver))
-    axpy!(alpha_max, get_c(solver), wy)
+    c_soc = dual(get__w2(solver))
+    copyto!(c_soc, get_c_trial(solver))
+    axpy!(alpha_max, get_c(solver), c_soc)
 
     theta_soc_old = theta_trial
     for p=1:get_opt(solver).max_soc
         # compute second order correction
-        set_aug_rhs!(solver, get_kkt(solver), wy, get_mu(solver))
+        set_aug_rhs!(solver, get_kkt(solver), c_soc, get_mu(solver))
         dual_inf_perturbation!(
             primal(get_p(solver)),
             get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d,
@@ -644,6 +732,8 @@ function second_order_correction(solver::AbstractMadNLPSolver,alpha_max,theta,va
 
         theta_soc>get_opt(solver).kappa_soc*theta_soc_old && break
         theta_soc_old = theta_soc
+        # c_soc <- alpha_soc * c_soc + c(x_soc), as in Ipopt
+        c_soc .= alpha_soc .* c_soc .+ get_c_trial(solver)
     end
     @trace(get_logger(solver),"Second-order correction terminated.")
 
@@ -651,23 +741,49 @@ function second_order_correction(solver::AbstractMadNLPSolver,alpha_max,theta,va
 end
 
 
+# Consecutive iterations that need δ_c before the Jacobian is taken as degenerate (Ipopt's
+# degen_iters_max). The determination then holds for the rest of the solver's life, as in Ipopt
+# within one solve.
+const DEGEN_ITERS_MAX = 3
+
+# A solve with δ_c alone is kept only if iterative refinement reached its target accuracy
+# (richardson_tol). The weaker acceptable level is left to the joint δ_w + δ_c schedule.
+function accurate_solve(solver::AbstractMadNLPSolver{T}) where {T}
+    iterator = get_iterator(solver)
+    iterator isa RichardsonIterator || return true
+    d, p, w = get_d(solver), get_p(solver), get__w3(solver)
+    copyto!(full(w), full(p))
+    mul!(w, get_kkt(solver), d, -one(T), one(T))
+    norm_p = norm(full(p), Inf)
+    norm_p == zero(T) && return true
+    ratio = norm(full(w), Inf) / (min(norm(full(d), Inf), T(1.0e6) * norm_p) + norm_p)
+    return ratio < iterator.opt.richardson_tol
+end
+
 function inertia_correction!(
     inertia_corrector::InertiaBased,
     solver::AbstractMadNLPSolver{T}
 ) where {T}
 
-    n_trial = 0
     del_w_prev = zero(T)
     del_c_prev = zero(T)
     set_del_w!(solver, zero(T))
     set_del_c!(solver, zero(T))
+    dc = get_opt(solver).jacobian_regularization_value * get_mu(solver)^(get_opt(solver).jacobian_regularization_exponent)
+    started_dw = false
 
     @trace(get_logger(solver),"Inertia-based regularization started.")
 
+    # Proactive dual regularization once the Jacobian is determined degenerate: apply delta_c from
+    # the first factorization WITHOUT perturbing the Hessian (Ipopt IpPDPerturbationHandler).
+    if inertia_corrector.jac_degenerate
+        set_del_c!(solver, dc)
+        regularize_diagonal!(get_kkt(solver), zero(T), get_del_c(solver) - del_c_prev)
+        del_c_prev = get_del_c(solver)
+    end
+
     factorize_wrapper!(solver)
-
     num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
-
 
     solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
         # Try a backsolve. If the factorization has failed, solve_refine_wrapper returns false.
@@ -675,23 +791,43 @@ function inertia_correction!(
     else
         false
     end
+    # δ_c alone must give an accurate solve; otherwise the joint schedule takes over
+    if solve_status && get_del_c(solver) != zero(T) && !started_dw
+        solve_status = accurate_solve(solver)
+    end
 
     while !solve_status
         @debug(get_logger(solver),"Primal-dual perturbed.")
 
-        if n_trial == 0
-            set_del_w!(solver, get_del_w_last(solver)==zero(T) ? get_opt(solver).first_hessian_perturbation :
-                max(get_opt(solver).min_hessian_perturbation,get_opt(solver).perturb_dec_fact*get_del_w_last(solver))
-                    )
+        regularize_dual = should_regularize_dual(get_kkt(solver), num_pos, num_zero, num_neg)
+        # The dual block alone is singular when the primal block has its full positive inertia
+        # and zero eigenvalues remain. A failed Cholesky-type factorization also reports zero
+        # eigenvalues, but not with the primal inertia intact, so it takes the joint schedule.
+        n_primal, n_dual = block_structure(get_kkt(solver))
+        dual_singular = num_zero != 0 && n_dual > 0 && num_pos == n_primal
+        if dual_singular && regularize_dual && get_del_c(solver) == zero(T)
+            # Singular system (rank-deficient Jacobian): regularize the dual block only; do NOT
+            # perturb the Hessian (matches Ipopt's separate delta_c path).
+            set_del_c!(solver, dc)
         else
-            set_del_w!(solver, get_del_w(solver) * (get_del_w_last(solver)==zero(T) ? get_opt(solver).perturb_inc_fact_first : get_opt(solver).perturb_inc_fact))
-            if get_del_w(solver)>get_opt(solver).max_hessian_perturbation
-                get_cnt(solver).k+=1
-                @debug(get_logger(solver),"Primal regularization is too big. Switching to restoration phase.")
-                return false
+            # KKT systems that always want δ_c with a perturbation (condensed, Schur) keep it.
+            regularize_dual && set_del_c!(solver, dc)
+            # Wrong inertia (Hessian), or delta_c alone was insufficient: advance the delta_w schedule.
+            if !started_dw
+                set_del_w!(
+                    solver, get_del_w_last(solver) == zero(T) ? get_opt(solver).first_hessian_perturbation :
+                        max(get_opt(solver).min_hessian_perturbation, get_opt(solver).perturb_dec_fact * get_del_w_last(solver))
+                )
+                started_dw = true
+            else
+                set_del_w!(solver, get_del_w(solver) * (get_del_w_last(solver) == zero(T) ? get_opt(solver).perturb_inc_fact_first : get_opt(solver).perturb_inc_fact))
+                if get_del_w(solver) > get_opt(solver).max_hessian_perturbation
+                    get_cnt(solver).k += 1
+                    @debug(get_logger(solver), "Primal regularization is too big. Switching to restoration phase.")
+                    return false
+                end
             end
         end
-        set_del_c!(solver, should_regularize_dual(get_kkt(solver), num_pos, num_zero, num_neg) ? get_opt(solver).jacobian_regularization_value * get_mu(solver)^(get_opt(solver).jacobian_regularization_exponent) : zero(T))
         regularize_diagonal!(get_kkt(solver), get_del_w(solver) - del_w_prev, get_del_c(solver) - del_c_prev)
         del_w_prev = get_del_w(solver)
         del_c_prev = get_del_c(solver)
@@ -704,8 +840,19 @@ function inertia_correction!(
         else
             false
         end
+        if solve_status && get_del_c(solver) != zero(T) && !started_dw
+            solve_status = accurate_solve(solver)
+        end
+    end
+    # The Jacobian counts as degenerate in this iteration when δ_c alone was enough.
+    needed_dc = get_del_c(solver) != zero(T) && !started_dw
 
-        n_trial += 1
+    # Update the Jacobian-degeneracy determination (Ipopt degen_iters_max = 3).
+    if needed_dc
+        inertia_corrector.degen_iters += 1
+        inertia_corrector.degen_iters >= DEGEN_ITERS_MAX && (inertia_corrector.jac_degenerate = true)
+    else
+        inertia_corrector.degen_iters = 0
     end
 
     get_del_w(solver) != 0 && (set_del_w_last!(solver, get_del_w(solver)))

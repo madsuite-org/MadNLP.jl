@@ -4,9 +4,9 @@
         # code compiled inside `@compile_workload` is kept in this package image.
         nlp = HS15Model()
         madnlp(nlp; print_level=MadNLP.ERROR)
-        _precompile_solves(Float64[])
+        _precompile_solves(Float64[]; presets = (AugmentedPreset, ShiftedPreset, CondensedPreset))
         # a solver without inertia uses another inertia corrector, so another IPM type
-        _precompile_solves(Float64[]; sizes = (100,), linear_solver = UmfpackSolver)
+        _precompile_solves(Float64[]; sizes = (100,), presets = (AugmentedPreset,), linear_solver = UmfpackSolver)
         for solver in (CHOLMODSolver, LapackCPUSolver)
             _precompile_linear_solver(Float64[], solver)
         end

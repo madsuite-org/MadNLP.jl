@@ -15,8 +15,13 @@ function _update_monotone!(
     sc::T
 ) where T
     set_inf_compl_mu!(solver, get_inf_compl(solver, sc))
+    # After a tiny step, μ decreases once even if the barrier sub-problem is not solved. This is
+    # a simplified form of Ipopt's tiny_step_flag, which waits for a second consecutive tiny step.
+    tiny = get_cnt(solver).tiny_step
+    get_cnt(solver).tiny_step = false
     while (get_mu(solver) > max((barrier.mu_min::T), get_opt(solver).tol/10)) &&
-        (get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor*get_mu(solver))
+            (tiny || get_inf_barrier(solver) <= get_opt(solver).barrier_tol_factor * get_mu(solver))
+        tiny = false
         mu_new = get_mu(
             get_mu(solver),
             (barrier.mu_min::T),
@@ -272,6 +277,13 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     end
     step_aff = get__w3(solver) # buffer 1
     step_cen = get__w4(solver) # buffer 2
+    # The solves below use the last factorization of the KKT system. When the duals start at zero,
+    # nothing has factorized it yet (the least-squares dual initialization would have): factorize
+    # the current system first.
+    if get_cnt(solver).factorization_cnt == 0
+        set_aug_diagonal!(get_kkt(solver), solver)
+        factorize_wrapper!(solver)
+    end
     # Affine step
     set_aug_rhs!(solver, get_kkt(solver), get_c(solver), zero(T))
     # Get primal and dual infeasibility directly from the values in RHS p
@@ -299,7 +311,8 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
         sigma_min = one(T)
         sigma_max = min(barrier.sigma_max, barrier.mu_max / mu)
     else
-        sigma_min = max(barrier.sigma_min, barrier.mu_min / mu)
+        # μ_new = σ μ_avg ≥ μ / mu_decrease_max, μ the current barrier parameter
+        sigma_min = max(barrier.sigma_min, barrier.mu_min / mu, get_mu(solver) / (barrier.mu_decrease_max * mu))
         sigma_max = min(max(sigma_min, sigma_1m), barrier.mu_max / mu)
     end
     # Run Golden-section search (assume the quality function is unimodal)

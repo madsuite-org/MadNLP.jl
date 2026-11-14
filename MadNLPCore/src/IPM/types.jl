@@ -33,11 +33,56 @@ mutable struct RobustRestorer{T, VT}
     filter::Vector{Tuple{T,T}}
 
     n_feasible_returns::Int
+
+    # feasibility fallback
+    n_rescues::Int
+    infeasible_seen::Bool
+    x_last::VT
+    c_last::VT
+    g_fb::VT
+    x_prev_fb::VT
+    g_prev_fb::VT
+    # Gauss-Newton fallback
+    d_fb::VT
+    s_fb::VT
+    p_fb::VT
+    w_fb::VT
+    q_fb::VT
+    r_fb::VT
+end
+
+# State of the watchdog line search: the reference iterate and search direction it rolls back
+# to, the reference values of the acceptance tests, and the step counters.
+mutable struct WatchdogState{T, VT}
+    in_watchdog::Bool
+    shortened_iter::Int
+    trial_iter::Int
+    x_ref::VT
+    y_ref::VT
+    zl_ref::VT
+    zu_ref::VT
+    xl_ref::VT
+    xu_ref::VT
+    c_ref::VT
+    obj_val_ref::T
+    theta_ref::T
+    varphi_ref::T
+    varphi_d_ref::T
+    # barrier objective and directional derivative at the reference, as a + μ b
+    varphi_ref_affine::Tuple{T, T}
+    varphi_d_ref_affine::Tuple{T, T}
+    d_ref::VT
 end
 
 abstract type AbstractInertiaCorrector end
 struct InertiaAuto <: AbstractInertiaCorrector end
-struct InertiaBased <: AbstractInertiaCorrector end
+# After the dual block has needed regularization in 3 consecutive iterations, the Jacobian is
+# taken as degenerate and δ_c is applied from the first factorization, as in Ipopt.
+mutable struct InertiaBased <: AbstractInertiaCorrector
+    degen_iters::Int
+    jac_degenerate::Bool
+end
+InertiaBased() = InertiaBased(0, false)
 struct InertiaIgnore <: AbstractInertiaCorrector end
 struct InertiaFree{
     T,
@@ -98,6 +143,10 @@ At each IPM iteration, the minimum of the quality function is found using a gold
 
 If no sufficient progress is made, the barrier falls back to a monotone rule.
 
+The new barrier parameter is `σ μ_avg`, with `μ_avg` the average complementarity and `σ` at least
+`sigma_min`; it is also at least `μ / mu_decrease_max`, with `μ` the current barrier parameter
+(no bound by default).
+
 ## References
 The algorithm is described in [Nocedal2009, Section 4].
 
@@ -111,6 +160,8 @@ The algorithm is described in [Nocedal2009, Section 4].
     sigma_tol::T = 1e-2
     gamma::T = 1.0
     max_gs_iter::Int = 8
+    # the barrier parameter decreases at most by this factor per iteration (Inf: no bound)
+    mu_decrease_max::T = Inf
     # For non-free mode
     mu_superlinear_decrease_power::T = 1.5
     mu_linear_decrease_factor::T = .2

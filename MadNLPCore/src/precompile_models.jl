@@ -72,23 +72,30 @@ function NLPModels.hess_coord!(m::PrecompileChainModel, x::AbstractVector, y::Ab
 end
 
 """
-    _precompile_solves(like; sizes = (100, 20000), options...)
+    _precompile_solves(like; sizes = (100, 20000), presets = (ShiftedPreset, AugmentedPreset, CondensedPreset), options...)
 
 Solve `PrecompileChainModel`s stored in arrays like `like` (a `Vector`, `CuVector`, ...)
 with and without a fixed variable at each of `sizes`, since large problems use different
 reduction and scan kernels on a GPU, and run the restoration phases on a solved
-instance, which these problems never enter on their own. `options` are passed to the
-solver (e.g. `linear_solver`). Models are built here so that, when this runs inside
+instance, which these problems never enter on their own. The first of `presets` (the
+caller's default) runs at every size, the others, whose barrier rules and iterative
+refinement differ, at the first size. `options` are passed to the solver (e.g.
+`linear_solver`). Models are built here so that, when this runs inside
 `@compile_workload`, the code compiled while building them is kept too.
 """
-function _precompile_solves(like::AbstractVector; sizes = (100, 20000), options...)
-    for n in sizes, fixed in (false, true)
-        madnlp(PrecompileChainModel(n, like; fixed); print_level = ERROR, options...)
+function _precompile_solves(
+        like::AbstractVector; sizes = (100, 20000), presets = (ShiftedPreset, AugmentedPreset, CondensedPreset), options...,
+    )
+    runs = [(preset, n) for (k, preset) in enumerate(presets) for n in (k == 1 ? sizes : sizes[1:1])]
+    for (preset, n) in runs, fixed in (false, true)
+        madnlp(PrecompileChainModel(n, like; fixed); print_level = ERROR, preset, options...)
     end
-    for n in sizes
+    for (preset, n) in runs
         solver = MadNLPSolver(ModelBarrier(PrecompileChainModel(n, like));
-                              print_level = ERROR, max_iter = 30, options...)
+                              print_level = ERROR, max_iter = 30, preset, options...)
         solve!(solver)
+        # restoration stops at the iteration limit, which a slower barrier rule may have reached
+        get_opt(solver).max_iter = get_cnt(solver).k + 30
         restore!(solver)
         robust!(solver)
     end

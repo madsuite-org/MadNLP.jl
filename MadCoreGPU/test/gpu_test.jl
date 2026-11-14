@@ -68,11 +68,14 @@ cuda_testset = [
     ],
     [
         "CUDSS-IR",
+        # cuDSS's refinement fails (CUDSS_STATUS_IR_FAILED) on eigmina when matching and the
+        # pivot epsilon of the default preset are both on
         ()->MadNLP.Optimizer(
             kkt_system = MadNLP.SparseCondensedKKTSystem,
             linear_solver = MadCoreGPU.CUDSSSolver,
             print_level=MadNLP.ERROR,
             cudss_ir=1,
+            cudss_matching=false,
         ),
         [],
     ],
@@ -191,6 +194,32 @@ cuda_testset = [
         ),
         ["infeasible", "lootsma", "eigmina", "lp_examodels_issue75"], # KKT system not PD
     ],
+    [
+        "SDS",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+        ),
+        [],
+    ],
+    [
+        "SDS-BUNCHKAUFMAN",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.AugmentedPreset,
+        ),
+        [],
+    ],
+    [
+        "SDS-CONDENSED",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.CondensedPreset,
+        ),
+        [],
+    ],
 ]
 
 rocm_testset = [
@@ -229,6 +258,32 @@ rocm_testset = [
             print_level=MadNLP.ERROR,
         ),
         ["infeasible", "lootsma", "eigmina", "lp_examodels_issue75"], # KKT system not PD
+    ],
+    [
+        "SDS",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+        ),
+        [],
+    ],
+    [
+        "SDS-BUNCHKAUFMAN",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.AugmentedPreset,
+        ),
+        [],
+    ],
+    [
+        "SDS-CONDENSED",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            preset=MadNLP.CondensedPreset,
+        ),
+        [],
     ],
 ]
 

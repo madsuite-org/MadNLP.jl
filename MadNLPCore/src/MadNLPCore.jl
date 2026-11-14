@@ -10,7 +10,7 @@ for field in MadCore.SOLVER_FIELDS
 end
 import NLPModels
 import Base: @kwdef, copyto!, finalize, string
-import LinearAlgebra: axpy!, dot, norm
+import LinearAlgebra: axpy!, dot, mul!, norm
 import MadCore: @warn, AbstractDenseKKTSystem, AbstractIterator, AbstractUserCallback, BFGS,
     DampedBFGS, DenseCallback, DenseCondensedKKTSystem, DenseKKTSystem,
     LINESEARCH_SUCCEEDED, ModelBarrier, NoUserCallback, RESTORE, ROBUST, RichardsonIterator,
@@ -18,13 +18,13 @@ import MadCore: @warn, AbstractDenseKKTSystem, AbstractIterator, AbstractUserCal
     _set_aug_diagonal!, blas_num_threads, bound_violation, create_timer,
     default_dense_solver, dual_inf_perturbation!, get_average_complementarity,
     get_inf_barrier, get_inf_pr_orig, get_inf_total, get_min_complementarity, get_sc,
-    get_sd, get_tolerance, has_constraints, is_dense_callback, mul_hess_blk!, parse_option,
-    print_init, reset_bound_dual!, set_aug_rhs!, set_blas_num_threads, set_initial_rhs!,
-    timer_flush!
+    get_sd, get_tolerance, has_constraints, is_dense_callback, is_valid, mul_hess_blk!,
+    parse_option, print_init, reset_bound_dual!, set_aug_rhs!, set_blas_num_threads,
+    set_initial_rhs!, timer_flush!
 import NLPModels: AbstractNLPModel, get_x0, obj
 import Printf: @sprintf
 
-export MadNLPSolver, MadNLPOptions, madnlp
+export MadNLPSolver, MadNLPOptions, madnlp, AbstractPreset, ShiftedPreset, AugmentedPreset, CondensedPreset
 # MadNLPCore also exports what MadCore exports.
 for name in names(MadCore)
     (name === :MadCore || !Base.isexported(MadCore, name)) && continue

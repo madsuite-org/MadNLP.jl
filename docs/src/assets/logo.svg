@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="100"
+   height="76"
+   viewBox="0 0 100 76"
+   version="1.1"
+   id="svg8"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs12" />
+  <path
+     d="M 8,8 H 92"
+     fill="none"
+     stroke="#534ab7"
+     stroke-width="12"
+     stroke-linecap="round"
+     id="path2" />
+  <path
+     d="M 8,8 50,68"
+     fill="none"
+     stroke="#3b6d11"
+     stroke-width="12"
+     stroke-linecap="round"
+     id="path4" />
+  <path
+     d="M 92,8 50,68"
+     fill="none"
+     stroke="#a32d2d"
+     stroke-width="12"
+     stroke-linecap="round"
+     id="path6" />
+</svg>

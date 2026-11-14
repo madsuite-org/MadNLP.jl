@@ -196,6 +196,7 @@ end
     l::Int = 0 # backtracking line search counter
     t::Int = 0 # restoration phase counter
     ir::Int = 0 # iterative refinement counter
+    tiny_step::Bool = false # the last accepted step was tiny relative to the iterate
 
     start_time::Float64
     timer::AbstractTimer = WallTimer()

@@ -8,6 +8,76 @@
 # remain in per-extension files.
 
 #=
+    MadCore.transfer! (COO to CSC), shared by the backends' stubs
+=#
+
+# Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `transfer_values!`:
+# `nzval[map[k]] += V[k]`). The COO of the augmented KKT system has duplicate (i, i) entries
+# (primal-dual diagonal and Hessian diagonal) that must be summed, so a non-accumulating
+# scatter (`copyto!` into a view) would drop all but one of each group.
+#
+# Atomic-free and deterministic: the COO sources are grouped by destination CSC slot once
+# (sort + getptr) and one thread sums each group with `_transfer_to_csc_kernel!`.
+# SparseKKTSystem has no `ext` to hold the grouping, so it is memoized for the lifetime of the
+# CSC map.
+#
+# The cache must not keep the map alive: it is keyed by `objectid(cscmap)` (a GPU array cannot
+# be a hash key, hashing it reads its elements, and an IdDict key is held strongly), so the dict
+# references no array and the map's finalizer evicts the entry. A finalizer must not block on
+# the lock, so when the lock is taken it re-registers itself and retries later.
+const _TRANSFER_GROUPING = Dict{UInt, Any}()
+const _TRANSFER_GROUPING_LOCK = ReentrantLock()
+
+function _evict_grouping(m)
+    if trylock(_TRANSFER_GROUPING_LOCK)
+        try
+            delete!(_TRANSFER_GROUPING, objectid(m))
+        finally
+            unlock(_TRANSFER_GROUPING_LOCK)
+        end
+    else
+        finalizer(_evict_grouping, m)
+    end
+    return
+end
+
+function _csc_grouping(cscmap::AbstractVector)
+    key = objectid(cscmap)
+    lock(_TRANSFER_GROUPING_LOCK)
+    try
+        cached = get(_TRANSFER_GROUPING, key, nothing)
+        cached === nothing || return cached
+    finally
+        unlock(_TRANSFER_GROUPING_LOCK)
+    end
+    zvals = similar(cscmap, Int, length(cscmap))
+    copyto!(zvals, collect(1:length(cscmap)))
+    ptr = map((s, k) -> (Int(s), k), cscmap, zvals)   # (destination CSC slot, COO source)
+    length(ptr) > 0 && MadCore._sort_tuples!(ptr)     # group by destination slot
+    ptrptr = MadCore.getptr(ptr; by = (a, b) -> a[1] != b[1])
+    grouping = (ptr, ptrptr)
+    lock(_TRANSFER_GROUPING_LOCK)
+    try
+        _TRANSFER_GROUPING[key] = grouping
+    finally
+        unlock(_TRANSFER_GROUPING_LOCK)
+    end
+    finalizer(_evict_grouping, cscmap)
+    return grouping
+end
+
+function _transfer_coo_to_csc!(nzval::AbstractGPUVector, V, cscmap)
+    ptr, ptrptr = _csc_grouping(cscmap)
+    fill!(nzval, zero(eltype(nzval)))
+    if length(ptrptr) > 1
+        backend = get_backend(nzval)
+        _transfer_to_csc_kernel!(backend)(nzval, ptr, ptrptr, V; ndrange = length(ptrptr) - 1)
+        synchronize(backend)
+    end
+    return nzval
+end
+
+#=
     MadCore.mul! with SparseCondensedKKTSystem + GPU
 =#
 
