@@ -3,7 +3,11 @@ uuid = "38486723-7c71-48b9-ad12-dc22a86097e8"
 version = "0.12.0"
 
 [deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 
 [weakdeps]
 MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
@@ -15,6 +19,7 @@ MadNLPCoreGPUExt = "MadCoreGPU"
 MadCore = {path = "../MadCore"}
 
 [compat]
+SolverCore = "~0.3"
 LDLFactorizations = "0.10"
 MadCore = "=0.12.0"
 MadCoreGPU = "=0.12.0"
@@ -28,8 +33,7 @@ julia = "1.10"
 MUMPS_seq_jll = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
 OpenBLAS32_jll = "656ef2d0-ae68-5445-9ca0-591084a874a2"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
-NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "LDLFactorizations", "MUMPS_seq_jll", "NLPModels", "OpenBLAS32_jll"]
+test = ["Test", "LDLFactorizations", "MUMPS_seq_jll", "OpenBLAS32_jll"]

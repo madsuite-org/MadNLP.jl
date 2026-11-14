@@ -796,7 +796,7 @@ function create_kkt_system(
     # --- Get sparsity patterns ---
     jac_sparsity_I = Vector{Int32}(undef, cb.nnzj)
     jac_sparsity_J = Vector{Int32}(undef, cb.nnzj)
-    _jac_sparsity_wrapper!(cb, jac_sparsity_I, jac_sparsity_J)
+    jac_sparsity_callback!(cb, jac_sparsity_I, jac_sparsity_J)
 
     hess_sparsity_I, hess_sparsity_J = build_hessian_structure(cb, hessian_approximation)
     force_lower_triangular!(hess_sparsity_I, hess_sparsity_J)
@@ -1018,7 +1018,7 @@ function solve_kkt!(
     n = num_variables(kkt)
     blk = kkt.blk_size
 
-    wx = _madnlp_unsafe_wrap(full(w), n)
+    wx = madnlp_unsafe_wrap(full(w), n)
     ws = view(full(w), n+1:n+kkt.n_ineq)
     wy = dual(w)
 
@@ -1136,7 +1136,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SchurComplementKKTSystem{T}, x::Abst
     end
     ws .= beta.*ws .- alpha.* xz
     @view(dual(w)[kkt.ind_ineq]) .-= alpha.* xs
-    _kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
+    kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
 

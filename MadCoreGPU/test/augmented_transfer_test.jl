@@ -10,7 +10,7 @@ function test_augmented_transfer(AT, linear_solver)
         nlp = MNC.HS15Model()
         kw = (; kkt_system = MadNLP.SparseKKTSystem, preset = MadNLP.AugmentedPreset, print_level = MadNLP.ERROR)
         host = MadNLP.MadNLPSolver(nlp; linear_solver = MadNLP.LapackCPUSolver, kw...)
-        device = MadNLP.MadNLPSolver(MNC.SparseWrapperModel(AT, nlp); linear_solver, kw...)
+        device = MadNLP.MadNLPSolver(MadNLP.SparseWrapperModel(AT, nlp); linear_solver, kw...)
         Ks = map((host, device)) do solver
             MNC.initialize!(solver)
             MNC.set_aug_diagonal!(solver.kkt, solver)

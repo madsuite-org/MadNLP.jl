@@ -95,7 +95,7 @@ function Ma77State(
             INT,
             INT(i),
             full.colptr[i+1] - full.colptr[i],
-            _madnlp_unsafe_wrap(
+            madnlp_unsafe_wrap(
                 full.rowval,
                 full.colptr[i+1] - full.colptr[i],
                 full.colptr[i],
@@ -135,7 +135,7 @@ function factorize!(M::Ma77State{T,INT}) where {T,INT}
             INT,
             INT(i),
             M.full.colptr[i+1] - M.full.colptr[i],
-            _madnlp_unsafe_wrap(
+            madnlp_unsafe_wrap(
                 M.full.nzval,
                 M.full.colptr[i+1] - M.full.colptr[i],
                 M.full.colptr[i],

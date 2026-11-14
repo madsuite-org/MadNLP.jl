@@ -106,7 +106,13 @@ macro blas_safe_threads(args...)
 end
 
 # unsafe wrap
-function _madnlp_unsafe_wrap(vec::VT, n, shift=1) where VT
+"""
+    madnlp_unsafe_wrap(vec, n, shift = 1)
+
+Return an array of length `n` that shares memory with `vec`, starting at index `shift`.
+The caller must keep `vec` alive.
+"""
+function madnlp_unsafe_wrap(vec::VT, n, shift = 1) where {VT}
     return unsafe_wrap(VT, pointer(vec,shift), n)
 end
 

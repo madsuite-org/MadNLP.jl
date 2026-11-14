@@ -14,6 +14,12 @@ struct MyLDL end
         @test Set(fieldnames(MadNLPSolver)) == Set((MadNLPCore.MadCore.SOLVER_FIELDS..., MadNLPCore.FILTER_FIELDS...))
     end
 
+    @testset "Public names of MadCore are not exported" begin
+        @test Base.isexported(MadNLPCore, :MumpsSolver)
+        @test !Base.isexported(MadNLPCore, Symbol("@warn"))
+        @test !Base.isexported(MadNLPCore, :factorize!)
+    end
+
     @testset "Default sparse solver is DummySolver" begin
         # Only MadNLP sets a default sparse linear solver (MUMPS).
         @test MadNLPCore.default_sparse_solver(nlp) === MadNLPCore.DummySolver
