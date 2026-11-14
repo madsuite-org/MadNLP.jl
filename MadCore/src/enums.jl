@@ -26,6 +26,7 @@
       INFEASIBLE_PROBLEM_DETECTED = 5,
       MAXIMUM_ITERATIONS_EXCEEDED = 6,
       MAXIMUM_WALLTIME_EXCEEDED = 7,
+      UNBOUNDED_PROBLEM_DETECTED = 8,
       INITIAL = 11,
       REGULAR = 12,
       RESTORE = 13,
@@ -61,6 +62,8 @@ function get_status_output(status, opt)
         return "Restoration Failed"
     elseif status == INFEASIBLE_PROBLEM_DETECTED
         return "Converged to a point of local infeasibility. Problem may be infeasible."
+    elseif status == UNBOUNDED_PROBLEM_DETECTED
+        return "Problem is unbounded."
     elseif status == INVALID_NUMBER_DETECTED
         return "Invalid number in NLP function or derivative detected."
     elseif status == ERROR_IN_STEP_COMPUTATION
