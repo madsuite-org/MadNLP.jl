@@ -1,5 +1,6 @@
 using Test, MadNLP, MadCoreGPU, MadNLPTests
 import SparseArrays
+import SparseDirectSolver  # loads MadCoreGPUSDSExt (SDSSolver)
 
 # The GPU entry points set the option presets for GPU models; CI installs the one
 # matching the runner's GPU.

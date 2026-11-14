@@ -24,6 +24,7 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :none
             @test lopt.sds_pivot_epsilon == Float64(MadNLPCore.preset_perturbation(Float32))
+            @test lopt.sds_matching == "algo6" && lopt.sds_deferred_analysis && lopt.sds_ir == 2
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # CondensedPreset

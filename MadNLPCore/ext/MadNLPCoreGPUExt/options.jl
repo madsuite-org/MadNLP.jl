@@ -26,9 +26,12 @@ function MadNLPCore.MadNLPOptions{T}(
     )
 end
 
-# SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset and CondensedPreset:
-# a static LDLᵀ factorization in the order of the reordering, with pivots below the bound perturbed
-# to it, as cuDSS's pivot epsilon and CHOLMOD's dbound do.
+# SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset and CondensedPreset: a static
+# LDLᵀ after matching with scaling, with pivots below the bound perturbed to it, as cuDSS's pivot epsilon
+# and CHOLMOD's dbound do, and two steps of iterative refinement in the solver. Without matching the
+# inertia of some KKT matrices comes out wrong. The matching depends on the values, so the analysis
+# waits for the first matrix; later factorizations keep it, and the refinement recovers the accuracy
+# lost as it goes stale.
 function MadNLPCore.default_options(
         ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{<:MadNLPCore.PivotBoundedPreset},
         ::Type{<:MadNLPCore.SparsePresetKKTSystem}, ::Type{SDSSolver},
@@ -36,11 +39,15 @@ function MadNLPCore.default_options(
     opt = MadNLPCore.default_options(SDSSolver)
     opt.sds_factorization = :ldl
     opt.sds_pivoting = :none
+    opt.sds_matching = "algo6"
+    opt.sds_deferred_analysis = true
     opt.sds_pivot_epsilon = Float64(MadNLPCore.preset_perturbation(T))
+    opt.sds_ir = 2
     return opt
 end
 
-# SparseDirectSolver.jl on the augmented system under AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting.
+# SparseDirectSolver.jl on the augmented system under AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting
+# and matching, as cuDSS under the same preset.
 function MadNLPCore.default_options(
         ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{MadNLPCore.AugmentedPreset},
         ::Type{MadNLPCore.SparseKKTSystem}, ::Type{SDSSolver},
@@ -48,5 +55,7 @@ function MadNLPCore.default_options(
     opt = MadNLPCore.default_options(SDSSolver)
     opt.sds_factorization = :ldl
     opt.sds_pivoting = :bk
+    opt.sds_matching = "algo6"
+    opt.sds_deferred_analysis = true
     return opt
 end
