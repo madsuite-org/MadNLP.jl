@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>GPU acceleration · MadNLP.jl</title><meta name="title" content="GPU acceleration · MadNLP.jl"/><meta property="og:title" content="GPU acceleration · MadNLP.jl"/><meta property="twitter:title" content="GPU acceleration · MadNLP.jl"/><meta name="description" content="Documentation for MadNLP.jl."/><meta property="og:description" content="Documentation for MadNLP.jl."/><meta property="twitter:description" content="Documentation for MadNLP.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/favicon.ico" rel="icon" type="image/x-icon"/></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="MadNLP.jl logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">MadNLP.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><a class="tocitem" href="../../installation/">Installation</a></li><li><a class="tocitem" href="../../quickstart/">Quickstart</a></li><li><a class="tocitem" href="../../algorithm/">Algorithm</a></li><li><a class="tocitem" href="../../options/">Options</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>GPU acceleration</a><ul class="internal"><li><a class="tocitem" href="#How-to-solve-a-problem-on-the-GPU-with-ExaModels?"><span>How to solve a problem on the GPU with ExaModels?</span></a></li><li><a class="tocitem" href="#How-to-solve-on-the-GPU-a-legacy-model-running-on-the-CPU?"><span>How to solve on the GPU a legacy model running on the CPU?</span></a></li><li><a class="tocitem" href="#How-to-solve-on-the-GPU-a-JuMP-model?"><span>How to solve on the GPU a JuMP model?</span></a></li></ul></li><li><a class="tocitem" href="../multiprecision/">Multi-precision</a></li><li><a class="tocitem" href="../warmstart/">Warm-start</a></li><li><a class="tocitem" href="../quasi_newton/">Quasi-Newton</a></li><li><a class="tocitem" href="../kktsystem/">Custom KKT system</a></li></ul></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../../man/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../man/linear_solvers/">Linear Solvers</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../lib/ipm/">IPM solver</a></li><li><a class="tocitem" href="../../lib/barrier/">Barrier strategies</a></li><li><a class="tocitem" href="../../lib/callbacks/">Callback wrappers</a></li><li><a class="tocitem" href="../../lib/kkt/">KKT systems</a></li><li><a class="tocitem" href="../../lib/linear_solvers/">Linear Solvers</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>GPU acceleration</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>GPU acceleration</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/MadNLP/MadNLP.jl/blob/master/docs/src/tutorials/gpu.md#" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Running-MadNLP-on-the-GPU"><a class="docs-heading-anchor" href="#Running-MadNLP-on-the-GPU">Running MadNLP on the GPU</a><a id="Running-MadNLP-on-the-GPU-1"></a><a class="docs-heading-anchor-permalink" href="#Running-MadNLP-on-the-GPU" title="Permalink"></a></h1><p>MadNLP supports the solution of large-scale optimization problems on the GPU, <a href="https://arxiv.org/html/2405.14236v2">with significant speedups reported on some instances</a>. In this tutorial, we show how to solve a nonlinear program on a NVIDIA GPU. We start by importing MadNLPGPU:</p><pre><code class="language-julia hljs">using MadNLPGPU
+using CUDA</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Precompiling packages...
+  14040.0 ms  ✓ MadNLPGPU
+  1 dependency successfully precompiled in 16 seconds. 123 already precompiled.</code></pre><h2 id="How-to-solve-a-problem-on-the-GPU-with-ExaModels?"><a class="docs-heading-anchor" href="#How-to-solve-a-problem-on-the-GPU-with-ExaModels?">How to solve a problem on the GPU with ExaModels?</a><a id="How-to-solve-a-problem-on-the-GPU-with-ExaModels?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-solve-a-problem-on-the-GPU-with-ExaModels?" title="Permalink"></a></h2><p>MadNLP has been designed to run entirely on the GPU, without data exchange between the host and the device. We recommend implementing the model with the modeler <a href="https://github.com/exanauts/ExaModels.jl">ExaModels</a> whenever possible.</p><p>We import ExaModels as:</p><pre><code class="language-julia hljs">using ExaModels</code></pre><div class="admonition is-info" id="Info-c3ed479d1596a3b9"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-c3ed479d1596a3b9" title="Permalink"></a></header><div class="admonition-body"><p>MadNLP does not yet support solving sparse optimization problems on AMD GPUs.</p></div></div><h3 id="Evaluating-the-model-on-the-GPU-with-ExaModels"><a class="docs-heading-anchor" href="#Evaluating-the-model-on-the-GPU-with-ExaModels">Evaluating the model on the GPU with ExaModels</a><a id="Evaluating-the-model-on-the-GPU-with-ExaModels-1"></a><a class="docs-heading-anchor-permalink" href="#Evaluating-the-model-on-the-GPU-with-ExaModels" title="Permalink"></a></h3><p>The first step requires implementing the model with ExaModels.</p><p>As a demonstration, we implement the model <a href="https://vanderbei.princeton.edu/ampl/nlmodels/cute/airport.mod">airport</a> from the CUTEst benchmark using ExaModels. The code writes:</p><pre><code class="language-julia hljs">function airport_model(T, backend)
+    N = 42
+    # Data
+    r = T[0.09 , 0.3, 0.09, 0.45, 0.5, 0.04, 0.1, 0.02, 0.02, 0.07, 0.4, 0.045, 0.05, 0.056, 0.36, 0.08, 0.07, 0.36, 0.67, 0.38, 0.37, 0.05, 0.4, 0.66, 0.05, 0.07, 0.08, 0.3, 0.31, 0.49, 0.09, 0.46, 0.12, 0.07, 0.07, 0.09, 0.05, 0.13, 0.16, 0.46, 0.25, 0.1]
+    cx = T[-6.3, -7.8, -9.0, -7.2, -5.7, -1.9, -3.5, -0.5, 1.4, 4.0, 2.1, 5.5, 5.7, 5.7, 3.8, 5.3, 4.7, 3.3, 0.0, -1.0, -0.4, 4.2, 3.2, 1.7, 3.3, 2.0, 0.7, 0.1, -0.1, -3.5, -4.0, -2.7, -0.5, -2.9, -1.2, -0.4, -0.1, -1.0, -1.7, -2.1, -1.8, 0.0]
+    cy = T[8.0, 5.1, 2.0, 2.6, 5.5, 7.1, 5.9, 6.6, 6.1, 5.6, 4.9, 4.7, 4.3, 3.6, 4.1, 3.0, 2.4, 3.0, 4.7, 3.4, 2.3, 1.5, 0.5, -1.7, -2.0, -3.1, -3.5, -2.4, -1.3, 0.0, -1.7, -2.1, -0.4, -2.9, -3.4, -4.3, -5.2, -6.5, -7.5, -6.4, -5.1, 0.0]
+    # Wrap all data in a single iterator for ExaModels
+    data = [(i, cx[i], cy[i], r[i]) for i in 1:N]
+    IJ = [(i, j) for i in 1:N-1 for j in i+1:N]
+    # Write model using ExaModels
+    core = ExaModels.ExaCore(T; backend=backend)
+    x = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
+    y = ExaModels.variable(core, 1:N, lvar = -10.0, uvar=10.0)
+    ExaModels.objective(
+        core,
+        ((x[i] - x[j])^2 + (y[i] - y[j])^2) for (i, j) in IJ
+    )
+    ExaModels.constraint(core, (x[i]-dcx)^2 + (y[i] - dcy)^2 - dr for (i, dcx, dcy, dr) in data; lcon=-Inf)
+    return ExaModels.ExaModel(core)
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">airport_model (generic function with 1 method)</code></pre><p>The first argument <code>T</code> specifies the numerical precision (<code>Float32</code>, <code>Float64</code> or any <code>AbstractFloat</code>) whereas the second argument <code>backend</code> sets the device used to evaluate the model. We instantiate the model on the GPU with:</p><pre><code class="language-julia hljs">nlp = airport_model(Float64, CUDABackend())</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">An ExaModel{Float64, CUDA.CuArray{Float64, 1, CUDA.DeviceMemory}, ...}
+
+  Problem name: Generic
+   All variables: ████████████████████ 84     All constraints: ████████████████████ 42    
+            free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           upper: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                upper: ████████████████████ 42    
+         low/upp: ████████████████████ 84             low/upp: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+          infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+            nnzh: (-47.06% sparsity)   5250            linear: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+                                                    nonlinear: ████████████████████ 42    
+                                                         nnzj: ( 97.62% sparsity)   84    
+                                                     lin_nnzj: (------% sparsity)         
+                                                     nln_nnzj: ( 97.62% sparsity)   84    
+
+</code></pre><p>By passing a <code>CUDABackend()</code>, we make sure that all the attributes in <code>nlp</code> are instantiated on the GPU. E.g., the initial point becomes a <code>CuVector</code>:</p><pre><code class="language-julia hljs">NLPModels.get_x0(nlp)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">84-element CUDA.CuArray{Float64, 1, CUDA.DeviceMemory}:
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ ⋮
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0
+ 0.0</code></pre><div class="admonition is-info" id="Info-83e014c60e33a755"><header class="admonition-header">Info<a class="admonition-anchor" href="#Info-83e014c60e33a755" title="Permalink"></a></header><div class="admonition-body"><p>If your problem is implemented with JuMP in a given <code>model</code>, ExaModel can load it for you on the GPU just by using <code>nlp = ExaModel(model; backend=CUDABackend())</code>.</p></div></div><h3 id="Solving-the-problem-on-the-GPU-with-MadNLP"><a class="docs-heading-anchor" href="#Solving-the-problem-on-the-GPU-with-MadNLP">Solving the problem on the GPU with MadNLP</a><a id="Solving-the-problem-on-the-GPU-with-MadNLP-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem-on-the-GPU-with-MadNLP" title="Permalink"></a></h3><p>Once the model <code>nlp</code> loaded on the GPU, you can solve it using the function <code>madnlp</code>:</p><pre><code class="language-julia hljs">results = madnlp(nlp; linear_solver=CUDSSSolver)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with cuDSS v0.7.1
+
+Number of nonzeros in constraint Jacobian............:       84
+Number of nonzeros in Lagrangian Hessian.............:     5250
+
+Total number of variables............................:       84
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:       84
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:       42
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:       42
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  0.0000000e+00 1.04e+02 1.00e+00 1.00e+01  -1.0     -   0.00e+00  0  0
+   1  1.4808378e+01 1.00e+02 2.64e+01 6.04e+00  -1.0     -   3.37e-02  1  1h
+   2  1.3660555e+04 2.50e+01 1.79e+02 1.87e+00  -1.0     -   1.00e+00  1  1h
+   3  1.5757708e+04 2.11e+01 1.55e+02 8.19e-01  -1.0     -   1.66e-01  1  1h
+   4  2.2700976e+04 1.19e+01 1.31e+02 3.46e-01  -1.0     -   4.94e-01  1  1h
+   5  3.6245598e+04 2.96e+00 2.13e+02 2.84e-01  -1.0     -   1.00e+00  1  1h
+   6  4.0274013e+04 1.53e+00 1.64e+02 1.19e-01  -1.0     -   5.59e-01  1  1h
+   7  4.5453607e+04 3.61e-01 1.98e+02 1.16e-01  -1.0     -   1.00e+00  1  1h
+   8  4.7405169e+04 7.22e-02 1.00e+02 1.00e-01  -1.0     -   1.00e+00  1  1h
+   9  4.7892154e+04 8.03e-03 3.84e+01 9.05e-02  -1.0     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  4.7949829e+04 3.07e-04 6.16e+00 7.82e-02  -1.0     -   1.00e+00  1  1h
+  11  4.7951497e+04 1.23e-06 5.90e-02 7.81e-02  -1.0     -   1.00e+00  1  1h
+  12  4.7947424e+04 3.39e-06 1.21e-03 2.85e-03  -2.5     -   1.00e+00  1  1f
+  13  4.7947303e+04 4.19e-09 1.24e-06 7.80e-06  -5.0     -   1.00e+00  1  1h
+
+Number of Iterations....: 13
+
+                                   (scaled)                 (unscaled)
+Objective...............:   4.7947302735661709e+04    4.7947302735661709e+04
+Dual infeasibility......:   1.2358625874757045e-06    1.2358625874757045e-06
+Constraint violation....:   4.1921440894934596e-09    4.1921440894934596e-09
+Complementarity.........:   7.8004282261755734e-06    7.8004282261755734e-06
+Overall NLP error.......:   7.8004282261755734e-06    7.8004282261755734e-06
+
+Number of objective function evaluations              = 14
+Number of objective gradient evaluations              = 14
+Number of constraint evaluations                      = 14
+Number of constraint Jacobian evaluations             = 14
+Number of Lagrangian Hessian evaluations              = 13
+Number of KKT factorizations                          = 13
+Number of KKT backsolves                              = 13
+
+Total wall secs in initialization                     = 48.551 s
+Total wall secs in linear solver                      =  unavailable
+Total wall secs in NLP function evaluations           =  2.519 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  unavailable
+Total wall secs                                       = 129.560 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-04).</span></code></pre><p>Note that we are using the sparse linear solver <a href="https://docs.nvidia.com/cuda/cudss/getting_started.html">NVIDIA cuDSS</a> to solve the primal-dual KKT system entirely on the GPU.</p><p>When solving an optimization problem on the GPU, MadNLP proceeds to some automatic modifications. In order:</p><ol><li>It increases the parameter <code>bound_relax_factor</code> to <code>1e-4</code>.</li><li>It relaxes all the equality constraints <span>$g(x) = 0$</span> as a pair of inequality constraints <span>$-\tau \leq g(x) \leq \tau$</span>, with <span>$\tau$</span> being equal to <code>bound_relax_factor</code>;</li><li>It reduces the KKT system down to sparse condensed system, exploiting the fact that the relaxed problem has only (potentially tight) inequality constraints. Up to a given primal regularization, the resulting KKT system is positive definite and can be factorized using a pivoting-free factorization routines (e.g. a Cholesky or an LDL&#39; decompositions). This is the so-called <em>Lifted-KKT</em> formulation documented in <a href="https://arxiv.org/html/2405.14236v2">this article</a>.</li><li>The new condensed KKT system increases the ill-conditioning inherent to the interior-point method, amplifying the loss of accuracy when the iterates get close to a local solution. As a result, the termination tolerance <code>tol</code> is also increased to <code>1e-4</code> to recover convergence.</li></ol><p>As a result, the convergence observed can be significantly different than what we observe on the CPU. In particular, relaxing the parameter <code>bound_relax_factor</code> has a non-marginal impact on the feasible set&#39;s geometry. You can limit the loss of accuracy by specifying explicitly the relaxation and tolerance parameters to MadNLP:</p><pre><code class="language-julia hljs">results = madnlp(
+    nlp;
+    tol=1e-7,
+    bound_relax_factor=1e-7,
+    linear_solver=CUDSSSolver,
+)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with cuDSS v0.7.1
+
+Number of nonzeros in constraint Jacobian............:       84
+Number of nonzeros in Lagrangian Hessian.............:     5250
+
+Total number of variables............................:       84
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:       84
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:       42
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:       42
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  0.0000000e+00 1.04e+02 1.00e+00 1.00e+01  -1.0     -   0.00e+00  0  0
+   1  1.4806534e+01 1.00e+02 2.64e+01 6.04e+00  -1.0     -   3.37e-02  1  1h
+   2  1.3660710e+04 2.50e+01 1.79e+02 1.87e+00  -1.0     -   1.00e+00  1  1h
+   3  1.5757916e+04 2.11e+01 1.55e+02 8.19e-01  -1.0     -   1.66e-01  1  1h
+   4  2.2713696e+04 1.19e+01 1.31e+02 3.46e-01  -1.0     -   4.95e-01  1  1h
+   5  3.6254087e+04 2.96e+00 2.13e+02 2.84e-01  -1.0     -   1.00e+00  1  1h
+   6  4.0283958e+04 1.53e+00 1.64e+02 1.19e-01  -1.0     -   5.60e-01  1  1h
+   7  4.5459842e+04 3.60e-01 1.98e+02 1.16e-01  -1.0     -   1.00e+00  1  1h
+   8  4.7410250e+04 7.21e-02 1.00e+02 1.00e-01  -1.0     -   1.00e+00  1  1h
+   9  4.7897346e+04 8.02e-03 3.86e+01 9.02e-02  -1.0     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  4.7955202e+04 3.12e-04 6.26e+00 7.81e-02  -1.0     -   1.00e+00  1  1h
+  11  4.7956891e+04 1.28e-06 6.14e-02 7.79e-02  -1.0     -   1.00e+00  1  1h
+  12  4.7952818e+04 3.39e-06 1.21e-03 2.85e-03  -2.5     -   1.00e+00  1  1f
+  13  4.7952696e+04 4.21e-09 1.24e-06 2.16e-06  -5.7     -   1.00e+00  1  1h
+  14  4.7952696e+04 2.16e-15 6.89e-13 7.07e-09  -8.0     -   1.00e+00  2  1h
+
+Number of Iterations....: 14
+
+                                   (scaled)                 (unscaled)
+Objective...............:   4.7952696276023358e+04    4.7952696276023358e+04
+Dual infeasibility......:   6.8916601564313557e-13    6.8916601564313557e-13
+Constraint violation....:   2.1550052101877319e-15    2.1550052101877319e-15
+Complementarity.........:   7.0655894247826521e-09    7.0655894247826521e-09
+Overall NLP error.......:   7.0655894247826521e-09    7.0655894247826521e-09
+
+Number of objective function evaluations              = 15
+Number of objective gradient evaluations              = 15
+Number of constraint evaluations                      = 15
+Number of constraint Jacobian evaluations             = 15
+Number of Lagrangian Hessian evaluations              = 14
+Number of KKT factorizations                          = 14
+Number of KKT backsolves                              = 15
+
+Total wall secs in initialization                     =  0.026 s
+Total wall secs in linear solver                      =  unavailable
+Total wall secs in NLP function evaluations           =  0.006 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  unavailable
+Total wall secs                                       =  0.090 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-07).</span></code></pre><p>Decreasing the tolerance <code>tol</code> too much is likely to cause numerical issues inside the algorithm. In general, we recommend keeping the value of <code>bound_relax_factor</code> below <code>tol</code>.</p><h3 id="Solving-the-problem-on-the-GPU-with-HyKKT"><a class="docs-heading-anchor" href="#Solving-the-problem-on-the-GPU-with-HyKKT">Solving the problem on the GPU with HyKKT</a><a id="Solving-the-problem-on-the-GPU-with-HyKKT-1"></a><a class="docs-heading-anchor-permalink" href="#Solving-the-problem-on-the-GPU-with-HyKKT" title="Permalink"></a></h3><p>Some applications require accurate solutions. In that case, we recommend using the extension <a href="https://github.com/MadNLP/HybridKKT.jl">HybridKKT.jl</a>, which implements the Golub &amp; Greif augmented Lagrangian formulation detailed <a href="https://www.tandfonline.com/doi/abs/10.1080/10556788.2022.2124990">in this article</a>. Compared to Lifted-KKT, the Hybrid-KKT strategy is more accurate (it doesn&#39;t relax the equality constraints in the problem) but slightly slower (it computes the descent direction using a conjugate gradient at every IPM iterations).</p><p>Once the package <code>HybridKKT</code> installed, the solution proceeds as</p><pre><code class="nohighlight hljs">using HybridKKT
+
+results = madnlp(
+    nlp;
+    linear_solver=MadNLPGPU.CUDSSSolver,
+    kkt_system=HybridKKT.HybridCondensedKKTSystem,
+    equality_treatment=MadNLP.EnforceEquality,
+    fixed_variable_treatment=MadNLP.MakeParameter,
+)</code></pre><h2 id="How-to-solve-on-the-GPU-a-legacy-model-running-on-the-CPU?"><a class="docs-heading-anchor" href="#How-to-solve-on-the-GPU-a-legacy-model-running-on-the-CPU?">How to solve on the GPU a legacy model running on the CPU?</a><a id="How-to-solve-on-the-GPU-a-legacy-model-running-on-the-CPU?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-solve-on-the-GPU-a-legacy-model-running-on-the-CPU?" title="Permalink"></a></h2><p>If your optimization problem is not instantiated on the GPU, you can still solve it on the GPU by wrapping your model in a <code>SparseWrapperModel</code>. Oftentimes, this is the most convenient solution if your problem does not formulate easilly with ExaModels. In that case, the evaluation of the model runs on the CPU, but all MadNLP&#39;s internals are instantiated on the GPU (including the sparse linear solver).</p><p>To give an example, we suppose we have instantiate our <code>airport</code> model on the CPU:</p><pre><code class="language-julia hljs">nlp_cpu = airport_model(Float64, nothing)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">An ExaModel{Float64, Vector{Float64}, ...}
+
+  Problem name: Generic
+   All variables: ████████████████████ 84     All constraints: ████████████████████ 42    
+            free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           upper: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                upper: ████████████████████ 42    
+         low/upp: ████████████████████ 84             low/upp: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+          infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+            nnzh: (-47.06% sparsity)   5250            linear: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+                                                    nonlinear: ████████████████████ 42    
+                                                         nnzj: ( 97.62% sparsity)   84    
+                                                     lin_nnzj: (------% sparsity)         
+                                                     nln_nnzj: ( 97.62% sparsity)   84    
+
+</code></pre><p>You can wrap it on the GPU using:</p><pre><code class="language-julia hljs">nlp_wrapped = MadNLP.SparseWrapperModel(CuArray, nlp_cpu)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">MadNLP.SparseWrapperModel{Float64, CUDA.CuArray{Float64, 1, CUDA.DeviceMemory}, Float64, Vector{Int64}, Vector{Float64}, ExaModels.ExaModel{Float64, Vector{Float64}, Nothing, ExaModels.Objective{ExaModels.ObjectiveNull, ExaModels.SIMDFunction{ExaModels.Node2{typeof(+), ExaModels.Node1{typeof(abs2), ExaModels.Node2{typeof(-), ExaModels.Var{ExaModels.ParIndexed{ExaModels.ParSource, 1}}, ExaModels.Var{ExaModels.ParIndexed{ExaModels.ParSource, 2}}}}, ExaModels.Node1{typeof(abs2), ExaModels.Node2{typeof(-), ExaModels.Var{ExaModels.Node2{typeof(+), ExaModels.ParIndexed{ExaModels.ParSource, 1}, Int64}}, ExaModels.Var{ExaModels.Node2{typeof(+), ExaModels.ParIndexed{ExaModels.ParSource, 2}, Int64}}}}}, ExaModels.Compressor{NTuple{4, Int64}}, ExaModels.Compressor{NTuple{6, Int64}}}, Vector{Tuple{Int64, Int64}}}, ExaModels.Constraint{ExaModels.ConstraintNull, ExaModels.SIMDFunction{ExaModels.Node2{typeof(-), ExaModels.Node2{typeof(+), ExaModels.Node1{typeof(abs2), ExaModels.Node2{typeof(-), ExaModels.Var{ExaModels.ParIndexed{ExaModels.ParSource, 1}}, ExaModels.ParIndexed{ExaModels.ParSource, 2}}}, ExaModels.Node1{typeof(abs2), ExaModels.Node2{typeof(-), ExaModels.Var{ExaModels.Node2{typeof(+), ExaModels.ParIndexed{ExaModels.ParSource, 1}, Int64}}, ExaModels.ParIndexed{ExaModels.ParSource, 3}}}}, ExaModels.ParIndexed{ExaModels.ParSource, 4}}, ExaModels.Compressor{Tuple{Int64, Int64}}, ExaModels.Compressor{Tuple{Int64, Int64}}}, Vector{Tuple{Int64, Float64, Float64, Float64}}, Int64}, Nothing}}
+  Problem name: Generic
+   All variables: ████████████████████ 84     All constraints: ████████████████████ 42    
+            free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 free: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                lower: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           upper: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                upper: ████████████████████ 42    
+         low/upp: ████████████████████ 84             low/upp: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                fixed: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+          infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               infeas: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+            nnzh: (-47.06% sparsity)   5250            linear: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+                                                    nonlinear: ████████████████████ 42    
+                                                         nnzj: ( 97.62% sparsity)   84    
+                                                     lin_nnzj: (------% sparsity)         
+                                                     nln_nnzj: ( 97.62% sparsity)   84    
+
+  Counters:
+             obj: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 grad: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 cons: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+        cons_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0             cons_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 jcon: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           jgrad: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                  jac: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0              jac_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+         jac_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                jprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0            jprod_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+       jprod_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               jtprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0           jtprod_lin: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+      jtprod_nln: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                 hess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0                hprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+           jhess: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0               jhprod: ⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅⋅ 0     
+</code></pre><p>Then, we proceed as above to call MadNLP:</p><pre><code class="language-julia hljs">results = madnlp(nlp_wrapped; linear_solver=CUDSSSolver)
+nothing</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">This is <span class="sgr34">Mad</span><span class="sgr31">N</span><span class="sgr32">L</span><span class="sgr35">P</span> version v0.9.1, running with cuDSS v0.7.1
+
+Number of nonzeros in constraint Jacobian............:       84
+Number of nonzeros in Lagrangian Hessian.............:     5250
+
+Total number of variables............................:       84
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:       84
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:        0
+Total number of inequality constraints...............:       42
+        inequality constraints with only lower bounds:        0
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:       42
+
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+   0  0.0000000e+00 1.04e+02 1.00e+00 1.00e+01  -1.0     -   0.00e+00  0  0
+   1  1.4808378e+01 1.00e+02 2.64e+01 6.04e+00  -1.0     -   3.37e-02  1  1h
+   2  1.3660555e+04 2.50e+01 1.79e+02 1.87e+00  -1.0     -   1.00e+00  1  1h
+   3  1.5757708e+04 2.11e+01 1.55e+02 8.19e-01  -1.0     -   1.66e-01  1  1h
+   4  2.2700976e+04 1.19e+01 1.31e+02 3.46e-01  -1.0     -   4.94e-01  1  1h
+   5  3.6245598e+04 2.96e+00 2.13e+02 2.84e-01  -1.0     -   1.00e+00  1  1h
+   6  4.0274013e+04 1.53e+00 1.64e+02 1.19e-01  -1.0     -   5.59e-01  1  1h
+   7  4.5453607e+04 3.61e-01 1.98e+02 1.16e-01  -1.0     -   1.00e+00  1  1h
+   8  4.7405169e+04 7.22e-02 1.00e+02 1.00e-01  -1.0     -   1.00e+00  1  1h
+   9  4.7892154e+04 8.03e-03 3.84e+01 9.05e-02  -1.0     -   1.00e+00  1  1h
+iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls
+  10  4.7949829e+04 3.07e-04 6.16e+00 7.82e-02  -1.0     -   1.00e+00  1  1h
+  11  4.7951497e+04 1.23e-06 5.90e-02 7.81e-02  -1.0     -   1.00e+00  1  1h
+  12  4.7947424e+04 3.39e-06 1.21e-03 2.85e-03  -2.5     -   1.00e+00  1  1f
+  13  4.7947303e+04 4.19e-09 1.24e-06 7.80e-06  -5.0     -   1.00e+00  1  1h
+
+Number of Iterations....: 13
+
+                                   (scaled)                 (unscaled)
+Objective...............:   4.7947302735661782e+04    4.7947302735661782e+04
+Dual infeasibility......:   1.2358625376867822e-06    1.2358625376867822e-06
+Constraint violation....:   4.1921440895476697e-09    4.1921440895476697e-09
+Complementarity.........:   7.8004282261790513e-06    7.8004282261790513e-06
+Overall NLP error.......:   7.8004282261790513e-06    7.8004282261790513e-06
+
+Number of objective function evaluations              = 14
+Number of objective gradient evaluations              = 14
+Number of constraint evaluations                      = 14
+Number of constraint Jacobian evaluations             = 14
+Number of Lagrangian Hessian evaluations              = 13
+Number of KKT factorizations                          = 13
+Number of KKT backsolves                              = 13
+
+Total wall secs in initialization                     =  1.257 s
+Total wall secs in linear solver                      =  unavailable
+Total wall secs in NLP function evaluations           =  0.004 s
+Total wall secs in solver (w/o init./fun./lin. alg.)  =  unavailable
+Total wall secs                                       =  8.150 s
+
+<span class="sgr32">EXIT: Optimal Solution Found (tol = 1.0e-04).</span></code></pre><h2 id="How-to-solve-on-the-GPU-a-JuMP-model?"><a class="docs-heading-anchor" href="#How-to-solve-on-the-GPU-a-JuMP-model?">How to solve on the GPU a JuMP model?</a><a id="How-to-solve-on-the-GPU-a-JuMP-model?-1"></a><a class="docs-heading-anchor-permalink" href="#How-to-solve-on-the-GPU-a-JuMP-model?" title="Permalink"></a></h2><p>If your model is implemented with JuMP, you can solve it on the GPU using the same trick as in the previous paragraph just by passing a new option <code>array_type</code> specifying which array type to use to instantiate the <code>SparseWrapperModel</code>.</p><p>This is demonstrated in the following example:</p><pre><code class="language-julia hljs">using CUDA
+using JuMP
+using MadNLP, MadNLPGPU
+
+model = Model(MadNLP.Optimizer)
+@variable(model, x1 &lt;= 0.5)
+@variable(model, x2)
+
+@objective(model, Min, 100.0 * (x2 - x1^2)^2 + (1.0 - x1)^2)
+@constraint(model, x1 * x2 &gt;= 1.0)
+@constraint(model, x1 + x2^2 &gt;= 0.0)
+
+JuMP.set_optimizer_attribute(model, &quot;array_type&quot;, CuArray)
+JuMP.set_optimizer_attribute(model, &quot;linear_solver&quot;, CUDSSSolver)
+JuMP.optimize!(model) # Solve the model on the GPU!</code></pre></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../options/">« Options</a><a class="docs-footer-nextpage" href="../multiprecision/">Multi-precision »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Thursday 26 February 2026 00:15">Thursday 26 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
