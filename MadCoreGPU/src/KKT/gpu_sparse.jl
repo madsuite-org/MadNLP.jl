@@ -453,9 +453,7 @@ end
     MadCore.build_condensed_aug_coord!
 =#
 
-# the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`:
-# the whole system (aug_com, jt_csc, diag_buffer) or, with dense rows kept as a
-# border, the block of the condensed rows (aug_c, jt_s, dbuf_s)
+# the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`
 function MadCore._build_condensed_aug_coord!(
         kkt::MadCore.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
     ) where {T, VT <: AbstractGPUVector{T}}

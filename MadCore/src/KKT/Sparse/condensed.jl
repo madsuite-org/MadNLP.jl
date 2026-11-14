@@ -1,55 +1,24 @@
-"""
-    BorderedRows{T, VT, MT, VI}
-
-The dense Jacobian rows that a [`SparseCondensedKKTSystem`](@ref) keeps out of the
-condensation and carries, with their multipliers, as a border of the condensed matrix
-(see [`create_kkt_system`](@ref)). With no such row the structure is empty: `jt_s` is
-`jt_csc`, `aug_c` is `aug_com`, `dbuf_s` is `diag_buffer` and the maps have length zero.
-"""
-struct BorderedRows{T, VT, MT, VI}
-    ind_S::VI          # rows condensed
-    ind_D::VI          # rows kept as the border
-    jt_s::MT           # the ind_S columns of jt_csc
-    smap::VI           # nonzeros(jt_csc) -> nonzeros(jt_s)
-    aug_c::MT          # condensed block of the ind_S rows
-    dbuf_s::VT         # diag_buffer[ind_S]
-    cmap::VI           # nonzeros(aug_c) -> nonzeros(aug_com)
-    dmap_pos::VI       # positions of the J_D entries in nonzeros(aug_com)
-    dmap_src::VI       # their sources in nonzeros(jt_csc)
-    epos::VI           # positions of the border diagonal in nonzeros(aug_com)
-    pd_buffer::VT      # solve buffer of length n + m_D
-    delta::Vector{T}   # current perturbation of the border diagonal (host scalar)
-    delta_base::T
-    delta_exp::T
-end
-
-Base.isempty(b::BorderedRows) = isempty(b.ind_D)
-num_border_rows(b::BorderedRows) = length(b.ind_D)
-
 # The state of the equality shift and of the inertia retry (inertia_retry!), with its options.
-mutable struct EqualityShift{T}
-    base::T               # the shift of a fresh factorization (equality_shift)
-    current::T            # the shift of the last factorization
-    override::T           # the shift of the next factorization, set by a retry (0: the base)
-    retry::Bool           # the retry on (equality_shift_retry)
-    factor::T             # a retry multiplies the shift by this (equality_shift_retry_factor)
-    count::Int            # retries per step (equality_shift_retry_count)
-    max::T                # the largest shift a retry may reach (equality_shift_max)
-    backoff_max::Int      # the longest backoff, in iterations (equality_shift_retry_backoff)
-    window::Int           # watchdog window, in iterations (equality_shift_watchdog_window)
-    hold::Int             # watchdog hold, in iterations (equality_shift_watchdog_hold)
-    ratio::T              # the watchdog expects the primal infeasibility below this ratio of its start (equality_shift_watchdog_ratio)
-    retries::Int          # retries in the current step
-    step::Int             # that step
-    backoff::Int          # the current backoff, in iterations: doubles after each step whose retries all failed
-    backoff_until::Int    # no retry before this iteration (backoff after failed retries)
-    window_start::Int     # first iteration of the current watchdog window
-    window_inf_pr::T      # the primal infeasibility then
-    window_retries::Int   # retries used in the window
-    hold_until::Int       # no retry before this iteration (watchdog)
-end
-function EqualityShift{T}(; shift, retry, factor, count, max, backoff, window, hold, ratio) where {T}
-    return EqualityShift{T}(T(shift), T(shift), zero(T), retry, T(factor), count, T(max), backoff, window, hold, T(ratio), 0, -1, 0, 0, 0, zero(T), 0, 0)
+@kwdef mutable struct EqualityShift{T}
+    base::T                       # the shift of a fresh factorization (equality_shift)
+    retry::Bool                   # the retry on (equality_shift_retry)
+    factor::T                     # a retry multiplies the shift by this (equality_shift_retry_factor)
+    count::Int                    # retries per step (equality_shift_retry_count)
+    max::T                        # the largest shift a retry may reach (equality_shift_max)
+    backoff_max::Int              # the longest backoff, in iterations (equality_shift_retry_backoff)
+    window::Int                   # watchdog window, in iterations (equality_shift_watchdog_window)
+    hold::Int                     # watchdog hold, in iterations (equality_shift_watchdog_hold)
+    ratio::T                      # the watchdog expects the primal infeasibility below this ratio of its start (equality_shift_watchdog_ratio)
+    current::T = base             # the shift of the last factorization
+    override::T = zero(T)         # the shift of the next factorization, set by a retry (0: the base)
+    retries::Int = 0              # retries in the current step
+    step::Int = -1                # that step
+    backoff::Int = 0              # the current backoff, in iterations: doubles after each step whose retries all failed
+    backoff_until::Int = 0        # no retry before this iteration (backoff after failed retries)
+    window_start::Int = 0         # first iteration of the current watchdog window
+    window_inf_pr::T = zero(T)    # the primal infeasibility then
+    window_retries::Int = 0       # retries used in the window
+    hold_until::Int = 0           # no retry before this iteration (watchdog)
 end
 
 
@@ -86,7 +55,7 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     buffer2::VT
     buffer3::VT
 
-    # Augmented system: the condensed block of the sparse rows, bordered by the dense rows
+    # Augmented system
     aug_com::MT
 
     # slack diagonal buffer
@@ -94,9 +63,6 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     dptr::VTu1
     hptr::VTu1
     jptr::VTu2
-
-    # dense Jacobian rows kept out of the condensation as a border of aug_com
-    border::BorderedRows{T, VT, MT, VI}
 
     # LinearSolver
     linear_solver::LS
@@ -116,27 +82,13 @@ end
 """
     create_kkt_system(::Type{SparseCondensedKKTSystem}, cb, linear_solver; kwargs...)
 
-Condensing a dense Jacobian row turns the condensed matrix dense (the row's outer
-product). Rows with more than `dense_row_abs` nonzeros and more than `dense_row_rel`
-times the number of variables are therefore kept out of the condensation, with their
-multipliers, as a border: the matrix handed to the linear solver is
-
-    [ H + Σx + J_Sᵀ D_S J_S   J_Dᵀ            ]
-    [ J_D                     Σd_D - Σs_D⁻¹ - δ ]
-
-of size n + m_D, whose inertia (n, m_D, 0) is known, so a static LDLᵀ factorization
-applies; `δ = border_delta * μ^border_delta_exp` keeps the border diagonal away from
-zero. An equality row has no slack to eliminate; its multiplier is eliminated through the
-equality shift δ (`equality_shift`), with the weight D = 1 / (δ - Σd), which keeps the condensed
-matrix positive definite when no row is kept; iterative refinement, which applies the unshifted
-KKT operator, removes the bias of the shift.
-
-Among the candidate inequality rows the densest are kept, as many as minimize
-the estimated nonzeros of the factored matrix (a condensed block is at most a dense n × n
-triangle, a kept row costs 2 nnz + 1 border entries), and only when that saves more than
-`dense_row_fill_min` nonzeros and the linear solver can factor an indefinite matrix (a
-solver set to a Cholesky factorization condenses every row). With no row kept the system
-is the plain condensed one.
+The condensed matrix H + Σx + Jᵀ D J is handed to the linear solver. An inequality row is
+condensed through its slack, with the weight D = Σs / (1 - Σd Σs); an equality row has no slack
+and its multiplier is eliminated through the equality shift δ (`equality_shift`), with the weight
+D = 1 / (δ - Σd), which keeps the condensed matrix positive definite. Iterative refinement, which
+applies the unshifted KKT operator, removes the bias of the shift. Condensing a dense Jacobian
+row turns the condensed matrix dense (the row's outer product): `CondensedPreset` solves such a
+model with `ShiftedPreset` instead.
 """
 function create_kkt_system(
     ::Type{SparseCondensedKKTSystem},
@@ -148,11 +100,6 @@ function create_kkt_system(
     kkt_scaler::AbstractScaler=NoScaler(),
     primal_shift=0.0,
     dual_shift=0.0,
-    dense_row_abs::Int = DENSE_ROW_ABS,
-    dense_row_rel::Float64 = DENSE_ROW_REL,
-    dense_row_fill_min::Float64 = DENSE_ROW_FILL_MIN,
-    border_delta::Float64 = 1e-8,
-    border_delta_exp::Float64 = 0.25,
     equality_shift::Float64 = 1e-8,
     equality_shift_retry::Bool = true,
     equality_shift_retry_factor::Float64 = 100.0,
@@ -186,13 +133,6 @@ function create_kkt_system(
     nlb = length(cb.ind_lb)
     nub = length(cb.ind_ub)
 
-    ind_D = _select_dense_rows(jac_sparsity_I, n, m, n_hess, dense_row_abs, dense_row_rel, dense_row_fill_min, ind_ineq_h)
-    if !isempty(ind_D) && !_factors_indefinite(opt_linear_solver)
-        Base.@warn "$(linear_solver) is set to a Cholesky factorization and cannot factor the bordered condensed matrix; the $(length(ind_D)) dense Jacobian rows are condensed."
-        ind_D = Int[]
-    end
-    mD = length(ind_D)
-
     reg = VT(undef, n_tot)
     pr_diag = VT(undef, n_tot)
     du_diag = VT(undef, m)
@@ -219,9 +159,7 @@ function create_kkt_system(
     jt_csc, jt_csc_map = coo_to_csc(jt_coo)
     hess_com, hess_csc_map = coo_to_csc(hess_raw)
 
-    aug_com, dptr, hptr, jptr, border = _build_bordered_condensed_aug_symbolic(
-        hess_com, jt_csc, ind_D, VT, ind_ineq, diag_buffer, T(border_delta), T(border_delta_exp)
-    )
+    aug_com, dptr, hptr, jptr = build_condensed_aug_symbolic(hess_com, jt_csc)
 
     # tell the linear solver the saddle-point partition before it analyzes
     _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
@@ -234,12 +172,11 @@ function create_kkt_system(
         l_diag, u_diag, l_lower, u_lower,
         buffer, buffer2, buffer3,
         aug_com, diag_buffer, dptr, hptr, jptr,
-        border,
         _linear_solver,
         ind_ineq, _to_index_vector(ind_ineq, ind_eq_h),
         EqualityShift{T}(;
-            shift = equality_shift, retry = equality_shift_retry, factor = equality_shift_retry_factor,
-            count = equality_shift_retry_count, max = equality_shift_max, backoff = equality_shift_retry_backoff,
+            base = equality_shift, retry = equality_shift_retry, factor = equality_shift_retry_factor,
+            count = equality_shift_retry_count, max = equality_shift_max, backoff_max = equality_shift_retry_backoff,
             window = equality_shift_watchdog_window, hold = equality_shift_watchdog_hold, ratio = equality_shift_watchdog_ratio,
         ),
         cb.ind_lb, cb.ind_ub,
@@ -249,143 +186,22 @@ end
 
 _to_index_vector(like, v) = (o = similar(like, Int, length(v)); copyto!(o, v); o)
 
-# Defaults of the dense-row rule, the keyword arguments of the constructor above; `has_dense_rows`
-# (MadNLPCore) applies the rule to a model before a KKT system exists.
-const DENSE_ROW_ABS = 512
-const DENSE_ROW_REL = 0.10
-const DENSE_ROW_FILL_MIN = 1e7
-
-# The inequality rows (ind_ineq) with more than dense_row_abs nonzeros and more than
-# dense_row_rel * n are the candidates; the densest k of them are kept as the border, k chosen to minimize the
-# estimated nonzeros of the factored matrix: the condensed block is bounded by a dense
-# n x n triangle, so once the rows left condensed fill it, keeping more rows only adds
-# border entries (2 nnz + 1 each). The border is used when the saving exceeds
-# dense_row_fill_min. Returns the kept rows, sorted.
-function _select_dense_rows(jac_sparsity_I, n, m, n_hess, dense_row_abs, dense_row_rel, dense_row_fill_min, ind_ineq = 1:m)
-    cnt = zeros(Int, m)
-    for r in Array(jac_sparsity_I)
-        cnt[r] += 1
-    end
-    tri(c) = c * (c + 1) / 2
-    cand = sort!(filter(i -> cnt[i] > dense_row_abs && cnt[i] > dense_row_rel * n, collect(ind_ineq)); by = i -> -cnt[i])
-    dense_cap = tri(n)
-    base = n_hess + sum(i -> tri(cnt[i]), ind_ineq; init = 0.0)   # every inequality row condensed, before the cap
-    best_k, best_total, saved, border = 0, min(dense_cap, base), 0.0, 0.0
-    for (k, i) in enumerate(cand)
-        saved += tri(cnt[i])
-        border += 2 * cnt[i] + 1
-        total = min(dense_cap, base - saved) + border
-        if total < best_total
-            best_k, best_total = k, total
-        end
-    end
-    if min(dense_cap, base) - best_total < dense_row_fill_min
-        best_k = 0
-    end
-    return sort!(cand[1:best_k])
-end
-
-# The symbolic structure of the condensed matrix with the rows ind_D kept as a border:
-# the condensed block of the other rows (aug_c, with the maps dptr/hptr/jptr of the
-# condensed assembly) embedded in the bordered pattern [C 0; J_D diag] (aug_com), and the
-# maps that scatter values into it. With ind_D empty the condensed block is the whole
-# matrix and the BorderedRows aliases it. The symbolic work runs on host copies of the
-# patterns; the maps are returned on the array backend of ind_ineq.
-function _build_bordered_condensed_aug_symbolic(hess_com, jt_csc, ind_D, ::Type{VT}, ind_ineq, diag_buffer, delta, delta_exp) where {VT}
-    T = eltype(VT)
-    n, m = size(jt_csc)
-    mD = length(ind_D)
-    tovi(v) = (o = similar(ind_ineq, Int, length(v)); copyto!(o, v); o)
-    ind_S = setdiff(1:m, ind_D)
-    if mD == 0
-        aug_com, dptr, hptr, jptr = build_condensed_aug_symbolic(hess_com, jt_csc)
-        e = tovi(Int[])
-        border = BorderedRows(tovi(ind_S), tovi(ind_D), jt_csc, e, aug_com, diag_buffer, e, e, e, e, VT(undef, n), [delta], delta, delta_exp)
-        return aug_com, dptr, hptr, jptr, border
-    end
-    mS = length(ind_S)
-    # the ind_S columns of jt (pattern fixed; values refreshed through smap)
-    jcolptr = Array(SparseArrays.getcolptr(jt_csc))
-    jrowval = Array(SparseArrays.rowvals(jt_csc))
-    smap = Int[]
-    scolptr = Vector{Int32}(undef, mS + 1)
-    scolptr[1] = 1
-    for (jj, j) in enumerate(ind_S)
-        rng = jcolptr[j]:(jcolptr[j + 1] - 1)
-        append!(smap, rng)
-        scolptr[jj + 1] = scolptr[jj] + Int32(length(rng))
-    end
-    jt_s = typeof(jt_csc)(SparseMatrixCSC{T, Int32}(n, mS, scolptr, jrowval[smap], zeros(T, length(smap))))
-    dbuf_s = VT(undef, mS)
-
-    # condensed block of the sparse rows
-    aug_c, dptr, hptr, jptr = build_condensed_aug_symbolic(hess_com, jt_s)
-
-    # bordered pattern [C 0; J_D diag] (lower triangle) from disjoint COO parts
-    Nb = n + mD
-    acolptr = Array(SparseArrays.getcolptr(aug_c))
-    arowval = Array(SparseArrays.rowvals(aug_c))
-    cI = Vector{Int}(undef, length(arowval))
-    cJ = Vector{Int}(undef, length(arowval))
-    for j in 1:n, k in acolptr[j]:(acolptr[j + 1] - 1)
-        cI[k] = arowval[k]
-        cJ[k] = j
-    end
-    dI = Int[]; dJ = Int[]; dsrc = Int[]
-    for (dd, d) in enumerate(ind_D)
-        for k in jcolptr[d]:(jcolptr[d + 1] - 1)
-            push!(dI, n + dd); push!(dJ, Int(jrowval[k])); push!(dsrc, k)
-        end
-    end
-    eI = collect((n + 1):Nb)
-    L = length(cI) + length(dI) + length(eI)
-    Sidx = sparse([cI; dI; eI], [cJ; dJ; eI], Float64.(1:L), Nb, Nb)
-    @assert nnz(Sidx) == L
-    pos = Vector{Int}(undef, L)
-    for k in 1:L
-        pos[Int(Sidx.nzval[k])] = k
-    end
-    cmap = pos[1:length(cI)]
-    dmap_pos = pos[(length(cI) + 1):(length(cI) + length(dI))]
-    epos = pos[(length(cI) + length(dI) + 1):end]
-    aug_com = typeof(jt_csc)(SparseMatrixCSC{T, Int32}(Nb, Nb, Int32.(Sidx.colptr), Int32.(Sidx.rowval), zeros(T, L)))
-    border = BorderedRows(
-        tovi(ind_S), tovi(ind_D), jt_s, tovi(smap), aug_c, dbuf_s,
-        tovi(cmap), tovi(dmap_pos), tovi(dsrc), tovi(epos), VT(undef, Nb), [delta], delta, delta_exp
-    )
-    return aug_com, dptr, hptr, jptr, border
-end
-
 # Sorting of vectors of tuples in the symbolic setup. A GPU backend whose arrays cannot sort
 # tuples overloads these.
 _sort_tuples!(v; kw...) = sort!(v; kw...)
 _sortperm_tuples(v; kw...) = sortperm(v; kw...)
 _permute_tuples!(v, p) = permute!(v, p)
 
-# A solver whose options select a Cholesky factorization (cholmod_algorithm,
-# cudss_algorithm, ...) cannot factor the bordered matrix; anything else is assumed
-# to handle a symmetric quasidefinite matrix.
-function _factors_indefinite(opt::AbstractOptions)
-    for name in fieldnames(typeof(opt))
-        v = getfield(opt, name)
-        if v isa LinearFactorization && v == CHOLESKY
-            return false
-        end
-    end
-    return true
-end
-
 get_sparse_condensed_ext(::Type{Vector{T}},args...) where T = nothing
 
 num_variables(kkt::SparseCondensedKKTSystem) = length(kkt.pr_diag)
-# the condensed block of the sparse rows is positive definite and the border carries
-# one negative pivot per kept row
+# the condensed matrix is positive definite
 function is_inertia_correct(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg)
-    return (num_zero == 0) && (num_pos == size(kkt.hess_com, 1)) && (num_neg == num_border_rows(kkt.border))
+    return (num_zero == 0) && (num_pos == size(kkt.hess_com, 1)) && (num_neg == 0)
 end
-# the slacks and the inequality duals of the condensed rows are eliminated, so
-# num_variables (which counts the slacks) is NOT the primal block size.
-block_structure(kkt::SparseCondensedKKTSystem) = (size(kkt.hess_com, 1), num_border_rows(kkt.border))
+# the slacks and the duals are eliminated, so num_variables (which counts the slacks) is NOT the
+# primal block size.
+block_structure(kkt::SparseCondensedKKTSystem) = (size(kkt.hess_com, 1), 0)
 should_regularize_dual(kkt::SparseCondensedKKTSystem, num_pos, num_zero, num_neg) = true
 
 Base.size(kkt::SparseCondensedKKTSystem,n::Int) = size(kkt.aug_com,n)
@@ -673,35 +489,16 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
     Σs = view(kkt.pr_diag, (n + 1):(n + ns))
     Σd = kkt.du_diag
 
-    b = kkt.border
-    if isempty(b) && isempty(kkt.ind_eq)
-        # no row kept and no equality row: the slacks are the rows
+    if isempty(kkt.ind_eq)
+        # every row an inequality: the slacks are the rows
         kkt.diag_buffer .= Σs ./ (1 .- Σd .* Σs)
-        build_condensed_aug_coord!(kkt)
-        return
-    end
-    if isempty(b)
-        # every row condensed, the equality rows through the shift: D = 1 / (δ - Σd)
+    else
+        # D = Σs / (1 - Σd Σs) on the inequality rows and 1 / (δ - Σd) on the equality rows
         fill!(kkt.diag_buffer, zero(T))
         view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- view(Σd, kkt.ind_ineq) .* Σs)
         _set_eq_weights!(kkt, Σd)
-        build_condensed_aug_coord!(kkt)
-        return
     end
-    # D = Σs / (1 - Σd Σs) on the inequality rows and 1 / (δ - Σd) on the equality rows; the
-    # border diagonal Σd - 1/Σs on the kept (inequality) rows
-    fill!(kkt.diag_buffer, zero(T))
-    view(kkt.diag_buffer, kkt.ind_ineq) .= Σs ./ (1 .- view(Σd, kkt.ind_ineq) .* Σs)
-    isempty(kkt.ind_eq) || _set_eq_weights!(kkt, Σd)
-    kkt.buffer2 .= Σd
-    view(kkt.buffer2, kkt.ind_ineq) .-= one(T) ./ Σs
-    # condensed block of the sparse rows, then the border
-    nonzeros(b.jt_s) .= view(nonzeros(kkt.jt_csc), b.smap)
-    b.dbuf_s .= view(kkt.diag_buffer, b.ind_S)
-    _build_condensed_aug_coord!(kkt, b.aug_c, b.jt_s, b.dbuf_s)
-    view(nonzeros(kkt.aug_com), b.cmap) .= nonzeros(b.aug_c)
-    view(nonzeros(kkt.aug_com), b.dmap_pos) .= view(nonzeros(kkt.jt_csc), b.dmap_src)
-    view(nonzeros(kkt.aug_com), b.epos) .= view(kkt.buffer2, b.ind_D) .- b.delta[1]
+    build_condensed_aug_coord!(kkt)
     return
 end
 

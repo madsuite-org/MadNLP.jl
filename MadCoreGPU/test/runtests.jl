@@ -26,7 +26,6 @@ end
         test_augmented_transfer(CuArray, MadCoreGPU.LapackCUDASolver)
         include("densekkt_cuda.jl")
         include("condensed_mul_cuda.jl")
-        include("condensed_border_cuda.jl")
         # Need to add support for CompactLBFGS in SparseCondensedKKTSystem (Issue #563)
         # include("sparsekkt_cuda.jl")
         include("schur_cuda_test.jl")

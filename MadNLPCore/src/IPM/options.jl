@@ -55,9 +55,9 @@ equality row is eliminated with the weight 1 / (δ - Σd), so the condensed matr
 definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, CHOLMOD on the host) without
 pivoting, with the monotone barrier rule and Richardson refinement on the unshifted system. When
 the factorization reports a wrong inertia, it is retried with a larger shift before the Hessian is
-perturbed (`equality_shift_retry`). A model with dense Jacobian rows (the rule of
-`SparseCondensedKKTSystem`'s `dense_row_abs`, `dense_row_rel` and `dense_row_fill_min`, given
-through `kkt_options`) is solved with [`ShiftedPreset`](@ref) instead; `dense_row_fallback = false`
+perturbed (`equality_shift_retry`). A model with a dense Jacobian row (more than `dense_row_abs`
+nonzeros and more than `dense_row_rel` times the number of variables, which would turn the
+condensed matrix dense) is solved with [`ShiftedPreset`](@ref) instead; `dense_row_fallback = false`
 keeps this preset.
 """
 struct CondensedPreset <: AbstractPreset end
@@ -94,26 +94,21 @@ the same place, on a logarithmic scale, between the unit roundoff and 1 (about 3
 preset_perturbation(::Type{T}) where {T} =
     T(1.0e-10 * exp2(5 * (exponent(eps(T)) - exponent(eps(Float64))) / 8))
 
-# CondensedPreset falls back to ShiftedPreset on a model with dense Jacobian rows, which would
-# either be kept as an indefinite border (not factorizable by Cholesky) or fill the condensed matrix.
-resolve_preset(nlp, preset, kkt_options = Dict{Symbol, Any}()) = preset
-resolve_preset(nlp, ::Type{CondensedPreset}, kkt_options = Dict{Symbol, Any}()) =
-    has_dense_rows(nlp, kkt_options) ? ShiftedPreset : CondensedPreset
-
-# The dense-row rule of SparseCondensedKKTSystem, at the thresholds `kkt_options` gives it.
-function has_dense_rows(nlp, kkt_options = Dict{Symbol, Any}())
+# The rule of CondensedPreset's fallback to ShiftedPreset (load_options): a Jacobian row with more
+# than dense_row_abs nonzeros and more than dense_row_rel times the number of variables would turn the
+# condensed matrix dense (its outer product).
+function has_dense_rows(nlp, dense_row_abs, dense_row_rel)
     m = MadCore.get_ncon(nlp)
+    n = MadCore.get_nvar(nlp)
     m == 0 && return false
     I = similar(MadCore.get_x0(nlp), Int, MadCore.get_nnzj(nlp))
     J = similar(I)
     MadCore.jac_structure!(nlp, I, J)
-    rows = MadCore._select_dense_rows(
-        Array(I), MadCore.get_nvar(nlp), m, MadCore.get_nnzh(nlp),
-        get(kkt_options, :dense_row_abs, MadCore.DENSE_ROW_ABS),
-        get(kkt_options, :dense_row_rel, MadCore.DENSE_ROW_REL),
-        get(kkt_options, :dense_row_fill_min, MadCore.DENSE_ROW_FILL_MIN),
-    )
-    return !isempty(rows)
+    cnt = zeros(Int, m)
+    for r in Array(I)
+        cnt[r] += 1
+    end
+    return any(c -> c > dense_row_abs && c > dense_row_rel * n, cnt)
 end
 
 # The options of a preset beyond the KKT system and the linear solver.
@@ -160,6 +155,7 @@ callback                       | [`SparseCallback`](@ref) | type of callback (`S
 kkt\\_system                   | [`SparseKKTSystem`](@ref) | type of primal-dual KKT system
 linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
 preset                         | [`AugmentedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`): `AugmentedPreset`, `ShiftedPreset` (the default on a GPU) or `CondensedPreset`; options given explicitly take precedence
+dense\\_row\\_fallback           | `true`               | under `CondensedPreset`, solve a model with a dense Jacobian row (`dense_row_abs`, `dense_row_rel`) with `ShiftedPreset`
 ||
 __General options__||
 ||
@@ -182,6 +178,8 @@ equality\\_shift\\_retry\\_backoff | 64                | after consecutive steps
 equality\\_shift\\_watchdog\\_window | 20               | every this many iterations, the watchdog checks that the primal infeasibility, when above the tolerance and retries were used, fell below `equality_shift_watchdog_ratio` times its value at the start of the window
 equality\\_shift\\_watchdog\\_hold | 100               | iterations without a retry after the watchdog fires
 equality\\_shift\\_watchdog\\_ratio | 0.5               | see `equality_shift_watchdog_window`
+dense\\_row\\_abs                | 512                  | a Jacobian row with more than this many nonzeros and more than `dense_row_rel` times the number of variables is dense: `CondensedPreset` solves the model with `ShiftedPreset` instead (`dense_row_fallback`)
+dense\\_row\\_rel                | 0.1                  | see `dense_row_abs`
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path
@@ -334,6 +332,11 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     equality_shift_watchdog_window::Int = 20
     equality_shift_watchdog_hold::Int = 100
     equality_shift_watchdog_ratio::T = 0.5
+    # a Jacobian row with more than dense_row_abs nonzeros and more than dense_row_rel times the number of
+    # variables turns the condensed matrix dense: CondensedPreset solves the model with ShiftedPreset
+    # instead (the primary option dense_row_fallback)
+    dense_row_abs::Int = 512
+    dense_row_rel::T = 0.1
 
     # initialization options
     dual_initialized::Bool = false
@@ -397,15 +400,6 @@ end
 function MadNLPOptions{T}(
     nlp::AbstractNLPModel{T};
     preset::Type{<:AbstractPreset} = default_preset(nlp),
-    dense_row_fallback::Bool = true,
-    kwargs...,
-) where {T}
-    kkt_options = get(kwargs, :kkt_options, Dict{Symbol, Any}())
-    return _preset_madnlp_options(T, nlp; preset = dense_row_fallback ? resolve_preset(nlp, preset, kkt_options) : preset, kwargs...)
-end
-function _preset_madnlp_options(
-    ::Type{T}, nlp::AbstractNLPModel{T};
-    preset::Type{<:AbstractPreset},
     dense_callback = is_dense_callback(nlp),
     callback = dense_callback ? DenseCallback : SparseCallback,
     kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
@@ -442,10 +436,18 @@ end
 function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
 
     primary_opt, options = _get_primary_options(options)
+    dense_row_fallback = pop!(primary_opt, :dense_row_fallback, true)
 
     # Initiate interior-point options
     opt_ipm = MadNLPOptions{T}(nlp; primary_opt...)
     linear_solver_options = set_options!(opt_ipm, options)
+    # CondensedPreset falls back to ShiftedPreset on a model with a dense Jacobian row, which would
+    # turn the condensed matrix dense: the options are rebuilt under that preset
+    if dense_row_fallback && opt_ipm.preset === CondensedPreset && has_dense_rows(nlp, opt_ipm.dense_row_abs, opt_ipm.dense_row_rel)
+        primary_opt[:preset] = ShiftedPreset
+        opt_ipm = MadNLPOptions{T}(nlp; primary_opt...)
+        linear_solver_options = set_options!(opt_ipm, options)
+    end
 
     check_option_sanity(opt_ipm)
     # Initiate linear-solver options

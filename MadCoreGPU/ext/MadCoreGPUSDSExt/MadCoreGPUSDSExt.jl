@@ -44,8 +44,6 @@ MadCore.@kwdef mutable struct SDSSolverOptions <: MadCore.AbstractOptions
     n_dual::Int = 0
 end
 
-MadCore._factors_indefinite(opt::SDSSolverOptions) = opt.sds_factorization === :ldl
-
 mutable struct SDSState{T, S <: SDS.AbstractDirectSolver, M, V} <: MadCore.AbstractLinearSolver{T}
     inner::S
     csc::M
