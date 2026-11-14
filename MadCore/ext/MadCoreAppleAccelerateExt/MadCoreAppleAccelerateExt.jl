@@ -43,6 +43,9 @@ mutable struct AccelerateState{T, Ti} <: AbstractLinearSolver{T}
     nfoptions::AA.SparseNumericFactorOptions
     sfoptions::AA.SparseSymbolicFactorOptions
     workspace::Vector{UInt8}
+    # libSparse's refactorization keeps the numeric options of the first factorization, so
+    # after improve! changes them, the next factorize! factorizes from scratch.
+    refresh::Bool
     opt::AccelerateOptions
     logger::MadNLPLogger
 end
@@ -68,7 +71,7 @@ function AccelerateState(tril::SparseMatrixCSC{T, Ti}; opt = AccelerateOptions()
     )
     M = AccelerateState{T, Ti}(
         tril, colptr, rowval, AA.SparseMatrix(structure, pointer(tril.nzval)), Ref(AA.SparseOpaqueFactorization(T)),
-        _numeric_options(T, opt), sfoptions, UInt8[], opt, logger,
+        _numeric_options(T, opt), sfoptions, UInt8[], false, opt, logger,
     )
     return finalizer(M) do M
         M.fact[].status in (AA.SparseYetToBeFactored, AA.SparseStatusReleased) || AA.SparseCleanup(M.fact[])
@@ -97,12 +100,14 @@ for (T, refactor, getinertia) in (
 end
 
 # The first factorization is symbolic and numeric; the next ones, also after a failure,
-# refactorize the values in place.
+# refactorize the values in place, unless improve! changed the options.
 function factorize!(M::AccelerateState{T}) where {T}
     sym = M.fact[].symbolicFactorization
-    if sym.status == AA.SparseStatusOk && M.fact[].numericFactorization != C_NULL
+    if !M.refresh && sym.status == AA.SparseStatusOk && M.fact[].numericFactorization != C_NULL
         _refactor!(M)
     else
+        M.fact[].status in (AA.SparseYetToBeFactored, AA.SparseStatusReleased) || AA.SparseCleanup(M.fact[])
+        M.refresh = false
         M.fact[] = GC.@preserve M AA.SparseFactor(M.opt.accelerate_factorization, M.matrix, M.sfoptions, M.nfoptions)
         sym = M.fact[].symbolicFactorization
         sym.status == AA.SparseStatusOk &&
@@ -130,11 +135,13 @@ function inertia(M::AccelerateState)
     return _get_inertia(M)
 end
 
+# As for the HSL solvers, the new threshold applies from the next factorization.
 function improve!(M::AccelerateState)
     pivtol = M.nfoptions.pivotTolerance
     pivtol == M.opt.accelerate_pivtolmax && return false
     pivtol = min(M.opt.accelerate_pivtolmax, pivtol^0.75)
     M.nfoptions = _numeric_options(eltype(M.tril), M.opt, pivtol)
+    M.refresh = true
     @debug(M.logger, "improved quality: pivtol = $pivtol")
     return true
 end

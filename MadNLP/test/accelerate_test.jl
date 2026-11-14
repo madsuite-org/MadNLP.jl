@@ -73,6 +73,30 @@ const AA = AppleAccelerate
         @test MadNLP.inertia(M) == (2, 1, 0)
     end
 
+    @testset "improve! raises the pivot threshold, $T" for T in (Float32, Float64)
+        n = 30
+        K = spdiagm(-1 => ones(n - 1), 0 => [(-1)^i * (2 + i / n) for i in 1:n], 1 => ones(n - 1))
+        A = SparseArrays.SparseMatrixCSC{T, Int32}(sparse(tril(K)))
+        # a zero tolerance above every pivot makes them all zero, so the inertia shows
+        # which options the factorization used
+        opt = MadNLP.default_options(MadNLP.AccelerateSolver)
+        M = MadNLP.create_linear_solver(MadNLP.AccelerateSolver, A; opt)
+        MadNLP.factorize!(M)
+        @test MadNLP.inertia(M) == (n ÷ 2, 0, n ÷ 2)
+        M.opt.accelerate_zero_tolerance = 1.0e3   # read by improve!
+        @test MadNLP.improve!(M)
+        @test MadNLP.inertia(M) == (n ÷ 2, 0, n ÷ 2)  # the current factors are kept
+        MadNLP.factorize!(M)
+        @test MadNLP.inertia(M) == (0, n, 0)          # the next factorization uses the new options
+        MadNLP.factorize!(M)
+        @test MadNLP.inertia(M) == (0, n, 0)          # and so do the refactorizations
+        x = T.(1:n)
+        @test MadNLP.solve_linear_system!(M, copy(x)) isa Vector{T}
+        # up to accelerate_pivtolmax
+        while MadNLP.improve!(M) end
+        @test M.nfoptions.pivotTolerance == M.opt.accelerate_pivtolmax
+    end
+
     @testset "Options" begin
         nlp = MadNLPTests.HS15Model()
         r0 = madnlp(nlp; print_level = MadNLP.ERROR)
