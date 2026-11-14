@@ -47,7 +47,8 @@ function MadNLPCore.default_options(
 end
 
 # SparseDirectSolver.jl on the augmented system under AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting
-# and matching, as cuDSS under the same preset.
+# and matching, as cuDSS under the same preset, with the analysis redone when MadNLP's refinement
+# rejects a solve (as `cudss_reanalyze_on_improve`).
 function MadNLPCore.default_options(
         ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{MadNLPCore.AugmentedPreset},
         ::Type{MadNLPCore.SparseKKTSystem}, ::Type{SDSSolver},
@@ -57,5 +58,6 @@ function MadNLPCore.default_options(
     opt.sds_pivoting = :bk
     opt.sds_matching = "algo6"
     opt.sds_deferred_analysis = true
+    opt.sds_reanalyze_on_improve = true
     return opt
 end
