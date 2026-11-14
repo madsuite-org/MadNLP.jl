@@ -229,7 +229,7 @@ function solve!(
         end
     finally
         timer_flush!(get_cnt(solver).timer, get_cnt(solver))
-        get_cnt(solver).total_time = time() - get_cnt(solver).start_time
+        get_cnt(solver).total_time = _now() - get_cnt(solver).start_time
         if !(get_status(solver) < SOLVE_SUCCEEDED)
             print_summary(solver)
         end
@@ -330,7 +330,7 @@ function _check_convergence!(solver::AbstractMadNLPSolver{T}) where {T}
     !watchdog_active(solver) &&
         norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return (DIVERGING_ITERATES, sc)
     get_cnt(solver).k >= get_opt(solver).max_iter && return (MAXIMUM_ITERATIONS_EXCEEDED, sc)
-    time() - get_cnt(solver).start_time >= get_opt(solver).max_wall_time && return (MAXIMUM_WALLTIME_EXCEEDED, sc)
+    _now() - get_cnt(solver).start_time >= get_opt(solver).max_wall_time && return (MAXIMUM_WALLTIME_EXCEEDED, sc)
     return (nothing, sc)
 end
 
@@ -508,7 +508,7 @@ function restore!(solver::AbstractMadNLPSolver{T}) where T
 
         is_filter_acceptable(get_filter(solver),theta,varphi) ? (return REGULAR) : (get_cnt(solver).t+=1)
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
-        time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
+        _now() - get_cnt(solver).start_time >= get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
 
         sd = get_sd(get_y(solver),get_zl_r(solver),get_zu_r(solver),get_opt(solver).s_max)
@@ -630,7 +630,7 @@ function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
             return INFEASIBLE_PROBLEM_DETECTED
         end
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
-        time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
+        _now() - get_cnt(solver).start_time >= get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
         # update the barrier parameter
         @trace(get_logger(solver),"Updating restoration phase barrier parameter.")
@@ -706,7 +706,7 @@ function robust_phase!(solver::AbstractMadNLPSolver{T}) where {T}
         end
 
         get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
-        time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
+        _now() - get_cnt(solver).start_time >= get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
 
         @trace(get_logger(solver),"Proceeding to the next restoration phase iteration.")
         get_cnt(solver).k+=1

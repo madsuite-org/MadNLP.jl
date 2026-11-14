@@ -36,10 +36,11 @@ function solve_refine!(
     residual_ratio = zero(T)
 
     fill!(full(x), zero(T))
+    # a zero right-hand side takes no backsolve
+    iterator.cnt.ir = 0
 
     if norm_b != zero(T)
         copyto!(full(w), full(b))
-        iterator.cnt.ir = 0
 
         while true
             solve_kkt!(iterator.kkt, w)

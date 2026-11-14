@@ -126,7 +126,7 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
     logger = options.logger
     @assert is_supported(ipm_opt.linear_solver, T)
 
-    cnt = MadNLPCounters(start_time=time(), timer=create_timer(VT))
+    cnt = MadNLPCounters(start_time = _now(), timer = create_timer(VT))
     cb = create_callback(
         ipm_opt.callback,
         nlp;
@@ -212,7 +212,7 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
         n, m, nlb, nub, ind_lb, ind_ub
     )
 
-    cnt.init_time = time() - cnt.start_time
+    cnt.init_time = _now() - cnt.start_time
 
     return MadNLPSolver(
         nlp, cb, kkt,

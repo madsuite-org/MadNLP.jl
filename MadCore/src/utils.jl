@@ -121,7 +121,9 @@ Accumulates the time spent in a code region into a `Float64` field of
 [`timer_stop!`](@ref) and [`timer_flush!`](@ref); [`create_timer`](@ref)
 picks the timer for a vector type. Regions may nest. The timer keeps the start
 marks itself, so a call through the abstract `MadNLPCounters.timer` field does
-not allocate.
+not allocate. `timer_stop!` also takes the phase the region runs in, whose field
+it subtracts the region's time from (see [`@phase_region`](@ref)), and a timer may
+define `_reset_timer!` to drop regions left open by an exception.
 """
 abstract type AbstractTimer end
 
@@ -225,6 +227,7 @@ function _reset_regions!(cnt)
     _reset_timer!(cnt.timer)
     return
 end
+_reset_timer!(::AbstractTimer) = nothing
 _reset_timer!(timer::WallTimer) = (empty!(timer.starts); nothing)
 
 # the phase a region at depth `depth` is directly inside, or :none
@@ -241,7 +244,7 @@ end
     ir::Int = 0 # iterative refinement counter
     tiny_step::Bool = false # the last accepted step was tiny relative to the iterate
 
-    start_time::Float64
+    start_time::Float64 # seconds on the monotonic clock (_now)
     timer::AbstractTimer = WallTimer()
     region_depth::Int = 0                                   # open timed regions
     phases::Vector{Tuple{Symbol, Int}} = Tuple{Symbol, Int}[]  # open phases and their depths
