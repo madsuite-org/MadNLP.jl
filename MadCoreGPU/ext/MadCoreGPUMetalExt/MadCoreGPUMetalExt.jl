@@ -16,5 +16,6 @@ using Metal
 include("sparse.jl")
 include("metal_sparse.jl")
 include("scaling.jl")
+include("metal_dense.jl")
 
 end

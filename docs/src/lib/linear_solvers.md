@@ -36,6 +36,7 @@ MumpsSolver
 LDLSolver
 UmfpackSolver
 CHOLMODSolver
+AccelerateSolver
 Ma27Solver
 Ma57Solver
 Ma77Solver
