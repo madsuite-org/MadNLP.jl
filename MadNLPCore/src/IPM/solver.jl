@@ -172,11 +172,12 @@ function solve!(
         return stats
     end
 
+    _reset_regions!(get_cnt(solver))
     try
         if get_status(solver) == INITIAL
             @notice(get_logger(solver),"This is $(introduce()), running with $(introduce(get_kkt(solver).linear_solver))\n")
             print_init(solver)
-            set_status!(solver, initialize!(solver))
+            set_status!(solver, @phase_region get_cnt(solver) :initialize_time initialize!(solver))
         else # resolving the problem
             set_status!(solver, reinitialize!(solver))
         end
@@ -186,11 +187,18 @@ function solve!(
                 set_status!(solver, regular!(solver))
                 # A failed regular phase gets the rescue from where it stopped.
                 if get_status(solver) in (SEARCH_DIRECTION_BECOMES_TOO_SMALL, DIVERGING_ITERATES) && get_opt(solver).feasibility_fallback
-                    set_status!(solver, feasibility_rescue!(solver, get_status(solver); from_entry = false))
+                    get_cnt(solver).restoration_cnt += 1
+                    set_status!(solver, @phase_region get_cnt(solver) :restoration_time feasibility_rescue!(solver, get_status(solver); from_entry = false))
                 end
             end
-            get_status(solver) == RESTORE && (set_status!(solver, restore!(solver)))
-            get_status(solver) == ROBUST && (set_status!(solver, robust!(solver)))
+            if get_status(solver) == RESTORE
+                get_cnt(solver).restoration_cnt += 1
+                set_status!(solver, @phase_region get_cnt(solver) :restoration_time restore!(solver))
+            end
+            if get_status(solver) == ROBUST
+                get_cnt(solver).restoration_cnt += 1
+                set_status!(solver, @phase_region get_cnt(solver) :restoration_time robust!(solver))
+            end
         end
     catch e
         if e isa InvalidNumberException
@@ -248,131 +256,30 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
             eval_jac_wrapper!(solver, get_kkt(solver), get_x(solver))
         end
 
-        jtprod!(get_jacl(solver), get_kkt(solver), get_y(solver))
-        sd = get_sd(get_y(solver),get_zl_r(solver),get_zu_r(solver),T(get_opt(solver).s_max))
-        sc = get_sc(get_zl_r(solver),get_zu_r(solver),T(get_opt(solver).s_max))
-        set_inf_pr!(solver, get_inf_pr(get_c(solver)))
-        set_inf_du!(solver, get_inf_du(
-            full(get_f(solver)),
-            full(get_zl(solver)),
-            full(get_zu(solver)),
-            get_jacl(solver),
-            sd,
-        ))
-        set_inf_compl!(solver, get_inf_compl(solver, sc; mu=zero(T)))
-
-        print_iter(solver)
-
-        # evaluate termination criteria
-        @trace(get_logger(solver),"Evaluating termination criteria.")
-        !(get_intermediate_callback(solver)(solver, UserCallbackRegular()) :: Bool) && return USER_REQUESTED_STOP
-        inf_total = get_inf_total(solver)
-        inf_total <= get_opt(solver).tol && return SOLVE_SUCCEEDED
-        inf_total <= get_opt(solver).acceptable_tol ?
-            (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
-            get_cnt(solver).acceptable_cnt+=1 : return SOLVED_TO_ACCEPTABLE_LEVEL) : (get_cnt(solver).acceptable_cnt = 0)
-        # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
-        # A watchdog trial step may blow up the iterate before the rollback, so the test waits
-        # until the watchdog ends.
-        !watchdog_active(solver) &&
-            norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return DIVERGING_ITERATES
-        get_cnt(solver).k>=get_opt(solver).max_iter && return MAXIMUM_ITERATIONS_EXCEEDED
-        time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
+        cnt = get_cnt(solver)
+        status, sc = @phase_region cnt :convergence_time _check_convergence!(solver)
+        status === nothing || return status
 
         # evaluate Hessian
         if (get_cnt(solver).k!=0 && !get_opt(solver).hessian_constant)
             eval_lag_hess_wrapper!(solver, get_kkt(solver), get_x(solver), get_y(solver))
         end
 
-        # update the barrier parameter
-        @trace(get_logger(solver),"Updating the barrier parameter.")
-        mu_prev = get_mu(solver)
-        update_barrier!(get_opt(solver).barrier, solver, sc)
-        # The tiny-step flag is about the last step only: clear it whichever barrier rule ran.
-        get_cnt(solver).tiny_step = false
-        # A change of the barrier parameter keeps a watchdog going, with the reference values
-        # re-evaluated at the new μ: the barrier objective and its directional derivative are
-        # affine in μ. This deviates from Ipopt, which resets the watchdog here. A later rollback
-        # restores the direction computed for the old μ, which need not be a descent direction
-        # for the new barrier objective; the filter and θ tests still guard acceptance.
-        if watchdog_active(solver) && get_mu(solver) != mu_prev
-            update_watchdog_reference!(watchdog_state(solver), get_mu(solver))
-        end
+        @phase_region cnt :barrier_time _update_barrier_parameter!(solver, sc)
 
         # factorize the KKT system and solve Newton step
         @trace(get_logger(solver),"Computing the Newton step.")
-        set_aug_diagonal!(get_kkt(solver),solver)
-        set_aug_rhs!(solver, get_kkt(solver), get_c(solver), get_mu(solver))
-        dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
-        inertia_correction!(get_inertia_corrector(solver), solver) || return ROBUST
-
-        # After watchdog_shortened_iter_trigger consecutive shortened steps, the watchdog saves the
-        # iterate and takes up to watchdog_trial_iter_max full steps, as in Ipopt.
-        if get_opt(solver).watchdog && hasfield(typeof(solver), :watchdog)
-            get_watchdog(solver) === nothing && set_watchdog!(solver, WatchdogState(solver))
-            wd = get_watchdog(solver)
-            if !wd.in_watchdog && wd.shortened_iter >= get_opt(solver).watchdog_shortened_iter_trigger
-                save_watchdog_iterate!(solver, wd)
-                wd.in_watchdog = true
-                wd.trial_iter = 0
-                wd.shortened_iter = 0
-            end
+        @phase_region cnt :step_setup_time begin
+            set_aug_diagonal!(get_kkt(solver),solver)
+            set_aug_rhs!(solver, get_kkt(solver), get_c(solver), get_mu(solver))
+            dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),get_mu(solver),get_opt(solver).kappa_d)
         end
+        (@phase_region cnt :inertia_time inertia_correction!(get_inertia_corrector(solver), solver)) || return ROBUST
 
-        @trace(get_logger(solver),"Backtracking line search initiated.")
-        status = filter_line_search!(solver)
-        if watchdog_active(solver)
-            wd = watchdog_state(solver)
-            if status == LINESEARCH_SUCCEEDED && get_ftype(solver) != "w"
-                # a step accepted relative to the reference ends the watchdog
-                wd.in_watchdog = false
-            elseif status == LINESEARCH_SUCCEEDED
-                # a tentative full step, not acceptable relative to the reference
-                wd.trial_iter += 1
-                if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
-                    # no progress: roll back and take the usual line search from the reference.
-                    # A second-order correction there solves with the KKT system factorized at
-                    # the tentative point; the filter still vets any step it produces.
-                    restore_watchdog_iterate!(solver, wd)
-                    wd.in_watchdog = false
-                    status = filter_line_search!(solver)
-                end
-            else
-                # the watchdog failed: roll back and take the usual line search from the reference
-                restore_watchdog_iterate!(solver, wd)
-                wd.in_watchdog = false
-                status = filter_line_search!(solver)
-            end
-        end
-        if status != LINESEARCH_SUCCEEDED
-            return status
-        end
-        # After the line search: the filter holds the trial point before the reset, which only
-        # makes it more permissive.
-        get_opt(solver).slack_reset && reset_slacks!(solver)
+        status = @phase_region cnt :line_search_time _line_search_step!(solver)
+        status != LINESEARCH_SUCCEEDED && return status
 
-        @trace(get_logger(solver),"Updating primal-dual variables.")
-        copyto!(full(get_x(solver)), full(get_x_trial(solver)))
-        copyto!(get_c(solver), get_c_trial(solver))
-        set_obj_val!(solver, get_obj_val_trial(solver))
-        adjust_boundary!(get_x_lr(solver),get_xl_r(solver),get_x_ur(solver),get_xu_r(solver),get_mu(solver))
-
-        axpy!(get_alpha(solver),dual(get_d(solver)),get_y(solver))
-
-        get_zl_r(solver) .+= get_alpha_z(solver) .* dual_lb(get_d(solver))
-        get_zu_r(solver) .+= get_alpha_z(solver) .* dual_ub(get_d(solver))
-        reset_bound_dual!(
-            primal(get_zl(solver)),
-            primal(get_x(solver)),
-            primal(get_xl(solver)),
-            get_mu(solver),get_opt(solver).kappa_sigma,
-        )
-        reset_bound_dual!(
-            primal(get_zu(solver)),
-            primal(get_xu(solver)),
-            primal(get_x(solver)),
-            get_mu(solver),get_opt(solver).kappa_sigma,
-        )
+        @phase_region cnt :update_time _update_iterate!(solver)
 
         eval_grad_f_wrapper!(solver, get_f(solver),get_x(solver))
 
@@ -384,6 +291,135 @@ function regular!(solver::AbstractMadNLPSolver{T}) where T
         get_cnt(solver).k+=1
         @trace(get_logger(solver),"Proceeding to the next interior point iteration.")
     end
+end
+
+# The phases of an iteration of regular!, each timed in its own field of the counters.
+
+# residuals, printing and termination tests; a status to stop with (or nothing) and sc
+function _check_convergence!(solver::AbstractMadNLPSolver{T}) where T
+    jtprod!(get_jacl(solver), get_kkt(solver), get_y(solver))
+    sd = get_sd(get_y(solver),get_zl_r(solver),get_zu_r(solver),T(get_opt(solver).s_max))
+    sc = get_sc(get_zl_r(solver),get_zu_r(solver),T(get_opt(solver).s_max))
+    set_inf_pr!(solver, get_inf_pr(get_c(solver)))
+    set_inf_du!(solver, get_inf_du(
+        full(get_f(solver)),
+        full(get_zl(solver)),
+        full(get_zu(solver)),
+        get_jacl(solver),
+        sd,
+    ))
+    set_inf_compl!(solver, get_inf_compl(solver, sc; mu=zero(T)))
+
+    print_iter(solver)
+
+    # evaluate termination criteria
+    @trace(get_logger(solver),"Evaluating termination criteria.")
+    !(get_intermediate_callback(solver)(solver, UserCallbackRegular()) :: Bool) && return (USER_REQUESTED_STOP, sc)
+    inf_total = get_inf_total(solver)
+    inf_total <= get_opt(solver).tol && return (SOLVE_SUCCEEDED, sc)
+    inf_total <= get_opt(solver).acceptable_tol ?
+        (get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
+        get_cnt(solver).acceptable_cnt+=1 : return (SOLVED_TO_ACCEPTABLE_LEVEL, sc)) : (get_cnt(solver).acceptable_cnt = 0)
+    # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
+    # A watchdog trial step may blow up the iterate before the rollback, so the test waits
+    # until the watchdog ends.
+    !watchdog_active(solver) &&
+        norm(variable(get_x(solver)), Inf) > get_opt(solver).diverging_iterates_tol && return (DIVERGING_ITERATES, sc)
+    get_cnt(solver).k>=get_opt(solver).max_iter && return (MAXIMUM_ITERATIONS_EXCEEDED, sc)
+    time()-get_cnt(solver).start_time>=get_opt(solver).max_wall_time && return (MAXIMUM_WALLTIME_EXCEEDED, sc)
+    return (nothing, sc)
+end
+
+function _update_barrier_parameter!(solver::AbstractMadNLPSolver{T}, sc) where T
+    @trace(get_logger(solver),"Updating the barrier parameter.")
+    mu_prev = get_mu(solver)
+    update_barrier!(get_opt(solver).barrier, solver, sc)
+    # The tiny-step flag is about the last step only: clear it whichever barrier rule ran.
+    get_cnt(solver).tiny_step = false
+    # A change of the barrier parameter keeps a watchdog going, with the reference values
+    # re-evaluated at the new μ: the barrier objective and its directional derivative are
+    # affine in μ. This deviates from Ipopt, which resets the watchdog here. A later rollback
+    # restores the direction computed for the old μ, which need not be a descent direction
+    # for the new barrier objective; the filter and θ tests still guard acceptance.
+    if watchdog_active(solver) && get_mu(solver) != mu_prev
+        update_watchdog_reference!(watchdog_state(solver), get_mu(solver))
+    end
+    return
+end
+
+# the watchdog, the filter line search and the slack reset; the line search status
+function _line_search_step!(solver::AbstractMadNLPSolver{T}) where T
+    # After watchdog_shortened_iter_trigger consecutive shortened steps, the watchdog saves the
+    # iterate and takes up to watchdog_trial_iter_max full steps, as in Ipopt.
+    if get_opt(solver).watchdog && hasfield(typeof(solver), :watchdog)
+        get_watchdog(solver) === nothing && set_watchdog!(solver, WatchdogState(solver))
+        wd = get_watchdog(solver)
+        if !wd.in_watchdog && wd.shortened_iter >= get_opt(solver).watchdog_shortened_iter_trigger
+            save_watchdog_iterate!(solver, wd)
+            wd.in_watchdog = true
+            wd.trial_iter = 0
+            wd.shortened_iter = 0
+        end
+    end
+
+    @trace(get_logger(solver),"Backtracking line search initiated.")
+    status = filter_line_search!(solver)
+    if watchdog_active(solver)
+        wd = watchdog_state(solver)
+        if status == LINESEARCH_SUCCEEDED && get_ftype(solver) != "w"
+            # a step accepted relative to the reference ends the watchdog
+            wd.in_watchdog = false
+        elseif status == LINESEARCH_SUCCEEDED
+            # a tentative full step, not acceptable relative to the reference
+            wd.trial_iter += 1
+            if wd.trial_iter > get_opt(solver).watchdog_trial_iter_max
+                # no progress: roll back and take the usual line search from the reference.
+                # A second-order correction there solves with the KKT system factorized at
+                # the tentative point; the filter still vets any step it produces.
+                restore_watchdog_iterate!(solver, wd)
+                wd.in_watchdog = false
+                status = filter_line_search!(solver)
+            end
+        else
+            # the watchdog failed: roll back and take the usual line search from the reference
+            restore_watchdog_iterate!(solver, wd)
+            wd.in_watchdog = false
+            status = filter_line_search!(solver)
+        end
+    end
+    if status != LINESEARCH_SUCCEEDED
+        return status
+    end
+    # After the line search: the filter holds the trial point before the reset, which only
+    # makes it more permissive.
+    get_opt(solver).slack_reset && reset_slacks!(solver)
+    return LINESEARCH_SUCCEEDED
+end
+
+function _update_iterate!(solver::AbstractMadNLPSolver{T}) where T
+    @trace(get_logger(solver),"Updating primal-dual variables.")
+    copyto!(full(get_x(solver)), full(get_x_trial(solver)))
+    copyto!(get_c(solver), get_c_trial(solver))
+    set_obj_val!(solver, get_obj_val_trial(solver))
+    adjust_boundary!(get_x_lr(solver),get_xl_r(solver),get_x_ur(solver),get_xu_r(solver),get_mu(solver))
+
+    axpy!(get_alpha(solver),dual(get_d(solver)),get_y(solver))
+
+    get_zl_r(solver) .+= get_alpha_z(solver) .* dual_lb(get_d(solver))
+    get_zu_r(solver) .+= get_alpha_z(solver) .* dual_ub(get_d(solver))
+    reset_bound_dual!(
+        primal(get_zl(solver)),
+        primal(get_x(solver)),
+        primal(get_xl(solver)),
+        get_mu(solver),get_opt(solver).kappa_sigma,
+    )
+    reset_bound_dual!(
+        primal(get_zu(solver)),
+        primal(get_xu(solver)),
+        primal(get_x(solver)),
+        get_mu(solver),get_opt(solver).kappa_sigma,
+    )
+    return
 end
 
 function restore!(solver::AbstractMadNLPSolver{T}) where T

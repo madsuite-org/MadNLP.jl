@@ -344,6 +344,14 @@ end
     @test cnt.kkt_mul_cnt == cnt.backsolve_cnt
     @test cnt.triangular_solve_cnt >= cnt.backsolve_cnt >= cnt.k
     @test cnt.factorization_cnt >= cnt.k
+    # each phase is timed without the evaluations and linear algebra inside it, so the parts
+    # add up to at most the solve time
+    phases = (cnt.initialize_time, cnt.convergence_time, cnt.barrier_time, cnt.step_setup_time,
+        cnt.inertia_time, cnt.line_search_time, cnt.update_time, cnt.restoration_time)
+    @test all(>=(-tol), phases)
+    @test cnt.convergence_time > 0 && cnt.line_search_time > 0 && cnt.update_time > 0
+    @test cnt.init_time + cnt.eval_function_time + cnt.linear_solver_time + sum(phases) <= cnt.total_time + tol
+    @test cnt.region_depth == 0 && isempty(cnt.phases)
 end
 
 @testset "Adaptive barrier" begin

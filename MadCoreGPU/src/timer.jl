@@ -17,10 +17,10 @@ A backend provides `_new_event(::Type{E})`, `_record!(::E)`, `_isdone(::E)`,
 """
 struct EventTimer{E} <: MadCore.AbstractTimer
     starts::Vector{E}
-    pending::Vector{Tuple{E, E, Symbol}}
+    pending::Vector{Tuple{E, E, Symbol, Symbol}}   # start, stop, field, phase to subtract from
     pool::Vector{E}
 end
-EventTimer{E}() where {E} = EventTimer{E}(E[], Tuple{E, E, Symbol}[], E[])
+EventTimer{E}() where {E} = EventTimer{E}(E[], Tuple{E, E, Symbol, Symbol}[], E[])
 
 function _new_event end
 function _record! end
@@ -39,26 +39,35 @@ function MadCore.timer_start!(timer::EventTimer)
     return
 end
 
-function MadCore.timer_stop!(timer::EventTimer, cnt, ::Val{field}) where {field}
+function MadCore.timer_stop!(timer::EventTimer, cnt, ::Val{field}, parent::Symbol = :none) where {field}
     stop = _take_event!(timer)
     _record!(stop)
-    push!(timer.pending, (pop!(timer.starts), stop, field))
+    push!(timer.pending, (pop!(timer.starts), stop, field, parent))
     _collect!(timer, cnt, false)
     return
 end
 
 MadCore.timer_flush!(timer::EventTimer, cnt) = _collect!(timer, cnt, true)
 
+# regions left open by an exception; their start events go back to the pool
+function MadCore._reset_timer!(timer::EventTimer)
+    append!(timer.pool, timer.starts)
+    empty!(timer.starts)
+    return
+end
+
 # Events on one stream complete in order, so collection stops at the first
 # region that has not completed.
 function _collect!(timer::EventTimer, cnt, blocking::Bool)
     while !isempty(timer.pending)
-        start, stop, field = first(timer.pending)
+        start, stop, field, parent = first(timer.pending)
         if !_isdone(stop)
             blocking || break
             _wait(stop)
         end
-        setfield!(cnt, field, getfield(cnt, field) + _elapsed(start, stop))
+        d = _elapsed(start, stop)
+        setfield!(cnt, field, getfield(cnt, field)::Float64 + d)
+        parent === :none || MadCore._subtract_time!(cnt, parent, d)
         popfirst!(timer.pending)
         push!(timer.pool, start, stop)
     end
