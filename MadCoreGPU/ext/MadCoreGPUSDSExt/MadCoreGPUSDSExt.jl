@@ -13,7 +13,7 @@ Options of [`MadCoreGPU.SDSSolver`](@ref), passed as keywords of `madnlp`.
 
 * `sds_factorization::Symbol = :cholesky`: `:cholesky` factors the KKT matrix as symmetric
   positive definite; `:ldl` as symmetric indefinite, reporting the inertia from the signs of
-  `D`. Only `:ldl` can factor the condensed matrix with dense Jacobian rows kept as a border.
+  `D`.
 * `sds_pivoting::Symbol = :none`: `:ldl` only. `:none` factors in the identity pivot order,
   `:bk` uses in-front Bunch-Kaufman pivoting.
 * `sds_matching::String = "none"`: `:ldl` only, the `matching_alg` of the analysis (`"none"`, or
@@ -52,8 +52,6 @@ MadCore.@kwdef mutable struct SDSSolverOptions <: MadCore.AbstractOptions
     n_primal::Int = -1
     n_dual::Int = 0
 end
-
-MadCore._factors_indefinite(opt::SDSSolverOptions) = opt.sds_factorization === :ldl
 
 mutable struct SDSState{T, K <: SDS.KKTSolver, M} <: MadCore.AbstractLinearSolver{T}
     inner::K

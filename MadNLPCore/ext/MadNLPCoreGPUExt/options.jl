@@ -8,16 +8,6 @@ MadNLPCore.default_preset(::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T
 function MadNLPCore.MadNLPOptions{T}(
         nlp::MadNLPCore.AbstractNLPModel{T, VT};
         preset::Type{<:MadNLPCore.AbstractPreset} = MadNLPCore.default_preset(nlp),
-        dense_row_fallback::Bool = true,
-        kwargs...,
-    ) where {T, VT <: AbstractGPUVector{T}}
-    kkt_options = get(kwargs, :kkt_options, Dict{Symbol, Any}())
-    preset = dense_row_fallback ? MadNLPCore.resolve_preset(nlp, preset, kkt_options) : preset
-    return _gpu_preset_madnlp_options(T, nlp; preset, kwargs...)
-end
-function _gpu_preset_madnlp_options(
-        ::Type{T}, nlp::MadNLPCore.AbstractNLPModel{T, VT};
-        preset::Type{<:MadNLPCore.AbstractPreset},
         dense_callback = MadNLPCore.is_dense_callback(nlp),
         callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
         kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.preset_kkt_system(preset),
