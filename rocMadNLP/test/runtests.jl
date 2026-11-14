@@ -43,6 +43,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :bk
             @test lopt.sds_matching == "algo6" && lopt.sds_deferred_analysis && lopt.sds_ir == 0
+            @test lopt.sds_reanalyze_on_improve
             stats = madnlp(nlp; preset = MadNLPCore.AugmentedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end

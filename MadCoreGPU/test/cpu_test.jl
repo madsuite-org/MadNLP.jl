@@ -10,3 +10,30 @@ import MadCore
         @test_throws MethodError MadCore.default_options(MadCoreGPU.CUDSSSolver)
     end
 end
+
+# SDSSolver accepts a host SparseMatrixCSC, on SparseDirectSolver's stock pipeline.
+@testset "SDSSolver on the CPU" begin
+    MadNLPTests.test_linear_solver(MadCoreGPU.SDSSolver, Float32)
+    MadNLPTests.test_linear_solver(MadCoreGPU.SDSSolver, Float64)
+    for (name, optimizer_constructor, exclude) in [
+            [
+                "SDS-CPU",
+                () -> MadNLP.Optimizer(linear_solver = MadCoreGPU.SDSSolver, print_level = MadNLP.ERROR),
+                [],
+            ],
+            [
+                "SDS-CPU-BUNCHKAUFMAN",
+                () -> MadNLP.Optimizer(
+                    linear_solver = MadCoreGPU.SDSSolver,
+                    print_level = MadNLP.ERROR,
+                    sds_pivoting = :bk,
+                    sds_matching = "algo6",
+                    sds_deferred_analysis = true,
+                    sds_reanalyze_on_improve = true,
+                ),
+                [],
+            ],
+        ]
+        test_madnlp(name, optimizer_constructor, exclude)
+    end
+end
