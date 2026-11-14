@@ -62,6 +62,5 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
             MadCore._permute_tuples!(dv, MtlVector([3, 1, 2]))
             @test Array(dv) == v[[3, 1, 2]]
         end
-        include("border.jl")
     end
 end

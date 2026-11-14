@@ -791,6 +791,22 @@ function inertia_correction!(
     else
         false
     end
+    # the KKT system may change its factorized matrix before the Hessian is perturbed; the retried
+    # factorization (a larger equality shift) contracts the refinement more slowly and gets
+    # equality_shift_retry_refinement times the refinement steps (case8387_pegase_polar: 10 steps
+    # leave the equality residual at 3e-8 and the solve stalls at the iteration limit; 30 steps
+    # converge in 180 iterations)
+    while !solve_status && inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
+        build_kkt!(get_kkt(solver))
+        factorize!(get_kkt(solver).linear_solver)
+        get_cnt(solver).factorization_cnt += 1
+        num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
+        solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+            solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver); max_iter_factor = get_opt(solver).equality_shift_retry_refinement)
+        else
+            false
+        end
+    end
     # δ_c alone must give an accurate solve; otherwise the joint schedule takes over
     if solve_status && get_del_c(solver) != zero(T) && !started_dw
         solve_status = accurate_solve(solver)

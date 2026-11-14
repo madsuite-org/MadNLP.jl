@@ -90,16 +90,17 @@ function MadCore.mul!(
     ) where {T, VT <: AbstractGPUVector{T}}
     n = size(kkt.hess_com, 1)
     m = size(kkt.jt_csc, 2)
+    ns = length(kkt.ind_ineq)
 
     # Decompose results
     xx = view(MadCore.full(x), 1:n)
-    xs = view(MadCore.full(x), (n + 1):(n + m))
-    xz = view(MadCore.full(x), (n + m + 1):(n + 2 * m))
+    xs = view(MadCore.full(x), (n + 1):(n + ns))
+    xz = view(MadCore.full(x), (n + ns + 1):(n + ns + m))
 
     # Decompose buffers
     wx = view(MadCore.full(w), 1:n)
-    ws = view(MadCore.full(w), (n + 1):(n + m))
-    wz = view(MadCore.full(w), (n + m + 1):(n + 2 * m))
+    ws = view(MadCore.full(w), (n + 1):(n + ns))
+    wz = view(MadCore.full(w), (n + ns + 1):(n + ns + m))
 
     MadCore.mul!(wx, kkt.hess_com, xx, alpha, beta)
     MadCore.mul!(wx, kkt.hess_com', xx, alpha, one(T))
@@ -118,8 +119,8 @@ function MadCore.mul!(
     end
 
     MadCore.mul!(wz, kkt.jt_csc', xx, alpha, beta)
-    MadCore.axpy!(-alpha, xs, wz)
-    ws .= beta .* ws .- alpha .* xz
+    ws .= beta .* ws .- alpha .* view(xz, kkt.ind_ineq)
+    view(wz, kkt.ind_ineq) .-= alpha .* xs
     return MadCore._kktmul!(
         w,
         x,
@@ -452,9 +453,7 @@ end
     MadCore.build_condensed_aug_coord!
 =#
 
-# the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`:
-# the whole system (aug_com, jt_csc, diag_buffer) or, with dense rows kept as a
-# border, the block of the condensed rows (aug_c, jt_s, dbuf_s)
+# the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`
 function MadCore._build_condensed_aug_coord!(
         kkt::MadCore.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
     ) where {T, VT <: AbstractGPUVector{T}}

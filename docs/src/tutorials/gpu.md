@@ -93,28 +93,28 @@ On the CPU, `preset = ShiftedPreset` selects the same setting with CHOLMOD's LDL
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 
-The condensed *Lifted-KKT* formulation documented in [this article](https://arxiv.org/html/2405.14236v2)
-remains available with `preset = CondensedPreset`. MadNLP then relaxes every equality
-constraint ``g(x) = 0`` as a pair of inequality constraints ``-\tau \leq g(x) \leq \tau``, with ``\tau``
-equal to `bound_relax_factor` (by default `tol`), and reduces the KKT system to a sparse condensed system
-(`SparseCondensedKKTSystem`), factorized by the same pivot-bounded LDL' as the default preset, since
-dense rows may be left uncondensed:
+`preset = CondensedPreset` condenses every constraint. The equality constraints are enforced, and
+their multipliers are eliminated through a small dual shift (1e-8), so the condensed matrix is
+positive definite and is factorized by cuDSS's Cholesky without pivoting; the refinement targets the
+unshifted system, and when the factorization reports a wrong inertia it is retried with a larger
+shift before the Hessian is perturbed:
 ```@example gpu
 results = madnlp(nlp; preset=CondensedPreset)
 nothing
 ```
-The relaxation changes the geometry of the feasible set, and the condensed system is more
-ill-conditioned than the augmented one, so the convergence can differ from what we observe on the CPU.
-In general, we recommend keeping the value of `bound_relax_factor` below `tol`.
+A model with a dense Jacobian row (more than `dense_row_abs` nonzeros and `dense_row_rel` times the
+number of variables) is solved with `ShiftedPreset` instead (`dense_row_fallback = false` keeps the
+condensed preset). The condensed system is more ill-conditioned than the augmented one, so
+the convergence can differ from what we observe on the CPU.
 
 
 ### Solving the problem on the GPU with HyKKT
 
 Some applications require accurate solutions. In that case, we recommend using the
 extension [HybridKKT.jl](https://github.com/madsuite-org/HybridKKT.jl), which implements
-the Golub & Greif augmented Lagrangian formulation detailed [in this article](https://www.tandfonline.com/doi/abs/10.1080/10556788.2022.2124990). Compared to Lifted-KKT, the Hybrid-KKT
-strategy is more accurate (it doesn't relax the equality constraints in the problem) but
-slightly slower (it computes the descent direction using a conjugate gradient at every IPM iterations).
+the Golub & Greif augmented Lagrangian formulation detailed [in this article](https://www.tandfonline.com/doi/abs/10.1080/10556788.2022.2124990). Compared to the condensed
+preset, the Hybrid-KKT strategy solves the equality-constrained KKT system without a shift, at the
+cost of a conjugate gradient at every IPM iteration.
 
 Once the package `HybridKKT` installed, the solution proceeds as
 ```

@@ -193,6 +193,16 @@ Called internally inside the interior-point routine.
 function regularize_diagonal! end
 
 """
+    inertia_retry!(kkt::AbstractKKTSystem, k, inf_pr, tol)
+
+Called when the factorization of iteration `k` has a wrong inertia, before the Hessian is
+perturbed, with the primal infeasibility `inf_pr` and the tolerance `tol`: a KKT system that can
+change the matrix it factorizes (`SparseCondensedKKTSystem` raises its equality shift) does so and
+returns `true`, and the caller rebuilds and refactorizes it. `false` here.
+"""
+inertia_retry!(::AbstractKKTSystem, k, inf_pr, tol) = false
+
+"""
     is_inertia_correct(kkt::AbstractKKTSystem, n::Int, m::Int, p::Int)
 
 Check if the inertia ``(n, m, p)`` returned by the linear solver is adapted
