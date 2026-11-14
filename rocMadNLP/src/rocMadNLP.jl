@@ -15,6 +15,7 @@ import PrecompileTools
 # SparseDirectSolver loads MadCoreGPUSDSExt, which implements SDSSolver.
 import SparseDirectSolver
 import Krylov   # GMRES refinement (KrylovIterator) of ShiftedPreset
+import KrylovPreconditioners   # sparse products with kept rocSPARSE plans (MadCoreGPU extension)
 
 using MadNLPCore
 for name in names(MadNLPCore)
