@@ -17,7 +17,6 @@ cuSOLVER = "887afef0-6a32-4de5-add4-7827692ba8fc"
 cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
 
 [sources]
-KrylovPreconditioners = {url = "https://github.com/sshin23/KrylovPreconditioners.jl", rev = "krylov-operator-axpby"}
 MadCore = {path = "../MadCore"}
 MadCoreGPU = {path = "../MadCoreGPU"}
 MadNLPCore = {path = "../MadNLPCore"}
@@ -27,7 +26,7 @@ CUDA = "6"
 CUDACore = "6"
 CUDSS = "1.0"
 Krylov = "0.10"
-KrylovPreconditioners = "0.4"
+KrylovPreconditioners = "0.4.1"
 MadCore = "=0.12.0"
 MadCoreGPU = "=0.12.0"
 MadNLPCore = "=0.12.0"

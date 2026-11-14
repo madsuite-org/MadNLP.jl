@@ -6,7 +6,7 @@ module MadCoreGPUKrylovPreconditionersExt
 
 import MadCoreGPU
 import LinearAlgebra: LinearAlgebra, mul!
-import SparseArrays: AbstractSparseMatrix, nonzeros
+import SparseArrays: AbstractSparseMatrix
 import GPUArraysCore: AbstractGPUVector
 import KrylovPreconditioners: KrylovOperator
 
@@ -29,17 +29,10 @@ function LinearAlgebra.mul!(y::AbstractVector, A::KeptOperator, x::AbstractVecto
 end
 LinearAlgebra.mul!(y::AbstractVector, A::KeptOperator, x::AbstractVector) = mul!(y, A, x, true, false)
 
-function MadCoreGPU.kept_op(A::AbstractSparseMatrix{T}, transa::Char) where {T}
+function MadCoreGPU.kept_op(A::AbstractSparseMatrix, transa::Char)
     fallback = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
     applicable(KrylovOperator, A) || return fallback
-    op = KrylovOperator(A; transa)
-    m, n = size(A)
-    vec = similar(nonzeros(A), 0)
-    # y = α A x + β y and transposed operators of rectangular matrices need
-    # KrylovPreconditioners newer than 0.4.0
-    (size(op) == (transa == 'N' ? (m, n) : (n, m)) && hasmethod(mul!, Tuple{typeof(vec), typeof(op), typeof(vec), T, T})) ||
-        return fallback
-    return KeptOperator(op)
+    return KeptOperator(KrylovOperator(A; transa))
 end
 
 end # module
