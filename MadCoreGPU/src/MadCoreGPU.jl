@@ -113,7 +113,7 @@ function MadCore._get_sparse_csc(dims, colptr::AbstractGPUVector, rowval, nzval)
 end
 
 function __init__()
-    push!(MadCore._DEFERRED_RESETS, _reset_reduction_buffers!)
+    return push!(MadCore._DEFERRED_RESETS, _reset_reduction_buffers!)
 end
 
 end # module

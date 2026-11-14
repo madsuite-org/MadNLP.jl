@@ -86,8 +86,10 @@ function MadCore._fetch!(x::DeviceScalar)
     if buf.fetched < buf.issued
         # one copy of the columns written since the last fetch; the host waits for the device here
         first = buf.fetched + 1
-        copyto!(buf.host, (first - 1) * _RED_GROUPS + 1, buf.partials, (first - 1) * _RED_GROUPS + 1,
-            (buf.issued - buf.fetched) * _RED_GROUPS)
+        copyto!(
+            buf.host, (first - 1) * _RED_GROUPS + 1, buf.partials, (first - 1) * _RED_GROUPS + 1,
+            (buf.issued - buf.fetched) * _RED_GROUPS
+        )
         buf.fetched = buf.issued
     end
     return

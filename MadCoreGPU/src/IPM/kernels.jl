@@ -23,8 +23,10 @@ get_inf_pr(c::GV) = _value1(_deferred(get_inf_pr, c))
 function _deferred(::typeof(get_sd), l::GV, zl_r::GV, zu_r::GV, s_max)
     T = eltype(l)
     n = max(1, length(l) + length(zl_r) + length(zu_r))
-    return _lazy((a, b, c) -> max(s_max, (a + b + c) / n) / s_max,
-        _reduce(abs, +, zero(T), l), _reduce(abs, +, zero(T), zl_r), _reduce(abs, +, zero(T), zu_r))
+    return _lazy(
+        (a, b, c) -> max(s_max, (a + b + c) / n) / s_max,
+        _reduce(abs, +, zero(T), l), _reduce(abs, +, zero(T), zl_r), _reduce(abs, +, zero(T), zu_r)
+    )
 end
 get_sd(l::GV, zl_r::GV, zu_r::GV, s_max) = _value1(_deferred(get_sd, l, zl_r, zu_r, s_max))
 

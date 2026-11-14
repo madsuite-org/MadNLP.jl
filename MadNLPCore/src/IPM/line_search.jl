@@ -35,7 +35,8 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
     # the reductions of the step are read together below (one wait on a GPU)
     theta = _deferred(get_theta, get_c(solver))
     varphi = _deferred(get_varphi, get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
-    varphi_d = _deferred(get_varphi_d,
+    varphi_d = _deferred(
+        get_varphi_d,
         primal(get_f(solver)),
         primal(get_x(solver)),
         primal(get_xl(solver)),
@@ -44,7 +45,8 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         get_mu(solver),
     )
 
-    alpha_max = _deferred(get_alpha_max,
+    alpha_max = _deferred(
+        get_alpha_max,
         primal(get_x(solver)),
         primal(get_xl(solver)),
         primal(get_xu(solver)),
@@ -67,7 +69,7 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
     set_alpha!(solver, alpha_max)
     varphi_trial= zero(T)
     theta_trial = zero(T)
-    small_search_norm = rel_search_norm < 10*eps(T)
+    small_search_norm = rel_search_norm < 10 * eps(T)
     switching_condition = is_switching(varphi_d,get_alpha(solver),get_opt(solver).s_phi,get_opt(solver).delta,theta,get_opt(solver).s_theta)
     armijo_condition = false
     unsuccessful_iterate = false
