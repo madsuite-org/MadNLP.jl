@@ -81,8 +81,8 @@ MadCore.backend_package(::Type{LapackOneMKLSolver}) = "oneAPI"
 """
     SDSSolver
 
-Select the sparse direct solver SparseDirectSolver.jl on any GPU. Implemented in the
-extension loaded by SparseDirectSolver.
+Select the sparse direct solver SparseDirectSolver.jl on any GPU, or on the CPU for a host
+KKT matrix (`SparseMatrixCSC`). Implemented in the extension loaded by SparseDirectSolver.
 """
 struct SDSSolver end
 MadCore.backend_package(::Type{SDSSolver}) = "SparseDirectSolver"

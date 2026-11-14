@@ -3,6 +3,7 @@ module MadCoreGPUSDSExt
 import MadCore
 import MadCoreGPU
 import SparseDirectSolver
+import SparseArrays: SparseMatrixCSC
 
 const SDS = SparseDirectSolver
 
@@ -11,9 +12,10 @@ const SDS = SparseDirectSolver
 
 Options of [`MadCoreGPU.SDSSolver`](@ref), passed as keywords of `madnlp`.
 
-* `sds_factorization::Symbol = :cholesky`: `:cholesky` factors the KKT matrix as symmetric
+* `sds_factorization::Symbol = :ldl`: `:cholesky` factors the KKT matrix as symmetric
   positive definite; `:ldl` as symmetric indefinite, reporting the inertia from the signs of
   `D`. Only `:ldl` can factor the condensed matrix with dense Jacobian rows kept as a border.
+  The default is `:ldl`, as `cudss_algorithm` for cuDSS.
 * `sds_pivoting::Symbol = :none`: `:ldl` only. `:none` factors in the identity pivot order,
   `:bk` uses in-front Bunch-Kaufman pivoting.
 * `sds_matching::String = "none"`: `:ldl` only, the `matching_alg` of the analysis (`"none"`, or
@@ -33,12 +35,17 @@ Options of [`MadCoreGPU.SDSSolver`](@ref), passed as keywords of `madnlp`.
 * `sds_fused`: run the fused pipeline (`true`) or the stock one (`false`); `nothing` lets
   SparseDirectSolver choose. `:bk` runs the stock pipeline; `sds_fused = true` with `:bk` raises
   `SparseDirectSolver.InvalidValueError`.
+* `sds_reanalyze_on_improve::Bool = false`: when MadNLP's iterative refinement rejects a solve,
+  redo the analysis on the current values and factorize again, at most once per factorization
+  (as `cudss_reanalyze_on_improve` for cuDSS).
+* `sds_analysis_each_factorization::Bool = false`: redo the analysis at every factorization, so
+  that the matching always sees the current values (as `cudss_analysis_each_factorization`).
 
 `nothing` keeps the default of SparseDirectSolver. The KKT system sets `n_primal` and
 `n_dual`, the sizes of the primal and dual blocks.
 """
 MadCore.@kwdef mutable struct SDSSolverOptions <: MadCore.AbstractOptions
-    sds_factorization::Symbol = :cholesky
+    sds_factorization::Symbol = :ldl
     sds_pivoting::Symbol = :none
     sds_matching::String = "none"
     sds_deferred_analysis::Bool = false
@@ -49,6 +56,8 @@ MadCore.@kwdef mutable struct SDSSolverOptions <: MadCore.AbstractOptions
     sds_tuning::Union{Nothing, SDS.SDSTuning} = nothing
     sds_user_perm::Union{Nothing, Vector{Int}} = nothing
     sds_fused::Union{Nothing, Bool} = nothing
+    sds_reanalyze_on_improve::Bool = false
+    sds_analysis_each_factorization::Bool = false
     n_primal::Int = -1
     n_dual::Int = 0
 end
@@ -58,19 +67,25 @@ MadCore._factors_indefinite(opt::SDSSolverOptions) = opt.sds_factorization === :
 mutable struct SDSState{T, K <: SDS.KKTSolver, M} <: MadCore.AbstractLinearSolver{T}
     inner::K
     csc::M
+    improved::Bool          # improve! ran since the last factorize!
+    reanalysis_cnt::Int
     opt::SDSSolverOptions
     logger::MadCore.MadNLPLogger
 end
 
 # `csc` is the lower triangle of the KKT matrix in compressed columns, which SparseDirectSolver
-# reads as the upper triangle in compressed rows.
+# reads as the upper triangle in compressed rows. A host `SparseMatrixCSC` goes through
+# `csr_of_transpose`, which records the transpose, so its view stays `'L'`.
+_kkt_solver(csc::SparseMatrixCSC; kwargs...) = SDS.KKTSolver(SDS.csr_of_transpose(csc), 'L'; kwargs...)
+_kkt_solver(csc; kwargs...) = SDS.KKTSolver(csc.colPtr, csc.rowVal, csc.nzVal, 'U'; kwargs...)
+
 function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger())
     n = size(csc, 1)
     ldl = opt.sds_factorization === :ldl
     bk = opt.sds_pivoting === :bk
     n_primal = opt.n_primal < 0 ? n : opt.n_primal
-    inner = SDS.KKTSolver(
-        csc.colPtr, csc.rowVal, csc.nzVal, 'U';
+    inner = _kkt_solver(
+        csc;
         factorization = opt.sds_factorization,
         pivoting = opt.sds_pivoting,
         fused = opt.sds_fused,
@@ -85,11 +100,16 @@ function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger()
         user_perm = opt.sds_user_perm,
         tuning = opt.sds_tuning,
     )
-    return SDSState{eltype(MadCore.scaling_nzval(csc)), typeof(inner), typeof(csc)}(inner, csc, opt, logger)
+    return SDSState{eltype(MadCore.scaling_nzval(csc)), typeof(inner), typeof(csc)}(inner, csc, false, 0, opt, logger)
 end
 
 function MadCore.factorize!(M::SDSState)
-    SDS.factorize!(M.inner)
+    if M.opt.sds_analysis_each_factorization
+        SDS.analyze!(M.inner)
+    else
+        SDS.factorize!(M.inner)
+    end
+    M.improved = false
     return M
 end
 
@@ -100,15 +120,24 @@ end
 
 MadCore.is_factorized(M::SDSState) = SDS.getparam(M.inner, "info") == 0
 MadCore.is_inertia(::SDSState) = true
-# A failed factorization is reported as an indefinite inertia, so that the interior-point
-# method regularizes and factorizes again.
+# A failed factorization is reported with the dummy inertia of the cuDSS binding, so that the
+# interior-point method regularizes and factorizes again.
 function MadCore.inertia(M::SDSState)
     n = size(M.csc, 1)
-    MadCore.is_factorized(M) || return (n - 2, 1, 1)
-    M.opt.sds_factorization === :ldl || return (n, 0, 0)
-    return SDS.inertia(M.inner)
+    if M.opt.sds_factorization === :ldl
+        return MadCore.is_factorized(M) ? SDS.inertia(M.inner) : (0, 1, n)
+    else
+        return MadCore.is_factorized(M) ? (n, 0, 0) : (n - 2, 1, 1)
+    end
 end
-MadCore.improve!(::SDSState) = false
+function MadCore.improve!(M::SDSState)
+    (M.opt.sds_reanalyze_on_improve && !M.improved) || return false
+    M.improved = true
+    M.reanalysis_cnt += 1
+    MadCore.@notice(M.logger, "SparseDirectSolver: analysis redone after a rejected solve ($(M.reanalysis_cnt) so far)")
+    SDS.analyze!(M.inner)
+    return true
+end
 function MadCore.introduce(M::SDSState)
     pipeline = SDS.pipeline(M.inner) === :fused ? "fused" : "stock"
     return "SparseDirectSolver.jl ($(M.opt.sds_factorization), $(pipeline) pipeline)"
