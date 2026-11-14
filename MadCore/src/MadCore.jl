@@ -10,7 +10,7 @@ import NLPModels
 import NLPModels: finalize, AbstractNLPModel, obj, grad!, cons!, jac_coord!, hess_coord!, hess_structure!, jac_structure!, hess_dense!, jac_dense!, NLPModelMeta, get_nvar, get_ncon, get_minimize, get_x0, get_y0, get_nnzj, get_nnzh, get_lvar, get_uvar, get_lcon, get_ucon
 import SolverCore: getStatus, AbstractOptimizationSolver, AbstractExecutionStats, solve!
 
-export LapackCPUSolver, MumpsSolver, LDLSolver, UmfpackSolver, CHOLMODSolver, DummySolver
+export LapackCPUSolver, MumpsSolver, LDLSolver, UmfpackSolver, CHOLMODSolver, AccelerateSolver, DummySolver
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver
 export KrylovIterator
 export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler

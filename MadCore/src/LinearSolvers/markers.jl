@@ -72,6 +72,16 @@ struct CHOLMODSolver end
 backend_package(::Type{CHOLMODSolver}) = "SuiteSparse"
 
 """
+    AccelerateSolver
+
+Select the sparse LDLᵀ factorization of Apple Accelerate (threshold partial pivoting by
+default), which reports the inertia on macOS 13 and later. Implemented in the extension
+loaded by `AppleAccelerate`, on macOS only.
+"""
+struct AccelerateSolver end
+backend_package(::Type{AccelerateSolver}) = "AppleAccelerate"
+
+"""
     DummySolver
 
 Default sparse linear solver of MadCore and MadNLPCore, which ship without one.

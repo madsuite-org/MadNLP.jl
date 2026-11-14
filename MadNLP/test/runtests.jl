@@ -34,4 +34,9 @@ import SparseArrays: sparse
     end
 
     include("zero_compile_test.jl")
+
+    # last: loading AppleAccelerate forwards BLAS and LAPACK to Accelerate
+    Sys.isapple() && @testset "Apple Accelerate" begin
+        include("accelerate_test.jl")
+    end
 end # @testset
