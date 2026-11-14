@@ -291,7 +291,7 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     res_dual = norm(primal(get_p(solver)))
     # Get approximate solution without iterative refinement
     copyto!(full(step_aff), full(get_p(solver)))
-    solve_kkt!(get_kkt(solver), step_aff)
+    @timed_region get_cnt(solver) :linear_solver_time @timed_region get_cnt(solver) :solve_time solve_kkt!(get_kkt(solver), step_aff)
     # Get average complementarity
     mu = get_average_complementarity(solver)
     # Centering step
@@ -300,7 +300,7 @@ function get_adaptive_mu(solver::AbstractMadNLPSolver{T}, barrier::QualityFuncti
     dual_inf_perturbation!(primal(get_p(solver)),get_ind_llb(solver),get_ind_uub(solver),mu,get_opt(solver).kappa_d)
     # Get (again) approximate solution without iterative refinement
     copyto!(full(step_cen), full(get_p(solver)))
-    solve_kkt!(get_kkt(solver), step_cen)
+    @timed_region get_cnt(solver) :linear_solver_time @timed_region get_cnt(solver) :solve_time solve_kkt!(get_kkt(solver), step_cen)
     # Refine the search interval using Ipopt's heuristics
     # First, check if sigma is greater than 1.
     phi1 = _evaluate_quality_function(solver, one(T), step_aff, step_cen, res_primal, res_dual)
