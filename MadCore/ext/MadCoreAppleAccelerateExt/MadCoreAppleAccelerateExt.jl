@@ -99,8 +99,10 @@ for (T, refactor, getinertia) in (
     end
 end
 
-# The first factorization is symbolic and numeric; the next ones, also after a failure,
-# refactorize the values in place, unless improve! changed the options.
+# The first factorization is symbolic and numeric; the next ones refactorize the values in
+# place, unless improve! changed the options or the last factorization failed: libSparse
+# ignores new options on an in-place refactorization, and after a failure the options it
+# recorded are not valid.
 function factorize!(M::AccelerateState{T}) where {T}
     sym = M.fact[].symbolicFactorization
     if !M.refresh && sym.status == AA.SparseStatusOk && M.fact[].numericFactorization != C_NULL
@@ -113,7 +115,10 @@ function factorize!(M::AccelerateState{T}) where {T}
         sym.status == AA.SparseStatusOk &&
             resize!(M.workspace, Int(T == Float64 ? sym.workspaceSize_Double : sym.workspaceSize_Float))
     end
-    is_factorized(M) || @debug(M.logger, "Accelerate factorization failed: $(M.fact[].status)")
+    if !is_factorized(M)
+        M.refresh = true
+        @debug(M.logger, "Accelerate factorization failed: $(M.fact[].status)")
+    end
     return M
 end
 
