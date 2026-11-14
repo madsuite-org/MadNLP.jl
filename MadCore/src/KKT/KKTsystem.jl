@@ -285,3 +285,24 @@ include("Sparse/scaled_augmented.jl")
 include("Sparse/utils.jl")
 include("Schur/schur.jl")
 
+
+"""
+    hess_op(kkt::AbstractKKTSystem, transa::Char = 'N')
+
+The stored Hessian block of `kkt` (`transa = 'N'`), or its transpose (`'T'`) or adjoint
+(`'C'`), as an object `mul!(y, op, x, alpha, beta)` applies. A sparse KKT system stores the
+lower triangle, so a product with the symmetric Hessian applies both. Each KKT system defines
+it for its storage; a GPU backend may return an operator that keeps the sparse library's
+setup across products.
+"""
+function hess_op end
+
+"""
+    jac_op(kkt::AbstractKKTSystem, transa::Char = 'N')
+
+The constraint Jacobian `J` of `kkt` (`transa = 'N'`), or its transpose (`'T'`) or adjoint
+(`'C'`), as an object `mul!(y, op, x, alpha, beta)` applies. See [`hess_op`](@ref).
+"""
+function jac_op end
+
+_transposed(A, transa::Char) = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
