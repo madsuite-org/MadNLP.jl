@@ -101,6 +101,16 @@ function inertia end
 function improve! end
 
 """
+    analyze!(::AbstractLinearSolver)::Bool
+
+Run the reordering and symbolic factorization now, if the solver would otherwise run them at
+its next [`factorize!`](@ref), so that they are timed apart from the numeric factorization.
+Return whether it ran them. The default runs nothing, and a solver's own symbolic phase then
+counts in its factorization or its construction.
+"""
+analyze!(::AbstractLinearSolver) = false
+
+"""
     set_block_structure!(opt, n_primal::Integer, n_dual::Integer) -> opt
 
 Declare to a linear solver's option object the saddle-point partition
@@ -188,6 +198,7 @@ is_factorized(s::LinearSolverBarrier) = Base.invokelatest(is_factorized, s.wrapp
 is_inertia(s::LinearSolverBarrier) = Base.invokelatest(is_inertia, s.wrapped)::Bool
 inertia(s::LinearSolverBarrier) = Base.invokelatest(inertia, s.wrapped)
 improve!(s::LinearSolverBarrier) = Base.invokelatest(improve!, s.wrapped)::Bool
+analyze!(s::LinearSolverBarrier) = Base.invokelatest(analyze!, s.wrapped)::Bool
 is_async(s::LinearSolverBarrier) = Base.invokelatest(is_async, s.wrapped)::Bool
 
 #=
