@@ -14,6 +14,7 @@ import CUDA, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
 using CUDACore: CuVector, CUDABackend
 import PrecompileTools
 import Krylov   # GMRES refinement (KrylovIterator) of the default options
+import KrylovPreconditioners   # sparse products with kept cuSPARSE plans (MadCoreGPU extension)
 
 using MadNLPCore
 for name in names(MadNLPCore)

@@ -340,11 +340,15 @@ function compress_jacobian!(kkt::SparseCondensedKKTSystem{T, VT, MT}) where {T, 
     transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
+# the Jacobian is stored transposed, as jt_csc
+hess_op(kkt::SparseCondensedKKTSystem, transa::Char = 'N') = _transposed(kkt.hess_com, transa)
+jac_op(kkt::SparseCondensedKKTSystem, transa::Char = 'N') = _transposed(transpose(kkt.jt_csc), transa)
+
 function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVector)
     n = size(kkt.hess_com, 1)
     m = size(kkt.jt_csc, 2)
 
-    mul!(view(y, 1:n), kkt.jt_csc, x)
+    mul!(view(y, 1:n), jac_op(kkt, 'T'), x)
     y[size(kkt.jt_csc,1)+1:end] .= -x
 end
 
