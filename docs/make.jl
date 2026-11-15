@@ -24,6 +24,7 @@ makedocs(
         "Options" => "options.md",
         "Tutorials" => [
             "GPU acceleration" => "tutorials/gpu.md",
+            "Apple silicon" => "tutorials/apple.md",
             "Multi-precision" => "tutorials/multiprecision.md",
             "Warm-start" => "tutorials/warmstart.md",
             "Quasi-Newton" => "tutorials/quasi_newton.md",

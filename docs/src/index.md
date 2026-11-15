@@ -54,12 +54,14 @@ UmfpackSolver           | sparse | CPU
 LapackCPUSolver         | dense  | CPU
 LDLSolver               | sparse | CPU
 CHOLMODSolver           | sparse | CPU
+AccelerateSolver (load AppleAccelerate) | sparse | CPU (macOS)
 ||
 __cuMadNLP / rocMadNLP / oneMadNLP / mtlMadNLP__||
 ||
 CUDSSSolver             | sparse | CUDA
 LapackCUDASolver         | dense  | CUDA
 SDSSolver               | sparse | AMD, Intel, Apple GPU
+LapackCPUSolver         | dense  | Apple GPU (factorized on the host; load AppleAccelerate for Accelerate, and use `Metal.SharedStorage` to avoid copies)
 LapackROCmSolver         | dense  | AMD GPU
 LapackOneMKLSolver       | dense  | Intel GPU
 ||

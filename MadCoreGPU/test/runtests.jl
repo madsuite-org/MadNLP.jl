@@ -18,6 +18,15 @@ catch
     false
 end
 
+# No CI runner has an Apple GPU: the Metal tests run where Metal and mtlMadNLP (Julia 1.13)
+# are installed by hand, as CUDA and AMDGPU are on their runners.
+const HAS_METAL = try
+    using Metal, mtlMadNLP
+    true
+catch
+    false
+end
+
 @testset "MadCoreGPU test" begin
     include("cpu_test.jl")
     include("gpu_test.jl")
@@ -38,5 +47,8 @@ end
         include("densekkt_rocm.jl")
         # Need to add support for CompactLBFGS in SparseCondensedKKTSystem (Issue #563)
         # include("sparsekkt_rocm.jl")
+    end
+    if HAS_METAL && Metal.functional()
+        include("densekkt_metal.jl")
     end
 end

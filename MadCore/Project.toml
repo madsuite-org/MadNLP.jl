@@ -10,6 +10,7 @@ SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [weakdeps]
+AppleAccelerate = "13e28ba4-7ad8-5781-acae-3021b1ed3924"
 HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
@@ -19,6 +20,7 @@ Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
 SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
 
 [extensions]
+MadCoreAppleAccelerateExt = "AppleAccelerate"
 MadCoreHSLExt = "HSL"
 MadCoreKrylovExt = "Krylov"
 MadCoreLDLExt = "LDLFactorizations"
@@ -27,6 +29,7 @@ MadCorePardisoExt = "Pardiso"
 MadCoreSuiteSparseExt = "SuiteSparse"
 
 [compat]
+AppleAccelerate = "0.6"
 HSL = "0.5.3"
 Krylov = "0.10"
 LDLFactorizations = "0.10"

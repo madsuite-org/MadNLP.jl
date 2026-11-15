@@ -7,6 +7,9 @@ and SparseDirectSolver.jl. Models on `MtlVector` are solved with
 static LDLᵀ factorization of [`SDSSolver`](@ref). Metal has no `Float64`, so models use
 `Float32`, with the shift and the pivot bound of
 [`preset_perturbation`](@ref MadNLPCore.preset_perturbation)`(Float32)`.
+Dense models are solved with `LapackCPUSolver`, which factorizes on the host. Load
+AppleAccelerate to run it on Accelerate, and build dense models in `Metal.SharedStorage` to
+avoid copies to the host (see the Apple silicon tutorial).
 """
 module mtlMadNLP
 

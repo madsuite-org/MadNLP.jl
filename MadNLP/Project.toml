@@ -27,6 +27,7 @@ MathOptInterface = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
 MadNLPMOI = "MathOptInterface"
 
 [compat]
+AppleAccelerate = "0.6"
 HSL = "0.5.3"
 Krylov = "0.10"
 MadCore = "=0.12.0"
@@ -42,6 +43,7 @@ SparseArrays = "1.10"
 julia = "1.10"
 
 [extras]
+AppleAccelerate = "13e28ba4-7ad8-5781-acae-3021b1ed3924"
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"
 Quadmath = "be4d8f0f-7fa4-5f49-b795-2f01399ab2dd"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
@@ -49,4 +51,4 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "MadNLPTests", "Random", "Quadmath", "SparseArrays"]
+test = ["Test", "MadNLPTests", "Random", "Quadmath", "SparseArrays", "AppleAccelerate"]
