@@ -298,19 +298,15 @@ end
 # residuals, printing and termination tests; a status to stop with (or nothing) and sc
 function _check_convergence!(solver::AbstractMadNLPSolver{T}) where {T}
     jtprod!(get_jacl(solver), get_kkt(solver), get_y(solver))
-    sd = get_sd(get_y(solver), get_zl_r(solver), get_zu_r(solver), T(get_opt(solver).s_max))
-    sc = get_sc(get_zl_r(solver), get_zu_r(solver), T(get_opt(solver).s_max))
-    set_inf_pr!(solver, get_inf_pr(get_c(solver)))
-    set_inf_du!(
-        solver, get_inf_du(
-            full(get_f(solver)),
-            full(get_zl(solver)),
-            full(get_zu(solver)),
-            get_jacl(solver),
-            sd,
-        )
+    # one reduction on a GPU, so the host waits for the device once here
+    sd, sc, inf_pr, inf_du, inf_compl = get_convergence_values(
+        get_y(solver), get_c(solver),
+        get_x_lr(solver), get_xl_r(solver), get_zl_r(solver), get_xu_r(solver), get_x_ur(solver), get_zu_r(solver),
+        full(get_f(solver)), full(get_zl(solver)), full(get_zu(solver)), get_jacl(solver), T(get_opt(solver).s_max),
     )
-    set_inf_compl!(solver, get_inf_compl(solver, sc; mu = zero(T)))
+    set_inf_pr!(solver, inf_pr)
+    set_inf_du!(solver, inf_du)
+    set_inf_compl!(solver, inf_compl)
 
     print_iter(solver)
 

@@ -169,36 +169,14 @@ function _evaluate_quality_function(solver::AbstractMadNLPSolver{T}, sigma, step
     d = get_d(solver) # Load buffer
     # Δ(σ) = Δ_aff + σ Δ_cen
     full(d) .= full(step_aff) .+ sigma .* full(step_cen)
-    # Primal step
-    alpha_pr = get_alpha_max(
-        primal(get_x(solver)),
-        primal(get_xl(solver)),
-        primal(get_xu(solver)),
-        primal(d),
-        tau,
+    alpha_pr, alpha_du = get_quality_steps(
+        primal(get_x(solver)), primal(get_xl(solver)), primal(get_xu(solver)), primal(d),
+        get_zl_r(solver), get_zu_r(solver), dual_lb(d), dual_ub(d), tau,
     )
-    # Dual step
-    alpha_du = get_alpha_z(
-        get_zl_r(solver),
-        get_zu_r(solver),
-        dual_lb(d),
-        dual_ub(d),
-        tau,
-    )
-    # ||(X + αp ΔX - Xl) (Zl + αd ΔZl)||^2
-    inf_compl_lb = mapreduce(
-        (x, xl, dx, z, dz) -> ((x + alpha_pr * dx - xl) * (z + alpha_du * dz))^2,
-        +,
-        get_x_lr(solver), get_xl_r(solver), get_dx_lr(solver), get_zl_r(solver), dual_lb(d);
-        init=zero(T),
-    )
-
-    # ||(Xu - X - αp ΔX) (Zu + αd ΔZu)||^2
-    inf_compl_ub = mapreduce(
-        (x, xu, dx, z, dz) -> ((xu - x - alpha_pr * dx) * (z + alpha_du * dz))^2,
-        +,
-        get_x_ur(solver), get_xu_r(solver), get_dx_ur(solver), get_zu_r(solver), dual_ub(d);
-        init=zero(T),
+    inf_compl_lb, inf_compl_ub = get_quality_compl(
+        get_x_lr(solver), get_xl_r(solver), get_dx_lr(solver), get_zl_r(solver), dual_lb(d),
+        get_x_ur(solver), get_xu_r(solver), get_dx_ur(solver), get_zu_r(solver), dual_ub(d),
+        alpha_pr, alpha_du,
     )
     # Primal infeasibility
     inf_pr = (m > 0) ? (one(T) - alpha_pr)^2 * res_primal^2 / m : zero(T)
