@@ -150,41 +150,6 @@ function finish_aug_solve_RR!(dpp, dnn, dzp, dzn, l, dl, pp, nn, zp, zn, mu_R, r
     return
 end
 
-function _get_varphi(x1::T, x2::T, mu::T) where T
-    x = x1 - x2
-    if x < 0
-        return T(Inf)
-    else
-        return -mu * log(x)
-    end
-end
-
-function get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu)
-    varphi = obj_val
-    for ii in eachindex(x_lr)
-        varphi += _get_varphi(x_lr[ii],xl_r[ii],mu)
-    end
-    for ii in eachindex(xu_r)
-        varphi += _get_varphi(xu_r[ii],x_ur[ii],mu)
-    end
-    return varphi
-end
-
-function get_varphi_d(
-    f::AbstractVector{T},
-    x::AbstractVector{T},
-    xl::AbstractVector{T},
-    xu::AbstractVector{T},
-    dx::AbstractVector{T},
-    mu,
-) where T
-    varphi_d = zero(T)
-    for ii in eachindex(f)
-        varphi_d += (f[ii] - mu/(x[ii]-xl[ii]) + mu/(xu[ii]-x[ii])) * dx[ii]
-    end
-    return varphi_d
-end
-
 function get_obj_val_R(
     p::AbstractVector{T},
     n::AbstractVector{T},
@@ -203,8 +168,6 @@ function get_obj_val_R(
     end
     return obj_val_R
 end
-
-@inline get_theta(c) = norm(c, 1)
 
 function get_theta_R(
     c::AbstractVector{T},
@@ -431,14 +394,6 @@ function get_varphi_d_R(
         varphi_d += (rho - mu_R/nn[ii]) * dnn[ii]
     end
     return varphi_d
-end
-
-function get_rel_search_norm(x::AbstractVector{T}, dx::AbstractVector{T}) where T
-    rel_search_norm = zero(T)
-    for ii in eachindex(x)
-        rel_search_norm = max(rel_search_norm, abs(dx[ii]) / (one(T) + abs(x[ii])))
-    end
-    return rel_search_norm
 end
 
 function get_alpha_min(
