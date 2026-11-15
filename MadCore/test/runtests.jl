@@ -56,10 +56,12 @@ using Test, MadCore, SparseArrays, LinearAlgebra
     end
 
     @testset "Every status has a message" begin
-        opt = (tol = 1e-8, acceptable_tol = 1e-6)
+        opt = (tol = 1.0e-8, acceptable_tol = 1.0e-6)
         for status in instances(MadCore.Status)
-            status in (MadCore.INITIAL, MadCore.REGULAR, MadCore.RESTORE, MadCore.ROBUST,
-                MadCore.LINESEARCH_SUCCEEDED) && continue
+            status in (
+                MadCore.INITIAL, MadCore.REGULAR, MadCore.RESTORE, MadCore.ROBUST,
+                MadCore.LINESEARCH_SUCCEEDED,
+            ) && continue
             @test MadCore.get_status_output(status, opt) isa String
         end
     end
