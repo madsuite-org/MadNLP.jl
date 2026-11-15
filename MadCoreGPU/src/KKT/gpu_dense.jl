@@ -3,10 +3,10 @@
 ######################################################################
 
 #=
-    MadCore._madnlp_unsafe_wrap
+    MadCore.madnlp_unsafe_wrap
 =#
 
-function MadCore._madnlp_unsafe_wrap(vec::VT, n, shift = 1) where {T, VT <: AbstractGPUVector{T}}
+function MadCore.madnlp_unsafe_wrap(vec::VT, n, shift = 1) where {T, VT <: AbstractGPUVector{T}}
     return view(vec, shift:(shift + n - 1))
 end
 

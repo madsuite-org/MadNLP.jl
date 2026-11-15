@@ -109,7 +109,7 @@ function Ma27State(
 
     la = ceil(INT, max(nz, opt.ma27_la_init_factor * info[5]))
     a = Vector{T}(undef, la)
-    a_view = view(a, 1:nnz(csc)) # _madnlp_unsafe_wrap is not used because we may resize a
+    a_view = view(a, 1:nnz(csc)) # madnlp_unsafe_wrap is not used because we may resize a
     liw = ceil(INT, opt.ma27_liw_init_factor * info[6])
     resize!(iw, liw)
     maxfrt = INT[1]

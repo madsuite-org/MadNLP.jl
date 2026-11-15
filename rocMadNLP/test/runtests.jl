@@ -18,7 +18,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
     end
     if AMDGPU.functional()
         @testset "Option presets for ROCVector models" begin
-            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            nlp = MadCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
             # the default, ShiftedPreset: the augmented system with SparseDirectSolver's static LDLᵀ
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp)
             @test opt.preset === MadNLPCore.ShiftedPreset
@@ -50,7 +50,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
         @testset "SDSSolver: $(factorization), $(pivoting)" for (factorization, pivoting) in (
                 (:cholesky, :none), (:ldl, :none), (:ldl, :bk),
             )
-            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            nlp = MadCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
             stats = madnlp(
                 nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR,
                 sds_factorization = factorization, sds_pivoting = pivoting,
@@ -58,7 +58,7 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
         end
         @testset "SDSSolver with Ruiz scaling" begin
-            nlp = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+            nlp = MadCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
             solver = MadNLPCore.MadNLPSolver(nlp; print_level = MadNLPCore.ERROR, kkt_scaler = MadCore.RuizScaler())
             @test solver.kkt.linear_solver.wrapped isa MadCore.ScaledShiftedSolver
             stats = MadNLPCore.solve!(solver)

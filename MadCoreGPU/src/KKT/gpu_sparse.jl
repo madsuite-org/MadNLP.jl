@@ -11,7 +11,7 @@
     MadCore.transfer! (COO to CSC), shared by the backends' stubs
 =#
 
-# Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `_transfer!`:
+# Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `transfer_values!`:
 # `nzval[map[k]] += V[k]`). The COO of the augmented KKT system has duplicate (i, i) entries
 # (primal-dual diagonal and Hessian diagonal) that must be summed, so a non-accumulating
 # scatter (`copyto!` into a view) would drop all but one of each group.
@@ -120,7 +120,7 @@ function MadCore.mul!(
     MadCore.mul!(wz, kkt.jt_csc', xx, alpha, beta)
     MadCore.axpy!(-alpha, xs, wz)
     ws .= beta .* ws .- alpha .* xz
-    return MadCore._kktmul!(
+    return MadCore.kktmul!(
         w,
         x,
         kkt.reg,
@@ -172,7 +172,7 @@ function MadCore.mul!(
     MadCore.mul!(wx, kkt.jac_com', xz, alpha, one(T))
     MadCore.mul!(wz, kkt.jac_com, xx, alpha, beta)
 
-    return MadCore._kktmul!(
+    return MadCore.kktmul!(
         w,
         x,
         kkt.reg,
@@ -374,10 +374,10 @@ function MadCore.force_lower_triangular!(I::AbstractGPUVector{T}, J) where {T}
 end
 
 #=
-    MadCore._set_con_scale_sparse!
+    MadCore.update_con_scale_sparse!
 =#
 
-function MadCore._set_con_scale_sparse!(
+function MadCore.update_con_scale_sparse!(
         con_scale::VT,
         jac_I,
         jac_buffer,

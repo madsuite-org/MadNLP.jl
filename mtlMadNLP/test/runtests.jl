@@ -14,7 +14,7 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
     end
     if Metal.functional()
         @testset "Option presets for MtlVector models" begin
-            nlp = MadNLPCore.SparseWrapperModel(MtlVector, MadNLPCore.HS15Model(; T = Float32))
+            nlp = MadCore.SparseWrapperModel(MtlVector, MadNLPCore.HS15Model(; T = Float32))
             # the default, ShiftedPreset: the augmented system with SparseDirectSolver's static LDLᵀ
             opt = MadNLPCore.MadNLPOptions{Float32}(nlp)
             @test opt.preset === MadNLPCore.ShiftedPreset

@@ -9,7 +9,7 @@ PrecompileTools.@setup_workload begin
             PrecompileTools.@compile_workload begin
                 # Build models in here, not in the setup block: constructing them compiles
                 # GPU kernels, and only code compiled inside `@compile_workload` is kept.
-                wrapped = MadNLPCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
+                wrapped = MadCore.SparseWrapperModel(ROCVector, MadNLPCore.HS15Model())
                 MadNLPCore.madnlp(wrapped; print_level = MadNLPCore.ERROR)
                 MadNLPCore._precompile_solves(ROCVector{Float64}(undef, 0); sizes = (100, 4096))
             end

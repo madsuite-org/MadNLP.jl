@@ -115,6 +115,11 @@ end
 
 num_variables(kkt::DenseCondensedKKTSystem) = size(kkt.hess, 1)
 
+"""
+    get_slack_regularization(kkt)
+
+Return the part of the primal regularization of `kkt` associated with the slacks.
+"""
 function get_slack_regularization(kkt::DenseCondensedKKTSystem)
     n, ns = num_variables(kkt), kkt.n_ineq
     return view(kkt.pr_diag, n+1:n+ns)

@@ -27,7 +27,7 @@ import MadCore:
     get_tril_to_full,
     transfer!,
     input_type,
-    _madnlp_unsafe_wrap,
+    madnlp_unsafe_wrap,
     is_supported,
     default_options
 

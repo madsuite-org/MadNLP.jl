@@ -217,15 +217,34 @@ struct DenseCallback{
     ind_uub::VI
 end
 
+"""
+    create_array(cb::AbstractCallback, args...)
+
+Allocate an uninitialized array of the same array type as the model's initial point.
+`args` are passed to `similar`, e.g. `create_array(cb, Int32, n)`.
+"""
 create_array(cb::AbstractCallback, args...) = similar(get_x0(cb.nlp), args...)
 
 #=
     Scaling
 =#
+"""
+    set_obj_scale!(obj_scale, f, max_gradient)
+
+Set `obj_scale[]` so that the scaled objective gradient `f` has an infinity norm of at
+most `max_gradient`. The scaling factor is at most 1.
+"""
 function set_obj_scale!(obj_scale, f::VT, max_gradient) where {T,VT<:AbstractVector{T}}
     return obj_scale[] = min(one(T), max_gradient / norm(f, Inf))
 end
 
+"""
+    set_con_scale_sparse!(con_scale, jac_I, jac_buffer, max_gradient)
+
+Set `con_scale` so that each row of the Jacobian, stored in coordinate format with row
+indices `jac_I` and values `jac_buffer`, has an infinity norm of at most `max_gradient`.
+The scaling factors are at most 1.
+"""
 function set_con_scale_sparse!(
     con_scale::VT,
     jac_I,
@@ -233,16 +252,21 @@ function set_con_scale_sparse!(
     max_gradient,
 ) where {T,VT<:AbstractVector{T}}
     fill!(con_scale, one(T))
-    _set_con_scale_sparse!(con_scale, jac_I, jac_buffer)
+    update_con_scale_sparse!(con_scale, jac_I, jac_buffer)
     return map!(x -> min(one(T), max_gradient / x), con_scale, con_scale)
 end
-function _set_con_scale_sparse!(con_scale, jac_I, jac_buffer)
+function update_con_scale_sparse!(con_scale, jac_I, jac_buffer)
     @inbounds @simd for i in 1:length(jac_I)
         row = jac_I[i]
         con_scale[row] = max(con_scale[row], abs(jac_buffer[i]))
     end
 end
 
+"""
+    set_jac_scale_sparse!(jac_scale, con_scale, jac_I)
+
+Expand the row scaling `con_scale` to the nonzeros of the Jacobian.
+"""
 function set_jac_scale_sparse!(
     jac_scale::VT,
     con_scale,
@@ -263,6 +287,13 @@ function set_con_scale_dense!(
         )
 end
 
+"""
+    create_sparse_fixed_handler(fixed_variable_treatment, nlp, jac_I, jac_J, hess_I, hess_J, hess_buffer)
+
+Build the handler of the fixed variables used by [`SparseCallback`](@ref). Return the handler,
+the number of variables, and the numbers of nonzeros of the Jacobian and the Hessian after
+the treatment.
+"""
 function create_sparse_fixed_handler(
     fixed_variable_treatment::Type{MakeParameter},
     nlp,
@@ -629,7 +660,7 @@ function initialize!(
     set_initial_bounds!(lvar, uvar, tol)
     initialize_variables!(x0, lvar, uvar, bound_push, bound_fac)
 
-    _eval_cons_wrapper!(cb, x0, con_buffer)
+    eval_cons_callback!(cb, x0, con_buffer)
 
     slack(xl) .= view(lcon, ind_ineq)
     slack(xu) .= view(ucon, ind_ineq)
@@ -645,7 +676,18 @@ end
     Getters
 =#
 
+"""
+    n_variables(cb::AbstractCallback)
+
+Return the number of variables seen by the solver. This excludes the variables removed
+by [`MakeParameter`](@ref).
+"""
 n_variables(cb::AbstractCallback) = get_nvar(cb.nlp)
+"""
+    n_constraints(cb::AbstractCallback)
+
+Return the number of constraints of the model.
+"""
 n_constraints(cb::AbstractCallback) = get_ncon(cb.nlp)
 get_x0(cb::AbstractCallback) = get_x0(cb.nlp)
 get_y0(cb::AbstractCallback) = get_y0(cb.nlp)
@@ -653,15 +695,35 @@ get_lvar(cb::AbstractCallback) = get_lvar(cb.nlp)
 get_uvar(cb::AbstractCallback) = get_uvar(cb.nlp)
 # Getters to unpack solution
 unpack_obj(cb::AbstractCallback, obj_val) = cb.obj_sign * obj_val ./ cb.obj_scale[]
+"""
+    unpack_cons!(c_full, cb::AbstractCallback, c)
+
+Store in `c_full` the constraints `c` without the scaling of `cb`.
+"""
 function unpack_cons!(c_full::AbstractVector, cb::AbstractCallback, c::AbstractVector)
     c_full .= c ./ cb.con_scale
 end
+"""
+    unpack_x!(x_full, cb::AbstractCallback, x)
+
+Store in `x_full` the primal solution `x` in the variables of the original model.
+"""
 function unpack_x!(x_full, cb::AbstractCallback, x)
     x_full .= x
 end
+"""
+    unpack_z!(z_full, cb::AbstractCallback, z)
+
+Store in `z_full` the bound multipliers `z` in the sign and scale of the original model.
+"""
 function unpack_z!(z_full, cb::AbstractCallback, z)
     z_full .= z .* (cb.obj_sign / cb.obj_scale[])
 end
+"""
+    unpack_y!(y_full, cb::AbstractCallback, y)
+
+Store in `y_full` the constraint multipliers `y` in the sign and scale of the original model.
+"""
 function unpack_y!(y_full, cb::AbstractCallback, y)
     y_full .= (y .* cb.con_scale) .* (cb.obj_sign / cb.obj_scale[])
 end
@@ -687,7 +749,7 @@ function get_uvar(cb::SparseCallback{T, VT, VI, NLP, FH}) where {T, VT, VI, NLP,
     return xu[free]
 end
 function unpack_x!(x_full, cb::SparseCallback{T, VT, VI, NLP, FH}, x) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full .= cb.fixed_handler.x_full
 end
 function unpack_z!(z_full, cb::SparseCallback{T, VT, VI, NLP, FH}, z) where {T, VT, VI, NLP, FH<:MakeParameter}
@@ -696,6 +758,12 @@ function unpack_z!(z_full, cb::SparseCallback{T, VT, VI, NLP, FH}, z) where {T, 
 end
 
 
+"""
+    set_scaling!(cb::AbstractCallback, x, xl, xu, y, rhs, ind_ineq, nlp_scaling_max_gradient)
+
+Compute the scaling of the objective and the constraints of `cb` from the gradient and the
+Jacobian at `x`, and apply it to `y`, `rhs` and the slacks of `x`, `xl` and `xu`.
+"""
 function set_scaling!(
     cb::SparseCallback,
     x,
@@ -717,11 +785,11 @@ function set_scaling!(
 
     # Set scaling
     jac = similar(con_buffer, cb.nnzj)
-    _eval_jac_wrapper!(cb, x0, jac)
+    eval_jac_callback!(cb, x0, jac)
     set_con_scale_sparse!(con_scale, cb.jac_I, jac, nlp_scaling_max_gradient)
     set_jac_scale_sparse!(jac_scale, con_scale, cb.jac_I)
 
-    _eval_grad_f_wrapper!(cb, x0, grad_buffer)
+    eval_grad_f_callback!(cb, x0, grad_buffer)
     set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
 
     con_scale_slk = @view(con_scale[ind_ineq])
@@ -774,17 +842,33 @@ end
     Callbacks: default
 =#
 
-function _eval_f_wrapper(cb::AbstractCallback, x::AbstractVector)
+"""
+    eval_f_callback(cb::AbstractCallback, x)
+
+Return the scaled objective at `x`. It does not count the evaluation or apply the sign of
+the objective; [`eval_f_wrapper`](@ref) does.
+"""
+function eval_f_callback(cb::AbstractCallback, x::AbstractVector)
     return NLPModels.obj(cb.nlp, x) * cb.obj_scale[]
 end
 
-function _eval_cons_wrapper!(cb::AbstractCallback, x::AbstractVector, c::AbstractVector)
+"""
+    eval_cons_callback!(cb::AbstractCallback, x, c)
+
+Store in `c` the scaled constraints at `x`.
+"""
+function eval_cons_callback!(cb::AbstractCallback, x::AbstractVector, c::AbstractVector)
     NLPModels.cons!(cb.nlp, x, c)
     c .*= cb.con_scale
     return c
 end
 
-function _eval_grad_f_wrapper!(
+"""
+    eval_grad_f_callback!(cb::AbstractCallback, x, grad)
+
+Store in `grad` the scaled objective gradient at `x`.
+"""
+function eval_grad_f_callback!(
     cb::AbstractCallback{T},
     x::AbstractVector,
     grad::AbstractVector,
@@ -810,19 +894,35 @@ end
     Callbacks: SparseCallback
 =#
 
-function _jac_sparsity_wrapper!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
+"""
+    jac_sparsity_callback!(cb::SparseCallback, I, J)
+
+Store in `I` and `J` the row and column indices of the Jacobian.
+"""
+function jac_sparsity_callback!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
     copyto!(I, cb.jac_I)
     copyto!(J, cb.jac_J)
     return
 end
 
-function _hess_sparsity_wrapper!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
+"""
+    hess_sparsity_callback!(cb::SparseCallback, I, J)
+
+Store in `I` and `J` the row and column indices of the Hessian of the Lagrangian.
+"""
+function hess_sparsity_callback!(cb::SparseCallback, I::AbstractVector, J::AbstractVector)
     copyto!(I, cb.hess_I)
     copyto!(J, cb.hess_J)
     return
 end
 
-function _eval_jac_wrapper!(
+"""
+    eval_jac_callback!(cb::AbstractCallback, x, jac)
+
+Store in `jac` the scaled Jacobian at `x`: its nonzeros for a [`SparseCallback`](@ref), the
+matrix for a [`DenseCallback`](@ref).
+"""
+function eval_jac_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractVector,
@@ -832,13 +932,13 @@ function _eval_jac_wrapper!(
     return jac
 end
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::SparseCallback{T},
     x::AbstractVector,
     jac::AbstractMatrix,
 ) where {T}
     jac_buffer = view(cb.jac_buffer, 1:cb.nnzj)
-    _eval_jac_wrapper!(cb, x, jac_buffer)
+    eval_jac_callback!(cb, x, jac_buffer)
     fill!(jac, zero(T))
     @inbounds @simd for k in 1:length(cb.jac_I)
         i, j = cb.jac_I[k], cb.jac_J[k]
@@ -847,7 +947,13 @@ function _eval_jac_wrapper!(
     return jac
 end
 
-function _eval_lag_hess_wrapper!(
+"""
+    eval_lag_hess_callback!(cb::AbstractCallback, x, y, hess; obj_weight = 1)
+
+Store in `hess` the scaled Hessian of the Lagrangian at `(x, y)`: its nonzeros for a
+[`SparseCallback`](@ref), the matrix for a [`DenseCallback`](@ref).
+"""
+function eval_lag_hess_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,
@@ -866,7 +972,7 @@ function _eval_lag_hess_wrapper!(
     return hess
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::SparseCallback{T},
     x::AbstractVector,
     y::AbstractVector,
@@ -875,7 +981,7 @@ function _eval_lag_hess_wrapper!(
 ) where {T}
     hess_buffer = view(cb.hess_buffer, 1:cb.nnzh)
     # N.B.: the objective scaling is applied inside the vector callback
-    _eval_lag_hess_wrapper!(cb, x, y, hess_buffer; obj_weight = obj_weight)
+    eval_lag_hess_callback!(cb, x, y, hess_buffer; obj_weight = obj_weight)
     fill!(hess, zero(T))
     @inbounds @simd for k in 1:length(cb.hess_I)
         i, j = cb.hess_I[k], cb.hess_J[k]
@@ -891,7 +997,7 @@ end
     Callback: DenseCallback
 =#
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractMatrix,
@@ -901,7 +1007,7 @@ function _eval_jac_wrapper!(
     return jac
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,
@@ -916,7 +1022,7 @@ end
     Callback for SparseCallback+MakeParameter
 =#
 
-function _update_x!(fixed_handler::MakeParameter, x::AbstractVector)
+function update_x!(fixed_handler::MakeParameter, x::AbstractVector)
     idx = norm(x, 2)
     if fixed_handler.hash_x[] == idx
         return
@@ -928,33 +1034,33 @@ function _update_x!(fixed_handler::MakeParameter, x::AbstractVector)
     return
 end
 
-function _eval_f_wrapper(
+function eval_f_callback(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     return NLPModels.obj(cb.nlp, x_full) * cb.obj_scale[]
 end
 
-function _eval_cons_wrapper!(
+function eval_cons_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     c::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     NLPModels.cons!(cb.nlp, x_full, c)
     c .*= cb.con_scale
     return c
 end
 
-function _eval_grad_f_wrapper!(
+function eval_grad_f_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     grad::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     g_full = cb.fixed_handler.g_full
     NLPModels.grad!(cb.nlp, x_full, g_full)
@@ -963,12 +1069,12 @@ function _eval_grad_f_wrapper!(
     return grad
 end
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     nnzj_orig = get_nnzj(cb.nlp.meta)
     jac_full = cb.jac_buffer
     x_full = cb.fixed_handler.x_full
@@ -985,7 +1091,7 @@ function _eval_jtprod_wrapper!(
     v::AbstractVector,
     jvt::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     jvt_full = cb.fixed_handler.g_full
     y = cb.con_buffer
@@ -995,14 +1101,14 @@ function _eval_jtprod_wrapper!(
     return jvt
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,
     hess::AbstractVector;
     obj_weight = one(T),
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    update_x!(cb.fixed_handler, x)
     x_full = cb.fixed_handler.x_full
     nnzh_orig = get_nnzh(cb.nlp.meta)
     hess_full = cb.hess_buffer
@@ -1023,7 +1129,7 @@ end
     Callback for DenseCallback+MakeParameter
 =#
 
-function _eval_grad_f_wrapper!(
+function eval_grad_f_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     grad::AbstractVector,
@@ -1039,7 +1145,7 @@ function _eval_grad_f_wrapper!(
     return grad
 end
 
-function _eval_jac_wrapper!(
+function eval_jac_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     jac::AbstractMatrix,
@@ -1049,7 +1155,7 @@ function _eval_jac_wrapper!(
     return jac[:, cb.fixed_handler.fixed] .= zero(T)
 end
 
-function _eval_lag_hess_wrapper!(
+function eval_lag_hess_callback!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
     y::AbstractVector,
@@ -1075,6 +1181,12 @@ end
 =#
 
 # N.B.: by default do nothing as the bounds' multipliers are computed by the algorithm
+"""
+    update_z!(cb, x, y, zl, zu, jacl)
+
+Set the bound multipliers of the variables removed from the problem. It does nothing
+unless the fixed variables are treated with [`MakeParameter`](@ref).
+"""
 function update_z!(cb, x, y, zl, zu, jacl) end
 
 function update_z!(cb::AbstractCallback{T, VT, FH}, x, y, zl, zu, jacl) where {T, VT, FH<:MakeParameter}

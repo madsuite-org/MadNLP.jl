@@ -306,7 +306,7 @@ This is done in four steps:
 ```julia
 jac_sparsity_I = MadNLP.create_array(cb, Int32, cb.nnzj)
 jac_sparsity_J = MadNLP.create_array(cb, Int32, cb.nnzj)
-MadNLP._jac_sparsity_wrapper!(cb, jac_sparsity_I, jac_sparsity_J)
+MadNLP.jac_sparsity_callback!(cb, jac_sparsity_I, jac_sparsity_J)
 ```
 **Step 2.** We build the resulting KKT matrix `aug_raw` in COO format, knowing that ``D_H`` is diagonal:
 ```julia
@@ -461,7 +461,7 @@ function LinearAlgebra.mul!(
     mul!(dual(w), kkt.jac_com,  primal(x), alpha, beta)
 
     # Reduce KKT vector
-    MadNLP._kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    MadNLP.kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
     return w
 end
 ```
