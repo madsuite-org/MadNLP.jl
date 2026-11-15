@@ -53,7 +53,8 @@ struct AugmentedPreset <: AbstractPreset end
 The condensed KKT system (`SparseCondensedKKTSystem`) with the equality constraints enforced and
 condensed through a dual shift δ (`equality_shift`, 1e-8 in `Float64`): the multiplier of an
 equality row is eliminated with the weight 1 / (δ - Σd), so the condensed matrix is positive
-definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, CHOLMOD on the host) without
+definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, SparseDirectSolver.jl on AMD, Intel and Apple
+GPUs, CHOLMOD on the host) without
 pivoting, with the quality-function barrier rule of [`ShiftedPreset`](@ref) and Richardson
 refinement on the unshifted system. When the factorization reports a wrong inertia, it is retried
 with a larger shift before the Hessian is perturbed (`equality_shift_retry`). A model whose

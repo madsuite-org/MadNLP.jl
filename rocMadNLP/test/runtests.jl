@@ -35,7 +35,8 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # CondensedPreset: the condensed system, SparseDirectSolver's Cholesky, the quality-function barrier
             co = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.CondensedPreset)
-            @test MadCore.default_options(nlp, co.preset, co.kkt_system, co.linear_solver).sds_pivoting === :none
+            colopt = MadCore.default_options(nlp, co.preset, co.kkt_system, co.linear_solver)
+            @test colopt.sds_factorization === :cholesky && colopt.sds_pivoting === :none && colopt.sds_matching == "none"
             @test co.kkt_system === MadNLPCore.SparseCondensedKKTSystem && co.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
             stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
