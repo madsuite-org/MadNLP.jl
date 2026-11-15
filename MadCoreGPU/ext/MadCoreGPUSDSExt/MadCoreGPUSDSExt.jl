@@ -15,8 +15,10 @@ Options of [`MadCoreGPU.SDSSolver`](@ref), passed as keywords of `madnlp`.
 * `sds_factorization::Symbol = :ldl`: `:cholesky` factors the KKT matrix as symmetric
   positive definite; `:ldl` as symmetric indefinite, reporting the inertia from the signs of
   `D`. The default is `:ldl`, as `cudss_algorithm` for cuDSS.
-* `sds_pivoting::Symbol = :none`: `:ldl` only. `:none` factors in the identity pivot order,
-  `:bk` uses in-front Bunch-Kaufman pivoting.
+* `sds_pivoting::Symbol = :none`: `:ldl` only. `:none` factors in the pivot order of the
+  analysis, `:diagonal` uses 1×1 diagonal pivoting inside each front (`pivot_type = 'D'`, as
+  cuDSS's automatic pivoting for symmetric matrices), `:bk` in-front Bunch-Kaufman pivoting.
+  `:diagonal` and `:bk` run on the stock pipeline.
 * `sds_matching::String = "none"`: `:ldl` only, the `matching_alg` of the analysis (`"none"`, or
   `"algo1"` to `"algo6"`; `"algo6"` is the automatic matching with scaling, as cuDSS's default).
 * `sds_deferred_analysis::Bool = false`: run the analysis at the first factorization, so that a
@@ -32,8 +34,8 @@ Options of [`MadCoreGPU.SDSSolver`](@ref), passed as keywords of `madnlp`.
   profile of the GPU architecture.
 * `sds_user_perm`: a 1-based permutation that replaces the reordering.
 * `sds_fused`: run the fused pipeline (`true`) or the stock one (`false`); `nothing` lets
-  SparseDirectSolver choose. `:bk` runs the stock pipeline; `sds_fused = true` with `:bk` raises
-  `SparseDirectSolver.InvalidValueError`.
+  SparseDirectSolver choose. `:diagonal` and `:bk` run the stock pipeline; `sds_fused = true`
+  with either raises `SparseDirectSolver.InvalidValueError`.
 * `sds_reanalyze_on_improve::Bool = false`: when MadNLP's iterative refinement rejects a solve,
   redo the analysis on the current values and factorize again, at most once per factorization
   (as `cudss_reanalyze_on_improve` for cuDSS).
@@ -80,23 +82,36 @@ function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger()
     n = size(csc, 1)
     ldl = opt.sds_factorization === :ldl
     bk = opt.sds_pivoting === :bk
+    # diagonal pivoting is a pivot type of the stock pipeline that KKTSolver does not expose: the
+    # solver is built without pivoting and its pivot type set before the analysis
+    diagonal = opt.sds_pivoting === :diagonal
+    if diagonal
+        ldl || throw(SDS.InvalidValueError("sds_pivoting = :diagonal needs sds_factorization = :ldl"))
+        opt.sds_fused === true &&
+            throw(SDS.InvalidValueError("sds_fused = true needs sds_pivoting = :none (the fused pipeline does not pivot)"))
+    end
     n_primal = opt.n_primal < 0 ? n : opt.n_primal
     inner = _kkt_solver(
         csc;
         factorization = opt.sds_factorization,
-        pivoting = opt.sds_pivoting,
-        fused = opt.sds_fused,
+        pivoting = diagonal ? :none : opt.sds_pivoting,
+        fused = diagonal ? false : opt.sds_fused,
         pivot_threshold = bk ? opt.sds_pivot_threshold : nothing,
         # LDLᵀ options, ignored for Cholesky so that a preset that sets them still allows it
         matching = ldl ? opt.sds_matching : "none",
         pivot_epsilon = ldl ? opt.sds_pivot_epsilon : nothing,
         pivot_sign = ldl ? vcat(ones(Int8, n_primal), fill(Int8(-1), n - n_primal)) : nothing,
         ir_n_steps = opt.sds_ir,
-        deferred_analysis = opt.sds_deferred_analysis,
+        deferred_analysis = diagonal || opt.sds_deferred_analysis,
         reordering = opt.sds_reordering,
         user_perm = opt.sds_user_perm,
         tuning = opt.sds_tuning,
     )
+    if diagonal
+        SDS.setparam!(inner.inner, "pivot_type", 'D')
+        # without deferred analysis, the analysis and the first factorization at construction
+        opt.sds_deferred_analysis || SDS.factorize!(inner)
+    end
     return SDSState{eltype(MadCore.scaling_nzval(csc)), typeof(inner), typeof(csc)}(inner, csc, false, 0, opt, logger)
 end
 
