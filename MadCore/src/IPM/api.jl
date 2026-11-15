@@ -64,3 +64,52 @@ end
 # The convergence test uses this measure in place of the slack residual; the filter and the
 # barrier sub-problem keep the slack residual.
 get_inf_total(solver::AbstractMadNLPSolver) = max(get_inf_pr_orig(solver), get_inf_du(solver), get_inf_compl(solver))
+
+# Measures of the original (unscaled) problem, checked at termination together with the scaled
+# KKT error, as in Ipopt. None of them is divided by `s_d` or `s_c`.
+
+"""
+    get_inf_du_unscaled(solver)
+
+Infinity norm of the gradient of the Lagrangian of the unscaled problem. The variable entries
+are divided by the objective scaling; the slack entries are also multiplied by the scaling of
+their constraint row.
+"""
+function get_inf_du_unscaled(solver::AbstractMadNLPSolver{T}) where {T}
+    cb = get_cb(solver)
+    # _w4 is scratch outside a linear solve
+    buf = primal(get__w4(solver))
+    buf .= full(get_f(solver)) .- full(get_zl(solver)) .+ full(get_zu(solver)) .+ get_jacl(solver)
+    nx = length(variable(get_x(solver)))
+    view(buf, nx+1:length(buf)) .*= view(cb.con_scale, get_ind_ineq(solver))
+    return norm(buf, Inf) / cb.obj_scale[]
+end
+
+"""
+    get_constr_viol_unscaled(solver)
+
+Infinity norm of the violation of the unscaled constraints: |c| on an equality row, and on an
+inequality row the violation of the (relaxed) constraint bounds by g(x) = c + s. The slack does
+not enter, unlike in [`get_inf_pr_orig`](@ref).
+"""
+function get_constr_viol_unscaled(solver::AbstractMadNLPSolver{T}) where {T}
+    cb = get_cb(solver)
+    # _w4 is scratch outside a linear solve
+    buf = dual(get__w4(solver))
+    ind_ineq = get_ind_ineq(solver)
+    buf .= abs.(get_c(solver))
+    c = view(get_c(solver), ind_ineq)
+    s = slack(get_x(solver))
+    view(buf, ind_ineq) .= bound_violation.(c .+ s, slack(get_xl(solver)), slack(get_xu(solver)))
+    buf ./= cb.con_scale
+    return norm(buf, Inf)
+end
+
+"""
+    get_inf_compl_unscaled(solver)
+
+Infinity norm of the complementarity of the unscaled problem at `mu = 0`. Bounds on the
+variables and on the slacks both scale with the objective scaling.
+"""
+get_inf_compl_unscaled(solver::AbstractMadNLPSolver{T}) where {T} =
+    get_inf_compl(solver, one(T); mu=zero(T)) / get_cb(solver).obj_scale[]

@@ -21,6 +21,7 @@ import SparseArrays: sparse
         include("madnlp_dense.jl")
         include("madnlp_quasi_newton.jl")
         include("regression_test.jl")
+        include("nlp_scaling_test.jl")
     end
 
     @testset "Schur complement" begin
