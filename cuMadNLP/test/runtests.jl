@@ -47,9 +47,9 @@ using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
             stats = madnlp(nlp; preset = MadNLPCore.AugmentedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # CondensedPreset: the condensed system with the equalities condensed through the shift,
-            # cuDSS Cholesky without pivoting or matching, the monotone rule
+            # cuDSS Cholesky without pivoting or matching, the quality-function barrier
             opt = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.CondensedPreset)
-            @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem && opt.barrier isa MadNLPCore.MonotoneUpdate
+            @test opt.kkt_system === MadNLPCore.SparseCondensedKKTSystem && opt.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
             @test opt.equality_treatment === MadNLPCore.EnforceEquality && opt.equality_shift == 1.0e-8
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
             @test lopt.cudss_algorithm == MadCore.CHOLESKY && lopt.cudss_pivot_epsilon == 0.0

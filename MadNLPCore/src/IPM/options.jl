@@ -54,9 +54,9 @@ The condensed KKT system (`SparseCondensedKKTSystem`) with the equality constrai
 condensed through a dual shift δ (`equality_shift`, 1e-8 in `Float64`): the multiplier of an
 equality row is eliminated with the weight 1 / (δ - Σd), so the condensed matrix is positive
 definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, CHOLMOD on the host) without
-pivoting, with the monotone barrier rule and Richardson refinement on the unshifted system. When
-the factorization reports a wrong inertia, it is retried with a larger shift before the Hessian is
-perturbed (`equality_shift_retry`). A model with a dense Jacobian row (more than `dense_row_abs`
+pivoting, with the quality-function barrier rule of [`ShiftedPreset`](@ref) and Richardson
+refinement on the unshifted system. When the factorization reports a wrong inertia, it is retried
+with a larger shift before the Hessian is perturbed (`equality_shift_retry`). A model with a dense Jacobian row (more than `dense_row_abs`
 nonzeros and more than `dense_row_rel` times the number of variables, which would turn the
 condensed matrix dense) is solved with [`ShiftedPreset`](@ref) instead; `dense_row_fallback = false`
 keeps this preset.
@@ -120,6 +120,7 @@ function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) whe
         equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
         dual_initialization_method = DualInitializeLeastSquares,
         equality_shift = 100 * preset_perturbation(T),
+        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
     )
 end
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}

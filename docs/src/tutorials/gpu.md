@@ -96,8 +96,9 @@ The equality constraints are kept as equalities, and the tolerance `tol` is `1e-
 `preset = CondensedPreset` condenses every constraint. The equality constraints are enforced, and
 their multipliers are eliminated through a small dual shift (1e-8), so the condensed matrix is
 positive definite and is factorized by cuDSS's Cholesky without pivoting; the refinement targets the
-unshifted system, and when the factorization reports a wrong inertia it is retried with a larger
-shift before the Hessian is perturbed:
+unshifted system, the barrier parameter follows the quality-function rule of `ShiftedPreset`, and
+when the factorization reports a wrong inertia it is retried with a larger shift before the Hessian
+is perturbed:
 ```@example gpu
 results = madnlp(nlp; preset=CondensedPreset)
 nothing

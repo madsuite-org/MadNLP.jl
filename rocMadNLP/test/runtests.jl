@@ -33,9 +33,9 @@ using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
             @test lopt.sds_matching == "algo6" && lopt.sds_deferred_analysis && lopt.sds_ir == 2
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-            # CondensedPreset: the condensed system with the same SparseDirectSolver options
+            # CondensedPreset: the condensed system, SparseDirectSolver's Cholesky, the quality-function barrier
             co = MadNLPCore.MadNLPOptions{Float64}(nlp; preset = MadNLPCore.CondensedPreset)
-            @test co.kkt_system === MadNLPCore.SparseCondensedKKTSystem && co.barrier isa MadNLPCore.MonotoneUpdate
+            @test co.kkt_system === MadNLPCore.SparseCondensedKKTSystem && co.barrier isa MadNLPCore.QualityFunctionUpdate{Float64}
             stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
             # AugmentedPreset: LDLᵀ with Bunch-Kaufman pivoting and matching, on the stock pipeline
