@@ -23,7 +23,7 @@ pkg> add Metal https://github.com/madsuite-org/MadNLP.jl:mtlMadNLP
 ## Which BLAS does MadNLP use?
 
 Julia routes BLAS and LAPACK calls through libblastrampoline, which keeps two tables: one for the
-64-bit-integer interface (ILP64), used by Julia's `LinearAlgebra` and therefore by [`LapackCPUSolver`](@ref)
+64-bit-integer interface (ILP64), used by Julia's `LinearAlgebra` and therefore by `LapackCPUSolver`
 and the dense KKT systems, and one for the 32-bit-integer interface (LP64), used by MUMPS. Loading
 AppleAccelerate (macOS 13.4 or later) registers Accelerate in both tables, for the whole Julia session.
 Each later registration replaces the earlier one, so **the load order matters for MUMPS**:
@@ -81,7 +81,7 @@ reason not to: the other LDLᵀ variants report no inertia, so MadNLP falls back
 ## Dense models on the CPU: `LapackCPUSolver`
 
 For dense models (`callback = MadNLP.DenseCallback` with `DenseKKTSystem` or `DenseCondensedKKTSystem`),
-simply load AppleAccelerate before solving: [`LapackCPUSolver`](@ref) then factorizes on Accelerate.
+simply load AppleAccelerate before solving: `LapackCPUSolver` then factorizes on Accelerate.
 ```julia
 using MadNLP, AppleAccelerate
 
@@ -106,7 +106,7 @@ Metal has no `Float64`, so models on the GPU must use `Float32`, and may need a 
 
 Instantiate the model on the GPU with ExaModels and the Metal backend; mtlMadNLP then solves it with
 [`ShiftedPreset`](@ref MadNLPCore.ShiftedPreset): the augmented KKT system with the static LDLᵀ
-factorization of [`SDSSolver`](@ref):
+factorization of `SDSSolver`:
 ```julia
 using Metal, mtlMadNLP, ExaModels
 
@@ -116,7 +116,7 @@ results = madnlp(nlp; tol = 1f-4)
 
 ### Dense models
 
-Metal has no dense factorization, so for dense models mtlMadNLP uses [`LapackCPUSolver`](@ref) by default,
+Metal has no dense factorization, so for dense models mtlMadNLP uses `LapackCPUSolver` by default,
 which factorizes the KKT matrix on the CPU while the rest of MadNLP runs on the GPU. Two settings make this fast:
 
 1. Load AppleAccelerate, so that the factorization and the dense BLAS run on Accelerate.
