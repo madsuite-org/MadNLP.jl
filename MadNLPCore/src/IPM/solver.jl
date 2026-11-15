@@ -250,6 +250,41 @@ color_status(status::Status) =
     status <= SOLVED_TO_ACCEPTABLE_LEVEL ? :blue : :red
 
 
+"""
+    check_convergence!(solver)
+
+Termination test of the regular phase, as in Ipopt. The solve succeeds when the scaled KKT error
+is below `tol` and the unscaled dual infeasibility, constraint violation and complementarity
+are below `dual_inf_tol`, `constr_viol_tol` and `compl_inf_tol`. An iterate is acceptable under
+the `acceptable_*` counterparts of the same four tolerances. Returns the termination status, or
+`nothing` to continue.
+"""
+function check_convergence!(solver::AbstractMadNLPSolver{T}) where T
+    opt = get_opt(solver)
+    cnt = get_cnt(solver)
+    inf_total = get_inf_total(solver)
+    # The unscaled measures cost a pass over the iterate, so compute them only near a solution.
+    if inf_total > max(opt.tol, opt.acceptable_tol)
+        cnt.acceptable_cnt = 0
+        return nothing
+    end
+    inf_du = get_inf_du_unscaled(solver)
+    constr_viol = get_constr_viol_unscaled(solver)
+    inf_compl = get_inf_compl_unscaled(solver)
+    if inf_total <= opt.tol && inf_du <= opt.dual_inf_tol &&
+            constr_viol <= opt.constr_viol_tol && inf_compl <= opt.compl_inf_tol
+        return SOLVE_SUCCEEDED
+    end
+    if inf_total <= opt.acceptable_tol && inf_du <= opt.acceptable_dual_inf_tol &&
+            constr_viol <= opt.acceptable_constr_viol_tol && inf_compl <= opt.acceptable_compl_inf_tol
+        cnt.acceptable_cnt < opt.acceptable_iter || return SOLVED_TO_ACCEPTABLE_LEVEL
+        cnt.acceptable_cnt += 1
+    else
+        cnt.acceptable_cnt = 0
+    end
+    return nothing
+end
+
 function regular!(solver::AbstractMadNLPSolver{T}) where T
     while true
         if (get_cnt(solver).k!=0 && !get_opt(solver).jacobian_constant)
@@ -313,13 +348,8 @@ function _check_convergence!(solver::AbstractMadNLPSolver{T}) where {T}
     # evaluate termination criteria
     @trace(get_logger(solver), "Evaluating termination criteria.")
     !(get_intermediate_callback(solver)(solver, UserCallbackRegular())::Bool) && return (USER_REQUESTED_STOP, sc)
-    inf_total = get_inf_total(solver)
-    inf_total <= get_opt(solver).tol && return (SOLVE_SUCCEEDED, sc)
-    inf_total <= get_opt(solver).acceptable_tol ?
-        (
-            get_cnt(solver).acceptable_cnt < get_opt(solver).acceptable_iter ?
-            get_cnt(solver).acceptable_cnt += 1 : return (SOLVED_TO_ACCEPTABLE_LEVEL, sc)
-        ) : (get_cnt(solver).acceptable_cnt = 0)
+    status = check_convergence!(solver)
+    status === nothing || return (status, sc)
     # As in Ipopt, the iterates diverge when the primal variables grow past the tolerance.
     # A watchdog trial step may blow up the iterate before the rollback, so the test waits
     # until the watchdog ends.

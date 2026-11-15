@@ -194,6 +194,12 @@ max\\_iter                     | 3000                 | maximum number of interi
 max\\_wall\\_time               | 1e6                  | maximum wall time in seconds
 acceptable\\_tol               | 1e-6                 | acceptable tolerance on KKT residual
 acceptable\\_iter              | 15                   | number of acceptable iterates before stopping algorithm
+dual\\_inf\\_tol               | 1.0                  | termination tolerance on the dual infeasibility of the unscaled problem
+constr\\_viol\\_tol            | 1e-4                 | termination tolerance on the constraint violation of the unscaled problem
+compl\\_inf\\_tol              | 1e-4                 | termination tolerance on the complementarity of the unscaled problem
+acceptable\\_dual\\_inf\\_tol    | 1e10                 | acceptable tolerance on the dual infeasibility of the unscaled problem
+acceptable\\_constr\\_viol\\_tol | 1e-2                 | acceptable tolerance on the constraint violation of the unscaled problem
+acceptable\\_compl\\_inf\\_tol   | 1e-2                 | acceptable tolerance on the complementarity of the unscaled problem
 diverging\\_iterates\\_tol     | 1e20                | threshold on KKT residual to declare algorithm as diverging
 s\\_max                        | 100.0                | scaling threshold for KKT residual
 ||
@@ -292,6 +298,12 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # Termination options
     acceptable_tol::T = 1e-6
     acceptable_iter::Int = 15
+    dual_inf_tol::T = 1.
+    constr_viol_tol::T = 1e-4
+    compl_inf_tol::T = 1e-4
+    acceptable_dual_inf_tol::T = 1e10
+    acceptable_constr_viol_tol::T = 1e-2
+    acceptable_compl_inf_tol::T = 1e-2
     diverging_iterates_tol::T = 1e20
     max_iter::Int = 3000
     max_wall_time::T = 1e6

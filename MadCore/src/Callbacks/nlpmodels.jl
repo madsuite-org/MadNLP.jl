@@ -696,6 +696,43 @@ function unpack_z!(z_full, cb::SparseCallback{T, VT, VI, NLP, FH}, z) where {T, 
 end
 
 
+"""
+    _scaling_point(cb, x0)
+
+The point at which the gradient-based scaling is computed: the starting point given by the
+model, with fixed variables at their fixed values, before the bound push moves it into the
+interior. Ipopt computes its scaling at the same point. `x0` is only used for its type and size.
+"""
+function _scaling_point(cb::AbstractCallback, x0)
+    xs = similar(x0)
+    lvar = similar(x0)
+    uvar = similar(x0)
+    xs .= get_x0(cb)
+    lvar .= get_lvar(cb)
+    uvar .= get_uvar(cb)
+    _treat_fixed_variable_initialize!(cb, xs, lvar, uvar)
+    return xs
+end
+
+"""
+    _eval_for_scaling!(eval!, buf, xs, x0)
+
+Evaluate `eval!(x, buf)` at the scaling point `xs`. If the evaluation throws or returns a
+nonfinite value (a function such as `log(x)` evaluated on its bound), evaluate at the
+bound-pushed point `x0` instead.
+"""
+function _eval_for_scaling!(eval!, buf, xs, x0)
+    ok = try
+        eval!(xs, buf)
+        all(isfinite, buf)
+    catch e
+        e isa InterruptException && rethrow()
+        false
+    end
+    ok || eval!(x0, buf)
+    return buf
+end
+
 function set_scaling!(
     cb::SparseCallback,
     x,
@@ -716,12 +753,13 @@ function set_scaling!(
     grad_buffer = cb.grad_buffer
 
     # Set scaling
+    xs = _scaling_point(cb, x0)
     jac = similar(con_buffer, cb.nnzj)
-    _eval_jac_wrapper!(cb, x0, jac)
+    _eval_for_scaling!((x, buf) -> _eval_jac_wrapper!(cb, x, buf), jac, xs, x0)
     set_con_scale_sparse!(con_scale, cb.jac_I, jac, nlp_scaling_max_gradient)
     set_jac_scale_sparse!(jac_scale, con_scale, cb.jac_I)
 
-    _eval_grad_f_wrapper!(cb, x0, grad_buffer)
+    _eval_for_scaling!((x, buf) -> _eval_grad_f_wrapper!(cb, x, buf), grad_buffer, xs, x0)
     set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
 
     con_scale_slk = @inbounds(view(con_scale, ind_ineq))
@@ -755,10 +793,11 @@ function set_scaling!(
     jac_buffer = similar(grad_buffer, cb.ncon, cb.nvar)
 
     # Set scaling
-    NLPModels.jac_dense!(nlp, x0, jac_buffer)
+    xs = _scaling_point(cb, x0)
+    _eval_for_scaling!((x, buf) -> NLPModels.jac_dense!(nlp, x, buf), jac_buffer, xs, x0)
     set_con_scale_dense!(con_scale, jac_buffer, nlp_scaling_max_gradient)
 
-    NLPModels.grad!(nlp, x0, grad_buffer)
+    _eval_for_scaling!((x, buf) -> NLPModels.grad!(nlp, x, buf), grad_buffer, xs, x0)
     set_obj_scale!(obj_scale, grad_buffer, nlp_scaling_max_gradient)
 
     con_scale_slk = @inbounds(view(con_scale, ind_ineq))
