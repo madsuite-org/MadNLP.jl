@@ -12,7 +12,7 @@ function _compare_metal_with_cpu(KKTSystem, n, m, ind_fixed, alg; storage = Meta
         :linear_solver => MadNLP.LapackCPUSolver,
         :lapack_algorithm => alg,
         :print_level => MadNLP.ERROR,
-        :tol => 1e-4,
+        :tol => 1.0e-4,
     )
     nlph = MadNLPTests.DenseDummyQP(zeros(Float32, n); m = m, fixed_variables = ind_fixed)
     nlpd = MadNLPTests.DenseDummyQP(Metal.zeros(Float32, n; storage); m = m, fixed_variables = MtlArray(ind_fixed))
@@ -24,13 +24,13 @@ function _compare_metal_with_cpu(KKTSystem, n, m, ind_fixed, alg; storage = Meta
     @test Metal.storagemode(d_solver.kkt.aug_com) == storage
     @test results_gpu.status == results_cpu.status
     @test results_gpu.objective ≈ results_cpu.objective rtol = 1.0f-3
-    @test Array(results_gpu.solution) ≈ results_cpu.solution atol = 1.0f-2
+    return @test Array(results_gpu.solution) ≈ results_cpu.solution atol = 1.0f-2
 end
 
 @testset "Metal dense -- ($(kkt_system), $(alg))" for kkt_system in [
-        MadNLP.DenseKKTSystem,
-        MadNLP.DenseCondensedKKTSystem,
-    ], alg in [MadNLP.BUNCHKAUFMAN, MadNLP.LU, MadNLP.QR]
+            MadNLP.DenseKKTSystem,
+            MadNLP.DenseCondensedKKTSystem,
+        ], alg in [MadNLP.BUNCHKAUFMAN, MadNLP.LU, MadNLP.QR]
     @testset "Size: ($n, $m)" for (n, m) in [(10, 0), (10, 5), (50, 10)]
         _compare_metal_with_cpu(kkt_system, n, m, Int[], alg)
     end
@@ -50,14 +50,14 @@ end
 end
 
 @testset "Metal dense -- $QN + $KKT" for QN in [
-        MadNLP.BFGS,
-        MadNLP.DampedBFGS,
-    ], KKT in [
-        MadNLP.DenseKKTSystem,
-        MadNLP.DenseCondensedKKTSystem,
-    ]
+            MadNLP.BFGS,
+            MadNLP.DampedBFGS,
+        ], KKT in [
+            MadNLP.DenseKKTSystem,
+            MadNLP.DenseCondensedKKTSystem,
+        ]
     @testset "Size: ($n, $m)" for (n, m) in [(10, 0), (10, 5), (50, 10)]
-        opts = (; callback = MadNLP.DenseCallback, print_level = MadNLP.ERROR, kkt_system = KKT, tol = 1e-4)
+        opts = (; callback = MadNLP.DenseCallback, print_level = MadNLP.ERROR, kkt_system = KKT, tol = 1.0e-4)
         results_ref = madnlp(MadNLPTests.DenseDummyQP(zeros(Float32, n); m = m); opts..., hessian_approximation = QN)
         solver_qn = MadNLPSolver(MadNLPTests.DenseDummyQP(Metal.zeros(Float32, n); m = m); opts..., hessian_approximation = QN)
         results_qn = MadNLP.solve!(solver_qn)
