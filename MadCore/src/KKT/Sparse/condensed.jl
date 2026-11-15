@@ -211,9 +211,13 @@ function compress_jacobian!(kkt::SparseCondensedKKTSystem{T, VT, MT}) where {T, 
     transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
+# the Jacobian is stored transposed, as jt_csc
+hess_op(kkt::SparseCondensedKKTSystem, transa::Char = 'N') = _transposed(kkt.hess_com, transa)
+jac_op(kkt::SparseCondensedKKTSystem, transa::Char = 'N') = _transposed(transpose(kkt.jt_csc), transa)
+
 function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVector)
     n = size(kkt.hess_com, 1)
-    mul!(view(y, 1:n), kkt.jt_csc, x)
+    mul!(view(y, 1:n), jac_op(kkt, 'T'), x)
     view(y, (n + 1):length(y)) .= .-view(x, kkt.ind_ineq)
     return y
 end
@@ -322,19 +326,19 @@ nzval(H) = H.nzval
 
     b = convert(IV, findall(x->x[1] == -1, sym))
     dptr = similar(sym, Tuple{Int32,Int32}, length(b))
-    map!((x,y)->(Int32(x),Int32(y[2])), dptr, @view(guide[b]), @view(sym[b]))
+    map!((x, y) -> (Int32(x), Int32(y[2])), dptr, @inbounds(view(guide, b)), @inbounds(view(sym, b)))
 
     b = convert(IV, findall(x->x[1] == 0, sym))
     hptr = similar(sym, Tuple{Int32,Int32}, length(b))
-    map!((x,y)->(Int32(x),Int32(y[2])), hptr, @view(guide[b]), @view(sym[b]))
+    map!((x, y) -> (Int32(x), Int32(y[2])), hptr, @inbounds(view(guide, b)), @inbounds(view(sym, b)))
 
     b = convert(IV, findall(x->x[1] != -1 && x[1] != 0, sym))
     jptr = similar(sym, Tuple{Int32,eltype(sym)}, length(b))
-    map!((x,y)->(Int32(x),y), jptr, @view(guide[b]), @view(sym[b]))
+    map!((x, y) -> (Int32(x), y), jptr, @inbounds(view(guide, b)), @inbounds(view(sym, b)))
 
     ptr = convert(IV, findall(bitarray))
     rowval = similar(sym2, Int32, length(ptr))
-    map!(((row,col),)->Int32(row), rowval, @view(sym2[ptr]))
+    map!(((row, col),) -> Int32(row), rowval, @inbounds(view(sym2, ptr)))
 
     by2(x,y) = x[2] != y[2]
     bitarray[2:end] .= by2.(@view(sym2[1:end-1]),  @view(sym2[2:end]))

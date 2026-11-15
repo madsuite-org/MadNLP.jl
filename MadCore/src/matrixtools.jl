@@ -42,7 +42,8 @@ function get_tril_to_full(T,csc::SparseMatrixCSC{Tv,Ti}) where {Tv,Ti<:Integer}
     cscind = SparseMatrixCSC{Int,Ti}(Symmetric(
         SparseMatrixCSC{Int,Ti}(csc.m,csc.n,csc.colptr,csc.rowval,collect(1:nnz(csc))),:L))
     return SparseMatrixCSC{T,Ti}(
-        csc.m,csc.n,cscind.colptr,cscind.rowval,Vector{T}(undef,nnz(cscind))),view(csc.nzval,cscind.nzval)
+            csc.m, csc.n, cscind.colptr, cscind.rowval, Vector{T}(undef, nnz(cscind))
+        ), @inbounds(view(csc.nzval, cscind.nzval))
 end
 function tril_to_full!(dense::Matrix{T}) where T
     for i=1:size(dense,1)
@@ -113,7 +114,8 @@ function get_cscsy_view(csc::SparseMatrixCSC{Tv,Ti},Ix;inds=collect(1:nnz(csc)))
     cscindsub = cscind[Ix,Ix]
     return SparseMatrixCSC{Tv,Ti}(
         cscindsub.m,cscindsub.n,cscindsub.colptr,
-        cscindsub.rowval,Vector{Tv}(undef,nnz(cscindsub))), view(csc.nzval,cscindsub.nzval)
+            cscindsub.rowval, Vector{Tv}(undef, nnz(cscindsub))
+        ), @inbounds(view(csc.nzval, cscindsub.nzval))
 
 end
 
@@ -124,7 +126,8 @@ function get_csc_view(csc::SparseMatrixCSC{Tv,Ti},Ix,Jx;inds=collect(1:nnz(csc))
     resize!(cscindsub.nzval,cscindsub.colptr[end]-1)
     return SparseMatrixCSC{Tv,Ti}(
         cscindsub.m,cscindsub.n,cscindsub.colptr,
-        cscindsub.rowval,Vector{Tv}(undef,nnz(cscindsub))), view(csc.nzval,cscindsub.nzval)
+            cscindsub.rowval, Vector{Tv}(undef, nnz(cscindsub))
+        ), @inbounds(view(csc.nzval, cscindsub.nzval))
 end
 
 function force_lower_triangular!(I,J)

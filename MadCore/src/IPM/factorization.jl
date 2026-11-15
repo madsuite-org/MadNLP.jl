@@ -1,28 +1,26 @@
 function solve_refine_wrapper!(d, solver, p, w; max_iter_factor::Integer = 1)
-    result = false
-
-    @timed_region get_cnt(solver) :linear_solver_time begin
-        if solve_refine!(d, get_iterator(solver), p, w; max_iter_factor)
-            result = true
-        else
-            if improve!(get_kkt(solver).linear_solver)
-                if solve_refine!(d, get_iterator(solver), p, w; max_iter_factor)
-                    result = true
-                end
-            end
+    cnt = get_cnt(solver)
+    # solve_refine! resets cnt.ir, so backsolves are added after each attempt
+    @timed_region cnt :linear_solver_time @timed_region cnt :solve_time begin
+        result = solve_refine!(d, get_iterator(solver), p, w; max_iter_factor)
+        cnt.backsolve_cnt += cnt.ir
+        if !result && improve!(get_kkt(solver).linear_solver)
+            result = solve_refine!(d, get_iterator(solver), p, w; max_iter_factor)
+            cnt.backsolve_cnt += cnt.ir
         end
     end
-    # Get number of iterations in Richardson's iterative refinement
-    iter_richardson = get_cnt(solver).ir
-    get_cnt(solver).backsolve_cnt += iter_richardson
     return result
 end
 
 function factorize_wrapper!(solver::AbstractMadNLPSolver)
     @trace(get_logger(solver),"Factorization started.")
-    build_kkt!(get_kkt(solver))
-    @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
-    get_cnt(solver).factorization_cnt += 1
+    cnt = get_cnt(solver)
+    @timed_region cnt :linear_solver_time begin
+        @timed_region cnt :build_kkt_time build_kkt!(get_kkt(solver))
+        cnt.symbolic_cnt += @timed_region cnt :symbolic_time analyze!(get_kkt(solver).linear_solver)
+        @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
+    end
+    cnt.factorization_cnt += 1
     return
 end
 
@@ -156,10 +154,10 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     if ns == m
         kkt.buffer .= kkt.diag_buffer .* (wz .+ ws ./ Σs)
 
-        mul!(wx, kkt.jt_csc, kkt.buffer, one(T), one(T))
+        mul!(wx, jac_op(kkt, 'T'), kkt.buffer, one(T), one(T))
         solve_linear_system!(kkt.linear_solver, wx)
 
-        mul!(kkt.buffer2, kkt.jt_csc', wx) # TODO: investigate why directly using wz here is causing an error
+        mul!(kkt.buffer2, jac_op(kkt, 'N'), wx) # TODO: investigate why directly using wz here is causing an error
 
         wz .= .- kkt.buffer .+ kkt.diag_buffer .* kkt.buffer2
         ws .= (ws .+ wz) ./ Σs
@@ -173,11 +171,11 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     kkt.buffer .= wz
     view(kkt.buffer, kkt.ind_ineq) .+= ws ./ Σs
     kkt.buffer3 .= kkt.diag_buffer .* kkt.buffer
-    mul!(wx, kkt.jt_csc, kkt.buffer3, one(T), one(T))
+    mul!(wx, jac_op(kkt, 'T'), kkt.buffer3, one(T), one(T))
     solve_linear_system!(kkt.linear_solver, wx)
 
     # the multipliers of the condensed rows, then the slacks
-    mul!(kkt.buffer2, kkt.jt_csc', wx)
+    mul!(kkt.buffer2, jac_op(kkt, 'N'), wx)
     wz .= kkt.diag_buffer .* (kkt.buffer2 .- kkt.buffer)
     ws .= (ws .+ view(wz, kkt.ind_ineq)) ./ Σs
 
@@ -218,8 +216,8 @@ function solve_kkt!(
     # Decompose rhs
     wx = view(full(w), 1:n)
     ws = view(full(w), n+1:n+ns)
-    wy = view(full(w), kkt.ind_eq_shifted)
-    wz = view(full(w), kkt.ind_ineq_shifted)
+    wy = @inbounds(view(full(w), kkt.ind_eq_shifted))
+    wz = @inbounds(view(full(w), kkt.ind_ineq_shifted))
 
     x = kkt.pd_buffer
     xx = view(x, 1:n)
@@ -325,12 +323,12 @@ function mul!(w::AbstractKKTVector{T}, kkt::AbstractDenseKKTSystem, x::AbstractK
     wx = @view(primal(w)[1:n])
     ws = @view(primal(w)[n+1:end])
     wy = dual(w)
-    wz = @view(dual(w)[kkt.ind_ineq])
+    wz = @inbounds(view(dual(w), kkt.ind_ineq))
 
     xx = @view(primal(x)[1:n])
     xs = @view(primal(x)[n+1:end])
     xy = dual(x)
-    xz = @view(dual(x)[kkt.ind_ineq])
+    xz = @inbounds(view(dual(x), kkt.ind_ineq))
 
     _symv!('L', alpha, kkt.hess, xx, beta, wx)
     if m > 0  # otherwise, CUDA causes an error
@@ -365,6 +363,6 @@ function mul_hess_blk!(wx, kkt::SparseUnreducedKKTSystem, t)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess_com, :L), @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
     wx .+= t .* kkt.pr_diag
-    wx[ind_lb] .-= @view(t[ind_lb]) .* (kkt.l_lower ./ kkt.l_diag)
-    wx[ind_ub] .-= @view(t[ind_ub]) .* (kkt.u_lower ./ kkt.u_diag)
+    @inbounds(view(wx, ind_lb)) .-= @inbounds(view(t, ind_lb)) .* (kkt.l_lower ./ kkt.l_diag)
+    return @inbounds(view(wx, ind_ub)) .-= @inbounds(view(t, ind_ub)) .* (kkt.u_lower ./ kkt.u_diag)
 end

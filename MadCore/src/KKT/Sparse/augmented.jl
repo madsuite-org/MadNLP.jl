@@ -151,3 +151,6 @@ num_variables(kkt::SparseKKTSystem) = length(kkt.pr_diag)
 function build_kkt!(kkt::SparseKKTSystem)
     transfer!(kkt.aug_com, kkt.aug_raw, kkt.aug_csc_map)
 end
+
+hess_op(kkt::SparseKKTSystem, transa::Char = 'N') = _transposed(kkt.hess_com, transa)
+jac_op(kkt::SparseKKTSystem, transa::Char = 'N') = _transposed(kkt.jac_com, transa)

@@ -110,8 +110,8 @@ function UnreducedKKTVector(
     xzl = _madnlp_unsafe_wrap(values, nlb, n + m + 1) # Lower bound
     xzu = _madnlp_unsafe_wrap(values, nub, n + m + nlb + 1) # Upper bound
 
-    xp_lr = view(xp, ind_lb)
-    xp_ur = view(xp, ind_ub)
+    xp_lr = @inbounds(view(xp, ind_lb))
+    xp_ur = @inbounds(view(xp, ind_ub))
 
     return UnreducedKKTVector(values, x, xp, xp_lr, xp_ur, xl, xzl, xzu)
 end
@@ -169,8 +169,8 @@ function PrimalVector(::Type{VT}, nx::Int, ns::Int, ind_lb, ind_ub) where {T, VT
     fill!(values, zero(T))
     x = _madnlp_unsafe_wrap(values, nx)
     s = _madnlp_unsafe_wrap(values, ns, nx+1)
-    values_lr = view(values, ind_lb)
-    values_ur = view(values, ind_ub)
+    values_lr = @inbounds(view(values, ind_lb))
+    values_ur = @inbounds(view(values, ind_ub))
 
     return PrimalVector(
         values, values_lr, values_ur, x, s,

@@ -17,8 +17,8 @@ end
 
 function _set_aug_diagonal!(kkt::AbstractKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
-    @views kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
-    @views kkt.pr_diag[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
+    @inbounds(view(kkt.pr_diag, kkt.ind_lb)) .-= kkt.l_lower ./ kkt.l_diag
+    @inbounds(view(kkt.pr_diag, kkt.ind_ub)) .-= kkt.u_lower ./ kkt.u_diag
     return
 end
 
@@ -356,4 +356,114 @@ function dual_inf_perturbation!(px, ind_llb, ind_uub, mu, kappa_d)
         px[ind_llb] .-= mu*kappa_d
         px[ind_uub] .+= mu*kappa_d
     end
+end
+
+function _get_varphi(x1::T, x2::T, mu::T) where {T}
+    x = x1 - x2
+    if x < 0
+        return T(Inf)
+    else
+        return -mu * log(x)
+    end
+end
+
+function get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu)
+    varphi = obj_val
+    for ii in eachindex(x_lr)
+        varphi += _get_varphi(x_lr[ii], xl_r[ii], mu)
+    end
+    for ii in eachindex(xu_r)
+        varphi += _get_varphi(xu_r[ii], x_ur[ii], mu)
+    end
+    return varphi
+end
+
+function get_varphi_d(
+        f::AbstractVector{T},
+        x::AbstractVector{T},
+        xl::AbstractVector{T},
+        xu::AbstractVector{T},
+        dx::AbstractVector{T},
+        mu,
+    ) where {T}
+    varphi_d = zero(T)
+    for ii in eachindex(f)
+        varphi_d += (f[ii] - mu / (x[ii] - xl[ii]) + mu / (xu[ii] - x[ii])) * dx[ii]
+    end
+    return varphi_d
+end
+
+@inline get_theta(c) = norm(c, 1)
+
+function get_rel_search_norm(x::AbstractVector{T}, dx::AbstractVector{T}) where {T}
+    rel_search_norm = zero(T)
+    for ii in eachindex(x)
+        rel_search_norm = max(rel_search_norm, abs(dx[ii]) / (one(T) + abs(x[ii])))
+    end
+    return rel_search_norm
+end
+
+
+# The scalars one phase of the interior-point iteration reads together. These host methods
+# compute each scalar on its own; a GPU backend computes all of them in one reduction, so the
+# host waits for the device once per phase.
+
+"""
+    get_convergence_values(y, c, x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, f, zl, zu, jacl, s_max)
+
+`(sd, sc, inf_pr, inf_du, inf_compl)` of the convergence check: the scaling factors, and the
+primal infeasibility, scaled dual infeasibility and scaled complementarity (with `mu = 0`).
+"""
+function get_convergence_values(y, c, x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, f, zl, zu, jacl, s_max)
+    T = eltype(c)
+    sd = get_sd(y, zl_r, zu_r, s_max)
+    sc = get_sc(zl_r, zu_r, s_max)
+    return sd, sc, get_inf_pr(c), get_inf_du(f, zl, zu, jacl, sd), get_inf_compl(x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, zero(T), sc)
+end
+
+"""
+    get_line_search_values(obj_val, c, x_lr, xl_r, zl_r, dzl, xu_r, x_ur, zu_r, dzu, f, x, xl, xu, dx, mu, tau)
+
+`(theta, varphi, varphi_d, alpha_max, alpha_z, rel_search_norm)` at the start of the filter line
+search, for the step `(dx, dzl, dzu)`.
+"""
+function get_line_search_values(obj_val, c, x_lr, xl_r, zl_r, dzl, xu_r, x_ur, zu_r, dzu, f, x, xl, xu, dx, mu, tau)
+    return (
+        get_theta(c), get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu), get_varphi_d(f, x, xl, xu, dx, mu),
+        get_alpha_max(x, xl, xu, dx, tau), get_alpha_z(zl_r, zu_r, dzl, dzu, tau), get_rel_search_norm(x, dx),
+    )
+end
+
+"""
+    get_trial_values(obj_val, c, x_lr, xl_r, xu_r, x_ur, mu)
+
+`(theta, varphi)` at a trial point of the line search.
+"""
+get_trial_values(obj_val, c, x_lr, xl_r, xu_r, x_ur, mu) = (get_theta(c), get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu))
+
+"""
+    get_quality_steps(x, xl, xu, dx, zl_r, zu_r, dzl, dzu, tau)
+
+`(alpha_pr, alpha_du)`, the step lengths of the step `(dx, dzl, dzu)` in the quality function of
+the adaptive barrier update.
+"""
+get_quality_steps(x, xl, xu, dx, zl_r, zu_r, dzl, dzu, tau) = (get_alpha_max(x, xl, xu, dx, tau), get_alpha_z(zl_r, zu_r, dzl, dzu, tau))
+
+"""
+    get_quality_compl(x_lr, xl_r, dx_lr, zl_r, dzl, x_ur, xu_r, dx_ur, zu_r, dzu, alpha_pr, alpha_du)
+
+`(‖(X + αp ΔX - Xl) (Zl + αd ΔZl)‖², ‖(Xu - X - αp ΔX) (Zu + αd ΔZu)‖²)`, the complementarity
+terms of the quality function of the adaptive barrier update.
+"""
+function get_quality_compl(x_lr, xl_r, dx_lr, zl_r, dzl, x_ur, xu_r, dx_ur, zu_r, dzu, alpha_pr, alpha_du)
+    T = eltype(x_lr)
+    lb = zero(T)
+    for i in eachindex(x_lr)
+        lb += ((x_lr[i] + alpha_pr * dx_lr[i] - xl_r[i]) * (zl_r[i] + alpha_du * dzl[i]))^2
+    end
+    ub = zero(T)
+    for i in eachindex(x_ur)
+        ub += ((xu_r[i] - x_ur[i] - alpha_pr * dx_ur[i]) * (zu_r[i] + alpha_du * dzu[i]))^2
+    end
+    return lb, ub
 end

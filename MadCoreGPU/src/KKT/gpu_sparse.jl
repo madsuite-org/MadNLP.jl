@@ -102,9 +102,9 @@ function MadCore.mul!(
     ws = view(MadCore.full(w), (n + 1):(n + ns))
     wz = view(MadCore.full(w), (n + ns + 1):(n + ns + m))
 
-    MadCore.mul!(wx, kkt.hess_com, xx, alpha, beta)
-    MadCore.mul!(wx, kkt.hess_com', xx, alpha, one(T))
-    MadCore.mul!(wx, kkt.jt_csc, xz, alpha, one(T))
+    MadCore.mul!(wx, MadCore.hess_op(kkt), xx, alpha, beta)
+    MadCore.mul!(wx, MadCore.hess_op(kkt, 'T'), xx, alpha, one(T))
+    MadCore.mul!(wx, MadCore.jac_op(kkt, 'T'), xz, alpha, one(T))
     if !isempty(kkt.ext.diag_map_to)
         backend = get_backend(MadCore.full(w))
         _diag_operation_kernel!(backend)(
@@ -118,7 +118,7 @@ function MadCore.mul!(
         )
     end
 
-    MadCore.mul!(wz, kkt.jt_csc', xx, alpha, beta)
+    MadCore.mul!(wz, MadCore.jac_op(kkt), xx, alpha, beta)
     ws .= beta .* ws .- alpha .* view(xz, kkt.ind_ineq)
     view(wz, kkt.ind_ineq) .-= alpha .* xs
     return MadCore._kktmul!(
@@ -156,8 +156,8 @@ function MadCore.mul!(
     xz = MadCore.dual(x)
 
     # symmetric Hessian block: Symmetric(hess_com, :L) * xx
-    MadCore.mul!(wx, kkt.hess_com, xx, alpha, beta)
-    MadCore.mul!(wx, kkt.hess_com', xx, alpha, one(T))
+    MadCore.mul!(wx, MadCore.hess_op(kkt), xx, alpha, beta)
+    MadCore.mul!(wx, MadCore.hess_op(kkt, 'T'), xx, alpha, one(T))
     backend = get_backend(wx)
     _sub_tril_diag_kernel!(backend)(
         wx,
@@ -283,8 +283,30 @@ function MadCore.get_sparse_condensed_ext(
         jt_csc_ptrptr = jt_csc_ptrptr,
         diag_map_to = diag_map_to,
         diag_map_fr = diag_map_fr,
+        # operators for the products with hess_com and jt_csc, made on first use (see kept_op)
+        ops = Dict{Tuple{Symbol, Char}, Any}(),
     )
 end
+
+#=
+    hess_op and jac_op of SparseCondensedKKTSystem on a GPU
+=#
+
+"""
+    kept_op(A, transa)
+
+The object the GPU KKT systems apply `op(A)` with. It is `A`, `transpose(A)` or `adjoint(A)`;
+a package extension returns an operator that keeps the sparse library's setup.
+"""
+kept_op(A, transa::Char) = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
+
+const _GPUCondensed{T, VT} = MadCore.SparseCondensedKKTSystem{T, VT} where {T, VT <: AbstractGPUVector{T}}
+
+MadCore.hess_op(kkt::_GPUCondensed, transa::Char = 'N') =
+    get!(() -> kept_op(kkt.hess_com, transa), kkt.ext.ops, (:hess, transa))
+# jt_csc stores Jᵀ: J is its transpose (the KKT systems are real, so 'C' is 'T')
+MadCore.jac_op(kkt::_GPUCondensed, transa::Char = 'N') =
+    get!(() -> kept_op(kkt.jt_csc, transa == 'N' ? 'T' : 'N'), kkt.ext.ops, (:jt, transa == 'N' ? 'T' : 'N'))
 
 #=
     get_diagonal_mapping
