@@ -131,8 +131,6 @@ function MadCore.get_convergence_values(y::AbstractGPUVectorOrSubVector{T}, c, x
     )
     sd = max(s_max, (l1_y + l1_zl + l1_zu) / max(1, m + nlb + nub)) / s_max
     sc = max(s_max, (l1_zl + l1_zu) / max(1, nlb + nub)) / s_max
-    sd = max(s_max, (l1_y + l1_zl + l1_zu) / max(1, m + nlb + nub)) / s_max
-    sc = max(s_max, (l1_zl + l1_zu) / max(1, nlb + nub)) / s_max
     return sd, sc, inf_pr, du / sd, max(compl_lb, compl_ub) / sc
 end
 
