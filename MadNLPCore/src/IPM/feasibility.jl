@@ -94,7 +94,7 @@ function feasibility_fallback!(solver::AbstractMadNLPSolver{T}, theta_ref) where
     iter = 0
     max_iter = opt.feasibility_fallback_method === :gauss_newton ? min(opt.feasibility_fallback_max_iter, 500) : opt.feasibility_fallback_max_iter
     while iter < max_iter && norm(c, Inf) > tol
-        time() - get_cnt(solver).start_time >= opt.max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
+        _now() - get_cnt(solver).start_time >= opt.max_wall_time && return MAXIMUM_WALLTIME_EXCEEDED
         !(get_intermediate_callback(solver)(solver, UserCallbackRobust())::Bool) && return USER_REQUESTED_STOP
         iter += 1
         opt.jacobian_constant || eval_jac_wrapper!(solver, kkt, x)

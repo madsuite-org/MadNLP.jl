@@ -1,28 +1,26 @@
 function solve_refine_wrapper!(d, solver, p, w)
-    result = false
-
-    @timed_region get_cnt(solver) :linear_solver_time begin
-        if solve_refine!(d, get_iterator(solver), p, w)
-            result = true
-        else
-            if improve!(get_kkt(solver).linear_solver)
-                if solve_refine!(d, get_iterator(solver), p, w)
-                    result = true
-                end
-            end
+    cnt = get_cnt(solver)
+    # solve_refine! resets cnt.ir, so backsolves are added after each attempt
+    @timed_region cnt :linear_solver_time @timed_region cnt :solve_time begin
+        result = solve_refine!(d, get_iterator(solver), p, w)
+        cnt.backsolve_cnt += cnt.ir
+        if !result && improve!(get_kkt(solver).linear_solver)
+            result = solve_refine!(d, get_iterator(solver), p, w)
+            cnt.backsolve_cnt += cnt.ir
         end
     end
-    # Get number of iterations in Richardson's iterative refinement
-    iter_richardson = get_cnt(solver).ir
-    get_cnt(solver).backsolve_cnt += iter_richardson
     return result
 end
 
 function factorize_wrapper!(solver::AbstractMadNLPSolver)
     @trace(get_logger(solver),"Factorization started.")
-    build_kkt!(get_kkt(solver))
-    @timed_region get_cnt(solver) :linear_solver_time factorize!(get_kkt(solver).linear_solver)
-    get_cnt(solver).factorization_cnt += 1
+    cnt = get_cnt(solver)
+    @timed_region cnt :linear_solver_time begin
+        @timed_region cnt :build_kkt_time build_kkt!(get_kkt(solver))
+        cnt.symbolic_cnt += @timed_region cnt :symbolic_time analyze!(get_kkt(solver).linear_solver)
+        @timed_region cnt :factorization_time factorize!(get_kkt(solver).linear_solver)
+    end
+    cnt.factorization_cnt += 1
     return
 end
 

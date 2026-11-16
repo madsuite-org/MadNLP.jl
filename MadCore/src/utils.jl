@@ -121,15 +121,20 @@ Accumulates the time spent in a code region into a `Float64` field of
 [`timer_stop!`](@ref) and [`timer_flush!`](@ref); [`create_timer`](@ref)
 picks the timer for a vector type. Regions may nest. The timer keeps the start
 marks itself, so a call through the abstract `MadNLPCounters.timer` field does
-not allocate.
+not allocate. `timer_stop!` also takes the phase the region runs in, whose field
+it subtracts the region's time from (see [`@phase_region`](@ref)), and a timer may
+define `_reset_timer!` to drop regions left open by an exception.
 """
 abstract type AbstractTimer end
+
+# seconds on the monotonic clock
+_now() = 1.0e-9 * time_ns()
 
 """
     WallTimer <: AbstractTimer
 
-Measures host wall-clock time. Used for host arrays, where every region
-has finished when it returns.
+Measures host wall-clock time with the monotonic nanosecond clock. Used for host arrays,
+where every region has finished when it returns.
 """
 struct WallTimer <: AbstractTimer
     starts::Vector{Float64}
@@ -141,19 +146,24 @@ WallTimer() = WallTimer(Float64[])
 
 Mark the start of a timed region.
 """
-timer_start!(timer::WallTimer) = (push!(timer.starts, time()); nothing)
+timer_start!(timer::WallTimer) = (push!(timer.starts, _now()); nothing)
 
 """
-    timer_stop!(timer::AbstractTimer, cnt::MadNLPCounters, ::Val{field})
+    timer_stop!(timer::AbstractTimer, cnt::MadNLPCounters, ::Val{field}, parent::Symbol = :none)
 
-Mark the end of the innermost open region and add its duration to
-`getfield(cnt, field)`. A timer for asynchronous devices may add the duration
+Mark the end of the innermost open region, add its duration to `getfield(cnt, field)`
+and, unless `parent` is `:none`, subtract it from `getfield(cnt, parent)` (the phase the
+region runs in, see [`@phase_region`](@ref)). A timer for asynchronous devices may do so
 later, in a subsequent call or in [`timer_flush!`](@ref).
 """
-function timer_stop!(timer::WallTimer, cnt, ::Val{field}) where {field}
-    setfield!(cnt, field, getfield(cnt, field) + (time() - pop!(timer.starts)))
+function timer_stop!(timer::WallTimer, cnt, ::Val{field}, parent::Symbol = :none) where {field}
+    d = _now() - pop!(timer.starts)
+    setfield!(cnt, field, getfield(cnt, field) + d)
+    parent === :none || _subtract_time!(cnt, parent, d)
     return
 end
+
+_subtract_time!(cnt, field::Symbol, d) = setfield!(cnt, field, getfield(cnt, field)::Float64 - d)
 
 """
     timer_flush!(timer::AbstractTimer, cnt::MadNLPCounters)
@@ -173,16 +183,58 @@ create_timer(::Type{VT}) where {VT} = WallTimer()
     @timed_region cnt field ex
 
 Evaluate `ex` and add the time it takes to `getfield(cnt, field)` with
-`cnt.timer`. `field` is a literal `Symbol`. Returns the value of `ex`.
+`cnt.timer`. `field` is a literal `Symbol`. Returns the value of `ex`. Inside a
+[`@phase_region`](@ref), the time is taken out of the phase.
 """
 macro timed_region(cnt, field, ex)
     return quote
         local _cnt = $(esc(cnt))
+        local _depth = (_cnt.region_depth += 1)
         timer_start!(_cnt.timer)
         local _val = $(esc(ex))
-        timer_stop!(_cnt.timer, _cnt, Val($(esc(field))))
+        _cnt.region_depth -= 1
+        timer_stop!(_cnt.timer, _cnt, Val($(esc(field))), _phase_of(_cnt, _depth))
         _val
     end
+end
+
+"""
+    @phase_region cnt field ex
+
+Like [`@timed_region`](@ref), for a phase of the algorithm: `getfield(cnt, field)` gets the
+time of `ex` without the regions directly inside it (evaluations, linear algebra, inner
+phases), which count in their own fields. So the phases and the regions they contain add up
+to the solve time without counting anything twice.
+"""
+macro phase_region(cnt, field, ex)
+    return quote
+        local _cnt = $(esc(cnt))
+        local _depth = (_cnt.region_depth += 1)
+        push!(_cnt.phases, ($(esc(field)), _depth))
+        timer_start!(_cnt.timer)
+        local _val = $(esc(ex))
+        pop!(_cnt.phases)
+        _cnt.region_depth -= 1
+        timer_stop!(_cnt.timer, _cnt, Val($(esc(field))), _phase_of(_cnt, _depth))
+        _val
+    end
+end
+
+# Regions left open by an exception that ended an earlier solve are dropped, unmeasured.
+function _reset_regions!(cnt)
+    cnt.region_depth = 0
+    empty!(cnt.phases)
+    _reset_timer!(cnt.timer)
+    return
+end
+_reset_timer!(::AbstractTimer) = nothing
+_reset_timer!(timer::WallTimer) = (empty!(timer.starts); nothing)
+
+# the phase a region at depth `depth` is directly inside, or :none
+function _phase_of(cnt, depth::Int)
+    isempty(cnt.phases) && return :none
+    field, d = last(cnt.phases)
+    return d == depth - 1 ? field : :none
 end
 
 @kwdef mutable struct MadNLPCounters
@@ -192,11 +244,34 @@ end
     ir::Int = 0 # iterative refinement counter
     tiny_step::Bool = false # the last accepted step was tiny relative to the iterate
 
-    start_time::Float64
+    start_time::Float64 # seconds on the monotonic clock (_now)
     timer::AbstractTimer = WallTimer()
+    region_depth::Int = 0                                   # open timed regions
+    phases::Vector{Tuple{Symbol, Int}} = Tuple{Symbol, Int}[]  # open phases and their depths
 
-    linear_solver_time::Float64 = 0.
-    eval_function_time::Float64 = 0.
+    linear_solver_time::Float64 = 0.0 # build_kkt_time + symbolic_time + factorization_time + solve_time
+    build_kkt_time::Float64 = 0.0
+    symbolic_time::Float64 = 0.0 # reordering and symbolic factorization (see analyze!)
+    factorization_time::Float64 = 0.0
+    solve_time::Float64 = 0.0 # includes triangular_solve_time and kkt_mul_time
+    triangular_solve_time::Float64 = 0.0
+    kkt_mul_time::Float64 = 0.0
+    eval_function_time::Float64 = 0.0 # sum of the eval_*_time fields below
+    eval_obj_time::Float64 = 0.0
+    eval_grad_time::Float64 = 0.0
+    eval_cons_time::Float64 = 0.0
+    eval_jac_time::Float64 = 0.0
+    eval_hess_time::Float64 = 0.0
+
+    # phases of the algorithm, each without the evaluations and linear algebra inside it
+    initialize_time::Float64 = 0.0  # initialize! (starting point, initial duals)
+    convergence_time::Float64 = 0.0 # residuals, printing, termination tests
+    barrier_time::Float64 = 0.0     # barrier parameter update
+    step_setup_time::Float64 = 0.0  # diagonal and right-hand side of the KKT system
+    inertia_time::Float64 = 0.0     # inertia correction around its factorizations and solves
+    line_search_time::Float64 = 0.0 # step bounds, trial points, acceptance tests
+    update_time::Float64 = 0.0      # update of the primal-dual iterate
+    restoration_time::Float64 = 0.0 # restoration and feasibility phases
     solver_time::Float64 = 0.
     total_time::Float64 = 0.
     init_time::Float64 = 0.
@@ -208,7 +283,10 @@ end
     lag_hess_cnt::Int = 0
 
     factorization_cnt::Int = 0
-    backsolve_cnt::Int = 0
+    symbolic_cnt::Int = 0
+    backsolve_cnt::Int = 0 # iterative refinement steps
+    triangular_solve_cnt::Int = 0 # solve_linear_system! calls with the factors
+    kkt_mul_cnt::Int = 0 # products with the KKT matrix in iterative refinement
 
     t1::Float64 = 0.
     t2::Float64 = 0.
@@ -219,6 +297,7 @@ end
     t7::Float64 = 0.
     t8::Float64 = 0.
 
+    restoration_cnt::Int = 0 # entries in a restoration or feasibility phase
     acceptable_cnt::Int = 0
     unsuccessful_iterate::Int = 0
     restoration_fail_count::Int = 0
