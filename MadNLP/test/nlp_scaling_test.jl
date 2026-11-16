@@ -192,3 +192,17 @@ end
         linear_solver = MadNLP.LapackCPUSolver, nlp_scaling_method = :ruiz,
         print_level = MadNLP.ERROR, rethrow_error = true))
 end
+
+@testset "Ruiz NLP scaling bounds" begin
+    nlp = BadUnitsModel()
+    sparse = (; callback = MadNLP.SparseCallback, kkt_system = MadNLP.SparseKKTSystem, linear_solver = MadNLP.MumpsSolver)
+    wide = MadNLPSolver(nlp; sparse..., nlp_scaling_method = :ruiz, print_level = MadNLP.ERROR)
+    MadNLP.initialize!(wide)
+    # without the tighter bounds, some factor is outside [1e-2, 1e2]
+    @test any(d -> !(1e-2 <= d <= 1e2), vcat(wide.cb.var_scale, wide.cb.con_scale, wide.cb.obj_scale[]))
+    solver = MadNLPSolver(nlp; sparse..., nlp_scaling_method = :ruiz, nlp_scaling_ruiz_min = 1e-2,
+        nlp_scaling_ruiz_max = 1e2, print_level = MadNLP.ERROR)
+    stats = MadNLP.solve!(solver)
+    @test stats.status == MadNLP.SOLVE_SUCCEEDED
+    @test all(d -> 1e-2 <= d <= 1e2, vcat(solver.cb.var_scale, solver.cb.con_scale, solver.cb.obj_scale[]))
+end

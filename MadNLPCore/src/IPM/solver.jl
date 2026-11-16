@@ -68,6 +68,8 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
             opt.nlp_scaling_max_gradient;
             method = opt.nlp_scaling_method,
             ruiz_sweeps = opt.nlp_scaling_ruiz_sweeps,
+            ruiz_min = opt.nlp_scaling_ruiz_min,
+            ruiz_max = opt.nlp_scaling_ruiz_max,
         )
     end
 

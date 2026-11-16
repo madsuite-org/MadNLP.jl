@@ -761,8 +761,10 @@ function set_scaling!(
     nlp_scaling_max_gradient;
     method::Symbol = :gradient,
     ruiz_sweeps::Int = 10,
+    ruiz_min::Real = 1e-4,
+    ruiz_max::Real = 1e4,
 )
-    method === :ruiz && return set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, ruiz_sweeps)
+    method === :ruiz && return set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, ruiz_sweeps, ruiz_min, ruiz_max)
     method === :gradient || error("nlp_scaling_method must be :gradient or :ruiz")
     x0 = variable(x)
 
@@ -792,16 +794,12 @@ function set_scaling!(
     return
 end
 
-# Bounds on the Ruiz scaling factors, as in OSQP, Clarabel and HiGHS's interior-point solver.
-const RUIZ_MIN_SCALING = 1e-4
-const RUIZ_MAX_SCALING = 1e4
-
-# Clamp a scaling factor to [RUIZ_MIN_SCALING, RUIZ_MAX_SCALING] and round it to a power of 2,
-# so that applying and undoing it is exact.
-_ruiz_factor(d::T) where {T} = T(exp2(round(log2(clamp(d, T(RUIZ_MIN_SCALING), T(RUIZ_MAX_SCALING))))))
+# Round a scaling factor to the nearest power of 2 within [lo, hi], so that applying and undoing
+# it is exact.
+_ruiz_factor(d::T, lo, hi) where {T} = T(exp2(clamp(round(log2(d)), ceil(log2(lo)), floor(log2(hi)))))
 
 """
-    set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, sweeps)
+    set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, sweeps, lo = 1e-4, hi = 1e4)
 
 Scale the variables, the constraints and the objective by Ruiz equilibration at the starting
 point. With H the Hessian of the objective and J the Jacobian at the point where
@@ -814,9 +812,9 @@ point. With H the Hessian of the objective and J the Jacobian at the point where
 give D = diag(D_x, D_c), so that D K D has rows of infinity norm close to one. The variables
 are scaled by D_x (the solver works with x̃ = x ./ D_x), the constraint rows by D_c, and the
 objective by 1 / max(mean column norm of D_x H D_x, ‖D_x ∇f‖∞), as in OSQP. Every factor is
-clamped to [1e-4, 1e4] and rounded to a power of 2.
+clamped to [lo, hi] and rounded to a power of 2.
 """
-function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, sweeps) where {T}
+function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, sweeps, lo = 1e-4, hi = 1e4) where {T}
     nx, m = cb.nvar, cb.ncon
     x0 = variable(x)
 
@@ -850,7 +848,7 @@ function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, 
         scaling_sweep!(dnew, d, getcolptr(K), rowvals(K), nonzeros(K), Int[])
         d, dnew = dnew, d
     end
-    d .= _ruiz_factor.(d)
+    d .= _ruiz_factor.(d, lo, hi)
     dx = d[1:nx]
     dc = d[nx+1:end]
 
@@ -863,8 +861,8 @@ function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, 
         colmax[hJ[k]] = max(colmax[hJ[k]], v)
     end
     c = max(nx > 0 ? sum(colmax) / nx : zero(T), nx > 0 ? maximum(abs, g) : zero(T))
-    c = c < T(RUIZ_MIN_SCALING) ? one(T) : min(c, T(RUIZ_MAX_SCALING))
-    obj_scale = isfinite(c) ? _ruiz_factor(one(T) / c) : one(T)
+    c = c < T(lo) ? one(T) : min(c, T(hi))
+    obj_scale = isfinite(c) ? _ruiz_factor(one(T) / c, lo, hi) : one(T)
 
     cb.obj_scale[] = obj_scale
     copyto!(cb.var_scale, dx)
@@ -896,6 +894,8 @@ function set_scaling!(
     nlp_scaling_max_gradient;
     method::Symbol = :gradient,
     ruiz_sweeps::Int = 10,
+    ruiz_min::Real = 1e-4,
+    ruiz_max::Real = 1e4,
 )
     method === :gradient || error("nlp_scaling_method = :$method needs a SparseCallback")
     x0 = variable(x)

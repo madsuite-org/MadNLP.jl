@@ -229,6 +229,8 @@ nlp\\_scaling                  | true                 | scale nonlinear program
 nlp\\_scaling\\_max\\_gradient | 100.0                | maximum gradient after NLP scaling
 nlp\\_scaling\\_method        | `:gradient`          | `:gradient` (row and objective factors capping the gradients at `nlp_scaling_max_gradient`, as in Ipopt) or `:ruiz` (Ruiz equilibration of the variables, constraints and objective at the starting point; `SparseCallback` only)
 nlp\\_scaling\\_ruiz\\_sweeps  | 10                   | number of Ruiz sweeps for `nlp_scaling_method = :ruiz`
+nlp\\_scaling\\_ruiz\\_min     | 1e-4                 | smallest Ruiz scaling factor
+nlp\\_scaling\\_ruiz\\_max     | 1e4                  | largest Ruiz scaling factor
 ||
 __Hessian perturbation__||
 ||
@@ -366,6 +368,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     nlp_scaling_max_gradient::T = 100.
     nlp_scaling_method::Symbol = :gradient
     nlp_scaling_ruiz_sweeps::Int = 10
+    nlp_scaling_ruiz_min::T = 1e-4
+    nlp_scaling_ruiz_max::T = 1e4
 
     # Hessian Perturbation
     min_hessian_perturbation::T = 1e-20
