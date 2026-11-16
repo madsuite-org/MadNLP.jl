@@ -1,7 +1,8 @@
 # CondensedPreset: the equality constraints enforced and condensed through the equality shift,
-# and the fallback to ShiftedPreset on a model with a dense Jacobian row. The problem below has
-# n sparse rows (equalities when `eq`) and one dense row, the coupling constraint over every
-# variable.
+# and the fallback to ShiftedPreset on a model whose condensed matrix would be dense or far larger
+# than the augmented one. The problem below has n rows x_i - x_{i+1} <= 1 (equalities when `eq`)
+# over `width` consecutive variables each (the others with zero coefficients), and one dense row,
+# the coupling constraint over every variable.
 
 using NLPModels
 
@@ -9,13 +10,13 @@ struct DenseRowQP{T} <: NLPModels.AbstractNLPModel{T, Vector{T}}
     meta::NLPModels.NLPModelMeta{T, Vector{T}}
     counters::NLPModels.Counters
     n::Int
-    dense::Bool   # every row dense (x_i - x_{i+1} + 0 * sum(x) <= 1) instead of sparse
-    eq::Bool      # the n sparse rows are equalities x_i - x_{i+1} = 0
+    width::Int   # nonzeros of a row x_i - x_{i+1} <= 1: 2 (sparse) to n (every row dense)
+    eq::Bool     # the n rows are equalities x_i - x_{i+1} = 0
 end
 
-function DenseRowQP(n::Int; T = Float64, dense::Bool = false, eq::Bool = false)
+function DenseRowQP(n::Int; T = Float64, width::Int = 2, eq::Bool = false)
     m = n + 1   # n rows x_i - x_{i+1} <= 1 (cyclic), one dense row sum(x) <= n/2
-    nnzj = (dense ? n * n : 2n) + n
+    nnzj = n * width + n
     nnzh = n
     meta = NLPModels.NLPModelMeta(
         n; ncon = m, nnzj = nnzj, nnzh = nnzh,
@@ -23,7 +24,7 @@ function DenseRowQP(n::Int; T = Float64, dense::Bool = false, eq::Bool = false)
         lcon = [fill(eq ? zero(T) : T(-Inf), n); T(-Inf)], ucon = [fill(eq ? zero(T) : one(T), n); T(n) / 2],
         minimize = true, name = "DenseRowQP",
     )
-    return DenseRowQP{T}(meta, NLPModels.Counters(), n, dense, eq)
+    return DenseRowQP{T}(meta, NLPModels.Counters(), n, width, eq)
 end
 
 NLPModels.obj(nlp::DenseRowQP, x::AbstractVector) = sum((x[i] - i)^2 for i in 1:nlp.n) / 2
@@ -40,18 +41,10 @@ function NLPModels.cons!(nlp::DenseRowQP, x::AbstractVector, c::AbstractVector)
     return c
 end
 function NLPModels.jac_structure!(nlp::DenseRowQP, I::AbstractVector, J::AbstractVector)
-    n = nlp.n
+    n, w = nlp.n, nlp.width
     k = 0
-    if nlp.dense
-        for i in 1:n, j in 1:n
-            k += 1; I[k] = i; J[k] = j
-        end
-    else
-        for i in 1:n
-            I[k + 1] = i; J[k + 1] = i
-            I[k + 2] = i; J[k + 2] = mod1(i + 1, n)
-            k += 2
-        end
+    for i in 1:n, d in 0:(w - 1)   # row i over x_i, x_{i+1}, ..., x_{i+w-1} (cyclic)
+        k += 1; I[k] = i; J[k] = mod1(i + d, n)
     end
     for j in 1:n
         I[k + j] = n + 1; J[k + j] = j
@@ -59,20 +52,13 @@ function NLPModels.jac_structure!(nlp::DenseRowQP, I::AbstractVector, J::Abstrac
     return I, J
 end
 function NLPModels.jac_coord!(nlp::DenseRowQP, x::AbstractVector, V::AbstractVector)
-    n = nlp.n
+    n, w = nlp.n, nlp.width
     o = one(eltype(V))
-    if nlp.dense
-        fill!(V, zero(eltype(V)))
-        for i in 1:n
-            V[(i - 1) * n + i] = o; V[(i - 1) * n + mod1(i + 1, n)] = -o
-        end
-        V[(n * n + 1):(n * n + n)] .= o
-    else
-        for i in 1:n
-            V[2i - 1] = o; V[2i] = -o
-        end
-        V[(2n + 1):3n] .= o
+    fill!(V, zero(eltype(V)))
+    for i in 1:n
+        V[(i - 1) * w + 1] = o; V[(i - 1) * w + 2] = -o
     end
+    V[(n * w + 1):(n * w + n)] .= o
     return V
 end
 function NLPModels.hess_structure!(nlp::DenseRowQP, I::AbstractVector, J::AbstractVector)
@@ -115,7 +101,7 @@ end
     # a model with a dense Jacobian row (more than dense_row_abs nonzeros and dense_row_rel of the
     # variables) is solved with ShiftedPreset instead, unless dense_row_fallback is off
     big = DenseRowQP(6000)   # one row over every variable
-    @test MadNLP.MadNLPCore.has_dense_rows(big, 512, 0.1) && !MadNLP.MadNLPCore.has_dense_rows(nlp, 512, 0.1)
+    @test MadNLP.MadNLPCore.has_dense_rows(big, 512, 0.1, Inf) && !MadNLP.MadNLPCore.has_dense_rows(nlp, 512, 0.1, Inf)
     opts(m; kw...) = MadNLP.MadNLPCore.load_options(m; preset = MadNLP.CondensedPreset, print_level = MadNLP.ERROR, kw...).interior_point
     @test opts(big).preset === MadNLP.ShiftedPreset && opts(big).kkt_system === MadNLP.SparseKKTSystem
     @test opts(big; dense_row_fallback = false).preset === MadNLP.CondensedPreset
@@ -125,4 +111,18 @@ end
     res2 = MadNLP.madnlp(nlp; preset = MadNLP.CondensedPreset, dense_row_abs = 8, print_level = MadNLP.ERROR, tol = 1.0e-8)
     @test res2.status == MadNLP.SOLVE_SUCCEEDED
     @test res2.solution ≈ ref.solution atol = 1.0e-5
+
+    # so is a model whose rows are not dense but whose condensed matrix would be far larger than the
+    # augmented one: 400 rows of 100 nonzeros (squared counts 4 million, against an augmented matrix
+    # of 41,200 nonzeros, a ratio near 100) against dense_fill_rel = 20
+    wide = DenseRowQP(400; width = 100)
+    @test !MadNLP.MadNLPCore.has_dense_rows(wide, 512, 0.1, Inf) && MadNLP.MadNLPCore.has_dense_rows(wide, 512, 0.1, 20.0)
+    @test opts(wide).preset === MadNLP.ShiftedPreset
+    @test opts(wide; dense_fill_rel = 200.0).preset === MadNLP.CondensedPreset
+    @test opts(wide; dense_row_fallback = false).preset === MadNLP.CondensedPreset
+    refw = MadNLP.madnlp(wide; preset = MadNLP.AugmentedPreset, print_level = MadNLP.ERROR, tol = 1.0e-8)
+    res3 = MadNLP.madnlp(wide; preset = MadNLP.CondensedPreset, print_level = MadNLP.ERROR, tol = 1.0e-8)
+    @test refw.status == MadNLP.SOLVE_SUCCEEDED && res3.status == MadNLP.SOLVE_SUCCEEDED
+    @test res3.objective ≈ refw.objective rtol = 1.0e-6   # the objective is near 1e7, so x agrees to about 1e-5
+    @test res3.solution ≈ refw.solution atol = 1.0e-4
 end
