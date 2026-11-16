@@ -43,6 +43,7 @@ Implement the [`AbstractCondensedKKTSystem`](@ref) in sparse COO format.
     r::VT
     p::VT
     q::VT
+    ybest::VT               # the iterate of smallest residual so far
     z::VT                   # n-vector
     iterations::Int = 0     # CG iterations of the last solve
     total::Int = 0          # over all solves
@@ -206,7 +207,7 @@ function create_kkt_system(
         ),
         SchurCG{T, VT}(;
             enabled = equality_cg, tol = T(equality_cg_tol), max_iter = equality_cg_max_iter,
-            y = VT(undef, m), r = VT(undef, m), p = VT(undef, m), q = VT(undef, m), z = VT(undef, n),
+            y = VT(undef, m), r = VT(undef, m), p = VT(undef, m), q = VT(undef, m), ybest = VT(undef, m), z = VT(undef, n),
         ),
         cb.ind_lb, cb.ind_ub,
         ext
@@ -229,7 +230,7 @@ end
 # then dx = dx_s - K⁻¹ J_eqᵀ y, the multipliers of the inequality rows recomputed from it.
 function schur_cg!(kkt::SparseCondensedKKTSystem{T}, wx, wz) where {T}
     cg = kkt.schur_cg
-    y, r, p, q = cg.y, cg.r, cg.p, cg.q
+    y, r, p, q, yb = cg.y, cg.r, cg.p, cg.q, cg.ybest
     r .= kkt.buffer2 .- kkt.buffer
     view(r, kkt.ind_ineq) .= zero(T)
     gnorm = norm(r)
@@ -243,6 +244,12 @@ function schur_cg!(kkt::SparseCondensedKKTSystem{T}, wx, wz) where {T}
     r .-= q
     p .= r
     rs = dot(r, r)
+    # the products S p apply K⁻¹, accurate only to about κ(K) ε, so the recurrence can drift: keep
+    # the iterate of smallest residual, stop once the residual grows past twice the best, and in
+    # the end keep the start if the true residual of the best iterate is no smaller than its own
+    rs0 = rs
+    rsb = rs
+    yb .= y
     for k in 1:cg.max_iter
         sqrt(rs) <= cg.tol * gnorm && break
         _schur_apply!(q, kkt, p)
@@ -252,11 +259,29 @@ function schur_cg!(kkt::SparseCondensedKKTSystem{T}, wx, wz) where {T}
         y .+= alpha .* p
         r .-= alpha .* q
         rs_new = dot(r, r)
+        cg.iterations = k
+        if rs_new < rsb
+            rsb = rs_new
+            yb .= y
+        elseif rs_new > 4 * rsb
+            break
+        end
         p .= r .+ (rs_new / rs) .* p
         rs = rs_new
-        cg.iterations = k
     end
     cg.total += cg.iterations
+    if cg.iterations > 0
+        _schur_apply!(q, kkt, yb)
+        r .= kkt.buffer2 .- kkt.buffer
+        view(r, kkt.ind_ineq) .= zero(T)
+        r .-= q
+        if dot(r, r) < rs0
+            y .= yb
+        else
+            y .= wz
+            view(y, kkt.ind_ineq) .= zero(T)
+        end
+    end
     # dx = dx_s - K⁻¹ J_eqᵀ y, then the multipliers D (J dx - r) + y: with this pairing the primal
     # block of the KKT system holds exactly whatever CG reached (K dx = r1 + Jᵀ D r3 - J_eqᵀ y), and
     # the equality residual J_eq dx - r_eq is the residual CG left, never more than the shifted solve's
