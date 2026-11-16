@@ -28,6 +28,27 @@ end
 Implement the [`AbstractCondensedKKTSystem`](@ref) in sparse COO format.
 
 """
+# Two-level refinement (prototype). The shifted condensed solve gives dx_s and, on the equality rows,
+# the shifted multipliers; the exact multipliers y of the unshifted system solve S y = J_eq dx_s - r_eq
+# with S = J_eq K⁻¹ J_eqᵀ, the dual Schur complement of the condensed matrix K (positive definite,
+# eigenvalues δσ / (δ + σ) for the eigenvalues σ of J_eq A⁻¹ J_eqᵀ). CG solves it with one triangular
+# solve and two Jacobian products per iteration, started from the shifted multipliers (exact already
+# where σ ≫ δ), and the primal step becomes dx = dx_s - K⁻¹ J_eqᵀ y. Richardson refinement on the
+# full (3x3) system stays as the outer level, so the factorization's rounding is still corrected.
+@kwdef mutable struct SchurCG{T, VT}
+    enabled::Bool
+    tol::T                  # relative to the right-hand side
+    max_iter::Int
+    y::VT                   # m-vectors, zero on the inequality rows
+    r::VT
+    p::VT
+    q::VT
+    z::VT                   # n-vector
+    iterations::Int = 0     # CG iterations of the last solve
+    total::Int = 0          # over all solves
+    solves::Int = 0
+end
+
 struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
     # Hessian
     hess::VT
@@ -72,6 +93,7 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
     ind_eq::VI
     # the equality rows are condensed with the weight D = 1 / (δ - Σd), δ the equality shift
     eq_shift::EqualityShift{T}
+    schur_cg::SchurCG{T, VT}
     ind_lb::VI
     ind_ub::VI
 
@@ -109,6 +131,9 @@ function create_kkt_system(
     equality_shift_watchdog_window::Int = 20,
     equality_shift_watchdog_hold::Int = 100,
     equality_shift_watchdog_ratio::Float64 = 0.5,
+    equality_cg::Bool = false,
+    equality_cg_tol::Float64 = 1e-8,
+    equality_cg_max_iter::Int = 50,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -179,9 +204,68 @@ function create_kkt_system(
             count = equality_shift_retry_count, max = equality_shift_max, backoff_max = equality_shift_retry_backoff,
             window = equality_shift_watchdog_window, hold = equality_shift_watchdog_hold, ratio = equality_shift_watchdog_ratio,
         ),
+        SchurCG{T, VT}(;
+            enabled = equality_cg, tol = T(equality_cg_tol), max_iter = equality_cg_max_iter,
+            y = VT(undef, m), r = VT(undef, m), p = VT(undef, m), q = VT(undef, m), z = VT(undef, n),
+        ),
         cb.ind_lb, cb.ind_ub,
         ext
     )
+end
+
+# q = S v for the dual Schur complement S = J_eq K⁻¹ J_eqᵀ of the condensed matrix; v and q are
+# m-vectors, zero on the inequality rows
+function _schur_apply!(q, kkt::SparseCondensedKKTSystem{T}, v) where {T}
+    z = kkt.schur_cg.z
+    mul!(z, jac_op(kkt, 'T'), v)
+    solve_linear_system!(kkt.linear_solver, z)
+    mul!(q, jac_op(kkt, 'N'), z)
+    view(q, kkt.ind_ineq) .= zero(T)
+    return q
+end
+
+# After the shifted condensed solve (wx = dx_s, buffer the folded right-hand side, buffer2 = J dx_s,
+# wz = D (J dx_s - r)): the exact multipliers of the equality rows by CG on S y = J_eq dx_s - r_eq,
+# then dx = dx_s - K⁻¹ J_eqᵀ y, the multipliers of the inequality rows recomputed from it.
+function schur_cg!(kkt::SparseCondensedKKTSystem{T}, wx, wz) where {T}
+    cg = kkt.schur_cg
+    y, r, p, q = cg.y, cg.r, cg.p, cg.q
+    r .= kkt.buffer2 .- kkt.buffer
+    view(r, kkt.ind_ineq) .= zero(T)
+    gnorm = norm(r)
+    cg.iterations = 0
+    cg.solves += 1
+    iszero(gnorm) && return
+    # start from the shifted multipliers
+    y .= wz
+    view(y, kkt.ind_ineq) .= zero(T)
+    _schur_apply!(q, kkt, y)
+    r .-= q
+    p .= r
+    rs = dot(r, r)
+    for k in 1:cg.max_iter
+        sqrt(rs) <= cg.tol * gnorm && break
+        _schur_apply!(q, kkt, p)
+        pq = dot(p, q)
+        pq > zero(T) || break
+        alpha = rs / pq
+        y .+= alpha .* p
+        r .-= alpha .* q
+        rs_new = dot(r, r)
+        p .= r .+ (rs_new / rs) .* p
+        rs = rs_new
+        cg.iterations = k
+    end
+    cg.total += cg.iterations
+    # dx = dx_s - K⁻¹ J_eqᵀ y, then the multipliers: exact on the equality rows, recomputed on the others
+    z = cg.z
+    mul!(z, jac_op(kkt, 'T'), y)
+    solve_linear_system!(kkt.linear_solver, z)
+    wx .-= z
+    mul!(kkt.buffer2, jac_op(kkt, 'N'), wx)
+    wz .= kkt.diag_buffer .* (kkt.buffer2 .- kkt.buffer)
+    view(wz, kkt.ind_eq) .= view(y, kkt.ind_eq)
+    return
 end
 
 _to_index_vector(like, v) = (o = similar(like, Int, length(v)); copyto!(o, v); o)

@@ -177,6 +177,8 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     # the multipliers of the condensed rows, then the slacks
     mul!(kkt.buffer2, jac_op(kkt, 'N'), wx)
     wz .= kkt.diag_buffer .* (kkt.buffer2 .- kkt.buffer)
+    # two-level refinement: the equality multipliers by CG on the dual Schur complement, dx corrected
+    kkt.schur_cg.enabled && !isempty(kkt.ind_eq) && schur_cg!(kkt, wx, wz)
     ws .= (ws .+ view(wz, kkt.ind_ineq)) ./ Σs
 
     finish_aug_solve!(kkt, w)
