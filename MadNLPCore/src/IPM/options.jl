@@ -189,8 +189,8 @@ equality\\_shift\\_watchdog\\_window | 20               | every this many iterat
 equality\\_shift\\_watchdog\\_hold | 100               | iterations without a retry after the watchdog fires
 equality\\_shift\\_watchdog\\_ratio | 0.5               | see `equality_shift_watchdog_window`
 equality\\_cg                   | `false`              | prototype: in every condensed solve, the multipliers of the equality rows are solved exactly by CG on the dual Schur complement J_eq K⁻¹ J_eqᵀ of the condensed matrix, and the primal step corrected accordingly (two-level refinement with the Richardson refinement of the full system)
-equality\\_cg\\_tol              | 1e-8                 | relative tolerance of that CG
-equality\\_cg\\_max\\_iter       | 50                   | its iteration limit
+equality\\_cg\\_tol              | 1e-6                 | relative tolerance of that CG
+equality\\_cg\\_max\\_iter       | 10                   | its iteration limit
 dense\\_row\\_abs                | 512                  | a Jacobian row with more than this many nonzeros and more than `dense_row_rel` times the number of variables is dense: `CondensedPreset` solves the model with `ShiftedPreset` instead (`dense_row_fallback`)
 dense\\_row\\_rel                | 0.1                  | see `dense_row_abs`
 dense\\_fill\\_rel               | 20                   | when the squared nonzero counts of the Jacobian rows add up to more than this many times the size of the augmented matrix (nnz(H) + nnz(J) + n), the condensed matrix is far larger than it: `CondensedPreset` solves the model with `ShiftedPreset` instead
@@ -349,8 +349,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # two-level refinement (prototype): CG on the dual Schur complement of the condensed matrix for the
     # equality multipliers inside every condensed solve, Richardson on the full system outside
     equality_cg::Bool = false
-    equality_cg_tol::T = 1e-8
-    equality_cg_max_iter::Int = 50
+    equality_cg_tol::T = 1e-6
+    equality_cg_max_iter::Int = 10
     # a Jacobian row with more than dense_row_abs nonzeros and more than dense_row_rel times the number of
     # variables turns the condensed matrix dense, and rows whose squared nonzero counts add up to more
     # than dense_fill_rel times the size of the augmented matrix make it far larger than that matrix:

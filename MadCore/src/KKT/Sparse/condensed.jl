@@ -132,8 +132,8 @@ function create_kkt_system(
     equality_shift_watchdog_hold::Int = 100,
     equality_shift_watchdog_ratio::Float64 = 0.5,
     equality_cg::Bool = false,
-    equality_cg_tol::Float64 = 1e-8,
-    equality_cg_max_iter::Int = 50,
+    equality_cg_tol::Float64 = 1e-6,
+    equality_cg_max_iter::Int = 10,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -257,14 +257,15 @@ function schur_cg!(kkt::SparseCondensedKKTSystem{T}, wx, wz) where {T}
         cg.iterations = k
     end
     cg.total += cg.iterations
-    # dx = dx_s - K⁻¹ J_eqᵀ y, then the multipliers: exact on the equality rows, recomputed on the others
+    # dx = dx_s - K⁻¹ J_eqᵀ y, then the multipliers D (J dx - r) + y: with this pairing the primal
+    # block of the KKT system holds exactly whatever CG reached (K dx = r1 + Jᵀ D r3 - J_eqᵀ y), and
+    # the equality residual J_eq dx - r_eq is the residual CG left, never more than the shifted solve's
     z = cg.z
     mul!(z, jac_op(kkt, 'T'), y)
     solve_linear_system!(kkt.linear_solver, z)
     wx .-= z
     mul!(kkt.buffer2, jac_op(kkt, 'N'), wx)
-    wz .= kkt.diag_buffer .* (kkt.buffer2 .- kkt.buffer)
-    view(wz, kkt.ind_eq) .= view(y, kkt.ind_eq)
+    wz .= kkt.diag_buffer .* (kkt.buffer2 .- kkt.buffer) .+ y
     return
 end
 
