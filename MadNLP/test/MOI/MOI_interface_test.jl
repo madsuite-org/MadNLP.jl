@@ -186,6 +186,17 @@ function test_param_in_quadratic_term2()
     @assert abs(3 * x_val + 9 * y_val - 15) <= 1e-6 # constraint has no slack
 end
 
+    function test_termination_status_codes()
+        codes = Base.get_extension(MadNLP, :MadNLPMOI)._STATUS_CODES
+        @test codes[MadNLP.UNBOUNDED_PROBLEM_DETECTED] == MOI.DUAL_INFEASIBLE
+        # every final status maps to an MOI termination status
+        internal = (MadNLP.REGULAR, MadNLP.RESTORE, MadNLP.ROBUST, MadNLP.LINESEARCH_SUCCEEDED)
+        for status in instances(MadNLP.Status)
+            status in internal || @test haskey(codes, status)
+        end
+        return
+    end
+
 function test_parameter_is_valid()
     model = MadNLP.Optimizer()
     p, ci = MOI.add_constrained_variable(model, MOI.Parameter(2.0))
