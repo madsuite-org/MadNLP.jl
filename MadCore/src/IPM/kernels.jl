@@ -369,22 +369,28 @@ function dual_inf_perturbation!(px, ind_llb, ind_uub, mu, kappa_d)
     end
 end
 
-function _get_varphi(x1::T, x2::T, mu::T) where {T}
-    x = x1 - x2
-    if x < 0
+"""
+    get_barrier_term(x, xb, mu)
+
+The log-barrier term `-mu * log(x - xb)` of a variable `x` with lower bound `xb`, and `Inf`
+when `x < xb`. For an upper bound `xu`, call `get_barrier_term(xu, x, mu)`.
+"""
+function get_barrier_term(x::T, xb::T, mu::T) where {T}
+    d = x - xb
+    if d < 0
         return T(Inf)
     else
-        return -mu * log(x)
+        return -mu * log(d)
     end
 end
 
 function get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu)
     varphi = obj_val
     for ii in eachindex(x_lr)
-        varphi += _get_varphi(x_lr[ii], xl_r[ii], mu)
+        varphi += get_barrier_term(x_lr[ii], xl_r[ii], mu)
     end
     for ii in eachindex(xu_r)
-        varphi += _get_varphi(xu_r[ii], x_ur[ii], mu)
+        varphi += get_barrier_term(xu_r[ii], x_ur[ii], mu)
     end
     return varphi
 end

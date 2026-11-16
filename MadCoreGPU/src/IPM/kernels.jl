@@ -145,10 +145,10 @@ function MadCore.get_line_search_values(obj_val, c::AbstractGPUVectorOrSubVector
                 (abs(c[i]), o, o, o, l, l, l, l, o)
             elseif i <= m + nlb
                 j = i - m
-                (o, MadCore._get_varphi(x_lr[j], xl_r[j], mu), o, o, l, l, dzl[j] < 0 ? -zl_r[j] * tau / dzl[j] : inf, l, o)
+                (o, get_barrier_term(x_lr[j], xl_r[j], mu), o, o, l, l, dzl[j] < 0 ? -zl_r[j] * tau / dzl[j] : inf, l, o)
             elseif i <= m + nlb + nub
                 j = i - m - nlb
-                (o, o, MadCore._get_varphi(xu_r[j], x_ur[j], mu), o, l, l, l, dzu[j] < 0 ? -zu_r[j] * tau / dzu[j] : inf, o)
+                (o, o, get_barrier_term(xu_r[j], x_ur[j], mu), o, l, l, l, dzu[j] < 0 ? -zu_r[j] * tau / dzu[j] : inf, o)
             else
                 j = i - m - nlb - nub
                 (
@@ -178,10 +178,10 @@ function MadCore.get_trial_values(obj_val, c::AbstractGPUVectorOrSubVector{T}, x
             return @inbounds if i <= m
                 (abs(c[i]), o, o)
             elseif i <= m + nlb
-                (o, MadCore._get_varphi(x_lr[i - m], xl_r[i - m], mu), o)
+                (o, get_barrier_term(x_lr[i - m], xl_r[i - m], mu), o)
             else
                 j = i - m - nlb
-                (o, o, MadCore._get_varphi(xu_r[j], x_ur[j], mu))
+                (o, o, get_barrier_term(xu_r[j], x_ur[j], mu))
             end
         end,
         (a, b) -> (a[1] + b[1], a[2] + b[2], a[3] + b[3]),
