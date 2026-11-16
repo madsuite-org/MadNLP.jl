@@ -219,3 +219,31 @@ end
     @test solver.cb.obj_scale[] < 1
     @test any(<(1), solver.cb.var_scale)
 end
+
+@testset "OSQP NLP scaling ($name)" for (name, nlp, same_solution) in (
+    ("HS15", MadNLPTests.HS15Model(), false),
+    ("scaled circle", ScaledCircleModel(), true),
+    ("bad units", BadUnitsModel(), true),
+    ("bad units, fixed variable", BadUnitsModel(; fix_x3 = true), true),
+)
+    sparse = (; callback = MadNLP.SparseCallback, kkt_system = MadNLP.SparseKKTSystem, linear_solver = MadNLP.MumpsSolver)
+    ref = madnlp(nlp; sparse..., print_level = MadNLP.ERROR)
+    solver = MadNLPSolver(nlp; sparse..., nlp_scaling_method = :osqp, print_level = MadNLP.ERROR)
+    stats = MadNLP.solve!(solver)
+    @test stats.status == MadNLP.SOLVE_SUCCEEDED
+    @test solver.cb.var_scaled[]
+    if same_solution
+        @test stats.solution ≈ ref.solution rtol = 1e-5 atol = 1e-8
+        @test stats.multipliers ≈ ref.multipliers rtol = 1e-4 atol = 1e-6
+    end
+    @test kkt_residual(nlp, stats) <= 1e-5 * max(1, maximum(abs, NLPModels.grad(nlp, stats.solution)))
+end
+
+@testset "OSQP NLP scaling matches OSQP's iteration" begin
+    # one iteration on P = [4 0; 0 0], A = [1 100], q = [2, 0]: D = 1 ./ sqrt([4, 100]), E = 1 / sqrt(100)
+    D, E, c = MadNLP.MadCore._osqp_scaling(Float64, 2, 1, [1], [1], [4.0], [1, 1], [1, 2], [1.0, 100.0], [2.0, 0.0], 1)
+    @test D ≈ [1 / 2, 1 / 10]
+    @test E ≈ [1 / 10]
+    # scaled P = [1 0; 0 0], q = [1, 0]: c = 1 / max(mean col norm 0.5, ‖q‖∞ = 1) = 1
+    @test c ≈ 1
+end

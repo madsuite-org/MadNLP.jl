@@ -764,8 +764,8 @@ function set_scaling!(
     ruiz_min::Real = 1e-4,
     ruiz_max::Real = 1e4,
 )
-    method === :ruiz && return set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, ruiz_sweeps, ruiz_min, ruiz_max)
-    method === :gradient || error("nlp_scaling_method must be :gradient or :ruiz")
+    method in (:ruiz, :osqp) && return set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, ruiz_sweeps, ruiz_min, ruiz_max; osqp = method === :osqp)
+    method === :gradient || error("nlp_scaling_method must be :gradient, :ruiz or :osqp")
     x0 = variable(x)
 
     nlp = cb.nlp
@@ -798,6 +798,70 @@ end
 # it is exact.
 _ruiz_factor(d::T, lo, hi) where {T} = T(exp2(clamp(round(log2(d)), ceil(log2(lo)), floor(log2(hi)))))
 
+# Ruiz factors: symmetric sweeps of RuizScaler on |K|, K = [H Jᵀ; J 0], then the objective.
+function _ruiz_scaling(::Type{T}, nx, m, hI, hJ, hv, jI, jJ, jv, grad, sweeps, lo, hi) where {T}
+    rows = vcat(hI, hJ, jI .+ nx, jJ)
+    cols = vcat(hJ, hI, jJ, jI .+ nx)
+    vals = vcat(hv, hv, jv, jv)
+    K = sparse(rows, cols, vals, nx + m, nx + m, max)
+    d = ones(T, nx + m)
+    dnew = similar(d)
+    for _ in 1:sweeps
+        scaling_sweep!(dnew, d, getcolptr(K), rowvals(K), nonzeros(K), Int[])
+        d, dnew = dnew, d
+    end
+    d .= _ruiz_factor.(d, lo, hi)
+    dx = d[1:nx]
+    dc = d[nx+1:end]
+
+    # objective: 1 / max(mean column norm of D_x H D_x, ‖D_x ∇f‖∞), as in OSQP
+    g = grad .* dx
+    colmax = zeros(T, nx)
+    for k in eachindex(hv)
+        v = hv[k] * dx[hI[k]] * dx[hJ[k]]
+        colmax[hI[k]] = max(colmax[hI[k]], v)
+        colmax[hJ[k]] = max(colmax[hJ[k]], v)
+    end
+    c = max(nx > 0 ? sum(colmax) / nx : zero(T), nx > 0 ? maximum(abs, g) : zero(T))
+    # a tiny or infinite norm leaves the objective unscaled
+    obj_scale = (c < T(lo) || !isfinite(c)) ? one(T) : _ruiz_factor(one(T) / c, lo, hi)
+
+    return dx, dc, obj_scale
+end
+
+# OSQP's scaling (scale_data in osqp/src/scaling.c) with P = H, A = J, q = ∇f: `iters` iterations of
+#   D ← D / sqrt(col ∞-norms of [P; A]),  E ← E / sqrt(row ∞-norms of A),
+#   c ← c / max(mean col ∞-norm of P, ‖q‖∞),
+# each norm below 1e-4 taken as 1 and above 1e4 as 1e4. No bound on the accumulated factors.
+function _osqp_scaling(::Type{T}, nx, m, hI, hJ, hv, jI, jJ, jv, q, iters) where {T}
+    limit(v) = v < T(1e-4) ? one(T) : min(v, T(1e4))
+    P, A = copy(hv), copy(jv)
+    D, E, c = ones(T, nx), ones(T, m), one(T)
+    Dt, Et = zeros(T, nx), zeros(T, m)
+    for _ in 1:iters
+        fill!(Dt, zero(T)); fill!(Et, zero(T))
+        for k in eachindex(P)
+            Dt[hI[k]] = max(Dt[hI[k]], P[k]); Dt[hJ[k]] = max(Dt[hJ[k]], P[k])
+        end
+        for k in eachindex(A)
+            Dt[jJ[k]] = max(Dt[jJ[k]], A[k]); Et[jI[k]] = max(Et[jI[k]], A[k])
+        end
+        Dt .= one(T) ./ sqrt.(limit.(Dt))
+        Et .= one(T) ./ sqrt.(limit.(Et))
+        P .*= view(Dt, hI) .* view(Dt, hJ)
+        A .*= view(Et, jI) .* view(Dt, jJ)
+        q .*= Dt
+        D .*= Dt; E .*= Et
+        fill!(Dt, zero(T))
+        for k in eachindex(P)
+            Dt[hI[k]] = max(Dt[hI[k]], P[k]); Dt[hJ[k]] = max(Dt[hJ[k]], P[k])
+        end
+        ct = limit(max(nx > 0 ? sum(Dt) / nx : zero(T), limit(nx > 0 ? maximum(q) : zero(T))))
+        P ./= ct; q ./= ct; c /= ct
+    end
+    return D, E, c
+end
+
 """
     set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, sweeps, lo = 1e-4, hi = 1e4)
 
@@ -812,9 +876,10 @@ point. With H the Hessian of the objective and J the Jacobian at the point where
 give D = diag(D_x, D_c), so that D K D has rows of infinity norm close to one. The variables
 are scaled by D_x (the solver works with x̃ = x ./ D_x), the constraint rows by D_c, and the
 objective by 1 / max(mean column norm of D_x H D_x, ‖D_x ∇f‖∞), as in OSQP. Every factor is
-clamped to [lo, hi] and rounded to a power of 2.
+clamped to [lo, hi] and rounded to a power of 2. With `osqp = true` the factors are instead
+OSQP's ([`_osqp_scaling`](@ref)).
 """
-function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, sweeps, lo = 1e-4, hi = 1e4) where {T}
+function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, sweeps, lo = 1e-4, hi = 1e4; osqp = false) where {T}
     nx, m = cb.nvar, cb.ncon
     x0 = variable(x)
 
@@ -835,34 +900,13 @@ function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, 
     _eval_for_scaling!((x, buf) -> _eval_lag_hess_wrapper!(cb, x, y, buf), hess, xs, x0)
     _eval_for_scaling!((x, buf) -> _eval_grad_f_wrapper!(cb, x, buf), cb.grad_buffer, xs, x0)
 
-    # symmetric pattern of |K| with both triangles, on the host
     hI, hJ, jI, jJ = Array(cb.hess_I), Array(cb.hess_J), Array(cb.jac_I), Array(cb.jac_J)
     hv, jv = abs.(Array(hess)), abs.(Array(jac))
-    rows = vcat(hI, hJ, jI .+ nx, jJ)
-    cols = vcat(hJ, hI, jJ, jI .+ nx)
-    vals = vcat(hv, hv, jv, jv)
-    K = sparse(rows, cols, vals, nx + m, nx + m, max)
-    d = ones(T, nx + m)
-    dnew = similar(d)
-    for _ in 1:sweeps
-        scaling_sweep!(dnew, d, getcolptr(K), rowvals(K), nonzeros(K), Int[])
-        d, dnew = dnew, d
+    if osqp
+        dx, dc, obj_scale = _osqp_scaling(T, nx, m, hI, hJ, hv, jI, jJ, jv, abs.(Array(cb.grad_buffer)), sweeps)
+    else
+        dx, dc, obj_scale = _ruiz_scaling(T, nx, m, hI, hJ, hv, jI, jJ, jv, Array(cb.grad_buffer), sweeps, lo, hi)
     end
-    d .= _ruiz_factor.(d, lo, hi)
-    dx = d[1:nx]
-    dc = d[nx+1:end]
-
-    # objective: 1 / max(mean column norm of D_x H D_x, ‖D_x ∇f‖∞), as in OSQP
-    g = Array(cb.grad_buffer) .* dx
-    colmax = zeros(T, nx)
-    for k in eachindex(hv)
-        v = hv[k] * dx[hI[k]] * dx[hJ[k]]
-        colmax[hI[k]] = max(colmax[hI[k]], v)
-        colmax[hJ[k]] = max(colmax[hJ[k]], v)
-    end
-    c = max(nx > 0 ? sum(colmax) / nx : zero(T), nx > 0 ? maximum(abs, g) : zero(T))
-    # a tiny or infinite norm leaves the objective unscaled
-    obj_scale = (c < T(lo) || !isfinite(c)) ? one(T) : _ruiz_factor(one(T) / c, lo, hi)
 
     cb.obj_scale[] = obj_scale
     copyto!(cb.var_scale, dx)
