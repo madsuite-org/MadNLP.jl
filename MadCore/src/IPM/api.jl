@@ -82,6 +82,7 @@ function get_inf_du_unscaled(solver::AbstractMadNLPSolver{T}) where {T}
     buf .= full(get_f(solver)) .- full(get_zl(solver)) .+ full(get_zu(solver)) .+ get_jacl(solver)
     nx = length(variable(get_x(solver)))
     view(buf, nx+1:length(buf)) .*= view(cb.con_scale, get_ind_ineq(solver))
+    _div_var_scale!(cb, view(buf, 1:nx))
     return norm(buf, Inf) / cb.obj_scale[]
 end
 
