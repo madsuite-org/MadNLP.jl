@@ -167,7 +167,7 @@ function build_kkt!(kkt::DenseCondensedKKTSystem{T, VT, MT}) where {T, VT, MT}
 
     # Build √Σₛ * J
     Σs = view(kkt.pr_diag, n+1:n+ns)
-    Σd = @view(kkt.du_diag[kkt.ind_ineq])
+    Σd = @inbounds(view(kkt.du_diag, kkt.ind_ineq))
     kkt.diag_buffer .= Σs ./ ( 1 .- Σd .* Σs)
     _build_ineq_jac!(kkt.jac_ineq, kkt.jac, kkt.diag_buffer, kkt.ind_ineq, n, ns)
 

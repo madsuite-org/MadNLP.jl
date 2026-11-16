@@ -171,20 +171,21 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     # J_Sᵀ D_S r_S to the primal block, the kept rows enter the border
     kkt.buffer .= wz .+ ws ./ Σs
     kkt.buffer3 .= kkt.diag_buffer .* kkt.buffer
-    view(kkt.buffer3, b.ind_D) .= zero(T)
+    @inbounds(view(kkt.buffer3, b.ind_D)) .= zero(T)
     pdx = view(b.pd_buffer, 1:n)
     pdy = view(b.pd_buffer, (n + 1):(n + mD))
     pdx .= wx
     mul!(pdx, kkt.jt_csc, kkt.buffer3, one(T), one(T))
-    pdy .= view(kkt.buffer, b.ind_D)
+    pdy .= @inbounds(view(kkt.buffer, b.ind_D))
 
     solve_linear_system!(kkt.linear_solver, b.pd_buffer)
 
     wx .= pdx
     # multipliers: recovered for the condensed rows, solved for the kept rows
     mul!(kkt.buffer2, kkt.jt_csc', wx)
-    view(wz, b.ind_S) .= view(kkt.diag_buffer, b.ind_S) .* (view(kkt.buffer2, b.ind_S) .- view(kkt.buffer, b.ind_S))
-    view(wz, b.ind_D) .= pdy
+    kkt.buffer2 .= kkt.diag_buffer .* (kkt.buffer2 .- kkt.buffer)
+    @inbounds(view(kkt.buffer2, b.ind_D)) .= pdy
+    wz .= kkt.buffer2
     ws .= (ws .+ wz) ./ Σs
 
     finish_aug_solve!(kkt, w)
@@ -224,8 +225,8 @@ function solve_kkt!(
     # Decompose rhs
     wx = view(full(w), 1:n)
     ws = view(full(w), n+1:n+ns)
-    wy = view(full(w), kkt.ind_eq_shifted)
-    wz = view(full(w), kkt.ind_ineq_shifted)
+    wy = @inbounds(view(full(w), kkt.ind_eq_shifted))
+    wz = @inbounds(view(full(w), kkt.ind_ineq_shifted))
 
     x = kkt.pd_buffer
     xx = view(x, 1:n)
@@ -330,12 +331,12 @@ function mul!(w::AbstractKKTVector{T}, kkt::AbstractDenseKKTSystem, x::AbstractK
     wx = @view(primal(w)[1:n])
     ws = @view(primal(w)[n+1:end])
     wy = dual(w)
-    wz = @view(dual(w)[kkt.ind_ineq])
+    wz = @inbounds(view(dual(w), kkt.ind_ineq))
 
     xx = @view(primal(x)[1:n])
     xs = @view(primal(x)[n+1:end])
     xy = dual(x)
-    xz = @view(dual(x)[kkt.ind_ineq])
+    xz = @inbounds(view(dual(x), kkt.ind_ineq))
 
     _symv!('L', alpha, kkt.hess, xx, beta, wx)
     if m > 0  # otherwise, CUDA causes an error
@@ -370,6 +371,6 @@ function mul_hess_blk!(wx, kkt::SparseUnreducedKKTSystem, t)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess_com, :L), @view(t[1:n]))
     fill!(@view(wx[n+1:end]), 0)
     wx .+= t .* kkt.pr_diag
-    wx[ind_lb] .-= @view(t[ind_lb]) .* (kkt.l_lower ./ kkt.l_diag)
-    wx[ind_ub] .-= @view(t[ind_ub]) .* (kkt.u_lower ./ kkt.u_diag)
+    @inbounds(view(wx, ind_lb)) .-= @inbounds(view(t, ind_lb)) .* (kkt.l_lower ./ kkt.l_diag)
+    return @inbounds(view(wx, ind_ub)) .-= @inbounds(view(t, ind_ub)) .* (kkt.u_lower ./ kkt.u_diag)
 end

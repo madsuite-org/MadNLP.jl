@@ -188,17 +188,17 @@ function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
     c = VT(undef, m)
     rhs = VT(undef, m)
 
-    c_slk = view(c,cb.ind_ineq)
-    x_lr = view(full(x), cb.ind_lb)
-    x_ur = view(full(x), cb.ind_ub)
-    xl_r = view(full(xl), cb.ind_lb)
-    xu_r = view(full(xu), cb.ind_ub)
-    zl_r = view(full(zl), cb.ind_lb)
-    zu_r = view(full(zu), cb.ind_ub)
-    x_trial_lr = view(full(x_trial), cb.ind_lb)
-    x_trial_ur = view(full(x_trial), cb.ind_ub)
-    dx_lr = view(d.xp, cb.ind_lb) # TODO
-    dx_ur = view(d.xp, cb.ind_ub) # TODO
+    c_slk = @inbounds(view(c, cb.ind_ineq))
+    x_lr = @inbounds(view(full(x), cb.ind_lb))
+    x_ur = @inbounds(view(full(x), cb.ind_ub))
+    xl_r = @inbounds(view(full(xl), cb.ind_lb))
+    xu_r = @inbounds(view(full(xu), cb.ind_ub))
+    zl_r = @inbounds(view(full(zl), cb.ind_lb))
+    zu_r = @inbounds(view(full(zu), cb.ind_ub))
+    x_trial_lr = @inbounds(view(full(x_trial), cb.ind_lb))
+    x_trial_ur = @inbounds(view(full(x_trial), cb.ind_ub))
+    dx_lr = @inbounds(view(d.xp, cb.ind_lb)) # TODO
+    dx_ur = @inbounds(view(d.xp, cb.ind_ub)) # TODO
 
     inertia_correction_method = if ipm_opt.inertia_correction_method == InertiaAuto
         is_inertia(kkt.linear_solver)::Bool ? InertiaBased : InertiaFree

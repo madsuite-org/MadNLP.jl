@@ -106,7 +106,7 @@ function scaling_sweep!(dnew::Vector, d, colptr, rowval, absnz, long_cols)
 end
 
 function update_scaling!(M::ScaledShiftedSolver{T}, ::JacobiScaler) where {T}
-    a = view(scaling_nzval(M.A), M.adiag)
+    a = @inbounds(view(scaling_nzval(M.A), M.adiag))
     M.d .= ifelse.(a .== 0, one(T), one(T) ./ sqrt.(abs.(a)))
     return
 end
@@ -125,7 +125,7 @@ end
 
 function factorize!(M::ScaledShiftedSolver{T}) where {T}
     update_scaling!(M, M.scaler)
-    scaling_nzval(M.fac) .= scaling_nzval(M.A) .* view(M.d, M.arow) .* view(M.d, M.acol)
+    scaling_nzval(M.fac) .= scaling_nzval(M.A) .* @inbounds(view(M.d, M.arow)) .* @inbounds(view(M.d, M.acol))
     np = M.n_primal
     iszero(M.primal_shift) || (view(scaling_nzval(M.fac), view(M.adiag, 1:np)) .+= M.primal_shift)
     iszero(M.dual_shift) || (view(scaling_nzval(M.fac), view(M.adiag, (np + 1):length(M.adiag))) .-= M.dual_shift)

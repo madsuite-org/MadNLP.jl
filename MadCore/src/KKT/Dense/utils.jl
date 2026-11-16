@@ -18,7 +18,7 @@ function jtprod!(y::AbstractVector, kkt::AbstractDenseKKTSystem, x::AbstractVect
     # / x
     mul!(yx, kkt.jac', x)
     # / s
-    ys .= -@view(x[ind_ineq])
+    ys .= -@inbounds(view(x, ind_ineq))
     return
 end
 

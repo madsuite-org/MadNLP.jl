@@ -12,9 +12,9 @@ function reset_slacks!(solver::AbstractMadNLPSolver{T}) where {T}
     xl = slack(get_xl(solver))
     xu = slack(get_xu(solver))
     c = get_c_trial(solver)
-    cs = view(c, get_ind_ineq(solver))
+    cs = @inbounds(view(c, get_ind_ineq(solver)))
     w = dual(get__w1(solver))
-    ws = view(w, get_ind_ineq(solver))
+    ws = @inbounds(view(w, get_ind_ineq(solver)))
 
     # equality rows
     w .= c

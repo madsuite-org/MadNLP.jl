@@ -452,19 +452,19 @@ nzval(H) = H.nzval
 
     b = convert(IV, findall(x->x[1] == -1, sym))
     dptr = similar(sym, Tuple{Int32,Int32}, length(b))
-    map!((x,y)->(Int32(x),Int32(y[2])), dptr, @view(guide[b]), @view(sym[b]))
+    map!((x, y) -> (Int32(x), Int32(y[2])), dptr, @inbounds(view(guide, b)), @inbounds(view(sym, b)))
 
     b = convert(IV, findall(x->x[1] == 0, sym))
     hptr = similar(sym, Tuple{Int32,Int32}, length(b))
-    map!((x,y)->(Int32(x),Int32(y[2])), hptr, @view(guide[b]), @view(sym[b]))
+    map!((x, y) -> (Int32(x), Int32(y[2])), hptr, @inbounds(view(guide, b)), @inbounds(view(sym, b)))
 
     b = convert(IV, findall(x->x[1] != -1 && x[1] != 0, sym))
     jptr = similar(sym, Tuple{Int32,eltype(sym)}, length(b))
-    map!((x,y)->(Int32(x),y), jptr, @view(guide[b]), @view(sym[b]))
+    map!((x, y) -> (Int32(x), y), jptr, @inbounds(view(guide, b)), @inbounds(view(sym, b)))
 
     ptr = convert(IV, findall(bitarray))
     rowval = similar(sym2, Int32, length(ptr))
-    map!(((row,col),)->Int32(row), rowval, @view(sym2[ptr]))
+    map!(((row, col),) -> Int32(row), rowval, @inbounds(view(sym2, ptr)))
 
     by2(x,y) = x[2] != y[2]
     bitarray[2:end] .= by2.(@view(sym2[1:end-1]),  @view(sym2[2:end]))
@@ -560,12 +560,12 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
         return
     end
     # condensed block of the sparse rows, then the border
-    nonzeros(b.jt_s) .= view(nonzeros(kkt.jt_csc), b.smap)
-    b.dbuf_s .= view(kkt.diag_buffer, b.ind_S)
+    nonzeros(b.jt_s) .= @inbounds(view(nonzeros(kkt.jt_csc), b.smap))
+    b.dbuf_s .= @inbounds(view(kkt.diag_buffer, b.ind_S))
     _build_condensed_aug_coord!(kkt, b.aug_c, b.jt_s, b.dbuf_s)
-    view(nonzeros(kkt.aug_com), b.cmap) .= nonzeros(b.aug_c)
-    view(nonzeros(kkt.aug_com), b.dmap_pos) .= view(nonzeros(kkt.jt_csc), b.dmap_src)
-    view(nonzeros(kkt.aug_com), b.epos) .= view(Σd, b.ind_D) .- 1 ./ view(Σs, b.ind_D) .- b.delta[1]
+    @inbounds(view(nonzeros(kkt.aug_com), b.cmap)) .= nonzeros(b.aug_c)
+    @inbounds(view(nonzeros(kkt.aug_com), b.dmap_pos)) .= @inbounds(view(nonzeros(kkt.jt_csc), b.dmap_src))
+    @inbounds(view(nonzeros(kkt.aug_com), b.epos)) .= @inbounds(view(Σd, b.ind_D)) .- 1 ./ @inbounds(view(Σs, b.ind_D)) .- b.delta[1]
     return
 end
 

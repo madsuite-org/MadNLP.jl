@@ -391,7 +391,7 @@ function MadCore.jtprod!(y::VT, kkt::GPUSchurComplementKKTSystem, x::VT) where {
     yx = view(y, 1:nx)
     ys = view(y, 1+nx:nx+ns_ineq)
     mul!(yx, kkt.jt_csc, x)
-    ys .= -@view(x[kkt.ind_ineq])
+    ys .= -@inbounds(view(x, kkt.ind_ineq))
     return
 end
 
@@ -417,7 +417,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
     # Compute condensing diagonal for inequalities
     if kkt.n_ineq > 0
         Sigma_s = view(kkt.pr_diag, n+1:n+kkt.n_ineq)
-        Sigma_d = @view(kkt.du_diag[kkt.ind_ineq])
+        Sigma_d = @inbounds(view(kkt.du_diag, kkt.ind_ineq))
         kkt.diag_buffer .= Sigma_s ./ (one(T) .- Sigma_d .* Sigma_s)
     end
 
@@ -641,17 +641,17 @@ function MadCore.solve_kkt!(
     if kkt.n_ineq > 0
         # Stash eq duals; mul! below overwrites all of wy.
         # Vectorized GPU gather/scatter — no @allowscalar.
-        copyto!(kkt.wy_eq_buf, view(wy, kkt.eq_global_indices))
+        copyto!(kkt.wy_eq_buf, @inbounds(view(wy, kkt.eq_global_indices)))
 
         # J * Δx
         mul!(wy, kkt.jt_csc', wx)
 
         # Restore equality duals
-        view(wy, kkt.eq_global_indices) .= kkt.wy_eq_buf
+        @inbounds(view(wy, kkt.eq_global_indices)) .= kkt.wy_eq_buf
 
         # Inequality dual recovery
         wy[kkt.ind_ineq] .= kkt.diag_buffer .* wy[kkt.ind_ineq] .- kkt.buffer[kkt.ind_ineq]
-        ws .= (ws .+ view(wy, kkt.ind_ineq)) ./ Sigma_s
+        ws .= (ws .+ @inbounds(view(wy, kkt.ind_ineq))) ./ Sigma_s
     end
 
     MadCore.finish_aug_solve!(kkt, w)
@@ -674,7 +674,7 @@ function MadCore.mul!(
 
     xx = @view(MadCore.primal(x)[1:n])
     xs = @view(MadCore.primal(x)[n+1:end])
-    xz = @view(MadCore.dual(x)[kkt.ind_ineq])
+    xz = @inbounds(view(MadCore.dual(x), kkt.ind_ineq))
 
     wx .= beta .* wx
     mul!(wx, Symmetric(kkt.hess_csc, :L), xx, alpha, one(T))
@@ -687,7 +687,7 @@ function MadCore.mul!(
         wy .= beta .* wy
     end
     ws .= beta .* ws .- alpha .* xz
-    @view(MadCore.dual(w)[kkt.ind_ineq]) .-= alpha .* xs
+    @inbounds(view(MadCore.dual(w), kkt.ind_ineq)) .-= alpha .* xs
     MadCore._kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
