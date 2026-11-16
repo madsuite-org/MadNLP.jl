@@ -861,8 +861,8 @@ function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, 
         colmax[hJ[k]] = max(colmax[hJ[k]], v)
     end
     c = max(nx > 0 ? sum(colmax) / nx : zero(T), nx > 0 ? maximum(abs, g) : zero(T))
-    c = c < T(lo) ? one(T) : min(c, T(hi))
-    obj_scale = isfinite(c) ? _ruiz_factor(one(T) / c, lo, hi) : one(T)
+    # a tiny or infinite norm leaves the objective unscaled
+    obj_scale = (c < T(lo) || !isfinite(c)) ? one(T) : _ruiz_factor(one(T) / c, lo, hi)
 
     cb.obj_scale[] = obj_scale
     copyto!(cb.var_scale, dx)
