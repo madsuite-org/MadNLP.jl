@@ -195,11 +195,11 @@ max\\_wall\\_time               | 1e6                  | maximum wall time in se
 acceptable\\_tol               | 1e-6                 | acceptable tolerance on KKT residual
 acceptable\\_iter              | 15                   | number of acceptable iterates before stopping algorithm
 dual\\_inf\\_tol               | 1.0                  | termination tolerance on the dual infeasibility of the unscaled problem
-constr\\_viol\\_tol            | 1e-4                 | termination tolerance on the constraint violation of the unscaled problem
-compl\\_inf\\_tol              | 1e-4                 | termination tolerance on the complementarity of the unscaled problem
+constr\\_viol\\_tol            | max(1e-4, √t)        | termination tolerance on the constraint violation of the unscaled problem; t is the default `tol` of the precision (1e-8 in `Float64`)
+compl\\_inf\\_tol              | max(1e-4, √t)        | termination tolerance on the complementarity of the unscaled problem; t is the default `tol` of the precision (1e-8 in `Float64`)
 acceptable\\_dual\\_inf\\_tol    | 1e10                 | acceptable tolerance on the dual infeasibility of the unscaled problem
-acceptable\\_constr\\_viol\\_tol | 1e-2                 | acceptable tolerance on the constraint violation of the unscaled problem
-acceptable\\_compl\\_inf\\_tol   | 1e-2                 | acceptable tolerance on the complementarity of the unscaled problem
+acceptable\\_constr\\_viol\\_tol | max(1e-2, t^(1/4))   | acceptable tolerance on the constraint violation of the unscaled problem; t is the default `tol` of the precision (1e-8 in `Float64`)
+acceptable\\_compl\\_inf\\_tol   | max(1e-2, t^(1/4))   | acceptable tolerance on the complementarity of the unscaled problem; t is the default `tol` of the precision (1e-8 in `Float64`)
 diverging\\_iterates\\_tol     | 1e20                | threshold on KKT residual to declare algorithm as diverging
 s\\_max                        | 100.0                | scaling threshold for KKT residual
 ||
@@ -298,12 +298,14 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # Termination options
     acceptable_tol::T = 1e-6
     acceptable_iter::Int = 15
+    # Ipopt's defaults in Float64. In a lower precision, whose default tolerance t is larger than
+    # 1e-8, they follow sqrt(t) and t^(1/4) so that the unscaled test stays within reach.
     dual_inf_tol::T = 1.
-    constr_viol_tol::T = 1e-4
-    compl_inf_tol::T = 1e-4
+    constr_viol_tol::T = max(1e-4, sqrt(get_tolerance(T, Any)))
+    compl_inf_tol::T = max(1e-4, sqrt(get_tolerance(T, Any)))
     acceptable_dual_inf_tol::T = 1e10
-    acceptable_constr_viol_tol::T = 1e-2
-    acceptable_compl_inf_tol::T = 1e-2
+    acceptable_constr_viol_tol::T = max(1e-2, sqrt(sqrt(get_tolerance(T, Any))))
+    acceptable_compl_inf_tol::T = max(1e-2, sqrt(sqrt(get_tolerance(T, Any))))
     diverging_iterates_tol::T = 1e20
     max_iter::Int = 3000
     max_wall_time::T = 1e6

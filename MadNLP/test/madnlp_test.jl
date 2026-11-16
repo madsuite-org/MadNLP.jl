@@ -502,8 +502,10 @@ end
 
 @testset "Restoration converged at a feasible point" begin
     # robust! entered at the solution of a feasible problem converges at a feasible point.
+    # Whether it converges there at once depends on the objective scaling; x0 = [0, 1] is inside
+    # the bounds, so the scaling is the same whether computed before or after the bound push.
     function solved()
-        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [1.0, 1.0]); print_level = MadNLP.ERROR)
+        solver = MadNLPSolver(MadNLPTests.HS15Model(; x0 = [0.0, 1.0]); print_level = MadNLP.ERROR)
         @test MadNLP.solve!(solver).status == MadNLP.SOLVE_SUCCEEDED
         solver.opt.max_iter = 2000
         return solver
