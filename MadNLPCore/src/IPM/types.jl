@@ -199,3 +199,35 @@ end
 function LOQOUpdate(tol::T, barrier_tol_factor) where T
     return LOQOUpdate{T}(; mu_min=min(1e-4, tol ) / (barrier_tol_factor + 1))
 end
+
+"""
+    HybridUpdate{T, A <: AbstractAdaptiveUpdate{T}} <: AbstractBarrierUpdate{T}
+
+Update the barrier parameter with the monotone rule, and switch to the adaptive rule `adaptive`
+when the monotone rule stalls: when the barrier parameter has not decreased for `stall_iter`
+iterations. The adaptive rule keeps control while the iterates make progress in the sense of
+its filter test; when they stop making progress, the monotone rule resumes from the average
+complementarity. With `return_kkt_factor < 1`, the monotone rule also resumes once the KKT
+error has decreased by that factor since the switch.
+
+The monotone rule uses the parameters `mu_min`, `mu_superlinear_decrease_power` and
+`mu_linear_decrease_factor` of `adaptive`.
+"""
+@kwdef mutable struct HybridUpdate{T, A <: AbstractAdaptiveUpdate{T}} <: AbstractBarrierUpdate{T}
+    adaptive::A = QualityFunctionUpdate{T}()
+    stall_iter::Int = 10
+    return_kkt_factor::T = one(T)
+    # state
+    adaptive_mode::Bool = false
+    iter_since_decrease::Int = 0
+    last_mu::T = T(Inf)
+    kkt_at_switch::T = T(Inf)
+    n_switch::Int = 0
+end
+HybridUpdate{T}(adaptive::AbstractAdaptiveUpdate, args...) where T =
+    HybridUpdate{T, typeof(parse_option(AbstractBarrierUpdate{T}, adaptive))}(parse_option(AbstractBarrierUpdate{T}, adaptive), args...)
+HybridUpdate(adaptive::AbstractAdaptiveUpdate{T}; kwargs...) where T = HybridUpdate{T, typeof(adaptive)}(; adaptive, kwargs...)
+function Base.getproperty(h::HybridUpdate, name::Symbol)
+    name in fieldnames(HybridUpdate) && return getfield(h, name)
+    return getproperty(getfield(h, :adaptive), name)
+end
