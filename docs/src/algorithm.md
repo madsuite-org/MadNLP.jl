@@ -260,8 +260,10 @@ kkt_system=SparseCondensedKKTSystem
 ```
 Condensing a dense Jacobian row (more than `dense_row_abs` nonzeros, default 512, and more
 than `dense_row_rel` times the number of variables, default 0.1) would turn the condensed
-matrix dense, so `CondensedPreset` solves such a model with `ShiftedPreset` instead
-(`dense_row_fallback = false` keeps the condensed system).
+matrix dense, and rows whose squared nonzero counts add up to more than `dense_fill_rel` times
+the size of the augmented matrix (default 20) would make it far larger than that matrix, so
+`CondensedPreset` solves such a model with `ShiftedPreset` instead (`dense_row_fallback = false`
+keeps the condensed system).
 For certain highly structured problem, it may be beneficial to implement
 a [custom KKT system](tutorials/kktsystem.md) to exploit the problem's structure.
 

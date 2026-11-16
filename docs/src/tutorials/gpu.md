@@ -103,9 +103,11 @@ is perturbed:
 results = madnlp(nlp; preset=CondensedPreset)
 nothing
 ```
-A model with a dense Jacobian row (more than `dense_row_abs` nonzeros and `dense_row_rel` times the
-number of variables) is solved with `ShiftedPreset` instead (`dense_row_fallback = false` keeps the
-condensed preset). The condensed system is more ill-conditioned than the augmented one, so
+A model whose condensed matrix would be dense or far larger than the augmented one (a Jacobian row
+with more than `dense_row_abs` nonzeros and `dense_row_rel` times the number of variables, or rows
+whose squared nonzero counts add up to more than `dense_fill_rel` times the size of the augmented
+matrix) is solved with `ShiftedPreset` instead (`dense_row_fallback = false` keeps the condensed
+preset). The condensed system is more ill-conditioned than the augmented one, so
 the convergence can differ from what we observe on the CPU.
 
 
