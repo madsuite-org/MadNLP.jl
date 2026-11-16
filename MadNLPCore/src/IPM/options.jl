@@ -366,7 +366,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     bound_fac::T = 1e-2
     nlp_scaling::Bool = true
     nlp_scaling_max_gradient::T = 100.
-    nlp_scaling_method::Symbol = :gradient
+    nlp_scaling_method::Symbol = :osqp
     nlp_scaling_ruiz_sweeps::Int = 10
     nlp_scaling_ruiz_min::T = 1e-4
     nlp_scaling_ruiz_max::T = 1e4
