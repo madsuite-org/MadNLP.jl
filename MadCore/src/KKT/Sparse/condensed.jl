@@ -39,6 +39,7 @@ Implement the [`AbstractCondensedKKTSystem`](@ref) in sparse COO format.
     enabled::Bool
     tol::T                  # relative to the right-hand side
     max_iter::Int
+    reg::T                  # dual regularization τ of the system CG solves, as a fraction of the equality shift
     y::VT                   # m-vectors, zero on the inequality rows
     r::VT
     p::VT
@@ -133,8 +134,9 @@ function create_kkt_system(
     equality_shift_watchdog_hold::Int = 100,
     equality_shift_watchdog_ratio::Float64 = 0.5,
     equality_cg::Bool = false,
-    equality_cg_tol::Float64 = 1e-6,
-    equality_cg_max_iter::Int = 10,
+    equality_cg_tol::Float64 = 1e-3,
+    equality_cg_max_iter::Int = 20,
+    equality_cg_reg::Float64 = 1e-2,
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     n = cb.nvar
@@ -206,7 +208,7 @@ function create_kkt_system(
             window = equality_shift_watchdog_window, hold = equality_shift_watchdog_hold, ratio = equality_shift_watchdog_ratio,
         ),
         SchurCG{T, VT}(;
-            enabled = equality_cg, tol = T(equality_cg_tol), max_iter = equality_cg_max_iter,
+            enabled = equality_cg, tol = T(equality_cg_tol), max_iter = equality_cg_max_iter, reg = T(equality_cg_reg),
             y = VT(undef, m), r = VT(undef, m), p = VT(undef, m), q = VT(undef, m), ybest = VT(undef, m), z = VT(undef, n),
         ),
         cb.ind_lb, cb.ind_ub,
@@ -214,20 +216,25 @@ function create_kkt_system(
     )
 end
 
-# q = S v for the dual Schur complement S = J_eq K⁻¹ J_eqᵀ of the condensed matrix; v and q are
-# m-vectors, zero on the inequality rows
+# q = (S + τ) v for the dual Schur complement S = J_eq K⁻¹ J_eqᵀ of the condensed matrix and the
+# dual regularization τ = reg δ (per row, reg / D); v and q are m-vectors, zero on the inequality rows
 function _schur_apply!(q, kkt::SparseCondensedKKTSystem{T}, v) where {T}
     z = kkt.schur_cg.z
     mul!(z, jac_op(kkt, 'T'), v)
     solve_linear_system!(kkt.linear_solver, z)
     mul!(q, jac_op(kkt, 'N'), z)
+    q .+= (kkt.schur_cg.reg ./ kkt.diag_buffer) .* v
     view(q, kkt.ind_ineq) .= zero(T)
     return q
 end
 
 # After the shifted condensed solve (wx = dx_s, buffer the folded right-hand side, buffer2 = J dx_s,
-# wz = D (J dx_s - r)): the exact multipliers of the equality rows by CG on S y = J_eq dx_s - r_eq,
-# then dx = dx_s - K⁻¹ J_eqᵀ y, the multipliers of the inequality rows recomputed from it.
+# wz = D (J dx_s - r)): the multipliers of the equality rows under the dual regularization τ = reg δ
+# instead of δ, by CG on (S + τ) y = J_eq dx_s - r_eq (τ = 0 would be the exact unshifted system,
+# whose multipliers are unbounded along nearly dependent constraints; τ = δ gives the shifted solve
+# back), then dx = dx_s - K⁻¹ J_eqᵀ c y with c = 1 - τ / δ, the multipliers of the inequality rows
+# recomputed from it. The outer Richardson refinement, on the unshifted system, then stagnates only
+# where σ ≪ τ instead of σ ≪ δ.
 function schur_cg!(kkt::SparseCondensedKKTSystem{T}, wx, wz) where {T}
     cg = kkt.schur_cg
     y, r, p, q, yb = cg.y, cg.r, cg.p, cg.q, cg.ybest
@@ -282,10 +289,11 @@ function schur_cg!(kkt::SparseCondensedKKTSystem{T}, wx, wz) where {T}
             view(y, kkt.ind_ineq) .= zero(T)
         end
     end
-    # dx = dx_s - K⁻¹ J_eqᵀ y, then the multipliers D (J dx - r) + y: with this pairing the primal
-    # block of the KKT system holds exactly whatever CG reached (K dx = r1 + Jᵀ D r3 - J_eqᵀ y), and
-    # the equality residual J_eq dx - r_eq is the residual CG left, never more than the shifted solve's
+    # dx = dx_s - K⁻¹ J_eqᵀ c y, then the multipliers D (J dx - r) + c y: with this pairing the primal
+    # block of the KKT system holds exactly whatever CG reached (K dx = r1 + Jᵀ D r3 - J_eqᵀ c y), and
+    # the equality residual is the residual CG left plus τ y
     z = cg.z
+    y .*= one(T) .- cg.reg   # c y: τ / δ_row = reg for every equality row
     mul!(z, jac_op(kkt, 'T'), y)
     solve_linear_system!(kkt.linear_solver, z)
     wx .-= z
