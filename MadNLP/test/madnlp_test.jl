@@ -28,6 +28,21 @@ testset = [
         []
     ],
     [
+        "SparseKKTSystem + Ruiz NLP scaling",
+        ()->MadNLP.Optimizer(
+            nlp_scaling_method=:ruiz,
+            print_level=MadNLP.ERROR),
+        []
+    ],
+    [
+        "ShiftedPreset + Ruiz NLP scaling",
+        ()->MadNLP.Optimizer(
+            preset=MadNLP.ShiftedPreset,
+            nlp_scaling_method=:ruiz,
+            print_level=MadNLP.ERROR),
+        []
+    ],
+    [
         "ScaledSparseKKTSystem + LapackCPU",
         ()->MadNLP.Optimizer(
             linear_solver=MadNLP.LapackCPUSolver,

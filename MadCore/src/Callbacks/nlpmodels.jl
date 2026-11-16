@@ -167,6 +167,11 @@ struct SparseCallback{
     obj_sign::T
     con_scale::VT
     jac_scale::VT
+    # Variable scaling, set by `nlp_scaling_method = :ruiz`: the solver works with x̃ = x ./ var_scale.
+    var_scale::VT
+    hess_scale::VT
+    x_buffer::VT
+    var_scaled::Base.RefValue{Bool}
 
     fixed_handler::FH
     equality_handler::EH
@@ -455,6 +460,12 @@ function create_callback(
 
     jac_scale = similar(jac_buffer, nnzj)
     fill!(jac_scale, one(T))
+    var_scale = similar(x0, nx)
+    fill!(var_scale, one(T))
+    hess_scale = similar(x0, nnzh)
+    fill!(hess_scale, one(T))
+    x_buffer = similar(x0, nx)
+    fill!(x_buffer, zero(T))
     con_buffer = similar(x0, m)
     fill!(con_buffer, zero(T))
     grad_buffer = similar(x0, nx)
@@ -495,6 +506,10 @@ function create_callback(
         get_minimize(nlp) ? one(T) : -one(T),
         con_scale,
         jac_scale,
+        var_scale,
+        hess_scale,
+        x_buffer,
+        Ref(false),
         fixed_handler,
         equality_handler,
         indexes.ind_eq,
@@ -657,10 +672,11 @@ function unpack_cons!(c_full::AbstractVector, cb::AbstractCallback, c::AbstractV
     c_full .= c ./ cb.con_scale
 end
 function unpack_x!(x_full, cb::AbstractCallback, x)
-    x_full .= x
+    x_full .= _model_x(cb, x)
 end
 function unpack_z!(z_full, cb::AbstractCallback, z)
     z_full .= z .* (cb.obj_sign / cb.obj_scale[])
+    _div_var_scale!(cb, z_full)
 end
 function unpack_y!(y_full, cb::AbstractCallback, y)
     y_full .= (y .* cb.con_scale) .* (cb.obj_sign / cb.obj_scale[])
@@ -687,12 +703,13 @@ function get_uvar(cb::SparseCallback{T, VT, VI, NLP, FH}) where {T, VT, VI, NLP,
     return xu[free]
 end
 function unpack_x!(x_full, cb::SparseCallback{T, VT, VI, NLP, FH}, x) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    _update_x!(cb.fixed_handler, _model_x(cb, x))
     x_full .= cb.fixed_handler.x_full
 end
 function unpack_z!(z_full, cb::SparseCallback{T, VT, VI, NLP, FH}, z) where {T, VT, VI, NLP, FH<:MakeParameter}
     free = cb.fixed_handler.free
     z_full[free] .= z .* (cb.obj_sign / cb.obj_scale[])
+    _div_var_scale!(cb, view(z_full, free))
 end
 
 
@@ -741,8 +758,12 @@ function set_scaling!(
     y0,
     rhs,
     ind_ineq,
-    nlp_scaling_max_gradient,
+    nlp_scaling_max_gradient;
+    method::Symbol = :gradient,
+    ruiz_sweeps::Int = 10,
 )
+    method === :ruiz && return set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, ruiz_sweeps)
+    method === :gradient || error("nlp_scaling_method must be :gradient or :ruiz")
     x0 = variable(x)
 
     nlp = cb.nlp
@@ -771,6 +792,99 @@ function set_scaling!(
     return
 end
 
+# Bounds on the Ruiz scaling factors, as in OSQP, Clarabel and HiGHS's interior-point solver.
+const RUIZ_MIN_SCALING = 1e-4
+const RUIZ_MAX_SCALING = 1e4
+
+# Clamp a scaling factor to [RUIZ_MIN_SCALING, RUIZ_MAX_SCALING] and round it to a power of 2,
+# so that applying and undoing it is exact.
+_ruiz_factor(d::T) where {T} = T(exp2(round(log2(clamp(d, T(RUIZ_MIN_SCALING), T(RUIZ_MAX_SCALING))))))
+
+"""
+    set_ruiz_scaling!(cb, x, xl, xu, y0, rhs, ind_ineq, sweeps)
+
+Scale the variables, the constraints and the objective by Ruiz equilibration at the starting
+point. With H the Hessian of the objective and J the Jacobian at the point where
+[`_scaling_point`](@ref) puts it, `sweeps` sweeps of symmetric infinity-norm scaling
+([`scaling_sweep!`](@ref), the sweep of `RuizScaler`) of
+
+    K = [H  Jᵀ
+         J  0 ]
+
+give D = diag(D_x, D_c), so that D K D has rows of infinity norm close to one. The variables
+are scaled by D_x (the solver works with x̃ = x ./ D_x), the constraint rows by D_c, and the
+objective by 1 / max(mean column norm of D_x H D_x, ‖D_x ∇f‖∞), as in OSQP. Every factor is
+clamped to [1e-4, 1e4] and rounded to a power of 2.
+"""
+function set_ruiz_scaling!(cb::SparseCallback{T}, x, xl, xu, y0, rhs, ind_ineq, sweeps) where {T}
+    nx, m = cb.nvar, cb.ncon
+    x0 = variable(x)
+
+    # evaluate at the scaling point with every scaling off
+    cb.obj_scale[] = one(T)
+    fill!(cb.con_scale, one(T))
+    fill!(cb.jac_scale, one(T))
+    fill!(cb.var_scale, one(T))
+    fill!(cb.hess_scale, one(T))
+    cb.var_scaled[] = false
+
+    xs = _scaling_point(cb, x0)
+    jac = similar(cb.con_buffer, cb.nnzj)
+    _eval_for_scaling!((x, buf) -> _eval_jac_wrapper!(cb, x, buf), jac, xs, x0)
+    hess = similar(cb.con_buffer, cb.nnzh)
+    y = similar(cb.con_buffer, m)
+    fill!(y, zero(T))
+    _eval_for_scaling!((x, buf) -> _eval_lag_hess_wrapper!(cb, x, y, buf), hess, xs, x0)
+    _eval_for_scaling!((x, buf) -> _eval_grad_f_wrapper!(cb, x, buf), cb.grad_buffer, xs, x0)
+
+    # symmetric pattern of |K| with both triangles, on the host
+    hI, hJ, jI, jJ = Array(cb.hess_I), Array(cb.hess_J), Array(cb.jac_I), Array(cb.jac_J)
+    hv, jv = abs.(Array(hess)), abs.(Array(jac))
+    rows = vcat(hI, hJ, jI .+ nx, jJ)
+    cols = vcat(hJ, hI, jJ, jI .+ nx)
+    vals = vcat(hv, hv, jv, jv)
+    K = sparse(rows, cols, vals, nx + m, nx + m, max)
+    d = ones(T, nx + m)
+    dnew = similar(d)
+    for _ in 1:sweeps
+        scaling_sweep!(dnew, d, getcolptr(K), rowvals(K), nonzeros(K), Int[])
+        d, dnew = dnew, d
+    end
+    d .= _ruiz_factor.(d)
+    dx = d[1:nx]
+    dc = d[nx+1:end]
+
+    # objective: 1 / max(mean column norm of D_x H D_x, ‖D_x ∇f‖∞), as in OSQP
+    g = Array(cb.grad_buffer) .* dx
+    colmax = zeros(T, nx)
+    for k in eachindex(hv)
+        v = hv[k] * dx[hI[k]] * dx[hJ[k]]
+        colmax[hI[k]] = max(colmax[hI[k]], v)
+        colmax[hJ[k]] = max(colmax[hJ[k]], v)
+    end
+    c = max(nx > 0 ? sum(colmax) / nx : zero(T), nx > 0 ? maximum(abs, g) : zero(T))
+    c = c < T(RUIZ_MIN_SCALING) ? one(T) : min(c, T(RUIZ_MAX_SCALING))
+    obj_scale = isfinite(c) ? _ruiz_factor(one(T) / c) : one(T)
+
+    cb.obj_scale[] = obj_scale
+    copyto!(cb.var_scale, dx)
+    copyto!(cb.con_scale, dc)
+    copyto!(cb.jac_scale, dc[jI] .* dx[jJ])
+    copyto!(cb.hess_scale, dx[hI] .* dx[hJ])
+    cb.var_scaled[] = true
+
+    con_scale_slk = @view(cb.con_scale[ind_ineq])
+    y0 ./= cb.con_scale
+    rhs .*= cb.con_scale
+    slack(x) .*= con_scale_slk
+    slack(xl) .*= con_scale_slk
+    slack(xu) .*= con_scale_slk
+    x0 ./= cb.var_scale
+    variable(xl) ./= cb.var_scale
+    variable(xu) ./= cb.var_scale
+    return
+end
+
 function set_scaling!(
     cb::DenseCallback,
     x,
@@ -779,8 +893,11 @@ function set_scaling!(
     y0,
     rhs,
     ind_ineq,
-    nlp_scaling_max_gradient,
+    nlp_scaling_max_gradient;
+    method::Symbol = :gradient,
+    ruiz_sweeps::Int = 10,
 )
+    method === :gradient || error("nlp_scaling_method = :$method needs a SparseCallback")
     x0 = variable(x)
 
     nlp = cb.nlp
@@ -813,12 +930,36 @@ end
     Callbacks: default
 =#
 
+# Variable scaling. With it the solver works with x̃ = x ./ var_scale, so the model is evaluated at
+# x = var_scale .* x̃, its derivatives with respect to x̃ carry a factor var_scale per variable, and
+# bound multipliers are unscaled by dividing by var_scale. Only SparseCallback scales variables.
+is_var_scaled(cb::AbstractCallback) = false
+is_var_scaled(cb::SparseCallback) = cb.var_scaled[]
+function _model_x(cb::AbstractCallback, x)
+    is_var_scaled(cb) || return x
+    cb.x_buffer .= x .* cb.var_scale
+    return cb.x_buffer
+end
+# v .*= var_scale (or ./=), on the variables of the callback's space
+function _mul_var_scale!(cb::AbstractCallback, v)
+    is_var_scaled(cb) && (v .*= cb.var_scale)
+    return v
+end
+function _div_var_scale!(cb::AbstractCallback, v)
+    is_var_scaled(cb) && (v ./= cb.var_scale)
+    return v
+end
+function _mul_hess_scale!(cb::AbstractCallback, h)
+    is_var_scaled(cb) && (h .*= cb.hess_scale)
+    return h
+end
+
 function _eval_f_wrapper(cb::AbstractCallback, x::AbstractVector)
-    return NLPModels.obj(cb.nlp, x) * cb.obj_scale[]
+    return NLPModels.obj(cb.nlp, _model_x(cb, x)) * cb.obj_scale[]
 end
 
 function _eval_cons_wrapper!(cb::AbstractCallback, x::AbstractVector, c::AbstractVector)
-    NLPModels.cons!(cb.nlp, x, c)
+    NLPModels.cons!(cb.nlp, _model_x(cb, x), c)
     c .*= cb.con_scale
     return c
 end
@@ -828,8 +969,9 @@ function _eval_grad_f_wrapper!(
     x::AbstractVector,
     grad::AbstractVector,
 ) where {T}
-    NLPModels.grad!(cb.nlp, x, grad)
+    NLPModels.grad!(cb.nlp, _model_x(cb, x), grad)
     grad .*= cb.obj_scale[]
+    _mul_var_scale!(cb, grad)
     return grad
 end
 
@@ -841,7 +983,8 @@ function _eval_jtprod_wrapper!(
 )
     y = cb.con_buffer
     y .= v .* cb.con_scale
-    NLPModels.jtprod!(cb.nlp, x, y, jvt)
+    NLPModels.jtprod!(cb.nlp, _model_x(cb, x), y, jvt)
+    _mul_var_scale!(cb, jvt)
     return jvt
 end
 
@@ -866,7 +1009,7 @@ function _eval_jac_wrapper!(
     x::AbstractVector,
     jac::AbstractVector,
 ) where {T, VT, VI, NLP, FH}
-    NLPModels.jac_coord!(cb.nlp, x, jac)
+    NLPModels.jac_coord!(cb.nlp, _model_x(cb, x), jac)
     jac .*= cb.jac_scale
     return jac
 end
@@ -897,11 +1040,12 @@ function _eval_lag_hess_wrapper!(
     nnzh_orig = get_nnzh(cb.nlp.meta)
     NLPModels.hess_coord!(
         cb.nlp,
-        x,
+        _model_x(cb, x),
         cb.con_buffer,
         view(hess, 1:nnzh_orig);
         obj_weight = obj_weight * cb.obj_scale[],
     )
+    _mul_hess_scale!(cb, view(hess, 1:nnzh_orig))
     return hess
 end
 
@@ -971,7 +1115,7 @@ function _eval_f_wrapper(
     cb::SparseCallback{T, VT, VI, NLP, FH},
     x::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    _update_x!(cb.fixed_handler, _model_x(cb, x))
     x_full = cb.fixed_handler.x_full
     return NLPModels.obj(cb.nlp, x_full) * cb.obj_scale[]
 end
@@ -981,7 +1125,7 @@ function _eval_cons_wrapper!(
     x::AbstractVector,
     c::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    _update_x!(cb.fixed_handler, _model_x(cb, x))
     x_full = cb.fixed_handler.x_full
     NLPModels.cons!(cb.nlp, x_full, c)
     c .*= cb.con_scale
@@ -993,12 +1137,13 @@ function _eval_grad_f_wrapper!(
     x::AbstractVector,
     grad::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    _update_x!(cb.fixed_handler, _model_x(cb, x))
     x_full = cb.fixed_handler.x_full
     g_full = cb.fixed_handler.g_full
     NLPModels.grad!(cb.nlp, x_full, g_full)
     grad .= g_full[cb.fixed_handler.free]
     grad .*= cb.obj_scale[]
+    _mul_var_scale!(cb, grad)
     return grad
 end
 
@@ -1007,7 +1152,7 @@ function _eval_jac_wrapper!(
     x::AbstractVector,
     jac::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    _update_x!(cb.fixed_handler, _model_x(cb, x))
     nnzj_orig = get_nnzj(cb.nlp.meta)
     jac_full = cb.jac_buffer
     x_full = cb.fixed_handler.x_full
@@ -1024,13 +1169,14 @@ function _eval_jtprod_wrapper!(
     v::AbstractVector,
     jvt::AbstractVector,
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    _update_x!(cb.fixed_handler, _model_x(cb, x))
     x_full = cb.fixed_handler.x_full
     jvt_full = cb.fixed_handler.g_full
     y = cb.con_buffer
     y .= v .* cb.con_scale
     NLPModels.jtprod!(cb.nlp, x_full, y, jvt_full)
     jvt .= jvt_full[cb.fixed_handler.free]
+    _mul_var_scale!(cb, jvt)
     return jvt
 end
 
@@ -1041,7 +1187,7 @@ function _eval_lag_hess_wrapper!(
     hess::AbstractVector;
     obj_weight = one(T),
 ) where {T, VT, VI, NLP, FH<:MakeParameter}
-    _update_x!(cb.fixed_handler, x)
+    _update_x!(cb.fixed_handler, _model_x(cb, x))
     x_full = cb.fixed_handler.x_full
     nnzh_orig = get_nnzh(cb.nlp.meta)
     hess_full = cb.hess_buffer
@@ -1055,6 +1201,7 @@ function _eval_lag_hess_wrapper!(
         obj_weight = obj_weight * cb.obj_scale[],
     )
     hess .= @inbounds(view(hess_full, cb.fixed_handler.ind_hess_free))
+    _mul_hess_scale!(cb, hess)
     return hess
 end
 

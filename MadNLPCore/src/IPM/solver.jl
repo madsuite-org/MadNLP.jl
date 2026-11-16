@@ -65,7 +65,9 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
             get_y(solver),
             get_rhs(solver),
             get_ind_ineq(solver),
-            opt.nlp_scaling_max_gradient
+            opt.nlp_scaling_max_gradient;
+            method = opt.nlp_scaling_method,
+            ruiz_sweeps = opt.nlp_scaling_ruiz_sweeps,
         )
     end
 
@@ -119,6 +121,7 @@ end
 
 function reinitialize!(solver::AbstractMadNLPSolver{T}) where T
     variable(get_x(solver)) .= get_x0(get_nlp(solver))
+    _div_var_scale!(get_cb(solver), variable(get_x(solver)))
 
     set_obj_val!(solver, eval_f_wrapper(solver, get_x(solver)))
     eval_grad_f_wrapper!(solver, get_f(solver), get_x(solver))
