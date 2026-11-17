@@ -210,6 +210,10 @@ its filter test; when they stop making progress, the monotone rule resumes from 
 complementarity. With `return_kkt_factor < 1`, the monotone rule also resumes once the KKT
 error has decreased by that factor since the switch.
 
+With `switch_mu > 0`, the switch is instead made once, when the monotone rule brings the
+barrier parameter to `switch_mu` or below; from then on the adaptive rule runs as it does on its
+own, falling back to the monotone rule when its filter test fails.
+
 The monotone rule uses the parameters `mu_min`, `mu_superlinear_decrease_power` and
 `mu_linear_decrease_factor` of `adaptive`.
 """
@@ -217,6 +221,8 @@ The monotone rule uses the parameters `mu_min`, `mu_superlinear_decrease_power` 
     adaptive::A = QualityFunctionUpdate{T}()
     stall_iter::Int = 10
     return_kkt_factor::T = one(T)
+    # when positive: monotone until μ ≤ switch_mu, then the adaptive rule (with its own fallback) for good
+    switch_mu::T = zero(T)
     # state
     adaptive_mode::Bool = false
     iter_since_decrease::Int = 0

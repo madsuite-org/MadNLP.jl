@@ -176,6 +176,19 @@ end
 function update_barrier!(barrier::HybridUpdate{T}, solver::AbstractMadNLPSolver{T}, sc::T) where T
     adaptive = barrier.adaptive
     old_mu = get_mu(solver)
+    if barrier.switch_mu > 0
+        barrier.adaptive_mode && return update_barrier!(adaptive, solver, sc)
+        _update_monotone!(adaptive, solver, sc)
+        if get_mu(solver) <= barrier.switch_mu
+            @trace(get_logger(solver), "Hybrid barrier: μ reached switch_mu, switching to adaptive mode.")
+            barrier.adaptive_mode = true
+            barrier.n_switch += 1
+            adaptive.free_mode = true
+            set_mu!(solver, get_adaptive_mu(solver, adaptive))
+        end
+        _reset_filter_if_changed!(solver, old_mu)
+        return
+    end
     kkt_error = max(get_inf_pr(solver), get_inf_du(solver), get_inf_compl(solver))
     if barrier.adaptive_mode
         if !_check_progress(adaptive, solver) || kkt_error <= barrier.return_kkt_factor * barrier.kkt_at_switch
