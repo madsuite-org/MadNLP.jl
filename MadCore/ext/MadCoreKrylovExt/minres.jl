@@ -46,6 +46,26 @@
     # orthogonalization, the true residual minimized, tolerant of an inexact preconditioner
     minres_gmres::Bool = false
     minres_gmres_memory::Int = 20
+    # the Krylov method on the symmetrized system: :minres, :minres_qlp (minimum-norm solution on a
+    # nearly singular system), :minares (minimizes the A-residual), :symmlq (the Galerkin iterate,
+    # transferred to the CG point when it exists), :gmres (as minres_gmres), and the positive-definite
+    # methods :cg_lanczos (stops on negative curvature), :cr and :car, which the ±1 spectrum of P⁻¹M
+    # leaves without a guarantee; minres_qlp and minres_gmres take precedence
+    minres_method::Symbol = :minres
+end
+
+_method(opt::MinresOptions) = opt.minres_gmres ? :gmres : opt.minres_qlp ? :minres_qlp : opt.minres_method
+
+function _workspace(method::Symbol, N, VT, opt::MinresOptions)
+    method === :minres && return Krylov.MinresWorkspace(N, N, VT)
+    method === :minres_qlp && return Krylov.MinresQlpWorkspace(N, N, VT)
+    method === :minares && return Krylov.MinaresWorkspace(N, N, VT)
+    method === :symmlq && return Krylov.SymmlqWorkspace(N, N, VT)
+    method === :cg_lanczos && return Krylov.CgLanczosWorkspace(N, N, VT)
+    method === :cr && return Krylov.CrWorkspace(N, N, VT)
+    method === :car && return Krylov.CarWorkspace(N, N, VT)
+    method === :gmres && return Krylov.GmresWorkspace(N, N, VT; memory = opt.minres_gmres_memory)
+    error("minres_method = $method: expected one of :minres, :minres_qlp, :minares, :symmlq, :cg_lanczos, :cr, :car, :gmres")
 end
 
 # The reduced KKT operator on a vector [x; s; y]: the full product of the KKT system on a
@@ -224,8 +244,7 @@ function MinresState(
         sop = SymmetrizedKKTOperator(op, VT(undef, nlb), VT(undef, nub), VT(undef, N))
         sprec = SymmetrizedPreconditioner(prec, sop, VT(undef, N), VT(undef, N))
         N5 = N + nlb + nub
-        workspace = opt.minres_gmres ? Krylov.GmresWorkspace(N5, N5, VT; memory = opt.minres_gmres_memory) :
-            opt.minres_qlp ? Krylov.MinresQlpWorkspace(N5, N5, VT) : Krylov.MinresWorkspace(N5, N5, VT)
+        workspace = _workspace(_method(opt), N5, VT, opt)
         return MinresState(kkt, sop, sprec, workspace, VT(undef, N5), VT(undef, N5), VT(undef, N5), opt, cnt, logger)
     end
     workspace = opt.minres_qlp ? Krylov.MinresQlpWorkspace(N, N, VT) : Krylov.MinresWorkspace(N, N, VT)
@@ -257,33 +276,37 @@ function _minres_cycle!(it::MinresState{T}, max_iter_factor) where {T}
     try
         _minres_cycle_unguarded!(it, max_iter_factor)
     catch e
-        e isa ErrorException || rethrow()
-        @debug(it.logger, "minres cycle: " * e.msg)
+        # Krylov throws an ErrorException when the P-inner product of a residual comes out non-positive;
+        # the positive-definite methods (cr, car) reach a square root of a negative curvature
+        e isa Union{ErrorException, DomainError} || rethrow()
+        @debug(it.logger, "minres cycle: " * sprint(showerror, e))
         return nothing
     end
 end
 function _minres_cycle_unguarded!(it::MinresState{T}, max_iter_factor) where {T}
-    if it.opt.minres_gmres
-        Krylov.gmres!(
-            it.workspace, it.op, it.rhs;
-            N = it.prec, ldiv = true,
-            atol = zero(T), rtol = zero(T),
-            itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
-        )
-    elseif it.opt.minres_qlp
-        Krylov.minres_qlp!(
-            it.workspace, it.op, it.rhs;
-            M = it.prec, ldiv = true,
-            atol = zero(T), rtol = zero(T),
-            itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
-        )
+    method = _method(it.opt)
+    ws, A, b, P = it.workspace, it.op, it.rhs, it.prec
+    z = zero(T)
+    itmax = max_iter_factor * it.opt.minres_max_iter
+    conlim = T(it.opt.minres_conlim)
+    # Krylov's own stopping tests are disabled (atol, rtol, etol, Artol at zero): the cycle runs its
+    # itmax iterations and the loop outside judges it by the true residual
+    if method === :gmres
+        Krylov.gmres!(ws, A, b; N = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
+    elseif method === :minres_qlp
+        Krylov.minres_qlp!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
+    elseif method === :minares
+        Krylov.minares!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, Artol = z, itmax, history = true)
+    elseif method === :symmlq
+        Krylov.symmlq!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, etol = z, conlim, itmax, history = true)
+    elseif method === :cg_lanczos
+        Krylov.cg_lanczos!(ws, A, b; M = P, ldiv = true, check_curvature = true, atol = z, rtol = z, itmax, history = true)
+    elseif method === :cr
+        Krylov.cr!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
+    elseif method === :car
+        Krylov.car!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
     else
-        Krylov.minres!(
-            it.workspace, it.op, it.rhs;
-            M = it.prec, ldiv = true,
-            atol = zero(T), rtol = zero(T), etol = zero(T), conlim = T(it.opt.minres_conlim),
-            itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
-        )
+        Krylov.minres!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, etol = z, conlim, itmax, history = true)
     end
     it.cnt.ir += Krylov.iteration_count(it.workspace)
     st = it.workspace.stats
