@@ -30,14 +30,14 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
         T = oneL0.module_properties(oneAPI.device()).fp64flags == 0 ? Float32 : Float64
         @testset "Option presets for oneVector models, $T" begin
             nlp = MadNLPCore.SparseWrapperModel(oneVector, MadNLPCore.HS15Model(; T))
-            # the default, ShiftedPreset: the augmented system with SparseDirectSolver's static LDLᵀ
+            # the default, ShiftedPreset: the augmented system with SparseDirectSolver's LDLᵀ with diagonal pivoting
             opt = MadNLPCore.MadNLPOptions{T}(nlp)
             @test opt.preset === MadNLPCore.ShiftedPreset
             @test opt.linear_solver === SDSSolver
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem
             @test opt.dual_shift === MadNLPCore.preset_perturbation(T)
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
-            @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :none
+            @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :diagonal
             @test lopt.sds_pivot_epsilon == Float64(MadNLPCore.preset_perturbation(T))
             @test lopt.sds_matching == "algo6" && lopt.sds_deferred_analysis && lopt.sds_ir == 2
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)

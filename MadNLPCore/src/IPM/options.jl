@@ -34,8 +34,8 @@ mu_decrease_max = 10, mu_min = 1e-3 tol)`) and slack reset. On the host the fact
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
 solve is refined by Richardson iterations. The options beyond the linear solver apply to
 `SparseKKTSystem` only. On AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's
-static LDLᵀ after matching, with the same pivot bound and two steps of iterative refinement in
-the solver.
+LDLᵀ with diagonal pivoting inside each front, after matching, with the same pivot bound and two
+steps of iterative refinement in the solver.
 """
 struct ShiftedPreset <: AbstractPreset end
 
@@ -53,7 +53,8 @@ struct AugmentedPreset <: AbstractPreset end
 The condensed KKT system (`SparseCondensedKKTSystem`) with the equality constraints enforced and
 condensed through a dual shift δ (`equality_shift`, 1e-8 in `Float64`): the multiplier of an
 equality row is eliminated with the weight 1 / (δ - Σd), so the condensed matrix is positive
-definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, CHOLMOD on the host) without
+definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, SparseDirectSolver.jl on AMD, Intel and Apple
+GPUs, CHOLMOD on the host) without
 pivoting, with the quality-function barrier rule of [`ShiftedPreset`](@ref) and Richardson
 refinement on the unshifted system. When the factorization reports a wrong inertia, it is retried
 with a larger shift before the Hessian is perturbed (`equality_shift_retry`). A model whose
