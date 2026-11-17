@@ -183,18 +183,62 @@ function print_summary(solver::AbstractMadNLPSolver)
                                 max(get_inf_du(solver)*obj_scale,norm(get_c(solver),Inf),get_inf_compl(solver)),
                                 max(get_inf_du(solver),get_inf_pr(solver),get_inf_compl(solver))))
 
-    @notice(get_logger(solver),"Number of objective function evaluations              = $(get_cnt(solver).obj_cnt)")
-    @notice(get_logger(solver),"Number of objective gradient evaluations              = $(get_cnt(solver).obj_grad_cnt)")
-    @notice(get_logger(solver),"Number of constraint evaluations                      = $(get_cnt(solver).con_cnt)")
-    @notice(get_logger(solver),"Number of constraint Jacobian evaluations             = $(get_cnt(solver).con_jac_cnt)")
-    @notice(get_logger(solver),"Number of Lagrangian Hessian evaluations              = $(get_cnt(solver).lag_hess_cnt)")
-    @notice(get_logger(solver),"Number of KKT factorizations                          = $(get_cnt(solver).factorization_cnt)")
-    @notice(get_logger(solver),"Number of KKT backsolves                              = $(get_cnt(solver).backsolve_cnt)\n")
-    @notice(get_logger(solver),"Total wall secs in initialization                     = $(format_time(get_cnt(solver).init_time))")
-    @notice(get_logger(solver),"Total wall secs in linear solver                      = $(format_time(get_cnt(solver).linear_solver_time))")
-    @notice(get_logger(solver),"Total wall secs in NLP function evaluations           = $(format_time(get_cnt(solver).eval_function_time))")
-    @notice(get_logger(solver),"Total wall secs in solver (w/o init./fun./lin. alg.)  = $(format_time(get_cnt(solver).total_time - get_cnt(solver).init_time - get_cnt(solver).linear_solver_time - get_cnt(solver).eval_function_time))")
-    @notice(get_logger(solver),"Total wall secs                                       = $(format_time(get_cnt(solver).total_time))\n")
+    cnt = get_cnt(solver)
+    logger = get_logger(solver)
+    @notice(logger, "Number of objective function evaluations              = $(cnt.obj_cnt)")
+    @notice(logger, "Number of objective gradient evaluations              = $(cnt.obj_grad_cnt)")
+    @notice(logger, "Number of constraint evaluations                      = $(cnt.con_cnt)")
+    @notice(logger, "Number of constraint Jacobian evaluations             = $(cnt.con_jac_cnt)")
+    @notice(logger, "Number of Lagrangian Hessian evaluations              = $(cnt.lag_hess_cnt)")
+    @notice(logger, "Number of KKT factorizations                          = $(cnt.factorization_cnt)")
+    @notice(logger, "Number of KKT backsolves                              = $(cnt.backsolve_cnt)\n")
+    @notice(logger, "Total wall secs in initialization                     = $(format_time(cnt.init_time))")
+    @notice(logger, "Total wall secs in linear solver                      = $(format_time(cnt.linear_solver_time))")
+    @notice(logger, "Total wall secs in NLP function evaluations           = $(format_time(cnt.eval_function_time))")
+    @notice(logger, "Total wall secs in solver (w/o init./fun./lin. alg.)  = $(format_time(cnt.total_time - cnt.init_time - cnt.linear_solver_time - cnt.eval_function_time))")
+    @notice(logger, "Total wall secs                                       = $(format_time(cnt.total_time))\n")
+    print_profile(solver)
+    return
+end
+
+"""
+    print_profile(solver)
+
+Log the counts and the breakdown of the solve time kept in the solver's `MadNLPCounters`,
+at the `DEBUG` level: what [`print_summary`](@ref) adds when `print_level <= DEBUG`.
+"""
+function print_profile(solver::AbstractMadNLPSolver)
+    cnt = get_cnt(solver)
+    logger = get_logger(solver)
+    phases = cnt.initialize_time + cnt.convergence_time + cnt.barrier_time + cnt.step_setup_time +
+        cnt.inertia_time + cnt.line_search_time + cnt.update_time + cnt.restoration_time
+    @debug(logger, "Number of triangular solves                           = $(cnt.triangular_solve_cnt)")
+    @debug(logger, "Number of KKT matrix-vector products                  = $(cnt.kkt_mul_cnt)")
+    @debug(logger, "Number of restoration phases                          = $(cnt.restoration_cnt)\n")
+    @debug(logger, "Wall secs in NLP function evaluations                 = $(format_time(cnt.eval_function_time))")
+    @debug(logger, "    objective                                         = $(format_time(cnt.eval_obj_time))")
+    @debug(logger, "    objective gradient                                = $(format_time(cnt.eval_grad_time))")
+    @debug(logger, "    constraints                                       = $(format_time(cnt.eval_cons_time))")
+    @debug(logger, "    constraint Jacobian                               = $(format_time(cnt.eval_jac_time))")
+    @debug(logger, "    Lagrangian Hessian                                = $(format_time(cnt.eval_hess_time))")
+    @debug(logger, "Wall secs in linear solver                            = $(format_time(cnt.linear_solver_time))")
+    @debug(logger, "    KKT assembly                                      = $(format_time(cnt.build_kkt_time))")
+    @debug(logger, "    reordering/symbolic                               = $(format_time(cnt.symbolic_time))")
+    @debug(logger, "    KKT factorization                                 = $(format_time(cnt.factorization_time))")
+    @debug(logger, "    KKT solve                                         = $(format_time(cnt.solve_time))")
+    @debug(logger, "        triangular solves                             = $(format_time(cnt.triangular_solve_time))")
+    @debug(logger, "        KKT matrix-vector products                    = $(format_time(cnt.kkt_mul_time))")
+    @debug(logger, "Wall secs in solver phases (w/o fun./lin. alg.)       = $(format_time(phases))")
+    @debug(logger, "    starting point                                    = $(format_time(cnt.initialize_time))")
+    @debug(logger, "    convergence check                                 = $(format_time(cnt.convergence_time))")
+    @debug(logger, "    barrier update                                    = $(format_time(cnt.barrier_time))")
+    @debug(logger, "    KKT system setup                                  = $(format_time(cnt.step_setup_time))")
+    @debug(logger, "    inertia correction                                = $(format_time(cnt.inertia_time))")
+    @debug(logger, "    line search                                       = $(format_time(cnt.line_search_time))")
+    @debug(logger, "    iterate update                                    = $(format_time(cnt.update_time))")
+    @debug(logger, "    restoration                                       = $(format_time(cnt.restoration_time))")
+    @debug(logger, "Wall secs unaccounted                                 = $(format_time(cnt.total_time - cnt.init_time - cnt.eval_function_time - cnt.linear_solver_time - phases))\n")
+    return
 end
 
 format_time(t::Float64) = isnan(t) ? " unavailable" : @sprintf("%6.3f s", t)
