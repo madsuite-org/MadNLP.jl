@@ -128,7 +128,10 @@ function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) whe
         equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
         dual_initialization_method = DualInitializeLeastSquares,
         equality_shift = 100 * preset_perturbation(T),
-        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
+        barrier = HybridUpdate(
+            QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol);
+            switch_mu = T(1e-6),
+        ),
     )
 end
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
