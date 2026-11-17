@@ -23,6 +23,10 @@
     # the dual regularization τ of the equality rows of the system refined toward: 0 is the unshifted
     # system, δ the shifted one; the factorization stays at δ
     minres_dual_reg::Float64 = 0.0
+    # the same as a fraction of the CURRENT equality shift (after a retry the factorization is at 100 δ
+    # or more, and a fixed τ far below it leaves a band too wide for MINRES): τ = max(minres_dual_reg,
+    # minres_dual_reg_ratio δ_current); 0.1 is about what Richardson's truncation amounts to
+    minres_dual_reg_ratio::Float64 = 0.0
     # adaptive dual regularization from MINRES's own estimate of the condition number κ of P⁻¹M (its
     # largest eigenvalue is about 1, so 1/κ is the smallest): when κ exceeds minres_cond_max, the solve
     # is redone toward the target regularized by τ = δ (1 / minres_cond_max - 1 / κ), which lifts the
@@ -285,7 +289,7 @@ function _refine_symmetrized!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_
     view(full(w), (N3 + 1):(N3 + nlb)) .= f.(view(full(w), (N3 + 1):(N3 + nlb)), A.sl)
     view(full(w), (N3 + nlb + 1):N5) .= f.(view(full(w), (N3 + nlb + 1):N5), A.su)
     copyto!(it.rhs, full(w))
-    _target!(A, T(it.opt.minres_dual_reg))
+    _target!(A, max(T(it.opt.minres_dual_reg), T(it.opt.minres_dual_reg_ratio) * T(kkt.eq_shift.current)))
     restarts = 0
     residual_ratio = T(Inf)
     cycle = 0
@@ -358,7 +362,7 @@ function _refine_reduced!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_fact
     MadCore.reduce_rhs!(kkt, x)
     copyto!(it.rhs, view(full(x), 1:N))
     fill!(view(full(x), 1:N), zero(T))
-    _target!(it.op, T(it.opt.minres_dual_reg))
+    _target!(it.op, max(T(it.opt.minres_dual_reg), T(it.opt.minres_dual_reg_ratio) * T(kkt.eq_shift.current)))
     restarts = 0
     residual_ratio = T(Inf)
     cycle = 0
