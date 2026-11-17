@@ -35,6 +35,9 @@
     minres_adaptive_tau::Float64 = -1.0
     # MINRES-QLP instead of MINRES: the minimum-norm solution where the system is nearly singular
     minres_qlp::Bool = false
+    # the symmetrized system in (x, s, y, zl, zu), the bound rows scaled by z^(1/2) (diagonals -(x - xˡ)
+    # and -(xᵘ - x)), instead of the reduced (x, s, y) system with Z/X folded into the primal diagonal
+    minres_symmetrized::Bool = true
 end
 
 # The reduced KKT operator on a vector [x; s; y]: the full product of the KKT system on a
@@ -122,6 +125,68 @@ function ldiv!(w::AbstractVector, P::SymmetrizingPreconditioner{T}, r::AbstractV
     return w
 end
 
+# The symmetrized full system on [x; s; y; v_l; v_u] with dzl = -zl^(1/2) v_l and dzu = zu^(1/2) v_u:
+#   p-rows:   A' p + Jᵀ y (+ the slack couplings) + zl^(1/2) v_l (on ind_lb) + zu^(1/2) v_u (on ind_ub)
+#   v_l-rows: zl^(1/2) p_lb - (x - xˡ) v_l,   v_u-rows: zu^(1/2) p_ub - (xᵘ - x) v_u,
+# A' = H + reg without the Z/X terms, which the elimination of v_l and v_u produces (pr_diag). The
+# right-hand side has r_zl / zl^(1/2) and r_zu / zu^(1/2) on the bound rows (MadNLP's bound rows are
+# zl dx + (x - xˡ) dzl = r_zl and zu dx - (xᵘ - x) dzu = r_zu).
+struct SymmetrizedKKTOperator{T, Op <: ReducedKKTOperator{T}, VT}
+    op::Op
+    sl::VT     # zl^(1/2)
+    su::VT     # zu^(1/2)
+    w3::VT
+end
+Base.size(A::SymmetrizedKKTOperator) = (size(A.op, 1) + length(A.sl) + length(A.su), size(A.op, 1) + length(A.sl) + length(A.su))
+Base.size(A::SymmetrizedKKTOperator, i::Integer) = size(A)[i]
+Base.eltype(::SymmetrizedKKTOperator{T}) where {T} = T
+function _sym_scalings!(A::SymmetrizedKKTOperator)
+    kkt = A.op.kkt
+    A.sl .= sqrt.(kkt.l_lower)
+    A.su .= sqrt.(kkt.u_lower)
+    return A
+end
+function mul!(w::AbstractVector, A::SymmetrizedKKTOperator{T}, v::AbstractVector) where {T}
+    kkt = A.op.kkt
+    N3 = size(A.op, 1); np = A.op.n + A.op.ns; nlb = length(A.sl); nub = length(A.su)
+    v3 = view(v, 1:N3); vl = view(v, (N3 + 1):(N3 + nlb)); vu = view(v, (N3 + nlb + 1):(N3 + nlb + nub))
+    mul!(A.w3, A.op, v3)
+    copyto!(view(w, 1:N3), A.w3)
+    wp = view(w, 1:np); vp = view(v, 1:np)
+    wp .-= (view(kkt.pr_diag, 1:np) .- view(kkt.reg, 1:np)) .* vp        # A' instead of A' + Z/X
+    view(wp, kkt.ind_lb) .+= A.sl .* vl
+    view(wp, kkt.ind_ub) .+= A.su .* vu
+    view(w, (N3 + 1):(N3 + nlb)) .= A.sl .* view(vp, kkt.ind_lb) .+ kkt.l_diag .* vl        # l_diag = xˡ - x
+    view(w, (N3 + nlb + 1):(N3 + nlb + nub)) .= A.su .* view(vp, kkt.ind_ub) .+ kkt.u_diag .* vu   # u_diag = x - xᵘ
+    return w
+end
+
+# P on the full system: the bounds eliminated first (1x1 blocks G_b = l_diag, u_diag, negative), then
+# the reduced preconditioner on what remains: P = U_b U diag(K, |G|, |G_b|) Uᵀ U_bᵀ.
+struct SymmetrizedPreconditioner{T, Prec <: SymmetrizingPreconditioner{T}, Op <: SymmetrizedKKTOperator{T}, VT}
+    prec::Prec
+    op::Op
+    r3::VT
+    w3::VT
+end
+function ldiv!(w::AbstractVector, P::SymmetrizedPreconditioner{T}, r::AbstractVector) where {T}
+    kkt = P.prec.kkt; A = P.op
+    N3 = size(A.op, 1); np = A.op.n + A.op.ns; nlb = length(A.sl); nub = length(A.su)
+    rl = view(r, (N3 + 1):(N3 + nlb)); ru = view(r, (N3 + nlb + 1):(N3 + nlb + nub))
+    # U_b⁻¹ r: r_p - B_bᵀ G_b⁻¹ r_b, with B_b = z^(1/2) and G_b = l_diag (= -(x - xˡ)), u_diag
+    copyto!(P.r3, view(r, 1:N3))
+    rp = view(P.r3, 1:np)
+    view(rp, kkt.ind_lb) .-= A.sl .* rl ./ kkt.l_diag
+    view(rp, kkt.ind_ub) .-= A.su .* ru ./ kkt.u_diag
+    ldiv!(P.w3, P.prec, P.r3)
+    copyto!(view(w, 1:N3), P.w3)
+    wp = view(w, 1:np)
+    # |G_b|⁻¹ r_b - G_b⁻¹ B_b w_p: (r_b + z^(1/2) w_p) / |G_b|
+    view(w, (N3 + 1):(N3 + nlb)) .= (rl .+ A.sl .* view(wp, kkt.ind_lb)) ./ abs.(kkt.l_diag)
+    view(w, (N3 + nlb + 1):(N3 + nlb + nub)) .= (ru .+ A.su .* view(wp, kkt.ind_ub)) ./ abs.(kkt.u_diag)
+    return w
+end
+
 struct MinresState{T, KKT <: AbstractKKTSystem{T}, Op, Prec, W, VT} <: AbstractIterator{T}
     kkt::KKT
     op::Op
@@ -146,6 +211,14 @@ function MinresState(
     op = ReducedKKTOperator(kkt, n, ns, m, UnreducedKKTVector(kkt), UnreducedKKTVector(kkt), T(opt.minres_dual_reg))
     prec = SymmetrizingPreconditioner(kkt, n, ns, m, VT(undef, n), VT(undef, m))
     N = n + ns + m
+    if opt.minres_symmetrized
+        nlb = length(kkt.l_diag); nub = length(kkt.u_diag)
+        sop = SymmetrizedKKTOperator(op, VT(undef, nlb), VT(undef, nub), VT(undef, N))
+        sprec = SymmetrizedPreconditioner(prec, sop, VT(undef, N), VT(undef, N))
+        N5 = N + nlb + nub
+        workspace = opt.minres_qlp ? Krylov.MinresQlpWorkspace(N5, N5, VT) : Krylov.MinresWorkspace(N5, N5, VT)
+        return MinresState(kkt, sop, sprec, workspace, VT(undef, N5), VT(undef, N5), VT(undef, N5), opt, cnt, logger)
+    end
     workspace = opt.minres_qlp ? Krylov.MinresQlpWorkspace(N, N, VT) : Krylov.MinresWorkspace(N, N, VT)
     return MinresState(kkt, op, prec, workspace, VT(undef, N), VT(undef, N), VT(undef, N), opt, cnt, logger)
 end
@@ -159,7 +232,119 @@ default_options(::Type{MinresState}, tol) =
 # MINRES cycles on the reduced system, each restarted from the true residual of the refined
 # solution; the bound multipliers are recovered from the primal step at the end, as the
 # condensed solve does, and the acceptance test is on the full system, as in RichardsonIterator.
+_tau(op::ReducedKKTOperator) = op.tau
+_tau(op::SymmetrizedKKTOperator) = op.op.tau
+_target!(op::ReducedKKTOperator, tau) = (op.tau = tau; op)
+_target!(op::SymmetrizedKKTOperator, tau) = (op.op.tau = tau; op)
+
 function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor::Integer = 1) where {T, VT <: AbstractKKTVector{T}}
+    return it.opt.minres_symmetrized ? _refine_symmetrized!(x, it, b, w; max_iter_factor) : _refine_reduced!(x, it, b, w; max_iter_factor)
+end
+
+# one MINRES cycle on the workspace
+function _minres_cycle!(it::MinresState{T}, max_iter_factor) where {T}
+    if it.opt.minres_qlp
+        Krylov.minres_qlp!(
+            it.workspace, it.op, it.rhs;
+            M = it.prec, ldiv = true,
+            atol = zero(T), rtol = zero(T),
+            itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
+        )
+    else
+        Krylov.minres!(
+            it.workspace, it.op, it.rhs;
+            M = it.prec, ldiv = true,
+            atol = zero(T), rtol = zero(T), etol = zero(T), conlim = T(it.opt.minres_conlim),
+            itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
+        )
+    end
+    it.cnt.ir += Krylov.iteration_count(it.workspace)
+    st = it.workspace.stats
+    @debug(it.logger, @sprintf("minres cycle: %s, %d iterations, residuals %s", st.status, Krylov.iteration_count(it.workspace), join([@sprintf("%.1e", r) for r in st.residuals], " ")))
+    return st
+end
+
+# MINRES on the symmetrized full system: x and the right-hand side scaled on the bound rows
+# (r_zl / zl^(1/2), r_zu / zu^(1/2); dzl = -zl^(1/2) v_l, dzu = zu^(1/2) v_u), no reduction and
+# no recovery of the bound multipliers afterwards.
+function _refine_symmetrized!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor::Integer = 1) where {T, VT <: AbstractKKTVector{T}}
+    @debug(it.logger, "Iterative solver initiated (symmetrized)")
+    kkt = it.kkt
+    N5 = length(it.rhs)
+    A = it.op
+    nlb = length(A.sl); nub = length(A.su); N3 = N5 - nlb - nub
+    norm_b = norm(full(b), Inf)
+    fill!(full(x), zero(T))
+    it.cnt.ir = 0
+    norm_b == zero(T) && return true
+
+    _sym_scalings!(A)
+    f(r, z) = iszero(z) ? r : r / z
+    # the scaled right-hand side, kept in w for the restarts
+    copyto!(full(w), full(b))
+    view(full(w), (N3 + 1):(N3 + nlb)) .= f.(view(full(w), (N3 + 1):(N3 + nlb)), A.sl)
+    view(full(w), (N3 + nlb + 1):N5) .= f.(view(full(w), (N3 + nlb + 1):N5), A.su)
+    copyto!(it.rhs, full(w))
+    _target!(A, T(it.opt.minres_dual_reg))
+    restarts = 0
+    residual_ratio = T(Inf)
+    cycle = 0
+    while cycle < it.opt.minres_max_cycles
+        cycle += 1
+        st = _minres_cycle!(it, max_iter_factor)
+        acond = isempty(st.Acond) ? zero(T) : T(last(st.Acond))
+        sol = Krylov.solution(it.workspace)
+        if !all(isfinite, sol)
+            @debug(it.logger, "minres cycle: non-finite solution, discarded")
+            break
+        end
+        full(x) .+= sol
+        previous_ratio = residual_ratio
+        mul!(it.rhs, A, full(x))
+        it.rhs .= full(w) .- it.rhs
+        residual_ratio = norm(it.rhs, Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
+        lambda = T(NaN)
+        if residual_ratio >= it.opt.minres_tol && it.opt.minres_adaptive_reg && restarts < it.opt.minres_max_restarts
+            ldiv!(it.z, it.prec, it.rhs)
+            mul!(it.q, A, it.z)
+            lambda = abs(dot(it.z, it.q)) / dot(it.z, it.rhs)
+            if isfinite(lambda) && lambda < one(T) / T(it.opt.minres_cond_max)
+                tau = it.opt.minres_adaptive_tau < 0 ? T(kkt.eq_shift.current) : T(it.opt.minres_adaptive_tau)
+                if tau > _tau(A)
+                    _target!(A, tau)
+                    restarts += 1
+                    @debug(it.logger, @sprintf("minres: smallest eigenvalue about %.1e (κ %.1e), restarting toward the target with dual regularization %.1e", lambda, acond, tau))
+                    fill!(full(x), zero(T))
+                    copyto!(it.rhs, full(w))
+                    residual_ratio = T(Inf)
+                    cycle = 0
+                    continue
+                end
+            end
+        end
+        @debug(it.logger, @sprintf("minres cycle residual ratio %.2e (|b| %.2e, |x| %.2e, κ %.1e, λmin %.1e, τ %.1e)", residual_ratio, norm_b, norm(full(x), Inf), acond, lambda, _tau(A)))
+        if !(residual_ratio < previous_ratio)
+            full(x) .-= sol
+            residual_ratio = previous_ratio
+            @debug(it.logger, "minres cycle undone: the true residual did not decrease")
+            break
+        end
+        residual_ratio < it.opt.minres_tol && break
+    end
+    # back to MadNLP's bound multipliers
+    view(full(x), (N3 + 1):(N3 + nlb)) .*= .-A.sl
+    view(full(x), (N3 + nlb + 1):N5) .*= A.su
+    @debug(
+        it.logger,
+        @sprintf(
+            "Iterative solver terminated with %4i refinement steps and residual = %6.2e",
+            it.cnt.ir, residual_ratio,
+        ),
+    )
+    return residual_ratio < it.opt.minres_acceptable_tol
+end
+
+function _refine_reduced!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor::Integer = 1) where {T, VT <: AbstractKKTVector{T}}
     @debug(it.logger, "Iterative solver initiated")
     kkt = it.kkt
     N = length(it.rhs)
@@ -173,7 +358,7 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
     MadCore.reduce_rhs!(kkt, x)
     copyto!(it.rhs, view(full(x), 1:N))
     fill!(view(full(x), 1:N), zero(T))
-    it.op.tau = T(it.opt.minres_dual_reg)
+    _target!(it.op, T(it.opt.minres_dual_reg))
     restarts = 0
     residual_ratio = T(Inf)
     cycle = 0
@@ -221,8 +406,8 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
             lambda = abs(dot(it.z, it.q)) / dot(it.z, it.rhs)
             if isfinite(lambda) && lambda < one(T) / T(it.opt.minres_cond_max)
                 tau = it.opt.minres_adaptive_tau < 0 ? T(kkt.eq_shift.current) : T(it.opt.minres_adaptive_tau)
-                if tau > it.op.tau
-                    it.op.tau = tau
+                if tau > _tau(it.op)
+                    _target!(it.op, tau)
                     restarts += 1
                     @debug(it.logger, @sprintf("minres: smallest eigenvalue about %.1e (κ %.1e), restarting toward the target with dual regularization %.1e", lambda, acond, tau))
                     fill!(view(full(x), 1:N), zero(T))
@@ -234,7 +419,7 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
                 end
             end
         end
-        @debug(it.logger, @sprintf("minres cycle residual ratio %.2e (|b| %.2e, |x| %.2e, κ %.1e, λmin %.1e, τ %.1e)", residual_ratio, norm_b, norm(view(full(x), 1:N), Inf), acond, lambda, it.op.tau))
+        @debug(it.logger, @sprintf("minres cycle residual ratio %.2e (|b| %.2e, |x| %.2e, κ %.1e, λmin %.1e, τ %.1e)", residual_ratio, norm_b, norm(view(full(x), 1:N), Inf), acond, lambda, _tau(it.op)))
         if !(residual_ratio < previous_ratio)
             # a cycle that did not reduce the true residual is undone (its iterates can be large where
             # the system is nearly singular) and the refinement stops with what it had
