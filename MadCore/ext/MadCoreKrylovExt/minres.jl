@@ -15,8 +15,8 @@
 # products with J.
 
 @kwdef mutable struct MinresOptions <: AbstractOptions
-    minres_max_iter::Int = 20
-    minres_max_cycles::Int = 5
+    minres_max_iter::Int = 10      # per cycle; Krylov's own stopping tests are disabled (its ‖A‖ estimate is
+    minres_max_cycles::Int = 10    # inflated by the 1/δ scaling of P⁻¹, so they fire after one iteration)
     minres_tol::Float64
     minres_acceptable_tol::Float64
     minres_conlim::Float64 = Inf   # Krylov's limit on the estimated condition number (1e8 stops early on these systems)
@@ -127,8 +127,9 @@ function MinresState(
     workspace = Krylov.MinresWorkspace(N, N, VT)
     return MinresState(kkt, op, prec, workspace, VT(undef, N), opt, cnt, logger)
 end
-MinresState(kkt::AbstractKKTSystem; kwargs...) =
-    error("MinresIterator is a prototype for SparseCondensedKKTSystem (CondensedPreset) only")
+# another KKT system (the fallback of CondensedPreset to ShiftedPreset) gets Richardson refinement
+MinresState(kkt::AbstractKKTSystem; opt = default_options(MinresState, sqrt(eps(Float64))), logger = MadNLPLogger(), cnt = MadNLPCounters()) =
+    RichardsonIterator(kkt; opt = RichardsonOptions(richardson_tol = opt.minres_tol, richardson_acceptable_tol = opt.minres_acceptable_tol), logger, cnt)
 
 default_options(::Type{MinresState}, tol) =
     MinresOptions(minres_tol = tol^(5 / 4), minres_acceptable_tol = tol^(5 / 8))
@@ -155,7 +156,7 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
         Krylov.minres!(
             it.workspace, it.op, it.rhs;
             M = it.prec, ldiv = true,
-            atol = zero(T), rtol = T(it.opt.minres_tol), conlim = T(it.opt.minres_conlim),
+            atol = zero(T), rtol = zero(T), etol = zero(T), conlim = T(it.opt.minres_conlim),
             itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
         )
         it.cnt.ir += Krylov.iteration_count(it.workspace)
@@ -165,6 +166,7 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
             break
         end
         view(full(x), 1:N) .+= sol
+        previous_ratio = residual_ratio
         st = it.workspace.stats
         @debug(it.logger, @sprintf("minres cycle: %s, %d iterations, residuals %s", st.status, Krylov.iteration_count(it.workspace), join([@sprintf("%.1e", r) for r in st.residuals], " ")))
         # the residual of the reduced system, for the next cycle
@@ -173,7 +175,15 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
         it.rhs .= view(full(w), 1:N) .- it.rhs
         residual_ratio = norm(it.rhs, Inf) / (min(norm(view(full(x), 1:N), Inf), 1.0e6 * norm_b) + norm_b)
         @debug(it.logger, @sprintf("minres cycle residual ratio %.2e (|b| %.2e, |x| %.2e)", residual_ratio, norm_b, norm(view(full(x), 1:N), Inf)))
-        (residual_ratio < it.opt.minres_tol || !isfinite(residual_ratio)) && break
+        if !(residual_ratio < previous_ratio)
+            # a cycle that did not reduce the true residual is undone (its iterates can be large where
+            # the system is nearly singular) and the refinement stops with what it had
+            view(full(x), 1:N) .-= sol
+            residual_ratio = previous_ratio
+            @debug(it.logger, "minres cycle undone: the true residual did not decrease")
+            break
+        end
+        residual_ratio < it.opt.minres_tol && break
     end
     # the bound multipliers from the primal step (finish_aug_solve! reads the bound rows of the
     # right-hand side, still in x from the copy above)
