@@ -20,6 +20,9 @@
     minres_tol::Float64
     minres_acceptable_tol::Float64
     minres_conlim::Float64 = Inf   # Krylov's limit on the estimated condition number (1e8 stops early on these systems)
+    # the dual regularization τ of the equality rows of the system refined toward: 0 is the unshifted
+    # system, δ the shifted one; the factorization stays at δ
+    minres_dual_reg::Float64 = 0.0
 end
 
 # The reduced KKT operator on a vector [x; s; y]: the full product of the KKT system on a
@@ -32,6 +35,7 @@ struct ReducedKKTOperator{T, KKT <: MadCore.SparseCondensedKKTSystem{T}, KV}
     m::Int
     xk::KV
     yk::KV
+    tau::T     # dual regularization of the equality rows of the target system
 end
 Base.size(A::ReducedKKTOperator) = (A.n + A.ns + A.m, A.n + A.ns + A.m)
 Base.size(A::ReducedKKTOperator, i::Integer) = size(A)[i]
@@ -45,6 +49,10 @@ function mul!(w::AbstractVector, A::ReducedKKTOperator{T}, v::AbstractVector) wh
     copyto!(w, view(fy, 1:N))
     np = A.n + A.ns
     view(w, 1:np) .+= (view(kkt.pr_diag, 1:np) .- view(kkt.reg, 1:np)) .* view(v, 1:np)
+    if !iszero(A.tau)
+        wy = view(w, (np + 1):N); vy = view(v, (np + 1):N)
+        view(wy, kkt.ind_eq) .-= A.tau .* view(vy, kkt.ind_eq)
+    end
     return w
 end
 
@@ -121,7 +129,7 @@ function MinresState(
 ) where {T}
     n = size(kkt.hess_com, 1); ns = length(kkt.ind_ineq); m = size(kkt.jt_csc, 2)
     VT = typeof(kkt.pr_diag)
-    op = ReducedKKTOperator(kkt, n, ns, m, UnreducedKKTVector(kkt), UnreducedKKTVector(kkt))
+    op = ReducedKKTOperator(kkt, n, ns, m, UnreducedKKTVector(kkt), UnreducedKKTVector(kkt), T(opt.minres_dual_reg))
     prec = SymmetrizingPreconditioner(kkt, n, ns, m, VT(undef, n), VT(undef, m))
     N = n + ns + m
     workspace = Krylov.MinresWorkspace(N, N, VT)
