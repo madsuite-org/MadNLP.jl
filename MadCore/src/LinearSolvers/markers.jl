@@ -115,6 +115,18 @@ and defines its `default_options`.
 struct KrylovIterator end
 backend_package(::Type{KrylovIterator}) = "Krylov"
 
+"""
+    MinresIterator
+
+Prototype: MINRES refinement of the reduced KKT system (primal, slack and dual blocks) of
+`SparseCondensedKKTSystem`, with the symmetrizing preconditioner P = U diag(K, |G|) Uᵀ built
+from the condensed factorization K and the (slack, dual) block G of the shifted system, under
+which the shifted system has the eigenvalues ±1. Option `iterator = MinresIterator`; the
+extension loaded by `Krylov` builds it.
+"""
+struct MinresIterator end
+backend_package(::Type{MinresIterator}) = "Krylov"
+
 # HSL solvers, implemented in the extension loaded by `HSL`.
 
 @enum(HSLOrdering::Int, AMD = 1, METIS = 3,)
