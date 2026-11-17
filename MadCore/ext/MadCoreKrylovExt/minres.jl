@@ -245,8 +245,19 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
     return it.opt.minres_symmetrized ? _refine_symmetrized!(x, it, b, w; max_iter_factor) : _refine_reduced!(x, it, b, w; max_iter_factor)
 end
 
-# one MINRES cycle on the workspace
+# one MINRES cycle on the workspace; Krylov throws when the P-inner product of a residual comes out
+# non-positive (rounding on a residual at machine level, or a bound diagonal at zero), which ends the
+# refinement with what it has rather than the solve
 function _minres_cycle!(it::MinresState{T}, max_iter_factor) where {T}
+    try
+        _minres_cycle_unguarded!(it, max_iter_factor)
+    catch e
+        e isa ErrorException || rethrow()
+        @debug(it.logger, "minres cycle: " * e.msg)
+        return nothing
+    end
+end
+function _minres_cycle_unguarded!(it::MinresState{T}, max_iter_factor) where {T}
     if it.opt.minres_qlp
         Krylov.minres_qlp!(
             it.workspace, it.op, it.rhs;
@@ -296,6 +307,7 @@ function _refine_symmetrized!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_
     while cycle < it.opt.minres_max_cycles
         cycle += 1
         st = _minres_cycle!(it, max_iter_factor)
+        st === nothing && break
         acond = isempty(st.Acond) ? zero(T) : T(last(st.Acond))
         sol = Krylov.solution(it.workspace)
         if !all(isfinite, sol)
