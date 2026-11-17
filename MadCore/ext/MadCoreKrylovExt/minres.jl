@@ -30,6 +30,9 @@
     minres_adaptive_reg::Bool = true
     minres_cond_max::Float64 = 1e3
     minres_max_restarts::Int = 2
+    # the regularization switched to on detection: a value, or (negative) the equality shift δ itself,
+    # which makes the target the shifted system (the condensed solve, refined only for rounding)
+    minres_adaptive_tau::Float64 = -1.0
     # MINRES-QLP instead of MINRES: the minimum-norm solution where the system is nearly singular
     minres_qlp::Bool = false
 end
@@ -217,7 +220,7 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
             mul!(it.q, it.op, it.z)
             lambda = abs(dot(it.z, it.q)) / dot(it.z, it.rhs)
             if isfinite(lambda) && lambda < one(T) / T(it.opt.minres_cond_max)
-                tau = T(kkt.eq_shift.current) * (one(T) / T(it.opt.minres_cond_max) - lambda)
+                tau = it.opt.minres_adaptive_tau < 0 ? T(kkt.eq_shift.current) : T(it.opt.minres_adaptive_tau)
                 if tau > it.op.tau
                     it.op.tau = tau
                     restarts += 1
