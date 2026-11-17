@@ -23,12 +23,21 @@
     # the dual regularization τ of the equality rows of the system refined toward: 0 is the unshifted
     # system, δ the shifted one; the factorization stays at δ
     minres_dual_reg::Float64 = 0.0
+    # adaptive dual regularization from MINRES's own estimate of the condition number κ of P⁻¹M (its
+    # largest eigenvalue is about 1, so 1/κ is the smallest): when κ exceeds minres_cond_max, the solve
+    # is redone toward the target regularized by τ = δ (1 / minres_cond_max - 1 / κ), which lifts the
+    # smallest eigenvalue to 1 / minres_cond_max
+    minres_adaptive_reg::Bool = true
+    minres_cond_max::Float64 = 1e3
+    minres_max_restarts::Int = 2
+    # MINRES-QLP instead of MINRES: the minimum-norm solution where the system is nearly singular
+    minres_qlp::Bool = false
 end
 
 # The reduced KKT operator on a vector [x; s; y]: the full product of the KKT system on a
 # vector with zero bound-multiplier blocks (so that the symmetric Hessian product is the one
 # every backend implements), with the primal diagonal pr_diag (bounds condensed) in place of reg.
-struct ReducedKKTOperator{T, KKT <: MadCore.SparseCondensedKKTSystem{T}, KV}
+mutable struct ReducedKKTOperator{T, KKT <: MadCore.SparseCondensedKKTSystem{T}, KV}
     kkt::KKT
     n::Int
     ns::Int
@@ -116,6 +125,8 @@ struct MinresState{T, KKT <: AbstractKKTSystem{T}, Op, Prec, W, VT} <: AbstractI
     prec::Prec
     workspace::W
     rhs::VT
+    z::VT      # P⁻¹ r, for the Rayleigh quotient of the residual direction
+    q::VT      # M z
     opt::MinresOptions
     cnt::MadNLPCounters
     logger::MadNLPLogger
@@ -132,8 +143,8 @@ function MinresState(
     op = ReducedKKTOperator(kkt, n, ns, m, UnreducedKKTVector(kkt), UnreducedKKTVector(kkt), T(opt.minres_dual_reg))
     prec = SymmetrizingPreconditioner(kkt, n, ns, m, VT(undef, n), VT(undef, m))
     N = n + ns + m
-    workspace = Krylov.MinresWorkspace(N, N, VT)
-    return MinresState(kkt, op, prec, workspace, VT(undef, N), opt, cnt, logger)
+    workspace = opt.minres_qlp ? Krylov.MinresQlpWorkspace(N, N, VT) : Krylov.MinresWorkspace(N, N, VT)
+    return MinresState(kkt, op, prec, workspace, VT(undef, N), VT(undef, N), VT(undef, N), opt, cnt, logger)
 end
 # another KKT system (the fallback of CondensedPreset to ShiftedPreset) gets Richardson refinement
 MinresState(kkt::AbstractKKTSystem; opt = default_options(MinresState, sqrt(eps(Float64))), logger = MadNLPLogger(), cnt = MadNLPCounters()) =
@@ -159,15 +170,31 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
     MadCore.reduce_rhs!(kkt, x)
     copyto!(it.rhs, view(full(x), 1:N))
     fill!(view(full(x), 1:N), zero(T))
+    it.op.tau = T(it.opt.minres_dual_reg)
+    restarts = 0
     residual_ratio = T(Inf)
-    for _ in 1:it.opt.minres_max_cycles
-        Krylov.minres!(
-            it.workspace, it.op, it.rhs;
-            M = it.prec, ldiv = true,
-            atol = zero(T), rtol = zero(T), etol = zero(T), conlim = T(it.opt.minres_conlim),
-            itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
-        )
+    cycle = 0
+    while cycle < it.opt.minres_max_cycles
+        cycle += 1
+        if it.opt.minres_qlp
+            Krylov.minres_qlp!(
+                it.workspace, it.op, it.rhs;
+                M = it.prec, ldiv = true,
+                atol = zero(T), rtol = zero(T),
+                itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
+            )
+        else
+            Krylov.minres!(
+                it.workspace, it.op, it.rhs;
+                M = it.prec, ldiv = true,
+                atol = zero(T), rtol = zero(T), etol = zero(T), conlim = T(it.opt.minres_conlim),
+                itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
+            )
+        end
         it.cnt.ir += Krylov.iteration_count(it.workspace)
+        st = it.workspace.stats
+        @debug(it.logger, @sprintf("minres cycle: %s, %d iterations, residuals %s", st.status, Krylov.iteration_count(it.workspace), join([@sprintf("%.1e", r) for r in st.residuals], " ")))
+        acond = isempty(st.Acond) ? zero(T) : T(last(st.Acond))
         sol = Krylov.solution(it.workspace)
         if !all(isfinite, sol)
             @debug(it.logger, "minres cycle: non-finite solution, discarded")
@@ -175,14 +202,36 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
         end
         view(full(x), 1:N) .+= sol
         previous_ratio = residual_ratio
-        st = it.workspace.stats
-        @debug(it.logger, @sprintf("minres cycle: %s, %d iterations, residuals %s", st.status, Krylov.iteration_count(it.workspace), join([@sprintf("%.1e", r) for r in st.residuals], " ")))
         # the residual of the reduced system, for the next cycle
         mul!(it.rhs, it.op, view(full(x), 1:N))
         copyto!(full(w), full(b)); MadCore.reduce_rhs!(kkt, w)
         it.rhs .= view(full(w), 1:N) .- it.rhs
         residual_ratio = norm(it.rhs, Inf) / (min(norm(view(full(x), 1:N), Inf), 1.0e6 * norm_b) + norm_b)
-        @debug(it.logger, @sprintf("minres cycle residual ratio %.2e (|b| %.2e, |x| %.2e)", residual_ratio, norm_b, norm(view(full(x), 1:N), Inf)))
+        # the residual left by a cycle lies in the eigendirections of P⁻¹M of smallest magnitude; its
+        # Rayleigh quotient in the P-inner product, (zᵀ M z) / (zᵀ r) with z = P⁻¹ r, estimates that
+        # smallest eigenvalue (the largest is about 1). Below 1 / minres_cond_max the target is nearly
+        # singular there: it is regularized by τ = δ (1 / minres_cond_max - λ) and the solve starts over.
+        lambda = T(NaN)
+        if residual_ratio >= it.opt.minres_tol && it.opt.minres_adaptive_reg && restarts < it.opt.minres_max_restarts
+            ldiv!(it.z, it.prec, it.rhs)
+            mul!(it.q, it.op, it.z)
+            lambda = abs(dot(it.z, it.q)) / dot(it.z, it.rhs)
+            if isfinite(lambda) && lambda < one(T) / T(it.opt.minres_cond_max)
+                tau = T(kkt.eq_shift.current) * (one(T) / T(it.opt.minres_cond_max) - lambda)
+                if tau > it.op.tau
+                    it.op.tau = tau
+                    restarts += 1
+                    @debug(it.logger, @sprintf("minres: smallest eigenvalue about %.1e (κ %.1e), restarting toward the target with dual regularization %.1e", lambda, acond, tau))
+                    fill!(view(full(x), 1:N), zero(T))
+                    copyto!(full(w), full(b)); MadCore.reduce_rhs!(kkt, w)
+                    copyto!(it.rhs, view(full(w), 1:N))
+                    residual_ratio = T(Inf)
+                    cycle = 0
+                    continue
+                end
+            end
+        end
+        @debug(it.logger, @sprintf("minres cycle residual ratio %.2e (|b| %.2e, |x| %.2e, κ %.1e, λmin %.1e, τ %.1e)", residual_ratio, norm_b, norm(view(full(x), 1:N), Inf), acond, lambda, it.op.tau))
         if !(residual_ratio < previous_ratio)
             # a cycle that did not reduce the true residual is undone (its iterates can be large where
             # the system is nearly singular) and the refinement stops with what it had
