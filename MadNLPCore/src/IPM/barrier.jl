@@ -179,7 +179,9 @@ function update_barrier!(barrier::HybridUpdate{T}, solver::AbstractMadNLPSolver{
     if barrier.switch_mu > 0
         barrier.adaptive_mode && return update_barrier!(adaptive, solver, sc)
         _update_monotone!(adaptive, solver, sc)
-        if get_mu(solver) <= barrier.switch_mu
+        barrier.iter_since_decrease = get_mu(solver) < old_mu ? 0 : barrier.iter_since_decrease + 1
+        stalled = barrier.switch_on_stall && barrier.iter_since_decrease >= barrier.stall_iter
+        if get_mu(solver) <= barrier.switch_mu || stalled
             @trace(get_logger(solver), "Hybrid barrier: μ reached switch_mu, switching to adaptive mode.")
             barrier.adaptive_mode = true
             barrier.n_switch += 1

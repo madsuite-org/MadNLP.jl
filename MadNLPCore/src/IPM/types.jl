@@ -223,6 +223,8 @@ The monotone rule uses the parameters `mu_min`, `mu_superlinear_decrease_power` 
     return_kkt_factor::T = one(T)
     # when positive: monotone until μ ≤ switch_mu, then the adaptive rule (with its own fallback) for good
     switch_mu::T = zero(T)
+    # with switch_mu > 0: also switch (once) when μ has not decreased for stall_iter iterations
+    switch_on_stall::Bool = false
     # state
     adaptive_mode::Bool = false
     iter_since_decrease::Int = 0

@@ -130,7 +130,7 @@ function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) whe
         equality_shift = 100 * preset_perturbation(T),
         barrier = HybridUpdate(
             QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol);
-            switch_mu = T(1e-6),
+            switch_mu = T(1e-6), switch_on_stall = true, stall_iter = 20,
         ),
     )
 end
