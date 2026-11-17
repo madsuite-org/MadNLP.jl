@@ -42,6 +42,10 @@
     # the symmetrized system in (x, s, y, zl, zu), the bound rows scaled by z^(1/2) (diagonals -(x - xˡ)
     # and -(xᵘ - x)), instead of the reduced (x, s, y) system with Z/X folded into the primal diagonal
     minres_symmetrized::Bool = true
+    # GMRES instead of MINRES on the same (symmetrized) system, P⁻¹ as right preconditioner: full
+    # orthogonalization, the true residual minimized, tolerant of an inexact preconditioner
+    minres_gmres::Bool = false
+    minres_gmres_memory::Int = 20
 end
 
 # The reduced KKT operator on a vector [x; s; y]: the full product of the KKT system on a
@@ -220,7 +224,8 @@ function MinresState(
         sop = SymmetrizedKKTOperator(op, VT(undef, nlb), VT(undef, nub), VT(undef, N))
         sprec = SymmetrizedPreconditioner(prec, sop, VT(undef, N), VT(undef, N))
         N5 = N + nlb + nub
-        workspace = opt.minres_qlp ? Krylov.MinresQlpWorkspace(N5, N5, VT) : Krylov.MinresWorkspace(N5, N5, VT)
+        workspace = opt.minres_gmres ? Krylov.GmresWorkspace(N5, N5, VT; memory = opt.minres_gmres_memory) :
+            opt.minres_qlp ? Krylov.MinresQlpWorkspace(N5, N5, VT) : Krylov.MinresWorkspace(N5, N5, VT)
         return MinresState(kkt, sop, sprec, workspace, VT(undef, N5), VT(undef, N5), VT(undef, N5), opt, cnt, logger)
     end
     workspace = opt.minres_qlp ? Krylov.MinresQlpWorkspace(N, N, VT) : Krylov.MinresWorkspace(N, N, VT)
@@ -258,7 +263,14 @@ function _minres_cycle!(it::MinresState{T}, max_iter_factor) where {T}
     end
 end
 function _minres_cycle_unguarded!(it::MinresState{T}, max_iter_factor) where {T}
-    if it.opt.minres_qlp
+    if it.opt.minres_gmres
+        Krylov.gmres!(
+            it.workspace, it.op, it.rhs;
+            N = it.prec, ldiv = true,
+            atol = zero(T), rtol = zero(T),
+            itmax = max_iter_factor * it.opt.minres_max_iter, history = true,
+        )
+    elseif it.opt.minres_qlp
         Krylov.minres_qlp!(
             it.workspace, it.op, it.rhs;
             M = it.prec, ldiv = true,
@@ -308,7 +320,7 @@ function _refine_symmetrized!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_
         cycle += 1
         st = _minres_cycle!(it, max_iter_factor)
         st === nothing && break
-        acond = isempty(st.Acond) ? zero(T) : T(last(st.Acond))
+        acond = hasproperty(st, :Acond) && !isempty(st.Acond) ? T(last(st.Acond)) : zero(T)
         sol = Krylov.solution(it.workspace)
         if !all(isfinite, sol)
             @debug(it.logger, "minres cycle: non-finite solution, discarded")
@@ -398,7 +410,7 @@ function _refine_reduced!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_fact
         it.cnt.ir += Krylov.iteration_count(it.workspace)
         st = it.workspace.stats
         @debug(it.logger, @sprintf("minres cycle: %s, %d iterations, residuals %s", st.status, Krylov.iteration_count(it.workspace), join([@sprintf("%.1e", r) for r in st.residuals], " ")))
-        acond = isempty(st.Acond) ? zero(T) : T(last(st.Acond))
+        acond = hasproperty(st, :Acond) && !isempty(st.Acond) ? T(last(st.Acond)) : zero(T)
         sol = Krylov.solution(it.workspace)
         if !all(isfinite, sol)
             @debug(it.logger, "minres cycle: non-finite solution, discarded")
