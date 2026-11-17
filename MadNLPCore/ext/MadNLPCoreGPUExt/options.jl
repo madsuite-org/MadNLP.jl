@@ -25,7 +25,7 @@ function MadNLPCore.MadNLPOptions{T}(
 end
 
 # SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset: LDLᵀ with diagonal pivoting
-# inside each front, on the stock pipeline (cuDSS pivots on the diagonal under this preset too), after
+# inside each front, on the fused pipeline where SparseDirectSolver has it (cuDSS pivots on the diagonal under this preset too), after
 # matching with scaling, with pivots below the bound perturbed to it, as cuDSS's pivot epsilon and
 # CHOLMOD's dbound do, and two steps of iterative refinement in the solver. Without matching the inertia
 # of some KKT matrices comes out wrong. The matching depends on the values, so the analysis waits for

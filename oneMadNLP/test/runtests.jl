@@ -47,10 +47,10 @@ using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
             @test co.kkt_system === MadNLPCore.SparseCondensedKKTSystem
             stats = madnlp(nlp; preset = MadNLPCore.CondensedPreset, print_level = MadNLPCore.ERROR)
             @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
-            # The local minimum reached from the origin, up to the precision of T and the
-            # relaxed bounds of the condensed KKT system.
-            @test stats.objective ≈ T(360.38) rtol = 1.0e-2
-            @test Array(stats.solution) ≈ T[-0.7921, -1.2624] rtol = 1.0e-2
+            # The minimum the equality-condensed scheme reaches from the origin, up to the precision of
+            # T and the relaxed bounds of the condensed KKT system.
+            @test stats.objective ≈ T(306.5) rtol = 1.0e-2
+            @test Array(stats.solution) ≈ T[0.5, 2.0] rtol = 1.0e-2
         end
     end
 end
