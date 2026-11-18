@@ -42,7 +42,6 @@ mutable struct ScaledShiftedSolver{T, MT, VT, VI, LS, SC <: AbstractScaler} <: A
     n_primal::Int
     d::VT                    # the scaling W
     dnew::VT
-    scaled::Bool             # d holds the scaling of an earlier factorization (the warm start)
     fmap::VI                 # nonzero of the pattern with both triangles -> nonzero of A
     fcolptr::VI
     frow::VI
@@ -82,7 +81,7 @@ function ScaledShiftedSolver(
     inner = create_linear_solver(linear_solver, fac; opt, logger)
     return ScaledShiftedSolver(
         A, fac, inner, kkt_scaler, T(primal_shift), T(dual_shift), n_primal,
-        dv(ones(T, n)), dv(ones(T, n)), false, dv(Ti.(nonzeros(S))), dv(Ti.(S.colptr)),
+        dv(ones(T, n)), dv(ones(T, n)), dv(Ti.(nonzeros(S))), dv(Ti.(S.colptr)),
         dv(Ti.(S.rowval)), dv(Ti.(findall(>(SCALING_LONG_COLUMN), diff(S.colptr)))), dv(Ti.(rows)), dv(Ti.(cols)), dv(Ti.(adiag)), logger,
     )
 end
@@ -116,20 +115,14 @@ function update_scaling!(M::ScaledShiftedSolver{T}, ::JacobiScaler) where {T}
 end
 
 function update_scaling!(M::ScaledShiftedSolver{T}, scaler::AbstractScaler) where {T}
+    fill!(M.d, one(T))
     sweeps = scaler_sweeps(scaler)
-    warm = scaler_warm_sweeps(scaler)
-    if M.scaled && warm > 0
-        sweeps = warm                # from the previous scaling
-    else
-        fill!(M.d, one(T))
-    end
     sweeps > 0 || return
     nz = scaling_nzval(M.A)
     for _ in 1:sweeps
         scaling_sweep!(M.dnew, M.d, M.fcolptr, M.frow, nz, M.fmap, M.long_cols)
         M.d, M.dnew = M.dnew, M.d
     end
-    M.scaled = true
     return
 end
 
