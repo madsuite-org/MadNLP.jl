@@ -42,8 +42,8 @@ mutable struct ScaledShiftedSolver{T, MT, VT, VI, LS, SC <: AbstractScaler} <: A
     n_primal::Int
     d::VT                    # the scaling W
     dnew::VT
-    absnz::VT                # |A| on the pattern with both triangles
-    fmap::VI                 # nonzero of that pattern -> nonzero of A
+    scaled::Bool             # d holds the scaling of an earlier factorization (the warm start)
+    fmap::VI                 # nonzero of the pattern with both triangles -> nonzero of A
     fcolptr::VI
     frow::VI
     long_cols::VI            # columns of that pattern with more than SCALING_LONG_COLUMN nonzeros
@@ -82,7 +82,7 @@ function ScaledShiftedSolver(
     inner = create_linear_solver(linear_solver, fac; opt, logger)
     return ScaledShiftedSolver(
         A, fac, inner, kkt_scaler, T(primal_shift), T(dual_shift), n_primal,
-        dv(ones(T, n)), dv(ones(T, n)), dv(zeros(T, nnz(S))), dv(Ti.(nonzeros(S))), dv(Ti.(S.colptr)),
+        dv(ones(T, n)), dv(ones(T, n)), false, dv(Ti.(nonzeros(S))), dv(Ti.(S.colptr)),
         dv(Ti.(S.rowval)), dv(Ti.(findall(>(SCALING_LONG_COLUMN), diff(S.colptr)))), dv(Ti.(rows)), dv(Ti.(cols)), dv(Ti.(adiag)), logger,
     )
 end
@@ -91,13 +91,17 @@ end
 const SCALING_LONG_COLUMN = 1024
 
 # One sweep of symmetric infinity-norm scaling over the pattern with both triangles, stored by
-# columns: dnew_j = d_j / sqrt(max_i |A_ij| d_i d_j). On the host every column is handled
-# alike and `long_cols` is not used.
-function scaling_sweep!(dnew::Vector, d, colptr, rowval, absnz, long_cols)
+# columns: dnew_j = d_j / sqrt(max_i |A_ij| d_i d_j). The values are |vals[k]|, or |vals[fmap[k]]|
+# when the pattern maps into the nonzeros of A (`fmap`), read without a copy. On the host every
+# column is handled alike and `long_cols` is not used.
+@inline scaling_entry(vals, ::Nothing, k) = abs(vals[k])
+@inline scaling_entry(vals, fmap, k) = abs(vals[fmap[k]])
+scaling_sweep!(dnew, d, colptr, rowval, absnz, long_cols) = scaling_sweep!(dnew, d, colptr, rowval, absnz, nothing, long_cols)
+function scaling_sweep!(dnew::Vector, d, colptr, rowval, vals, fmap, long_cols)
     for j in eachindex(dnew)
         r = zero(eltype(d))
         for k in colptr[j]:(colptr[j + 1] - 1)
-            r = max(r, absnz[k] * d[rowval[k]])
+            r = max(r, scaling_entry(vals, fmap, k) * d[rowval[k]])
         end
         r *= d[j]
         dnew[j] = r > 0 ? d[j] / sqrt(r) : d[j]
@@ -112,14 +116,20 @@ function update_scaling!(M::ScaledShiftedSolver{T}, ::JacobiScaler) where {T}
 end
 
 function update_scaling!(M::ScaledShiftedSolver{T}, scaler::AbstractScaler) where {T}
-    fill!(M.d, one(T))
     sweeps = scaler_sweeps(scaler)
+    warm = scaler_warm_sweeps(scaler)
+    if M.scaled && warm > 0
+        sweeps = warm                # from the previous scaling
+    else
+        fill!(M.d, one(T))
+    end
     sweeps > 0 || return
-    M.absnz .= abs.(view(scaling_nzval(M.A), M.fmap))
+    nz = scaling_nzval(M.A)
     for _ in 1:sweeps
-        scaling_sweep!(M.dnew, M.d, M.fcolptr, M.frow, M.absnz, M.long_cols)
+        scaling_sweep!(M.dnew, M.d, M.fcolptr, M.frow, nz, M.fmap, M.long_cols)
         M.d, M.dnew = M.dnew, M.d
     end
+    M.scaled = true
     return
 end
 

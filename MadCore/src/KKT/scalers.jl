@@ -37,12 +37,18 @@ struct MaxNormScaler <: AbstractScaler end
     RuizScaler(sweeps = 4)
 
 Ruiz's symmetric equilibration: `sweeps` sweeps of `W_ii ← W_ii (max_j |W_ii K_ij W_jj|)^{-1/2}`,
-which drive the infinity norm of every row of `W K W` towards one.
+which drive the infinity norm of every row of `W K W` towards one. After the first factorization
+the sweeps start from the previous scaling, which changes little from one factorization to the
+next, and `warm_sweeps` of them are made (0: `sweeps` sweeps from the identity every time).
 """
 @kwdef struct RuizScaler <: AbstractScaler
     sweeps::Int = 4
+    warm_sweeps::Int = 1
 end
 
 scaler_sweeps(::NoScaler) = 0
 scaler_sweeps(::MaxNormScaler) = 1
 scaler_sweeps(s::RuizScaler) = s.sweeps
+# the sweeps of a factorization after the first, from the previous scaling (0: from the identity)
+scaler_warm_sweeps(::AbstractScaler) = 0
+scaler_warm_sweeps(s::RuizScaler) = s.warm_sweeps
