@@ -13,7 +13,7 @@ import SolverCore: getStatus, AbstractOptimizationSolver, AbstractExecutionStats
 export LapackCPUSolver, MumpsSolver, LDLSolver, UmfpackSolver, CHOLMODSolver, AccelerateSolver, DummySolver
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver
 export KrylovIterator
-export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
+export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler, AugmentedRuizScaler, UnreducedRuizScaler
 export MadNLPExecutionStats, SchurComplementKKTSystem, solve!, madsuite
 
 """
@@ -47,6 +47,7 @@ include(joinpath("IPM", "api.jl"))
 include(joinpath("IPM", "kernels.jl"))
 include(joinpath("IPM", "callbacks.jl"))
 include(joinpath("IPM", "factorization.jl"))
+include(joinpath("KKT", "Sparse", "outer_scaling.jl"))
 
 """
     MadCore.internal_names(mod::Module = MadCore)

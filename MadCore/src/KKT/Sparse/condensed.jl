@@ -503,6 +503,7 @@ function build_kkt!(kkt::SparseCondensedKKTSystem{T}) where {T}
         _set_eq_weights!(kkt, Σd)
     end
     build_condensed_aug_coord!(kkt)
+    _outer_scaling!(kkt)
     return
 end
 
