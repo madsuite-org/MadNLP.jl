@@ -821,11 +821,22 @@ function inertia_correction!(
     factorize_wrapper!(solver)
     num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
 
-    solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+    inertia_ok = is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+    solve_status = if inertia_ok
         # Try a backsolve. If the factorization has failed, solve_refine_wrapper returns false.
         solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver))
     else
         false
+    end
+    # the refinement failed on a factorization of the right inertia: refine toward the weakly
+    # regularized system on the same factorization before refactorizing
+    δweak = get_opt(solver).weak_regularization
+    if !solve_status && inertia_ok && δweak > 0
+        regularize_diagonal!(get_kkt(solver), δweak, δweak)
+        solve_status = solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver))
+        solve_status || regularize_diagonal!(get_kkt(solver), -δweak, -δweak)
+        get_cnt(solver).weak_reg_cnt += 1
+        solve_status && (get_cnt(solver).weak_reg_ok_cnt += 1)
     end
     # the KKT system may change its factorized matrix before the Hessian is perturbed; the retried
     # factorization (a larger equality shift) contracts the refinement more slowly and gets

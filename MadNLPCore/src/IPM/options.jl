@@ -369,6 +369,10 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     perturb_dec_fact::T = 1/3
     jacobian_regularization_exponent::T = 1/4
     jacobian_regularization_value::T = 1e-8
+    # when the refinement fails on a factorization of the right inertia, first solve the system with a
+    # weak primal-dual regularization (+δ on the primal diagonal, -δ on the dual one) by refinement on
+    # the same factorization, before any refactorization (retry, Hessian perturbation); 0: off
+    weak_regularization::T = 0.0
 
     # restoration options
     soft_resto_pderror_reduction_factor::T = 0.9999

@@ -242,6 +242,8 @@ end
     l::Int = 0 # backtracking line search counter
     t::Int = 0 # restoration phase counter
     ir::Int = 0 # iterative refinement counter
+    weak_reg_cnt::Int = 0 # solves retried toward the weakly regularized system (weak_regularization)
+    weak_reg_ok_cnt::Int = 0 # of which succeeded
     tiny_step::Bool = false # the last accepted step was tiny relative to the iterate
 
     start_time::Float64 # seconds on the monotonic clock (_now)
