@@ -115,6 +115,18 @@ and defines its `default_options`.
 struct KrylovIterator end
 backend_package(::Type{KrylovIterator}) = "Krylov"
 
+"""
+    MinresIterator
+
+Prototype: refinement of `SparseCondensedKKTSystem` that takes Richardson steps with the condensed
+solve and, when they stall, switches to MINRES on the full KKT system symmetrized by scaling the
+bound rows by z^(1/2), preconditioned by the symmetric positive definite P built from the condensed
+factorization and the (slack, dual) block of the shifted system. Option `iterator = MinresIterator`;
+the extension loaded by `Krylov` builds it.
+"""
+struct MinresIterator end
+backend_package(::Type{MinresIterator}) = "Krylov"
+
 # HSL solvers, implemented in the extension loaded by `HSL`.
 
 @enum(HSLOrdering::Int, AMD = 1, METIS = 3,)
