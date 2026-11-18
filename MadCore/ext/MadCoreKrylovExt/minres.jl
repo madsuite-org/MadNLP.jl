@@ -13,9 +13,11 @@
 # system has the eigenvalues ±1. One application of P⁻¹ costs one triangular solve with the condensed
 # factorization and two products with J.
 #
-# Both phases refine toward the target system whose equality rows carry the dual regularization
-# τ = minres_dual_reg_ratio δ (δ the current equality shift; the factorization is at δ), and both stop
-# on the residual of the unsymmetrized system, the test RichardsonIterator uses.
+# Richardson refines toward the unshifted system, as RichardsonIterator does. MINRES refines toward the
+# system whose equality rows carry the dual regularization τ = minres_dual_reg_ratio δ (δ the current
+# equality shift; the factorization is at δ), toward which it converges where the dual Schur complement
+# is nearly singular. Both phases stop on the residual of the unsymmetrized system, the test
+# RichardsonIterator uses.
 
 @kwdef mutable struct MinresOptions <: AbstractOptions
     minres_tol::Float64
@@ -23,9 +25,7 @@
     # Richardson steps before MINRES: at most this many, ended at the tolerance, by a step that does not
     # bring the residual ratio below minres_stall times the previous one (a stall, which hands over to
     # MINRES), or by a step that raises it (undone, also handing over)
-    # (4: on the hard ACOPF cases a longer Richardson phase delays MINRES on the solves where it stalls;
-    # with 10, case1888_rte_polar runs into the iteration limit, with 4 it solves in 267 iterations)
-    minres_richardson_max::Int = 4
+    minres_richardson_max::Int = 10
     minres_stall::Float64 = 0.5
     # MINRES: cycles of at most minres_max_iter iterations, each restarted from the true residual.
     # Krylov's own stopping tests are disabled (its ‖A‖ estimate is inflated by the 1/δ scaling of P⁻¹,
@@ -231,7 +231,7 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
     norm_b == zero(T) && return true
 
     _scalings!(A)
-    A.tau = T(it.opt.minres_dual_reg_ratio) * T(kkt.eq_shift.current)
+    A.tau = zero(T)                                   # Richardson: the unshifted system
     f(r, z) = iszero(z) ? r : r / z
     xs = full(x)
     ws = full(w)
@@ -269,7 +269,11 @@ function solve_refine!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_factor:
     it.cnt.ir += steps
     @debug(it.logger, @sprintf("richardson: %d steps, residual ratio %.2e", steps, ratio))
 
-    # MINRES cycles from the residual of the Richardson solution
+    # MINRES cycles from the residual of the Richardson solution, toward the regularized target
+    if !(ratio < it.opt.minres_tol)
+        A.tau = T(it.opt.minres_dual_reg_ratio) * T(kkt.eq_shift.current)
+        ratio = _residual!(it, xs, ws, norm_b)
+    end
     cycle = 0
     while cycle < it.opt.minres_max_cycles && !(ratio < it.opt.minres_tol)
         cycle += 1
