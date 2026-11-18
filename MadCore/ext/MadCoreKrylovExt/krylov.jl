@@ -4,14 +4,34 @@
     krylov_max_cycles::Int = 5
     krylov_tol::Float64
     krylov_acceptable_tol::Float64
+    # prototype: the target system with the dual regularization τ = ratio · δ_current on the equality
+    # rows (condensed KKT only; the factorization stays at δ); 0 is the unshifted system
+    krylov_dual_reg_ratio::Float64 = 0.0
+    # prototype: start from the direct solve's step (x0 = P⁻¹ b) and run GMRES on its residual
+    krylov_warm_start::Bool = false
+    # prototype: Richardson first, up to this many steps with the condensed solve, stopping at the
+    # tolerance, on a stall (ratio above krylov_stall times the previous) or on a step that raises the
+    # residual (undone); GMRES only after that; 0: off
+    krylov_richardson_max::Int = 0
+    krylov_stall::Float64 = 0.5
 end
 
 # The KKT system acting on the full vector of an `UnreducedKKTVector`.
-struct KKTOperator{T, KKT <: AbstractKKTSystem{T}, KV <: AbstractKKTVector{T}}
+mutable struct KKTOperator{T, KKT <: AbstractKKTSystem{T}, KV <: AbstractKKTVector{T}}
     kkt::KKT
     x::KV
     y::KV
+    tau::T
 end
+KKTOperator(kkt::AbstractKKTSystem{T}, x, y) where {T} = KKTOperator(kkt, x, y, zero(T))
+function _sub_tau!(y, kkt::MadCore.SparseCondensedKKTSystem, tau, x)
+    o = size(kkt.hess_com, 1) + length(kkt.ind_ineq)
+    view(y, o .+ kkt.ind_eq) .-= tau .* view(x, o .+ kkt.ind_eq)
+    return y
+end
+_sub_tau!(y, kkt, tau, x) = y
+_eq_shift(kkt::MadCore.SparseCondensedKKTSystem) = kkt.eq_shift.current
+_eq_shift(kkt) = 0.0
 Base.size(A::KKTOperator) = (length(full(A.x)), length(full(A.x)))
 Base.size(A::KKTOperator, i::Integer) = size(A)[i]
 Base.eltype(::KKTOperator{T}) where {T} = T
@@ -19,6 +39,7 @@ function mul!(y::AbstractVector, A::KKTOperator{T}, x::AbstractVector) where {T}
     copyto!(full(A.x), x)
     mul!(A.y, A.kkt, A.x, one(T), zero(T))
     copyto!(y, full(A.y))
+    iszero(A.tau) || _sub_tau!(y, A.kkt, A.tau, x)
     return y
 end
 
@@ -73,7 +94,38 @@ function solve_refine!(x::VT, it::KrylovState{T}, b::VT, w::VT; max_iter_factor:
     copyto!(full(w), full(b))
     it.cnt.ir = 0
     residual_ratio = T(Inf)
+    it.op.tau = T(it.opt.krylov_dual_reg_ratio) * T(_eq_shift(it.kkt))
+    if it.opt.krylov_warm_start
+        copyto!(full(x), full(b))
+        solve_kkt!(it.kkt, x)
+        mul!(full(w), it.op, full(x))
+        full(w) .= full(b) .- full(w)
+        it.cnt.ir += 1
+    end
+    if it.opt.krylov_richardson_max > 0
+        steps = 0
+        for _ in 1:it.opt.krylov_richardson_max
+            copyto!(full(it.prec.x), full(w))
+            solve_kkt!(it.kkt, it.prec.x)          # the step P⁻¹ r; it.prec.x keeps it
+            full(x) .+= full(it.prec.x)
+            steps += 1
+            mul!(full(w), it.op, full(x))
+            full(w) .= full(b) .- full(w)
+            new = norm(full(w), Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
+            if !(new < residual_ratio)
+                full(x) .-= full(it.prec.x)
+                mul!(full(w), it.op, full(x))
+                full(w) .= full(b) .- full(w)
+                break
+            end
+            stalled = new > it.opt.krylov_stall * residual_ratio
+            residual_ratio = new
+            (residual_ratio < it.opt.krylov_tol || stalled) && break
+        end
+        it.cnt.ir += steps
+    end
     for _ in 1:it.opt.krylov_max_cycles
+        residual_ratio < it.opt.krylov_tol && break
         Krylov.gmres!(
             it.workspace, it.op, full(w);
             N = it.prec, ldiv = true,
@@ -84,8 +136,13 @@ function solve_refine!(x::VT, it::KrylovState{T}, b::VT, w::VT; max_iter_factor:
         it.cnt.ir += Krylov.iteration_count(it.workspace)
 
         # Residual ratio of the refined solution, as in RichardsonIterator.
-        copyto!(full(w), full(b))
-        mul!(w, it.kkt, x, -one(T), one(T))
+        if iszero(it.op.tau)
+            copyto!(full(w), full(b))
+            mul!(w, it.kkt, x, -one(T), one(T))
+        else
+            mul!(full(w), it.op, full(x))
+            full(w) .= full(b) .- full(w)
+        end
         residual_ratio = norm(full(w), Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
         (residual_ratio < it.opt.krylov_tol || !isfinite(residual_ratio)) && break
     end

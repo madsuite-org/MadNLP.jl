@@ -52,6 +52,18 @@
     # methods :cg_lanczos (stops on negative curvature), :cr and :car, which the ±1 spectrum of P⁻¹M
     # leaves without a guarantee; minres_qlp and minres_gmres take precedence
     minres_method::Symbol = :minres
+    # stop on the residual of the UNSYMMETRIZED system (the bound rows times zl^(1/2), zu^(1/2), the
+    # bound multipliers in MadNLP's scaling), checked at every Krylov iteration through Krylov's
+    # callback, the cycle keeping its best iterate; false: the symmetrized residual after each cycle
+    minres_raw_stop::Bool = false
+    # Richardson steps with the condensed solve before the Krylov cycles (1: MINRES starts from the
+    # direct solve's step instead of from zero)
+    minres_warm_start::Int = 0
+    # Richardson first: up to this many steps with the condensed solve, each checked on the
+    # residual (unsymmetrized with minres_raw_stop); MINRES runs only when they stall (a step that
+    # does not bring the ratio below minres_stall times the previous one) or run out; 0: off
+    minres_richardson_max::Int = 0
+    minres_stall::Float64 = 0.5
 end
 
 _method(opt::MinresOptions) = opt.minres_gmres ? :gmres : opt.minres_qlp ? :minres_qlp : opt.minres_method
@@ -223,6 +235,7 @@ struct MinresState{T, KKT <: AbstractKKTSystem{T}, Op, Prec, W, VT} <: AbstractI
     rhs::VT
     z::VT      # P⁻¹ r, for the Rayleigh quotient of the residual direction
     q::VT      # M z
+    xbest::VT  # the best iterate of a cycle by the unsymmetrized residual (minres_raw_stop)
     opt::MinresOptions
     cnt::MadNLPCounters
     logger::MadNLPLogger
@@ -245,10 +258,10 @@ function MinresState(
         sprec = SymmetrizedPreconditioner(prec, sop, VT(undef, N), VT(undef, N))
         N5 = N + nlb + nub
         workspace = _workspace(_method(opt), N5, VT, opt)
-        return MinresState(kkt, sop, sprec, workspace, VT(undef, N5), VT(undef, N5), VT(undef, N5), opt, cnt, logger)
+        return MinresState(kkt, sop, sprec, workspace, VT(undef, N5), VT(undef, N5), VT(undef, N5), VT(undef, N5), opt, cnt, logger)
     end
     workspace = opt.minres_qlp ? Krylov.MinresQlpWorkspace(N, N, VT) : Krylov.MinresWorkspace(N, N, VT)
-    return MinresState(kkt, op, prec, workspace, VT(undef, N), VT(undef, N), VT(undef, N), opt, cnt, logger)
+    return MinresState(kkt, op, prec, workspace, VT(undef, N), VT(undef, N), VT(undef, N), VT(undef, N), opt, cnt, logger)
 end
 # another KKT system (the fallback of CondensedPreset to ShiftedPreset) gets Richardson refinement
 MinresState(kkt::AbstractKKTSystem; opt = default_options(MinresState, sqrt(eps(Float64))), logger = MadNLPLogger(), cnt = MadNLPCounters()) =
@@ -272,9 +285,10 @@ end
 # one MINRES cycle on the workspace; Krylov throws when the P-inner product of a residual comes out
 # non-positive (rounding on a residual at machine level, or a bound diagonal at zero), which ends the
 # refinement with what it has rather than the solve
-function _minres_cycle!(it::MinresState{T}, max_iter_factor) where {T}
+_no_stop(workspace) = false
+function _minres_cycle!(it::MinresState{T}, max_iter_factor; callback = _no_stop) where {T}
     try
-        _minres_cycle_unguarded!(it, max_iter_factor)
+        _minres_cycle_unguarded!(it, max_iter_factor; callback)
     catch e
         # Krylov throws an ErrorException when the P-inner product of a residual comes out non-positive;
         # the positive-definite methods (cr, car) reach a square root of a negative curvature
@@ -283,7 +297,7 @@ function _minres_cycle!(it::MinresState{T}, max_iter_factor) where {T}
         return nothing
     end
 end
-function _minres_cycle_unguarded!(it::MinresState{T}, max_iter_factor) where {T}
+function _minres_cycle_unguarded!(it::MinresState{T}, max_iter_factor; callback = _no_stop) where {T}
     method = _method(it.opt)
     ws, A, b, P = it.workspace, it.op, it.rhs, it.prec
     z = zero(T)
@@ -294,24 +308,127 @@ function _minres_cycle_unguarded!(it::MinresState{T}, max_iter_factor) where {T}
     if method === :gmres
         Krylov.gmres!(ws, A, b; N = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
     elseif method === :minres_qlp
-        Krylov.minres_qlp!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
+        Krylov.minres_qlp!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true, callback)
     elseif method === :minares
-        Krylov.minares!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, Artol = z, itmax, history = true)
+        Krylov.minares!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, Artol = z, itmax, history = true, callback)
     elseif method === :symmlq
-        Krylov.symmlq!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, etol = z, conlim, itmax, history = true)
+        Krylov.symmlq!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, etol = z, conlim, itmax, history = true, callback)
     elseif method === :cg_lanczos
-        Krylov.cg_lanczos!(ws, A, b; M = P, ldiv = true, check_curvature = true, atol = z, rtol = z, itmax, history = true)
+        Krylov.cg_lanczos!(ws, A, b; M = P, ldiv = true, check_curvature = true, atol = z, rtol = z, itmax, history = true, callback)
     elseif method === :cr
-        Krylov.cr!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
+        Krylov.cr!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true, callback)
     elseif method === :car
-        Krylov.car!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true)
+        Krylov.car!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, itmax, history = true, callback)
     else
-        Krylov.minres!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, etol = z, conlim, itmax, history = true)
+        Krylov.minres!(ws, A, b; M = P, ldiv = true, atol = z, rtol = z, etol = z, conlim, itmax, history = true, callback)
     end
     it.cnt.ir += Krylov.iteration_count(it.workspace)
     st = it.workspace.stats
     @debug(it.logger, @sprintf("minres cycle: %s, %d iterations, residuals %s", st.status, Krylov.iteration_count(it.workspace), join([@sprintf("%.1e", r) for r in st.residuals], " ")))
     return st
+end
+
+# the unsymmetrized residual (or step, for its norm) from the symmetrized one: the bound rows times
+# zl^(1/2), zu^(1/2)
+function _to_raw!(r, A::SymmetrizedKKTOperator, N3)
+    nlb = length(A.sl)
+    view(r, (N3 + 1):(N3 + nlb)) .*= A.sl
+    view(r, (N3 + nlb + 1):length(r)) .*= A.su
+    return r
+end
+function _raw_ratio!(it, N3, rs, xs, norm_b)
+    copyto!(it.z, rs); _to_raw!(it.z, it.op, N3)
+    copyto!(it.q, xs); _to_raw!(it.q, it.op, N3)
+    return norm(it.z, Inf) / (min(norm(it.q, Inf), 1.0e6 * norm_b) + norm_b)
+end
+# Krylov's callback: the unsymmetrized residual ratio of the accumulated solution plus the cycle's
+# current iterate (one product with the operator per iteration); keeps the best iterate and stops
+# the cycle once the ratio is below the tolerance
+mutable struct RawStop{IT, XV, T}
+    it::IT
+    x::XV       # the accumulated solution (symmetrized coordinates)
+    N3::Int
+    norm_b::T
+    tol::T
+    best::T
+end
+function (c::RawStop)(workspace)
+    it = c.it
+    xk = Krylov.solution(workspace)
+    mul!(it.z, it.op, xk)
+    it.z .= it.rhs .- it.z
+    _to_raw!(it.z, it.op, c.N3)
+    it.q .= c.x .+ xk
+    _to_raw!(it.q, it.op, c.N3)
+    ratio = norm(it.z, Inf) / (min(norm(it.q, Inf), 1.0e6 * c.norm_b) + c.norm_b)
+    if ratio < c.best
+        c.best = ratio
+        copyto!(it.xbest, xk)
+    end
+    return ratio < c.tol
+end
+# k Richardson steps with the condensed solve on the target system, from zero, accumulated in the
+# symmetrized coordinates (it.rhs holds the scaled right-hand side)
+function _warm_start!(x, it::MinresState{T}, b, N3, k) where {T}
+    A = it.op; y = A.op.yk; fy = full(y)
+    nlb = length(A.sl); lb = (N3 + 1):(N3 + nlb); ub = (N3 + nlb + 1):length(fy)
+    f(r, z) = iszero(z) ? r : r / z
+    for j in 1:k
+        if j == 1
+            copyto!(fy, full(b))
+        else
+            mul!(it.z, A, full(x))      # clobbers A.op.xk and A.op.yk
+            it.z .= it.rhs .- it.z
+            _to_raw!(it.z, A, N3)
+            copyto!(fy, it.z)
+        end
+        MadCore.solve_kkt!(it.kkt, y)
+        view(fy, lb) .= .-f.(view(fy, lb), A.sl)   # dzl = -zl^(1/2) v_l
+        view(fy, ub) .= f.(view(fy, ub), A.su)     # dzu = zu^(1/2) v_u
+        full(x) .+= fy
+    end
+    it.cnt.ir += k
+    return x
+end
+
+# Richardson steps with the condensed solve from zero, accumulated in the symmetrized coordinates,
+# stopping at the tolerance, on a stall, or on a step that increases the residual (undone); leaves
+# the residual of the result in it.rhs and returns its ratio
+function _richardson_first!(x, it::MinresState{T}, b, w, N3, kmax, stall, norm_b, raw) where {T}
+    A = it.op; y = A.op.yk; fy = full(y)
+    nlb = length(A.sl); lb = (N3 + 1):(N3 + nlb); ub = (N3 + nlb + 1):length(fy)
+    f(r, z) = iszero(z) ? r : r / z
+    ratio = T(Inf)
+    steps = 0
+    for j in 1:kmax
+        if j == 1
+            copyto!(fy, full(b))
+        else
+            copyto!(fy, it.rhs); _to_raw!(fy, A, N3)
+        end
+        MadCore.solve_kkt!(it.kkt, y)
+        view(fy, lb) .= .-f.(view(fy, lb), A.sl)   # dzl = -zl^(1/2) v_l
+        view(fy, ub) .= f.(view(fy, ub), A.su)     # dzu = zu^(1/2) v_u
+        copyto!(it.xbest, fy)                      # the step (the product below clobbers fy)
+        full(x) .+= it.xbest
+        steps += 1
+        mul!(it.rhs, A, full(x))
+        it.rhs .= full(w) .- it.rhs
+        new = raw ? _raw_ratio!(it, N3, it.rhs, full(x), norm_b) :
+            norm(it.rhs, Inf) / (min(norm(full(x), Inf), T(1.0e6) * norm_b) + norm_b)
+        if !(new < ratio)
+            full(x) .-= it.xbest
+            mul!(it.rhs, A, full(x))
+            it.rhs .= full(w) .- it.rhs
+            break
+        end
+        stalled = new > stall * ratio
+        ratio = new
+        (ratio < it.opt.minres_tol || stalled) && break
+    end
+    it.cnt.ir += steps
+    @debug(it.logger, @sprintf("richardson first: %d steps, residual ratio %.2e", steps, ratio))
+    return ratio
 end
 
 # MINRES on the symmetrized full system: x and the right-hand side scaled on the bound rows
@@ -338,13 +455,25 @@ function _refine_symmetrized!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_
     _target!(A, max(T(it.opt.minres_dual_reg), T(it.opt.minres_dual_reg_ratio) * T(kkt.eq_shift.current)))
     restarts = 0
     residual_ratio = T(Inf)
+    raw = it.opt.minres_raw_stop
+    if it.opt.minres_richardson_max > 0
+        residual_ratio = _richardson_first!(x, it, b, w, N3, it.opt.minres_richardson_max, T(it.opt.minres_stall), norm_b, raw)
+    elseif it.opt.minres_warm_start > 0
+        _warm_start!(x, it, b, N3, it.opt.minres_warm_start)
+        mul!(it.rhs, A, full(x))
+        it.rhs .= full(w) .- it.rhs
+        residual_ratio = raw ? _raw_ratio!(it, N3, it.rhs, full(x), norm_b) :
+            norm(it.rhs, Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
+        @debug(it.logger, @sprintf("minres warm start: %d Richardson steps, residual ratio %.2e", it.opt.minres_warm_start, residual_ratio))
+    end
     cycle = 0
-    while cycle < it.opt.minres_max_cycles
+    while cycle < it.opt.minres_max_cycles && !(residual_ratio < it.opt.minres_tol)
         cycle += 1
-        st = _minres_cycle!(it, max_iter_factor)
-        st === nothing && break
-        acond = hasproperty(st, :Acond) && !isempty(st.Acond) ? T(last(st.Acond)) : zero(T)
-        sol = Krylov.solution(it.workspace)
+        stop = raw ? RawStop(it, full(x), N3, norm_b, T(it.opt.minres_tol), T(Inf)) : nothing
+        st = raw ? _minres_cycle!(it, max_iter_factor; callback = stop) : _minres_cycle!(it, max_iter_factor)
+        st === nothing && (stop === nothing || !isfinite(stop.best)) && break
+        acond = st !== nothing && hasproperty(st, :Acond) && !isempty(st.Acond) ? T(last(st.Acond)) : zero(T)
+        sol = raw && isfinite(stop.best) ? it.xbest : Krylov.solution(it.workspace)
         if !all(isfinite, sol)
             @debug(it.logger, "minres cycle: non-finite solution, discarded")
             break
@@ -353,7 +482,8 @@ function _refine_symmetrized!(x::VT, it::MinresState{T}, b::VT, w::VT; max_iter_
         previous_ratio = residual_ratio
         mul!(it.rhs, A, full(x))
         it.rhs .= full(w) .- it.rhs
-        residual_ratio = norm(it.rhs, Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
+        residual_ratio = raw ? _raw_ratio!(it, N3, it.rhs, full(x), norm_b) :
+            norm(it.rhs, Inf) / (min(norm(full(x), Inf), 1.0e6 * norm_b) + norm_b)
         lambda = T(NaN)
         if residual_ratio >= it.opt.minres_tol && it.opt.minres_adaptive_reg && restarts < it.opt.minres_max_restarts
             ldiv!(it.z, it.prec, it.rhs)
