@@ -55,8 +55,8 @@ condensed through a dual shift δ (`equality_shift`, 1e-8 in `Float64`): the mul
 equality row is eliminated with the weight 1 / (δ - Σd), so the condensed matrix is positive
 definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, SparseDirectSolver.jl on AMD, Intel and Apple
 GPUs, CHOLMOD on the host) without
-pivoting, with the quality-function barrier rule of [`ShiftedPreset`](@ref) and Richardson
-refinement on the unshifted system. When the factorization reports a wrong inertia, it is retried
+pivoting, after Ruiz equilibration (`kkt_scaler = RuizScaler()`), with the quality-function barrier
+rule of [`ShiftedPreset`](@ref) and Richardson refinement on the unshifted system. When the factorization reports a wrong inertia, it is retried
 with a larger shift before the Hessian is perturbed (`equality_shift_retry`). A model whose
 condensed matrix would be dense or far larger than the augmented one (a Jacobian row with more than
 `dense_row_abs` nonzeros and more than `dense_row_rel` times the number of variables, or rows whose
@@ -128,7 +128,7 @@ function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) whe
     return (;
         equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
         dual_initialization_method = DualInitializeLeastSquares,
-        equality_shift = 100 * preset_perturbation(T),
+        equality_shift = 100 * preset_perturbation(T), kkt_scaler = RuizScaler(),
         barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
     )
 end
@@ -176,7 +176,7 @@ blas\\_num\\_threads           | 1                    | number of threads to use
 iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `KrylovIterator` under `ShiftedPreset` where Krylov is loaded
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
-kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
+kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset` and `CondensedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
 equality\\_shift               | 1e-8                 | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 100 `preset_perturbation(T)` under `CondensedPreset`

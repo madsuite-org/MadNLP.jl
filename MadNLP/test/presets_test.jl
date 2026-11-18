@@ -47,14 +47,15 @@
     @test cond.barrier isa MadNLP.MonotoneUpdate && !cond.slack_reset
 
     # CondensedPreset: the condensed system with the equalities enforced and condensed through the
-    # shift, factorized by Cholesky, with ShiftedPreset's quality-function barrier and Richardson refinement
+    # shift, factorized by Cholesky after Ruiz equilibration, with ShiftedPreset's quality-function
+    # barrier and Richardson refinement
     co = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset)
     @test co.preset === MadNLP.CondensedPreset
     @test co.kkt_system === MadNLP.SparseCondensedKKTSystem
     @test co.equality_treatment === MadNLP.EnforceEquality && co.fixed_variable_treatment === MadNLP.MakeParameter
     @test co.dual_initialization_method === MadNLP.DualInitializeLeastSquares
     @test co.linear_solver === (Base.USE_GPL_LIBS ? MadNLP.CHOLMODSolver : MadNLP.MumpsSolver)
-    @test co.kkt_scaler isa MadNLP.NoScaler && !co.slack_reset
+    @test co.kkt_scaler isa MadNLP.RuizScaler && !co.slack_reset
     @test co.barrier isa MadNLP.QualityFunctionUpdate{Float64}
     @test co.barrier.sigma_max == 2.0 && co.barrier.mu_decrease_max == 10.0 && co.barrier.mu_min ≈ 1.0e-3 * co.tol
     @test co.iterator === MadNLP.RichardsonIterator && iszero(co.dual_shift)
