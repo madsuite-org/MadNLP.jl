@@ -23,7 +23,9 @@
     # Richardson steps before MINRES: at most this many, ended at the tolerance, by a step that does not
     # bring the residual ratio below minres_stall times the previous one (a stall, which hands over to
     # MINRES), or by a step that raises it (undone, also handing over)
-    minres_richardson_max::Int = 10
+    # (4: on the hard ACOPF cases a longer Richardson phase delays MINRES on the solves where it stalls;
+    # with 10, case1888_rte_polar runs into the iteration limit, with 4 it solves in 267 iterations)
+    minres_richardson_max::Int = 4
     minres_stall::Float64 = 0.5
     # MINRES: cycles of at most minres_max_iter iterations, each restarted from the true residual.
     # Krylov's own stopping tests are disabled (its ‖A‖ estimate is inflated by the 1/δ scaling of P⁻¹,
