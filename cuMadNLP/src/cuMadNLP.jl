@@ -10,7 +10,7 @@ slack reset: the default preset, [`ShiftedPreset`](@ref).
 module cuMadNLP
 
 import MadCore, MadCoreGPU, MadNLPCore
-import CUDA, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
+import CUDACore, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
 using CUDACore: CuVector, CUDABackend
 import PrecompileTools
 import Krylov   # GMRES refinement (KrylovIterator) of the default options
