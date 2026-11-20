@@ -3,7 +3,7 @@
 # in this package image. Needs a functional GPU at precompile time; the
 # cached cubins target that GPU's architecture.
 PrecompileTools.@setup_workload begin
-    if CUDA.functional()
+    if CUDACore.functional()
         # A failure here (device busy, out of memory, driver problem) must not make the
         # package unloadable: skip the workload and let GPU code compile on first use.
         try

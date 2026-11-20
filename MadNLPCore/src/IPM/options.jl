@@ -128,7 +128,7 @@ function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) whe
     return (;
         equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
         dual_initialization_method = DualInitializeLeastSquares,
-        equality_shift = 100 * preset_perturbation(T), kkt_scaler = RuizScaler(),
+        equality_shift = 100 * preset_perturbation(T), equality_shift_max = 1.0e6 * preset_perturbation(T), kkt_scaler = RuizScaler(),
         barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
     )
 end
@@ -181,7 +181,7 @@ primal\\_shift                 | 0.0                  | shift added to the prima
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
 equality\\_shift               | 1e-8                 | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 100 `preset_perturbation(T)` under `CondensedPreset`
 equality\\_shift\\_retry         | `true`               | on a wrong inertia, retry the condensed factorization with a hundredfold larger equality shift (at most twice) before the Hessian is perturbed
-equality\\_shift\\_max           | 1e-4                 | the largest equality shift a retry may reach
+equality\\_shift\\_max           | 1e-4                 | the largest equality shift a retry may reach; 1e6 `preset_perturbation(T)` under `CondensedPreset` (1e-4 in `Float64`, so that it scales with the shift in another precision)
 equality\\_shift\\_retry\\_factor | 100.0              | a retry multiplies the equality shift by this factor
 equality\\_shift\\_retry\\_count  | 2                  | retries per step
 equality\\_shift\\_retry\\_refinement | 3              | a retried factorization gets this many times the refinement steps

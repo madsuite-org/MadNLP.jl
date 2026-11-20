@@ -132,13 +132,15 @@ end
 
 function set_initial_bounds!(xl::AbstractVector{T}, xu::AbstractVector{T}, tol) where T
     # If `tol` is set to zero, keep the bounds unchanged.
+    # An infinite bound stays as it is: relaxing it would compute `Inf * tol`, whose
+    # derivative is `NaN` when `T` is a dual number (`Inf * 0`).
     if tol > zero(T)
         map!(
-            x->x - max(one(T), abs(x)) * tol,
+            x->isfinite(x) ? x - max(one(T), abs(x)) * tol : x,
             xl, xl
         )
         map!(
-            x->x + max(one(T), abs(x)) * tol,
+            x->isfinite(x) ? x + max(one(T), abs(x)) * tol : x,
             xu, xu
         )
     end

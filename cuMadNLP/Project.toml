@@ -3,7 +3,6 @@ uuid = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 version = "0.12.0"
 
 [deps]
-CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
 CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
@@ -36,7 +35,8 @@ Test = "1.10"
 julia = "1.10"
 
 [extras]
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test"]
+test = ["CUDA", "Test"]

@@ -40,6 +40,12 @@
     nlp32 = MadNLP.MadNLPCore.PrecompileChainModel(100, Float32[])
     sh32 = MadNLP.MadNLPOptions{Float32}(nlp32; preset = MadNLP.ShiftedPreset)
     @test sh32.dual_shift === MadNLP.MadNLPCore.preset_perturbation(Float32)
+    # CondensedPreset in Float32: the cap of the retried equality shift scales with the shift, so that
+    # a retry stays possible (the shift, 100 preset_perturbation, is about 3e-3 there)
+    co32 = MadNLP.MadNLPOptions{Float32}(nlp32; preset = MadNLP.CondensedPreset)
+    @test co32.equality_shift_max ≈ 1.0f6 * MadNLP.MadNLPCore.preset_perturbation(Float32)
+    @test co32.equality_shift * co32.equality_shift_retry_factor <= co32.equality_shift_max
+    @test MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset).equality_shift_max ≈ 1.0e-4
 
     # The shifted options apply to the augmented system only
     cond = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.ShiftedPreset, kkt_system = MadNLP.SparseCondensedKKTSystem)

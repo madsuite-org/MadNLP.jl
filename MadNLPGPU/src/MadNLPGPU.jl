@@ -7,6 +7,9 @@ loads cuMadNLP and keeps the names of MadNLPGPU resolving for one release.
 module MadNLPGPU
 
 import MadCore, MadCoreGPU, cuMadNLP
+# The MadNLPGPU of before the split loaded CUDA; keep that, so code relying on it
+# (an ExaModels model on CUDABackend(), say) runs unchanged.
+import CUDA
 
 # Every name of MadCoreGPU resolves as `MadNLPGPU.name`, as before the split.
 for name in MadCore.internal_names(MadCoreGPU)
