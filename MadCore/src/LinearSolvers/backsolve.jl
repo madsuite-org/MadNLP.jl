@@ -1,23 +1,28 @@
-@kwdef mutable struct RichardsonOptions <: AbstractOptions
+# The tolerances have the type `T` of the solver, which can be any `Real`
+# (e.g. a `ForwardDiff.Dual`), not only a type that converts to `Float64`.
+@kwdef mutable struct RichardsonOptions{T <: Real} <: AbstractOptions
     richardson_max_iter::Int = 10
-    richardson_tol::Float64
-    richardson_acceptable_tol::Float64
+    richardson_tol::T
+    richardson_acceptable_tol::T
 end
+
+Base.convert(::Type{RichardsonOptions{T}}, opt::RichardsonOptions) where {T} =
+    RichardsonOptions{T}(opt.richardson_max_iter, opt.richardson_tol, opt.richardson_acceptable_tol)
 
 struct RichardsonIterator{T, KKT <: AbstractKKTSystem{T}} <: AbstractIterator{T}
     kkt::KKT
-    opt::RichardsonOptions
+    opt::RichardsonOptions{T}
     cnt::MadNLPCounters
     logger::MadNLPLogger
 end
 
 function RichardsonIterator(
-    kkt;
-    opt = RichardsonOptions(),
+    kkt::AbstractKKTSystem{T};
+    opt = default_options(RichardsonIterator, sqrt(eps(T))),
     logger = MadNLPLogger(),
     cnt = MadNLPCounters()
-)
-    return RichardsonIterator(
+) where {T}
+    return RichardsonIterator{T, typeof(kkt)}(
         kkt, opt, cnt, logger
     )
 end

@@ -15,6 +15,7 @@ MadNLPCoreGPUExt = "MadCoreGPU"
 MadCore = {path = "../MadCore"}
 
 [compat]
+ForwardDiff = "0.10, 1"
 LDLFactorizations = "0.10"
 MadCore = "=0.12.0"
 MadCoreGPU = "=0.12.0"
@@ -25,6 +26,7 @@ Test = "1.10"
 julia = "1.10"
 
 [extras]
+ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
 MUMPS_seq_jll = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
 OpenBLAS32_jll = "656ef2d0-ae68-5445-9ca0-591084a874a2"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
@@ -32,4 +34,4 @@ NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "LDLFactorizations", "MUMPS_seq_jll", "NLPModels", "OpenBLAS32_jll"]
+test = ["Test", "ForwardDiff", "LDLFactorizations", "MUMPS_seq_jll", "NLPModels", "OpenBLAS32_jll"]

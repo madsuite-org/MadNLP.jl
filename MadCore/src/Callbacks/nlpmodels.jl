@@ -696,6 +696,10 @@ function unpack_z!(z_full, cb::SparseCallback{T, VT, VI, NLP, FH}, z) where {T, 
 end
 
 
+# Scale a bound, leaving an infinite bound as it is: `Inf * scale` has a `NaN` derivative
+# when the scale is a dual number (`Inf * 0`).
+_scale_bound(bound, scale) = isfinite(bound) ? bound * scale : bound
+
 function set_scaling!(
     cb::SparseCallback,
     x,
@@ -728,8 +732,8 @@ function set_scaling!(
     y0 ./= con_scale
     rhs .*= con_scale
     slack(x) .*= con_scale_slk
-    slack(xl) .*= con_scale_slk
-    slack(xu) .*= con_scale_slk
+    slack(xl) .= _scale_bound.(slack(xl), con_scale_slk)
+    slack(xu) .= _scale_bound.(slack(xu), con_scale_slk)
     return
 end
 
@@ -765,8 +769,8 @@ function set_scaling!(
     y0 ./= con_scale
     rhs .*= con_scale
     slack(x) .*= con_scale_slk
-    slack(xl) .*= con_scale_slk
-    slack(xu) .*= con_scale_slk
+    slack(xl) .= _scale_bound.(slack(xl), con_scale_slk)
+    slack(xu) .= _scale_bound.(slack(xu), con_scale_slk)
     return
 end
 
