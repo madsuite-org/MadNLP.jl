@@ -131,7 +131,7 @@ function MadCore.get_convergence_values(y::AbstractGPUVectorOrSubVector{T}, c, x
     )
     sd = max(s_max, (l1_y + l1_zl + l1_zu) / max(1, m + nlb + nub)) / s_max
     sc = max(s_max, (l1_zl + l1_zu) / max(1, nlb + nub)) / s_max
-    return sd, sc, inf_pr, du / sd, max(compl_lb, compl_ub) / sc
+    return (; sd, sc, inf_pr, inf_du = du / sd, inf_compl = max(compl_lb, compl_ub) / sc)
 end
 
 function MadCore.get_line_search_values(obj_val, c::AbstractGPUVectorOrSubVector{T}, x_lr, xl_r, zl_r, dzl, xu_r, x_ur, zu_r, dzu, f, x, xl, xu, dx, mu, tau) where {T}
@@ -166,7 +166,10 @@ function MadCore.get_line_search_values(obj_val, c::AbstractGPUVectorOrSubVector
         1:(m + nlb + nub + n);
         init = (o, o, o, o, l, l, l, l, o), backend = get_backend(c),
     )
-    return theta, obj_val + varphi_lb + varphi_ub, varphi_d, min(amax_lb, amax_ub), min(az_lb, az_ub), rel_search_norm
+    return (;
+        theta, varphi = obj_val + varphi_lb + varphi_ub, varphi_d,
+        alpha_max = min(amax_lb, amax_ub), alpha_z = min(az_lb, az_ub), rel_search_norm,
+    )
 end
 
 function MadCore.get_trial_values(obj_val, c::AbstractGPUVectorOrSubVector{T}, x_lr, xl_r, xu_r, x_ur, mu) where {T}
@@ -188,14 +191,14 @@ function MadCore.get_trial_values(obj_val, c::AbstractGPUVectorOrSubVector{T}, x
         1:(m + nlb + nub);
         init = (o, o, o), backend = get_backend(c),
     )
-    return theta, obj_val + varphi_lb + varphi_ub
+    return (; theta, varphi = obj_val + varphi_lb + varphi_ub)
 end
 
 function MadCore.get_quality_steps(x::AbstractGPUVectorOrSubVector{T}, xl, xu, dx, zl_r, zu_r, dzl, dzu, tau) where {T}
     n, nlb, nub = length(x), length(zl_r), length(zu_r)
     l, inf = one(T), T(Inf)
     # (αp, αd) as in `get_alpha_max` and `get_alpha_z`
-    return AcceleratedKernels.mapreduce(
+    alpha_pr, alpha_du = AcceleratedKernels.mapreduce(
         function (i)
             return @inbounds if i <= n
                 (min(dx[i] < 0 ? (xl[i] - x[i]) * tau / dx[i] : inf, dx[i] > 0 ? (xu[i] - x[i]) * tau / dx[i] : inf), l)
@@ -211,12 +214,13 @@ function MadCore.get_quality_steps(x::AbstractGPUVectorOrSubVector{T}, xl, xu, d
         1:(n + nlb + nub);
         init = (l, l), backend = get_backend(x),
     )
+    return (; alpha_pr, alpha_du)
 end
 
 function MadCore.get_quality_compl(x_lr::AbstractGPUVectorOrSubVector{T}, xl_r, dx_lr, zl_r, dzl, x_ur, xu_r, dx_ur, zu_r, dzu, alpha_pr, alpha_du) where {T}
     nlb, nub = length(x_lr), length(x_ur)
     o = zero(T)
-    return AcceleratedKernels.mapreduce(
+    inf_compl_lb, inf_compl_ub = AcceleratedKernels.mapreduce(
         function (i)
             return @inbounds if i <= nlb
                 (((x_lr[i] + alpha_pr * dx_lr[i] - xl_r[i]) * (zl_r[i] + alpha_du * dzl[i]))^2, o)
@@ -229,4 +233,5 @@ function MadCore.get_quality_compl(x_lr::AbstractGPUVectorOrSubVector{T}, xl_r, 
         1:(nlb + nub);
         init = (o, o), backend = get_backend(x_lr),
     )
+    return (; inf_compl_lb, inf_compl_ub)
 end

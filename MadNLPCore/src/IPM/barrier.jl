@@ -169,11 +169,11 @@ function _evaluate_quality_function(solver::AbstractMadNLPSolver{T}, sigma, step
     d = get_d(solver) # Load buffer
     # Δ(σ) = Δ_aff + σ Δ_cen
     full(d) .= full(step_aff) .+ sigma .* full(step_cen)
-    alpha_pr, alpha_du = get_quality_steps(
+    (; alpha_pr, alpha_du) = get_quality_steps(
         primal(get_x(solver)), primal(get_xl(solver)), primal(get_xu(solver)), primal(d),
         get_zl_r(solver), get_zu_r(solver), dual_lb(d), dual_ub(d), tau,
     )
-    inf_compl_lb, inf_compl_ub = get_quality_compl(
+    (; inf_compl_lb, inf_compl_ub) = get_quality_compl(
         get_x_lr(solver), get_xl_r(solver), get_dx_lr(solver), get_zl_r(solver), dual_lb(d),
         get_x_ur(solver), get_xu_r(solver), get_dx_ur(solver), get_zu_r(solver), dual_ub(d),
         alpha_pr, alpha_du,

@@ -310,7 +310,7 @@ function test_phase_values(Arr)
         )
         host, device = phases(args(Vector)), phases(args(Arr))
         for (h, d) in zip(host, device)
-            @test length(h) == length(d)
+            @test keys(h) == keys(d)
             @test all(isapprox.(collect(d), collect(h); rtol = 1.0e-10, atol = 1.0e-12))
         end
     end

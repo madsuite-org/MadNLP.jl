@@ -428,49 +428,53 @@ end
 """
     get_convergence_values(y, c, x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, f, zl, zu, jacl, s_max)
 
-`(sd, sc, inf_pr, inf_du, inf_compl)` of the convergence check: the scaling factors, and the
+`(; sd, sc, inf_pr, inf_du, inf_compl)` of the convergence check: the scaling factors, and the
 primal infeasibility, scaled dual infeasibility and scaled complementarity (with `mu = 0`).
 """
 function get_convergence_values(y, c, x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, f, zl, zu, jacl, s_max)
     T = eltype(c)
     sd = get_sd(y, zl_r, zu_r, s_max)
     sc = get_sc(zl_r, zu_r, s_max)
-    return sd, sc, get_inf_pr(c), get_inf_du(f, zl, zu, jacl, sd), get_inf_compl(x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, zero(T), sc)
+    return (;
+        sd, sc, inf_pr = get_inf_pr(c), inf_du = get_inf_du(f, zl, zu, jacl, sd),
+        inf_compl = get_inf_compl(x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, zero(T), sc),
+    )
 end
 
 """
     get_line_search_values(obj_val, c, x_lr, xl_r, zl_r, dzl, xu_r, x_ur, zu_r, dzu, f, x, xl, xu, dx, mu, tau)
 
-`(theta, varphi, varphi_d, alpha_max, alpha_z, rel_search_norm)` at the start of the filter line
+`(; theta, varphi, varphi_d, alpha_max, alpha_z, rel_search_norm)` at the start of the filter line
 search, for the step `(dx, dzl, dzu)`.
 """
 function get_line_search_values(obj_val, c, x_lr, xl_r, zl_r, dzl, xu_r, x_ur, zu_r, dzu, f, x, xl, xu, dx, mu, tau)
-    return (
-        get_theta(c), get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu), get_varphi_d(f, x, xl, xu, dx, mu),
-        get_alpha_max(x, xl, xu, dx, tau), get_alpha_z(zl_r, zu_r, dzl, dzu, tau), get_rel_search_norm(x, dx),
+    return (;
+        theta = get_theta(c), varphi = get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu),
+        varphi_d = get_varphi_d(f, x, xl, xu, dx, mu), alpha_max = get_alpha_max(x, xl, xu, dx, tau),
+        alpha_z = get_alpha_z(zl_r, zu_r, dzl, dzu, tau), rel_search_norm = get_rel_search_norm(x, dx),
     )
 end
 
 """
     get_trial_values(obj_val, c, x_lr, xl_r, xu_r, x_ur, mu)
 
-`(theta, varphi)` at a trial point of the line search.
+`(; theta, varphi)` at a trial point of the line search.
 """
-get_trial_values(obj_val, c, x_lr, xl_r, xu_r, x_ur, mu) = (get_theta(c), get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu))
+get_trial_values(obj_val, c, x_lr, xl_r, xu_r, x_ur, mu) = (; theta = get_theta(c), varphi = get_varphi(obj_val, x_lr, xl_r, xu_r, x_ur, mu))
 
 """
     get_quality_steps(x, xl, xu, dx, zl_r, zu_r, dzl, dzu, tau)
 
-`(alpha_pr, alpha_du)`, the step lengths of the step `(dx, dzl, dzu)` in the quality function of
+`(; alpha_pr, alpha_du)`, the step lengths of the step `(dx, dzl, dzu)` in the quality function of
 the adaptive barrier update.
 """
-get_quality_steps(x, xl, xu, dx, zl_r, zu_r, dzl, dzu, tau) = (get_alpha_max(x, xl, xu, dx, tau), get_alpha_z(zl_r, zu_r, dzl, dzu, tau))
+get_quality_steps(x, xl, xu, dx, zl_r, zu_r, dzl, dzu, tau) = (; alpha_pr = get_alpha_max(x, xl, xu, dx, tau), alpha_du = get_alpha_z(zl_r, zu_r, dzl, dzu, tau))
 
 """
     get_quality_compl(x_lr, xl_r, dx_lr, zl_r, dzl, x_ur, xu_r, dx_ur, zu_r, dzu, alpha_pr, alpha_du)
 
-`(‖(X + αp ΔX - Xl) (Zl + αd ΔZl)‖², ‖(Xu - X - αp ΔX) (Zu + αd ΔZu)‖²)`, the complementarity
-terms of the quality function of the adaptive barrier update.
+`(; inf_compl_lb, inf_compl_ub)`, the complementarity terms `‖(X + αp ΔX - Xl) (Zl + αd ΔZl)‖²` and
+`‖(Xu - X - αp ΔX) (Zu + αd ΔZu)‖²` of the quality function of the adaptive barrier update.
 """
 function get_quality_compl(x_lr, xl_r, dx_lr, zl_r, dzl, x_ur, xu_r, dx_ur, zu_r, dzu, alpha_pr, alpha_du)
     T = eltype(x_lr)
@@ -482,5 +486,5 @@ function get_quality_compl(x_lr, xl_r, dx_lr, zl_r, dzl, x_ur, xu_r, dx_ur, zu_r
     for i in eachindex(x_ur)
         ub += ((xu_r[i] - x_ur[i] - alpha_pr * dx_ur[i]) * (zu_r[i] + alpha_du * dzu[i]))^2
     end
-    return lb, ub
+    return (; inf_compl_lb = lb, inf_compl_ub = ub)
 end

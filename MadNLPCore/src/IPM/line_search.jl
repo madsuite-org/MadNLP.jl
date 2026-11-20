@@ -33,7 +33,7 @@ end
 
 function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
     # the scalars of the step, in one reduction on a GPU
-    theta, varphi, varphi_d, alpha_max, alpha_z, rel_search_norm = get_line_search_values(
+    (; theta, varphi, varphi_d, alpha_max, alpha_z, rel_search_norm) = get_line_search_values(
         get_obj_val(solver), get_c(solver),
         get_x_lr(solver), get_xl_r(solver), get_zl_r(solver), dual_lb(get_d(solver)),
         get_xu_r(solver), get_x_ur(solver), get_zu_r(solver), dual_ub(get_d(solver)),
@@ -64,10 +64,11 @@ function filter_line_search!(solver::AbstractMadNLPSolver{T}) where T
         set_obj_val_trial!(solver, eval_f_wrapper(solver, get_x_trial(solver)))
         eval_cons_wrapper!(solver, get_c_trial(solver), get_x_trial(solver))
 
-        theta_trial, varphi_trial = get_trial_values(
+        trial = get_trial_values(
             get_obj_val_trial(solver), get_c_trial(solver),
             get_x_trial_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_trial_ur(solver), get_mu(solver),
         )
+        theta_trial, varphi_trial = trial.theta, trial.varphi
         armijo_condition = is_armijo(varphi_trial,varphi,get_opt(solver).eta_phi,get_alpha(solver),varphi_d)
 
         # A tiny step is accepted and flagged; the barrier update then decreases μ once. During a
