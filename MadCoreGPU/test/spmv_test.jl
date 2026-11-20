@@ -1,7 +1,7 @@
 # hess_op and jac_op of a GPU condensed KKT system, through KrylovPreconditioners' operators,
 # against the host.
 using SparseArrays, LinearAlgebra
-function test_kept_operators(Arr, SpMat)
+function test_gpu_operators(Arr, SpMat)
     m, n = 300, 200
     A = sprand(m, n, 0.05)
     dA = SpMat(A)
@@ -9,8 +9,8 @@ function test_kept_operators(Arr, SpMat)
     ext = Base.get_extension(MadCoreGPU, :MadCoreGPUKrylovPreconditionersExt)
     @test ext !== nothing
     for (transa, opA) in (('N', A), ('T', transpose(A)))
-        op = MadCoreGPU.kept_op(dA, transa)
-        @test op isa ext.KeptOperator            # the products run through a kept operator
+        op = MadCoreGPU.gpu_operator(dA, transa)
+        @test op isa ext.KrylovViewOperator            # the products run through a KrylovOperator
         p, q = size(opA)
         x, y = rand(q), rand(p)
         @test Array(mul!(Arr(copy(y)), op, Arr(x), α, β)) ≈ α * opA * x + β * y
@@ -25,8 +25,8 @@ function test_kept_operators(Arr, SpMat)
 end
 
 if HAS_CUDA && CUDA.functional()
-    @testset "Kept sparse operators (CUDA)" test_kept_operators(CuArray, CUDA.CUSPARSE.CuSparseMatrixCSC)
+    @testset "GPU sparse operators (CUDA)" test_gpu_operators(CuArray, CUDA.CUSPARSE.CuSparseMatrixCSC)
 end
 if HAS_AMDGPU && AMDGPU.functional()
-    @testset "Kept sparse operators (ROCm)" test_kept_operators(ROCArray, AMDGPU.rocSPARSE.ROCSparseMatrixCSC)
+    @testset "GPU sparse operators (ROCm)" test_gpu_operators(ROCArray, AMDGPU.rocSPARSE.ROCSparseMatrixCSC)
 end

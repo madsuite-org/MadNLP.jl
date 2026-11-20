@@ -251,6 +251,7 @@ end
 function MadCore.get_sparse_condensed_ext(
         ::Type{VT},
         hess_com,
+        jt_csc,
         jptr,
         jt_map,
         hess_map,
@@ -282,8 +283,7 @@ function MadCore.get_sparse_condensed_ext(
         jt_csc_ptrptr = jt_csc_ptrptr,
         diag_map_to = diag_map_to,
         diag_map_fr = diag_map_fr,
-        # operators for the products with hess_com and jt_csc, made on first use (see kept_op)
-        ops = Dict{Tuple{Symbol, Char}, Any}(),
+        ops = CondensedOperators(hess_com, jt_csc),
     )
 end
 
@@ -292,20 +292,39 @@ end
 =#
 
 """
-    kept_op(A, transa)
+    gpu_operator(A, transa)
 
-The object the GPU KKT systems apply `op(A)` with. It is `A`, `transpose(A)` or `adjoint(A)`;
-a package extension returns an operator that keeps the sparse library's setup.
+The object a GPU KKT system multiplies with to apply `A` (`transa = 'N'`) or its transpose
+(`'T'`). Without a package that provides more, it is `A` or `transpose(A)`. With
+KrylovPreconditioners loaded, a sparse `A` becomes a `KrylovOperator`, which keeps the sparse
+library's matrix descriptor, work buffer and preprocessing across products.
 """
-kept_op(A, transa::Char) = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
+gpu_operator(A, transa::Char) = transa == 'N' ? A : transpose(A)
+
+"""
+    CondensedOperators
+
+The operators a GPU `SparseCondensedKKTSystem` multiplies with: the stored lower triangle `L`
+of the condensed Hessian (`hess_com`) and the transposed Jacobian `Jᵀ` (`jt_csc`), each also
+transposed. They are made once, with the KKT system, by [`gpu_operator`](@ref).
+"""
+struct CondensedOperators{H, HT, JT, J}
+    hess::H      # L
+    hess_t::HT   # Lᵀ
+    jt::JT       # Jᵀ
+    jac::J       # J
+end
+
+CondensedOperators(hess_com, jt_csc) = CondensedOperators(
+    gpu_operator(hess_com, 'N'), gpu_operator(hess_com, 'T'),
+    gpu_operator(jt_csc, 'N'), gpu_operator(jt_csc, 'T'),
+)
 
 const _GPUCondensed{T, VT} = MadCore.SparseCondensedKKTSystem{T, VT} where {T, VT <: AbstractGPUVector{T}}
 
-MadCore.hess_op(kkt::_GPUCondensed, transa::Char = 'N') =
-    get!(() -> kept_op(kkt.hess_com, transa), kkt.ext.ops, (:hess, transa))
-# jt_csc stores Jᵀ: J is its transpose (the KKT systems are real, so 'C' is 'T')
-MadCore.jac_op(kkt::_GPUCondensed, transa::Char = 'N') =
-    get!(() -> kept_op(kkt.jt_csc, transa == 'N' ? 'T' : 'N'), kkt.ext.ops, (:jt, transa == 'N' ? 'T' : 'N'))
+# the KKT systems are real, so 'C' is 'T'
+MadCore.hess_op(kkt::_GPUCondensed, transa::Char = 'N') = transa == 'N' ? kkt.ext.ops.hess : kkt.ext.ops.hess_t
+MadCore.jac_op(kkt::_GPUCondensed, transa::Char = 'N') = transa == 'N' ? kkt.ext.ops.jac : kkt.ext.ops.jt
 
 #=
     get_diagonal_mapping

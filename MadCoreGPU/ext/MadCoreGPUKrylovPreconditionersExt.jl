@@ -11,28 +11,28 @@ import GPUArraysCore: AbstractGPUVector
 import KrylovPreconditioners: KrylovOperator
 
 """
-    KeptOperator
+    KrylovViewOperator
 
 A `KrylovOperator` that also takes contiguous views of device vectors, as the KKT systems pass
 them: the operator itself takes whole vectors only.
 """
-struct KeptOperator{O}
+struct KrylovViewOperator{O}
     op::O
 end
 
 _whole(x::AbstractGPUVector) = x
 _whole(x::SubArray) = unsafe_wrap(typeof(parent(x)), pointer(x), length(x))
 
-function LinearAlgebra.mul!(y::AbstractVector, A::KeptOperator, x::AbstractVector, alpha::Number, beta::Number)
+function LinearAlgebra.mul!(y::AbstractVector, A::KrylovViewOperator, x::AbstractVector, alpha::Number, beta::Number)
     mul!(_whole(y), A.op, _whole(x), alpha, beta)
     return y
 end
-LinearAlgebra.mul!(y::AbstractVector, A::KeptOperator, x::AbstractVector) = mul!(y, A, x, true, false)
+LinearAlgebra.mul!(y::AbstractVector, A::KrylovViewOperator, x::AbstractVector) = mul!(y, A, x, true, false)
 
-function MadCoreGPU.kept_op(A::AbstractSparseMatrix, transa::Char)
-    fallback = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
+function MadCoreGPU.gpu_operator(A::AbstractSparseMatrix, transa::Char)
+    fallback = transa == 'N' ? A : transpose(A)
     applicable(KrylovOperator, A) || return fallback
-    return KeptOperator(KrylovOperator(A; transa))
+    return KrylovViewOperator(KrylovOperator(A; transa))
 end
 
 end # module

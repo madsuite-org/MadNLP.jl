@@ -290,10 +290,15 @@ include("Schur/schur.jl")
     hess_op(kkt::AbstractKKTSystem, transa::Char = 'N')
 
 The stored Hessian block of `kkt` (`transa = 'N'`), or its transpose (`'T'`) or adjoint
-(`'C'`), as an object `mul!(y, op, x, alpha, beta)` applies. A sparse KKT system stores the
-lower triangle, so a product with the symmetric Hessian applies both. Each KKT system defines
-it for its storage; a GPU backend may return an operator that keeps the sparse library's
-setup across products.
+(`'C'`), as an object `mul!(y, op, x, alpha, beta)` applies.
+
+A sparse KKT system stores only the lower triangle `L` of the symmetric Hessian `H`, including
+the diagonal, and `hess_op` is `L`, not `H`. Since both `L` and `Lᵀ` contain the diagonal,
+`H x = L x + Lᵀ x - diag(H) x`: a product with `H` applies `hess_op(kkt)` and
+`hess_op(kkt, 'T')` and subtracts the diagonal once, as the sparse KKT systems' `mul!` do.
+
+Each KKT system defines it for its storage; a GPU backend may return an operator that keeps
+the sparse library's setup across products.
 """
 function hess_op end
 

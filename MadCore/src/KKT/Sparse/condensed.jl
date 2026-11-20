@@ -184,7 +184,7 @@ function create_kkt_system(
 
     # tell the linear solver the saddle-point partition before it analyzes
     _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
-    ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
+    ext = get_sparse_condensed_ext(VT, hess_com, jt_csc, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
         hess, hess_raw, hess_com, hess_csc_map,
         jac, jt_coo, jt_csc, jt_csc_map,
