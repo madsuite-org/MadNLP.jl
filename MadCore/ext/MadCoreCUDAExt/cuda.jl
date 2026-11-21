@@ -1,17 +1,4 @@
 #=
-    SparseMatrixCSC to CuSparseMatrixCSC
-=#
-
-function cuSPARSE.CuSparseMatrixCSC{Tv, Ti}(A::SparseMatrixCSC{Tv, Ti}) where {Tv, Ti}
-    return cuSPARSE.CuSparseMatrixCSC{Tv, Ti}(
-        CuVector(A.colptr),
-        CuVector(A.rowval),
-        CuVector(A.nzval),
-        size(A),
-    )
-end
-
-#=
     MadCore._ger!
 =#
 
