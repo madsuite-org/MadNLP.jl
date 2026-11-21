@@ -46,8 +46,7 @@ version number and are released together.
 
 | Package | Role |
 |:---|:---|
-| `MadCore` | Callbacks, KKT systems, linear solver interface, options and the helpers shared by the interior-point solvers |
-| `MadCoreGPU` | GPU KKT systems, kernels and the GPU linear solvers, as extensions |
+| `MadCore` | Callbacks, KKT systems, linear solver interface, options and the helpers shared by the interior-point solvers; the GPU KKT systems, kernels and GPU linear solvers are its extensions |
 | `MadNLPCore` | The filter line-search interior-point method |
 | `MadNLP` | CPU entry point, with MUMPS as default linear solver |
 | `cuMadNLP` | NVIDIA entry point, with cuDSS as default linear solver |

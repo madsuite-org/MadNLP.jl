@@ -18,9 +18,6 @@ function __init__()
     return
 end
 
-MadCore.create_linear_solver(::Type{MadCore.MumpsSolver}, A; kwargs...) = MumpsState(A; kwargs...)
-MadCore.default_options(::Type{MadCore.MumpsSolver}) = MadCore.default_options(MumpsState)
-MadCore.input_type(::Type{MadCore.MumpsSolver}) = MadCore.input_type(MumpsState)
-MadCore.is_supported(::Type{MadCore.MumpsSolver}, ::Type{T}) where {T <: AbstractFloat} = MadCore.is_supported(MumpsState, T)
+MadCore.solver_type(::Type{MadCore.MumpsSolver}) = MumpsState
 
 end # module

@@ -22,10 +22,12 @@ function solve_bunchkaufman! end
 """
     transfer_matrix!(M::AbstractLapackSolver)
 
-Copy the matrix `M.A` into the factorization buffer `M.fact`.
-GPU backends override this to use `gpu_transfer!`.
+Copy the matrix `M.A` into the factorization buffer `M.fact`, with [`copy_to_dense!`](@ref).
 """
-transfer_matrix!(M::AbstractLapackSolver) = copyto!(M.fact, M.A)
+transfer_matrix!(M::AbstractLapackSolver) = copy_to_dense!(M.fact, M.A)
+
+# Copy a sparse or dense matrix into a dense one. MadCoreGPUExt adds the GPU sparse case.
+copy_to_dense!(y, x) = copyto!(y, x)
 
 """
     supports_bunchkaufman_inertia(M::AbstractLapackSolver)
