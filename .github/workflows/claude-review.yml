@@ -106,8 +106,8 @@ jobs:
             MadNLP is a nonlinear programming solver implementing a filter line-search
             interior-point method in pure Julia. The repository holds sibling packages:
             MadCore/ (callbacks, KKT systems, linear-solver interface, IPM helpers; CPU
-            linear solvers, GPU KKT systems and kernels, and the CUDA, cuDSS, AMDGPU,
-            oneAPI and Metal backends as extensions), MadNLPCore/ (the
+            linear solvers as extensions), MadCoreGPU/ (GPU KKT systems and kernels;
+            CUDA, cuDSS and AMDGPU extensions), MadNLPCore/ (the
             interior-point method), MadNLP/ (CPU entry point; MathOptInterface wrapper in
             MadNLP/ext/MadNLPMOI), cuMadNLP/ and rocMadNLP/ (GPU entry points),
             MadNLPTests/, and MadNLPGPU/ (deprecated shim). Read the diff
@@ -126,7 +126,7 @@ jobs:
                allocation inside the iteration loop, and changes that break the
                AbstractKKTSystem or linear-solver interfaces other packages implement.
             3. GPU paths: CPU and GPU results must agree; no scalar indexing of device
-               arrays in library code; device-specific code stays in MadCore's GPU extensions; no
+               arrays in library code; device-specific code stays in the MadCoreGPU extensions; no
                allocation inside kernels.
             4. Tests: new behavior has a test wired into test/runtests.jl (or the
                subpackage's test/runtests.jl), using MadNLPTests where it applies; results
