@@ -63,7 +63,14 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         @test_throws ArgumentError MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, Int[])
         @test_throws ArgumentError MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, [1, 1, 2])
         # Without Metis and AMD loaded, the error names the package to load.
-        msg(o) = sprint(showerror, try MadCore.ordering_permutation(Val(o), A, Int[]) catch e; e end)
+        function msg(o)
+            err = try
+                MadCore.ordering_permutation(Val(o), A, Int[])
+            catch e
+                e
+            end
+            return sprint(showerror, err)
+        end
         if Base.get_extension(MadCore, :MadCoreMetisExt) === nothing
             @test occursin("Load Metis", msg(MadCore.METIS_ORDERING))
         end
