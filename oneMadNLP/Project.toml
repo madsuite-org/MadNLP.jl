@@ -3,22 +3,25 @@ uuid = "94de30a0-4b21-4ba4-8ea5-b699003ba2ad"
 version = "0.12.0"
 
 [deps]
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
+GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
+KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
-MadCoreGPU = "bc174d20-fbd0-43bd-9ba9-5b5faf23ea88"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
 SparseDirectSolver = "dc8e0fd9-41f1-440b-9624-22817132f700"
 oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 
 [sources]
 MadCore = {path = "../MadCore"}
-MadCoreGPU = {path = "../MadCoreGPU"}
 MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]
+Adapt = "4"
+GPUArraysCore = "0.2"
+KernelAbstractions = "0.10"
 Krylov = "0.10"
 MadCore = "=0.12.0"
-MadCoreGPU = "=0.12.0"
 MadNLPCore = "=0.12.0"
 SparseDirectSolver = "0.4.1"
 Test = "1.10"

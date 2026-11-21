@@ -1,15 +1,15 @@
-using Test, rocMadNLP, MadNLPCore, MadCore, MadCoreGPU, AMDGPU
+using Test, rocMadNLP, MadNLPCore, MadCore, AMDGPU
 
 @testset "rocMadNLP" begin
     @testset "Exports and extensions" begin
-        @test LapackROCmSolver === MadCoreGPU.LapackROCmSolver
-        @test SDSSolver === MadCoreGPU.SDSSolver
+        @test LapackROCmSolver === MadCore.LapackROCmSolver
+        @test SDSSolver === MadCore.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test :ROCBackend in names(rocMadNLP)
         @test rocMadNLP.ROCBackend === AMDGPU.ROCBackend
         # rocMadNLP loads AMDGPU, so the rocSOLVER solvers are available.
         @test MadCore.default_options(LapackROCmSolver) isa MadCore.AbstractOptions
-        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
+        SDSExt = Base.get_extension(MadCore, :MadCoreSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
         # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to ROCVector models

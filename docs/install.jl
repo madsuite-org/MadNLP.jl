@@ -7,7 +7,6 @@ Pkg.develop([
     PackageSpec(path=joinpath(ROOT, "MadCore")),
     PackageSpec(path=joinpath(ROOT, "MadNLPCore")),
     PackageSpec(path=joinpath(ROOT, "MadNLP")),
-    PackageSpec(path=joinpath(ROOT, "MadCoreGPU")),
     PackageSpec(path=joinpath(ROOT, "cuMadNLP")),
     PackageSpec(path=joinpath(ROOT, "MadNLPTests")),
 ])

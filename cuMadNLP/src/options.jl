@@ -1,6 +1,6 @@
 # Option presets for models on NVIDIA GPUs: the linear solvers of the GPU option presets
 # (MadNLPCoreGPUExt), and cuDSS's options on the augmented system under each preset (on the
-# condensed system they follow the matrix: MadCoreGPU's CUDSS extension).
+# condensed system they follow the matrix: MadCore's CUDSS extension).
 
 MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = CUDSSSolver
 MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = LapackCUDASolver

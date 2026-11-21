@@ -1,13 +1,13 @@
-using Test, oneMadNLP, MadNLPCore, MadCore, MadCoreGPU, oneAPI
+using Test, oneMadNLP, MadNLPCore, MadCore, oneAPI
 
 @testset "oneMadNLP" begin
     @testset "Exports and extensions" begin
-        @test LapackOneMKLSolver === MadCoreGPU.LapackOneMKLSolver
-        @test SDSSolver === MadCoreGPU.SDSSolver
+        @test LapackOneMKLSolver === MadCore.LapackOneMKLSolver
+        @test SDSSolver === MadCore.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test oneMadNLP.oneAPIBackend === oneAPI.oneAPIBackend
         @test MadCore.default_options(LapackOneMKLSolver) isa MadCore.AbstractOptions
-        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
+        SDSExt = Base.get_extension(MadCore, :MadCoreSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
         # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to oneVector models

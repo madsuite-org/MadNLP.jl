@@ -47,6 +47,8 @@ include(joinpath("IPM", "api.jl"))
 include(joinpath("IPM", "kernels.jl"))
 include(joinpath("IPM", "callbacks.jl"))
 include(joinpath("IPM", "factorization.jl"))
+include("gpu.jl")
+include("gpu_timer.jl")
 
 """
     MadCore.internal_names(mod::Module = MadCore)

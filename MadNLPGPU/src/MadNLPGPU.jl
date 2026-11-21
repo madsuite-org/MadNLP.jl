@@ -6,15 +6,24 @@ loads cuMadNLP and keeps the names of MadNLPGPU resolving for one release.
 """
 module MadNLPGPU
 
-import MadCore, MadCoreGPU, cuMadNLP
+import MadCore, cuMadNLP
 # The MadNLPGPU of before the split loaded CUDA; keep that, so code relying on it
 # (an ExaModels model on CUDABackend(), say) runs unchanged.
 import CUDA
 
-# Every name of MadCoreGPU resolves as `MadNLPGPU.name`, as before the split.
-for name in MadCore.internal_names(MadCoreGPU)
+# The names of MadNLPGPU before the split resolve as `MadNLPGPU.name`: the GPU
+# internals of MadCore's GPU extension, and the solver markers and orderings of MadCore.
+const _GPUExt = Base.get_extension(MadCore, :MadCoreGPUExt)
+for name in MadCore.internal_names(_GPUExt)
     name === :MadCore && continue
-    @eval import MadCoreGPU: $name
+    @eval import ._GPUExt: $name
+end
+for name in (
+        :CUDSSSolver, :LapackCUDASolver, :LapackROCmSolver, :LapackOneMKLSolver, :SDSSolver,
+        :ORDERING, :DEFAULT_ORDERING, :METIS_ORDERING, :AMD_ORDERING, :USER_ORDERING,
+        :SYMAMD_ORDERING, :COLAMD_ORDERING, :EventTimer, :gpu_transfer!,
+    )
+    @eval import MadCore: $name
 end
 using cuMadNLP
 for name in names(cuMadNLP)

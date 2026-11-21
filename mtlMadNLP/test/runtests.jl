@@ -1,11 +1,11 @@
-using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, SparseArrays
+using Test, mtlMadNLP, MadNLPCore, MadCore, Metal, LinearAlgebra, SparseArrays
 
 @testset "mtlMadNLP" begin
     @testset "Exports" begin
-        @test SDSSolver === MadCoreGPU.SDSSolver
+        @test SDSSolver === MadCore.SDSSolver
         @test madnlp === MadNLPCore.madnlp
         @test mtlMadNLP.MetalBackend === Metal.MetalBackend
-        SDSExt = Base.get_extension(MadCoreGPU, :MadCoreGPUSDSExt)
+        SDSExt = Base.get_extension(MadCore, :MadCoreSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
         # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to MtlVector models
