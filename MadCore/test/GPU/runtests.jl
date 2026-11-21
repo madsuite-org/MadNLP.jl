@@ -35,6 +35,7 @@ end
     if HAS_CUDA && CUDA.functional()
         test_augmented_transfer(CuArray, MadCore.LapackCUDASolver)
         include("densekkt_cuda.jl")
+        include("lapack_cuda.jl")
         include("condensed_mul_cuda.jl")
         # Need to add support for CompactLBFGS in SparseCondensedKKTSystem (Issue #563)
         # include("sparsekkt_cuda.jl")

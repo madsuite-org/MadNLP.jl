@@ -11,8 +11,8 @@ end
     LapackCPUSolver
 
 Dense LAPACK solver on the host: a [`LapackSolver`](@ref) whose workspace calls the LAPACK of
-`libblastrampoline`. `LapackCPUSolver(A; opt, logger)` copies `A`, which may be a host or a
-GPU array, into a host matrix before each factorization.
+`libblastrampoline`. `LapackCPUSolver(A; opt, logger)` copies `A`, which may be a host matrix (dense or sparse) or a
+dense GPU array, into a host matrix before each factorization.
 """
 const LapackCPUSolver{T, MT, Alg} = LapackSolver{T, MT, Alg, Matrix{T}, Vector{T}, LapackCPUWorkspace{T}}
 

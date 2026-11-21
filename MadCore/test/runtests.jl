@@ -85,4 +85,29 @@ using Test, MadCore, SparseArrays, LinearAlgebra
             @test length(p) == size(A, 1) && isperm(p)
         end
     end
+
+    @testset "LapackCPUSolver" begin
+        n = 12
+        for T in (Float32, Float64), alg in (MadCore.BUNCHKAUFMAN, MadCore.LU, MadCore.QR, MadCore.EVD, MadCore.CHOLESKY)
+            B = rand(T, n, n)
+            A = Matrix(Symmetric(B * B' + n * I))
+            alg == MadCore.CHOLESKY || (A[1, 1] = -A[1, 1])
+            opt = MadCore.LapackOptions(lapack_algorithm = alg)
+            M = MadCore.create_linear_solver(MadCore.LapackCPUSolver, Matrix(LowerTriangular(A)); opt)
+            @test M isa MadCore.LapackCPUSolver{T}
+            @test M isa MadCore.AbstractLapackSolver{T, alg}
+            MadCore.factorize!(M)
+            b = ones(T, n)
+            x = copy(b)
+            MadCore.solve_linear_system!(M, x)
+            @test A * x ≈ b rtol = (T == Float32 ? 1.0e-3 : 1.0e-9)
+            if alg in (MadCore.BUNCHKAUFMAN, MadCore.EVD)
+                @test MadCore.inertia(M) == (n - 1, 0, 1)
+            end
+        end
+        # A sparse host matrix is copied into the dense factor.
+        As = sparse(Matrix(LowerTriangular(Matrix(Symmetric(rand(6, 6) + 6I)))))
+        M = MadCore.LapackCPUSolver(As)
+        @test M isa MadCore.LapackCPUSolver && M.fact isa Matrix{Float64}
+    end
 end
