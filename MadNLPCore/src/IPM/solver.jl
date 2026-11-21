@@ -825,7 +825,8 @@ function inertia_correction!(
     factorize_wrapper!(solver)
     num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
 
-    solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+    inertia_ok = is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+    solve_status = if inertia_ok
         # Try a backsolve. If the factorization has failed, solve_refine_wrapper returns false.
         solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver))
     else
@@ -837,10 +838,13 @@ function inertia_correction!(
     # in both cases the larger shift makes the condensed matrix better conditioned. The retried
     # factorization is further from the unshifted system the refinement targets, so the refinement
     # contracts more slowly and gets equality_shift_retry_refinement times the steps.
-    while !solve_status && inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
+    # (prototype: equality_shift_retry_on_refinement = false retries on a wrong inertia only)
+    while !solve_status && (!inertia_ok || get_opt(solver).equality_shift_retry_on_refinement) &&
+            inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
         factorize_wrapper!(solver)
         num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
-        solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+        inertia_ok = is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+        solve_status = if inertia_ok
             solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver); max_iter_factor = get_opt(solver).equality_shift_retry_refinement)
         else
             false

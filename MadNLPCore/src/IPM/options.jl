@@ -331,6 +331,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
     # the Hessian is perturbed (SparseCondensedKKTSystem)
     equality_shift_retry::Bool = true
+    # prototype: the retry also follows a failed refinement on a factorization of the right inertia
+    # (true, the default) or only a factorization of the wrong inertia (false)
+    equality_shift_retry_on_refinement::Bool = true
     # a retry multiplies the shift by this factor, at most this many times per step, up to this shift
     equality_shift_retry_factor::T = 100.
     equality_shift_retry_count::Int = 2
