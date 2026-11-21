@@ -1,5 +1,5 @@
 # Fill-reducing orderings of the matrix a sparse KKT system hands to its linear solver,
-# computed on the host (see LinearSolvers/permuted.jl).
+# computed on the host (see LinearSolvers/ordering.jl).
 
 """
     AbstractOrdering

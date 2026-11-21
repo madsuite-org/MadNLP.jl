@@ -61,10 +61,12 @@ module MadCoreAppleAccelerateExt
     )
 
     # The ordering of the symbolic factorization: `accelerate_order`, or the given pivot order.
+    # Accelerate's `order[i]` is the position of variable `i` (0-based), the inverse of the
+    # pivot order.
     # The order is kept in the state, which holds the pointer.
     _order(::Nothing, method) = (Cint[], method, C_NULL)
     function _order(perm::Vector{Int}, _)
-        order = Cint.(perm .- 1)
+        order = Cint.(invperm(perm) .- 1)
         return order, AA.SparseOrderUser, pointer(order)
     end
 
