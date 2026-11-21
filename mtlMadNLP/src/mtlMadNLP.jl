@@ -1,7 +1,7 @@
 """
     mtlMadNLP
 
-Entry point of MadNLP on Apple GPUs. Loads MadNLPCore with the GPU KKT systems of MadCore's GPU extensions
+Entry point of MadNLP on Apple GPUs. Loads MadNLPCore with the GPU KKT systems of MadCore
 and SparseDirectSolver.jl. Models on `MtlVector` are solved with
 [`ShiftedPreset`](@ref MadNLPCore.ShiftedPreset) by default: the augmented KKT system with the
 LDLᵀ factorization of [`SDSSolver`](@ref) with diagonal pivoting. Metal has no `Float64`, so models use
@@ -14,8 +14,6 @@ avoid copies to the host (see the Apple silicon tutorial).
 module mtlMadNLP
 
 import MadCore, MadNLPCore
-# Triggers of MadCoreGPUExt, the GPU KKT systems and kernels
-import Adapt, GPUArraysCore, KernelAbstractions
 # GPUArrays is a trigger of MadCoreMetalExt, which defines the sparse matrix type.
 import GPUArrays, Metal
 using Metal: MtlVector, MetalBackend

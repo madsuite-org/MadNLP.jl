@@ -100,7 +100,7 @@ function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger()
         user_perm = opt.sds_user_perm,
         tuning = opt.sds_tuning,
     )
-    return SDSState{eltype(MadCore.scaling_nzval(csc)), typeof(inner), typeof(csc)}(inner, csc, false, 0, opt, logger)
+    return SDSState{eltype(MadCore.nonzeros(csc)), typeof(inner), typeof(csc)}(inner, csc, false, 0, opt, logger)
 end
 
 function MadCore.factorize!(M::SDSState)

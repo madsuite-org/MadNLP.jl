@@ -9,8 +9,6 @@ with the LDLᵀ factorization of [`SDSSolver`](@ref) with diagonal pivoting.
 module oneMadNLP
 
 import MadCore, MadNLPCore
-# Triggers of MadCoreGPUExt, the GPU KKT systems and kernels
-import Adapt, GPUArrays, GPUArraysCore, KernelAbstractions
 import oneAPI
 using oneAPI: oneVector, oneAPIBackend
 # SparseDirectSolver loads MadCoreSDSExt, which implements SDSSolver.

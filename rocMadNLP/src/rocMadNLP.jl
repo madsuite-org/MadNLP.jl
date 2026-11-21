@@ -9,8 +9,6 @@ system with the LDLᵀ factorization of [`SDSSolver`](@ref) with diagonal pivoti
 module rocMadNLP
 
 import MadCore, MadNLPCore
-# Triggers of MadCoreGPUExt, the GPU KKT systems and kernels
-import Adapt, GPUArrays, GPUArraysCore, KernelAbstractions
 import AMDGPU
 using AMDGPU: ROCVector, ROCBackend
 import PrecompileTools

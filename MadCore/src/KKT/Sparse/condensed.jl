@@ -260,26 +260,24 @@ function getptr(array; by = (x,y)->x != y)
     findall(bitarray)
 end
 
-nzval(H) = nonzeros(H)
-
 @inbounds function build_condensed_aug_symbolic(H::AbstractSparseMatrix{Tv,Ti}, Jt) where {Tv, Ti}
     nnzjtsj = _sym_length(Jt)
 
-    sym = similar(nzval(H), Tuple{Int,Int,Int},
+    sym = similar(nonzeros(H), Tuple{Int,Int,Int},
         size(H,2) + nnz(H) + nnzjtsj
     )
-    sym2 = similar(nzval(H), Tuple{Int,Int},
+    sym2 = similar(nonzeros(H), Tuple{Int,Int},
         size(H,2) + nnz(H) + nnzjtsj
     )
     colptr = fill!(
-        similar(nzval(H), Ti, size(H,1)+1),
+        similar(nonzeros(H), Ti, size(H,1)+1),
         one(Tv)
     )
 
     n = size(H,2)
 
     # N.B.: we should ensure that zind is allocated on the proper device.
-    zind = similar(nzval(H), Int, size(H, 2))
+    zind = similar(nonzeros(H), Int, size(H, 2))
     zind .= 1:size(H, 2)
     map!(
         i->(-1,i,0),
@@ -359,7 +357,7 @@ nzval(H) = nonzeros(H)
         size(H),
         colptr,
         rowval,
-        similar(nzval(H), length(ptr))
+        similar(nonzeros(H), length(ptr))
     )
 
     return aug_com, dptr, hptr, jptr

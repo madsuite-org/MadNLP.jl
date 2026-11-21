@@ -457,19 +457,19 @@ end
 function MadCore._build_condensed_aug_coord!(
         kkt::MadCore.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
     ) where {T, VT <: AbstractGPUVector{T}}
-    fill!(MadCore.nzval(aug), zero(T))
+    fill!(nonzeros(aug), zero(T))
     backend = get_backend(kkt.pr_diag)
     if length(kkt.hptr) > 0
         _transfer_hessian_kernel!(backend)(
-            MadCore.nzval(aug),
+            nonzeros(aug),
             kkt.hptr,
-            MadCore.nzval(kkt.hess_com);
+            nonzeros(kkt.hess_com);
             ndrange = length(kkt.hptr),
         )
     end
     if length(kkt.dptr) > 0
         _transfer_hessian_kernel!(backend)(
-            MadCore.nzval(aug),
+            nonzeros(aug),
             kkt.dptr,
             kkt.pr_diag;
             ndrange = length(kkt.dptr),
@@ -477,10 +477,10 @@ function MadCore._build_condensed_aug_coord!(
     end
     if length(kkt.ext.jptrptr) > 1 # otherwise error is thrown
         _transfer_jtsj_kernel!(backend)(
-            MadCore.nzval(aug),
+            nonzeros(aug),
             kkt.jptr,
             kkt.ext.jptrptr,
-            MadCore.nzval(Jt),
+            nonzeros(Jt),
             D;
             ndrange = length(kkt.ext.jptrptr) - 1,
         )
@@ -495,11 +495,11 @@ end
 function MadCore.compress_hessian!(
         kkt::MadCore.SparseCondensedKKTSystem{T, VT},
     ) where {T, VT <: AbstractGPUVector{T}}
-    fill!(MadCore.nzval(kkt.hess_com), zero(T))
+    fill!(nonzeros(kkt.hess_com), zero(T))
     backend = get_backend(kkt.pr_diag)
     if length(kkt.ext.hess_com_ptrptr) > 1
         _transfer_to_csc_kernel!(backend)(
-            MadCore.nzval(kkt.hess_com),
+            nonzeros(kkt.hess_com),
             kkt.ext.hess_com_ptr,
             kkt.ext.hess_com_ptrptr,
             kkt.hess_raw.V;
@@ -516,11 +516,11 @@ end
 function MadCore.compress_jacobian!(
         kkt::MadCore.SparseCondensedKKTSystem{T, VT},
     ) where {T, VT <: AbstractGPUVector{T}}
-    fill!(MadCore.nzval(kkt.jt_csc), zero(T))
+    fill!(nonzeros(kkt.jt_csc), zero(T))
     backend = get_backend(kkt.pr_diag)
     if length(kkt.ext.jt_csc_ptrptr) > 1 # otherwise error is thrown
         _transfer_to_csc_kernel!(backend)(
-            MadCore.nzval(kkt.jt_csc),
+            nonzeros(kkt.jt_csc),
             kkt.ext.jt_csc_ptr,
             kkt.ext.jt_csc_ptrptr,
             kkt.jt_coo.V;

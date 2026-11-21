@@ -5,11 +5,11 @@ import Metis
 import LinearAlgebra
 import SparseArrays: SparseMatrixCSC
 
-function MadCore.ordering_permutation(::Val{MadCore.METIS_ORDERING}, A::SparseMatrixCSC)
-    A = A + A' - LinearAlgebra.Diagonal(A)
-    G = Metis.graph(A, check_hermitian = false)
-    perm, _ = Metis.permutation(G)
-    return perm
+function MadCore.ordering_permutation(::Val{MadCore.METIS_ORDERING}, A, perm)
+    L = SparseMatrixCSC(A)
+    G = Metis.graph(L + L' - LinearAlgebra.Diagonal(L), check_hermitian = false)
+    p, _ = Metis.permutation(G)
+    return p
 end
 
 end # module

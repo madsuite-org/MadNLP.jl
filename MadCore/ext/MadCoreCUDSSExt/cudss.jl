@@ -137,15 +137,10 @@ function CUDSSState(
     solver = CUDSS.CudssSolver(csc.colPtr, csc.rowVal, csc.nzVal, structure, view)
     set_cudss_options!(solver, opt)
 
-    if opt.cudss_ordering != DEFAULT_ORDERING
-        if opt.cudss_ordering in (METIS_ORDERING, AMD_ORDERING, SYMAMD_ORDERING, COLAMD_ORDERING)
-            opt.cudss_perm = MadCore.ordering_permutation(Val(opt.cudss_ordering), SparseMatrixCSC(csc))
-        elseif opt.cudss_ordering == USER_ORDERING
-            (!isempty(opt.cudss_perm) && isperm(opt.cudss_perm)) || error(logger, "The vector opt.cudss_perm is not a valid permutation.")
-        else
-            error(logger, "The ordering $(opt.cudss_ordering) is not supported.")
-        end
-        CUDSS.cudss_set(solver, "user_perm", opt.cudss_perm)
+    perm = MadCore.ordering_permutation(Val(opt.cudss_ordering), csc, opt.cudss_perm)
+    if perm !== nothing
+        opt.cudss_perm = perm
+        CUDSS.cudss_set(solver, "user_perm", perm)
     end
 
     # Check if we want to use the batch solver for matrices with a common sparsity pattern

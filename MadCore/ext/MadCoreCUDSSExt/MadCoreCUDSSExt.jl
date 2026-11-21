@@ -16,8 +16,7 @@ import MadCore:
     factorize_cholesky!, factorize_lu!, factorize_qr!, factorize_evd!, factorize_bunchkaufman!,
     solve_cholesky!, solve_lu!, solve_qr!, solve_evd!, solve_bunchkaufman!
 
-import MadCore: ORDERING, DEFAULT_ORDERING, METIS_ORDERING, AMD_ORDERING,
-    USER_ORDERING, SYMAMD_ORDERING, COLAMD_ORDERING
+import MadCore: ORDERING, DEFAULT_ORDERING
 
 import KernelAbstractions: @kernel, @index, @Const, synchronize, get_backend
 

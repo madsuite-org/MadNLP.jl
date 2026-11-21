@@ -53,19 +53,14 @@ mutable struct ScaledShiftedSolver{T, MT, VT, VI, LS, SC <: AbstractScaler} <: A
     logger::MadNLPLogger
 end
 
-# The sparse matrices a ScaledShiftedSolver handles: `SparseMatrixCSC` and the GPU sparse
-# matrices, through `nonzeros`, `getcolptr` and `rowvals`.
-scaling_nzval(A::AbstractSparseMatrix) = nonzeros(A)
-scaling_index_type(::AbstractSparseMatrix{T, Ti}) where {T, Ti} = Ti
-scaling_host_pattern(A::AbstractSparseMatrix) = (Vector{Int}(host_array(getcolptr(A))), Vector{Int}(host_array(rowvals(A))))
-
 function ScaledShiftedSolver(
         linear_solver, A, n_primal;
         opt, logger, kkt_scaler, primal_shift, dual_shift,
     )
-    T = eltype(scaling_nzval(A))
+    T = eltype(nonzeros(A))
     n = size(A, 1)
-    colptr, rows = scaling_host_pattern(A)
+    colptr = Vector{Int}(host_array(getcolptr(A)))
+    rows = Vector{Int}(host_array(rowvals(A)))
     cols = similar(rows)
     adiag = zeros(Int, n)
     for j in 1:n, k in colptr[j]:(colptr[j + 1] - 1)
@@ -76,7 +71,7 @@ function ScaledShiftedSolver(
     # the pattern with both triangles, each nonzero mapped to its nonzero of A
     off = rows .!= cols
     S = sparse(vcat(rows, cols[off]), vcat(cols, rows[off]), vcat(1:length(rows), findall(off)), n, n)
-    Ti = scaling_index_type(A)
+    Ti = eltype(rowvals(A))
     dv(v) = device_array(A, v)
     fac = copy(A)
     inner = create_linear_solver(linear_solver, fac; opt, logger)
@@ -106,7 +101,7 @@ function scaling_sweep!(dnew::Vector, d, colptr, rowval, absnz, long_cols)
 end
 
 function update_scaling!(M::ScaledShiftedSolver{T}, ::JacobiScaler) where {T}
-    a = view(scaling_nzval(M.A), M.adiag)
+    a = view(nonzeros(M.A), M.adiag)
     M.d .= ifelse.(a .== 0, one(T), one(T) ./ sqrt.(abs.(a)))
     return
 end
@@ -115,7 +110,7 @@ function update_scaling!(M::ScaledShiftedSolver{T}, scaler::AbstractScaler) wher
     fill!(M.d, one(T))
     sweeps = scaler_sweeps(scaler)
     sweeps > 0 || return
-    M.absnz .= abs.(view(scaling_nzval(M.A), M.fmap))
+    M.absnz .= abs.(view(nonzeros(M.A), M.fmap))
     for _ in 1:sweeps
         scaling_sweep!(M.dnew, M.d, M.fcolptr, M.frow, M.absnz, M.long_cols)
         M.d, M.dnew = M.dnew, M.d
@@ -125,10 +120,10 @@ end
 
 function factorize!(M::ScaledShiftedSolver{T}) where {T}
     update_scaling!(M, M.scaler)
-    scaling_nzval(M.fac) .= scaling_nzval(M.A) .* view(M.d, M.arow) .* view(M.d, M.acol)
+    nonzeros(M.fac) .= nonzeros(M.A) .* view(M.d, M.arow) .* view(M.d, M.acol)
     np = M.n_primal
-    iszero(M.primal_shift) || (view(scaling_nzval(M.fac), view(M.adiag, 1:np)) .+= M.primal_shift)
-    iszero(M.dual_shift) || (view(scaling_nzval(M.fac), view(M.adiag, (np + 1):length(M.adiag))) .-= M.dual_shift)
+    iszero(M.primal_shift) || (view(nonzeros(M.fac), view(M.adiag, 1:np)) .+= M.primal_shift)
+    iszero(M.dual_shift) || (view(nonzeros(M.fac), view(M.adiag, (np + 1):length(M.adiag))) .-= M.dual_shift)
     factorize!(M.inner)
     return M
 end
