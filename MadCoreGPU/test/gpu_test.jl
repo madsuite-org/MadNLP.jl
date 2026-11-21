@@ -277,3 +277,47 @@ end
     HAS_CUDA && CUDA.functional() && test_scaling_sweep(CuArray)
     HAS_AMDGPU && AMDGPU.functional() && test_scaling_sweep(ROCArray)
 end
+
+# The merged reductions of each phase on the device, against the MadCore host methods, with
+# empty segments (no constraints; no bounds) among the cases.
+function test_phase_values(Arr)
+    MC = MadNLP.MadCore
+    for (m, n, nlb, nub) in ((50, 80, 30, 20), (0, 80, 30, 20), (50, 80, 0, 0))
+        x = randn(n); xl = x .- rand(n) .- 0.1; xu = x .+ rand(n) .+ 0.1
+        dx, f, zl, zu, jacl = randn(n), randn(n), rand(n), rand(n), randn(n)
+        y, c = randn(m), randn(m)
+        ind_lb, ind_ub = collect(1:2:n)[1:nlb], collect(2:3:n)[1:nub]   # some variables have both bounds
+        zl_r, zu_r, dzl, dzu = rand(nlb) .+ 0.1, rand(nub) .+ 0.1, randn(nlb), randn(nub)
+        mu, tau, s_max, obj = 0.1, 0.99, 100.0, 1.5
+        # host and device arguments: the bounded entries are views through index vectors
+        function args(A)
+            dev(v) = A(v)
+            X, XL, XU, DX = dev(x), dev(xl), dev(xu), dev(dx)
+            Ilb, Iub = A(ind_lb), A(ind_ub)
+            x_lr, xl_r, dx_lr = @inbounds(view(X, Ilb)), @inbounds(view(XL, Ilb)), @inbounds(view(DX, Ilb))
+            x_ur, xu_r, dx_ur = @inbounds(view(X, Iub)), @inbounds(view(XU, Iub)), @inbounds(view(DX, Iub))
+            return (;
+                X, XL, XU, DX, x_lr, xl_r, dx_lr, x_ur, xu_r, dx_ur, Y = dev(y), C = dev(c), F = dev(f), ZL = dev(zl), ZU = dev(zu),
+                JACL = dev(jacl), ZLR = dev(zl_r), ZUR = dev(zu_r), DZL = dev(dzl), DZU = dev(dzu),
+            )
+        end
+        phases(a) = (
+            MC.get_convergence_values(a.Y, a.C, a.x_lr, a.xl_r, a.ZLR, a.xu_r, a.x_ur, a.ZUR, a.F, a.ZL, a.ZU, a.JACL, s_max),
+            MC.get_line_search_values(obj, a.C, a.x_lr, a.xl_r, a.ZLR, a.DZL, a.xu_r, a.x_ur, a.ZUR, a.DZU, a.F, a.X, a.XL, a.XU, a.DX, mu, tau),
+            MC.get_trial_values(obj, a.C, a.x_lr, a.xl_r, a.xu_r, a.x_ur, mu),
+            MC.get_quality_steps(a.X, a.XL, a.XU, a.DX, a.ZLR, a.ZUR, a.DZL, a.DZU, tau),
+            MC.get_quality_compl(a.x_lr, a.xl_r, a.dx_lr, a.ZLR, a.DZL, a.x_ur, a.xu_r, a.dx_ur, a.ZUR, a.DZU, 0.5, 0.7),
+        )
+        host, device = phases(args(Vector)), phases(args(Arr))
+        for (h, d) in zip(host, device)
+            @test keys(h) == keys(d)
+            @test all(isapprox.(collect(d), collect(h); rtol = 1.0e-10, atol = 1.0e-12))
+        end
+    end
+    return
+end
+
+@testset "Merged reductions of each phase" begin
+    HAS_CUDA && CUDA.functional() && test_phase_values(CuArray)
+    HAS_AMDGPU && AMDGPU.functional() && test_phase_values(ROCArray)
+end

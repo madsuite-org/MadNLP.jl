@@ -50,8 +50,12 @@ function solve_refine!(
             @timed_region iterator.cnt :kkt_mul_time mul!(w, iterator.kkt, x, -one(T), one(T))
             iterator.cnt.kkt_mul_cnt += 1
 
-            norm_w = norm(full(w), Inf)
-            norm_x = norm(full(x), Inf)
+            # (‖w‖∞, ‖x‖∞) in one reduction, so a GPU solve waits for the device once here
+            norm_w, norm_x = mapreduce(
+                identity, (a, b) -> (max(a[1], b[1]), max(a[2], b[2])),
+                Broadcast.broadcasted((w, x) -> (abs(w), abs(x)), full(w), full(x));
+                init = (zero(T), zero(T)),
+            )
             residual_ratio = norm_w / (min(norm_x, 1e6 * norm_b) + norm_b)
 
             if mod(iterator.cnt.ir, 10)==0

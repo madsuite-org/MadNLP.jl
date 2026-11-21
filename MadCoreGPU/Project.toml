@@ -4,6 +4,7 @@ version = "0.12.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+AcceleratedKernels = "6a4ca0a5-0e36-4168-a932-d9be78d558f1"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
@@ -39,6 +40,7 @@ MadCore = {path = "../MadCore"}
 
 [compat]
 AMD = "0.5"
+AcceleratedKernels = "0.5.13"
 AMDGPU = "2.10"
 Adapt = "4"
 CUDACore = "6"

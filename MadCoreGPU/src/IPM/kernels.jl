@@ -99,3 +99,139 @@ function get_alpha_z(
         )
     )
 end
+
+# The scalars of each phase of the interior-point iteration (see `MadCore.get_convergence_values`)
+# on device arrays. Each phase computes all of them in one `mapreduce` over the indices of its
+# vectors, laid end to end; an index contributes to the reductions over its own vector only, and
+# the others get their initial values. AcceleratedKernels reduces the index range on the device,
+# so the host waits for the device once per phase.
+
+function MadCore.get_convergence_values(y::AbstractGPUVectorOrSubVector{T}, c, x_lr, xl_r, zl_r, xu_r, x_ur, zu_r, f, zl, zu, jacl, s_max) where {T}
+    m, nlb, nub, n = length(y), length(zl_r), length(zu_r), length(f)
+    o = zero(T)
+    # (‖y‖₁, ‖zl‖₁, ‖zu‖₁, primal infeasibility, unscaled dual infeasibility, lower and upper complementarity)
+    l1_y, l1_zl, l1_zu, inf_pr, du, compl_lb, compl_ub = AcceleratedKernels.mapreduce(
+        function (i)
+            return @inbounds if i <= m
+                (abs(y[i]), o, o, abs(c[i]), o, o, o)
+            elseif i <= m + nlb
+                j = i - m
+                (o, abs(zl_r[j]), o, o, o, abs((x_lr[j] - xl_r[j]) * zl_r[j]), o)
+            elseif i <= m + nlb + nub
+                j = i - m - nlb
+                (o, o, abs(zu_r[j]), o, o, o, abs((xu_r[j] - x_ur[j]) * zu_r[j]))
+            else
+                j = i - m - nlb - nub
+                (o, o, o, o, abs(f[j] - zl[j] + zu[j] + jacl[j]), o, o)
+            end
+        end,
+        (a, b) -> (a[1] + b[1], a[2] + b[2], a[3] + b[3], max(a[4], b[4]), max(a[5], b[5]), max(a[6], b[6]), max(a[7], b[7])),
+        1:(m + nlb + nub + n);
+        init = (o, o, o, o, o, o, o), backend = get_backend(y),
+    )
+    sd = max(s_max, (l1_y + l1_zl + l1_zu) / max(1, m + nlb + nub)) / s_max
+    sc = max(s_max, (l1_zl + l1_zu) / max(1, nlb + nub)) / s_max
+    return (; sd, sc, inf_pr, inf_du = du / sd, inf_compl = max(compl_lb, compl_ub) / sc)
+end
+
+function MadCore.get_line_search_values(obj_val, c::AbstractGPUVectorOrSubVector{T}, x_lr, xl_r, zl_r, dzl, xu_r, x_ur, zu_r, dzu, f, x, xl, xu, dx, mu, tau) where {T}
+    m, nlb, nub, n = length(c), length(zl_r), length(zu_r), length(x)
+    o, l, inf = zero(T), one(T), T(Inf)
+    # (θ, barrier terms of the lower and upper bounds, directional derivative of the barrier
+    # function, step to the lower and upper bounds of x, of zl and of zu, relative step norm)
+    theta, varphi_lb, varphi_ub, varphi_d, amax_lb, amax_ub, az_lb, az_ub, rel_search_norm = AcceleratedKernels.mapreduce(
+        function (i)
+            return @inbounds if i <= m
+                (abs(c[i]), o, o, o, l, l, l, l, o)
+            elseif i <= m + nlb
+                j = i - m
+                (o, get_barrier_term(x_lr[j], xl_r[j], mu), o, o, l, l, dzl[j] < 0 ? -zl_r[j] * tau / dzl[j] : inf, l, o)
+            elseif i <= m + nlb + nub
+                j = i - m - nlb
+                (o, o, get_barrier_term(xu_r[j], x_ur[j], mu), o, l, l, l, dzu[j] < 0 ? -zu_r[j] * tau / dzu[j] : inf, o)
+            else
+                j = i - m - nlb - nub
+                (
+                    o, o, o, (f[j] - mu / (x[j] - xl[j]) + mu / (xu[j] - x[j])) * dx[j],
+                    dx[j] < 0 ? (xl[j] - x[j]) * tau / dx[j] : inf,
+                    dx[j] > 0 ? (xu[j] - x[j]) * tau / dx[j] : inf,
+                    l, l, abs(dx[j]) / (l + abs(x[j])),
+                )
+            end
+        end,
+        (a, b) -> (
+            a[1] + b[1], a[2] + b[2], a[3] + b[3], a[4] + b[4],
+            min(a[5], b[5]), min(a[6], b[6]), min(a[7], b[7]), min(a[8], b[8]), max(a[9], b[9]),
+        ),
+        1:(m + nlb + nub + n);
+        init = (o, o, o, o, l, l, l, l, o), backend = get_backend(c),
+    )
+    return (;
+        theta, varphi = obj_val + varphi_lb + varphi_ub, varphi_d,
+        alpha_max = min(amax_lb, amax_ub), alpha_z = min(az_lb, az_ub), rel_search_norm,
+    )
+end
+
+function MadCore.get_trial_values(obj_val, c::AbstractGPUVectorOrSubVector{T}, x_lr, xl_r, xu_r, x_ur, mu) where {T}
+    m, nlb, nub = length(c), length(x_lr), length(x_ur)
+    o = zero(T)
+    # (θ, barrier terms of the lower and upper bounds)
+    theta, varphi_lb, varphi_ub = AcceleratedKernels.mapreduce(
+        function (i)
+            return @inbounds if i <= m
+                (abs(c[i]), o, o)
+            elseif i <= m + nlb
+                (o, get_barrier_term(x_lr[i - m], xl_r[i - m], mu), o)
+            else
+                j = i - m - nlb
+                (o, o, get_barrier_term(xu_r[j], x_ur[j], mu))
+            end
+        end,
+        (a, b) -> (a[1] + b[1], a[2] + b[2], a[3] + b[3]),
+        1:(m + nlb + nub);
+        init = (o, o, o), backend = get_backend(c),
+    )
+    return (; theta, varphi = obj_val + varphi_lb + varphi_ub)
+end
+
+function MadCore.get_quality_steps(x::AbstractGPUVectorOrSubVector{T}, xl, xu, dx, zl_r, zu_r, dzl, dzu, tau) where {T}
+    n, nlb, nub = length(x), length(zl_r), length(zu_r)
+    l, inf = one(T), T(Inf)
+    # (αp, αd) as in `get_alpha_max` and `get_alpha_z`
+    alpha_pr, alpha_du = AcceleratedKernels.mapreduce(
+        function (i)
+            return @inbounds if i <= n
+                (min(dx[i] < 0 ? (xl[i] - x[i]) * tau / dx[i] : inf, dx[i] > 0 ? (xu[i] - x[i]) * tau / dx[i] : inf), l)
+            elseif i <= n + nlb
+                j = i - n
+                (l, dzl[j] < 0 ? -zl_r[j] * tau / dzl[j] : inf)
+            else
+                j = i - n - nlb
+                (l, dzu[j] < 0 ? -zu_r[j] * tau / dzu[j] : inf)
+            end
+        end,
+        (a, b) -> (min(a[1], b[1]), min(a[2], b[2])),
+        1:(n + nlb + nub);
+        init = (l, l), backend = get_backend(x),
+    )
+    return (; alpha_pr, alpha_du)
+end
+
+function MadCore.get_quality_compl(x_lr::AbstractGPUVectorOrSubVector{T}, xl_r, dx_lr, zl_r, dzl, x_ur, xu_r, dx_ur, zu_r, dzu, alpha_pr, alpha_du) where {T}
+    nlb, nub = length(x_lr), length(x_ur)
+    o = zero(T)
+    inf_compl_lb, inf_compl_ub = AcceleratedKernels.mapreduce(
+        function (i)
+            return @inbounds if i <= nlb
+                (((x_lr[i] + alpha_pr * dx_lr[i] - xl_r[i]) * (zl_r[i] + alpha_du * dzl[i]))^2, o)
+            else
+                j = i - nlb
+                (o, ((xu_r[j] - x_ur[j] - alpha_pr * dx_ur[j]) * (zu_r[j] + alpha_du * dzu[j]))^2)
+            end
+        end,
+        (a, b) -> (a[1] + b[1], a[2] + b[2]),
+        1:(nlb + nub);
+        init = (o, o), backend = get_backend(x_lr),
+    )
+    return (; inf_compl_lb, inf_compl_ub)
+end
