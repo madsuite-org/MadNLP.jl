@@ -4,6 +4,7 @@ version = "0.12.0"
 
 [deps]
 AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+AcceleratedKernels = "6a4ca0a5-0e36-4168-a932-d9be78d558f1"
 Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
@@ -14,6 +15,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [weakdeps]
 AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+KrylovPreconditioners = "45d422c2-293f-44ce-8315-2cb988662dec"
 CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
 CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
 GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
@@ -28,6 +30,7 @@ oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 MadCoreGPUAMDGPUExt = "AMDGPU"
 MadCoreGPUCUDAExt = ["CUDACore", "cuBLAS", "cuSOLVER", "cuSPARSE"]
 MadCoreGPUCUDSSExt = ["CUDACore", "CUDSS", "cuBLAS", "cuSOLVER", "cuSPARSE"]
+MadCoreGPUKrylovPreconditionersExt = "KrylovPreconditioners"
 MadCoreGPUMetalExt = ["GPUArrays", "Metal"]
 MadCoreGPUOneAPIExt = "oneAPI"
 MadCoreGPUSDSExt = "SparseDirectSolver"
@@ -37,6 +40,7 @@ MadCore = {path = "../MadCore"}
 
 [compat]
 AMD = "0.5"
+AcceleratedKernels = "0.5.13"
 AMDGPU = "2.10"
 Adapt = "4"
 CUDACore = "6"
@@ -44,6 +48,7 @@ CUDSS = "1.0"
 GPUArrays = "11.3, 12"
 GPUArraysCore = "0.2"
 KernelAbstractions = "0.10"
+KrylovPreconditioners = "0.4.1"
 LinearAlgebra = "1.10"
 MadCore = "=0.12.0"
 Metal = "1.11"

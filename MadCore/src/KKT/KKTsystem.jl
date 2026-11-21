@@ -285,3 +285,52 @@ include("Sparse/scaled_augmented.jl")
 include("Sparse/utils.jl")
 include("Schur/schur.jl")
 
+
+"""
+    hess_op(kkt::AbstractKKTSystem, transa::Char = 'N')
+
+The stored Hessian block of `kkt` (`transa = 'N'`), or its transpose (`'T'`) or adjoint
+(`'C'`), as an object `mul!(y, op, x, alpha, beta)` applies.
+
+A sparse KKT system stores only the lower triangle `L` of the symmetric Hessian `H`, including
+the diagonal, and `hess_op` is `L`, not `H`. Since both `L` and `Lᵀ` contain the diagonal,
+`H x = L x + Lᵀ x - diag(H) x`: a product with `H` applies `hess_op(kkt)` and
+`hess_op(kkt, 'T')` and subtracts the diagonal once, as the sparse KKT systems' `mul!` do.
+
+Each KKT system defines it for its storage; a GPU backend may return an operator that keeps
+the sparse library's setup across products.
+"""
+function hess_op end
+
+"""
+    jac_op(kkt::AbstractKKTSystem, transa::Char = 'N')
+
+The constraint Jacobian `J` of `kkt` (`transa = 'N'`), or its transpose (`'T'`) or adjoint
+(`'C'`), as an object `mul!(y, op, x, alpha, beta)` applies. See [`hess_op`](@ref).
+"""
+function jac_op end
+
+"""
+    operator(A, transa::Char = 'N')
+
+`A` (`transa = 'N'`), its transpose (`'T'`) or its adjoint (`'C'`), as an object that
+`mul!(y, op, x, alpha, beta)` applies. The sparse KKT systems make their operators once, when
+they are created (see [`KKTOperators`](@ref)), and reuse them for every product. This method
+returns `A`, `transpose(A)` or `adjoint(A)`; a backend may add a method that returns an
+operator keeping the sparse library's setup across products.
+"""
+operator(A, transa::Char = 'N') = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
+
+"""
+    KKTOperators
+
+The operators a sparse KKT system multiplies with, made once with [`operator`](@ref): the
+stored Hessian block (`hess`) and its transpose (`hess_t`), and the Jacobian (`jac`) and its
+transpose (`jac_t`). [`hess_op`](@ref) and [`jac_op`](@ref) return them.
+"""
+struct KKTOperators{H, HT, J, JT}
+    hess::H
+    hess_t::HT
+    jac::J
+    jac_t::JT
+end

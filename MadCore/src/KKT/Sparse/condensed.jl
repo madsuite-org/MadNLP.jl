@@ -33,7 +33,7 @@ num_border_rows(b::BorderedRows) = length(b.ind_D)
 Implement the [`AbstractCondensedKKTSystem`](@ref) in sparse COO format.
 
 """
-struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
+struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT, OPS} <: AbstractCondensedKKTSystem{T, VT, MT, QN}
     # Hessian
     hess::VT
     hess_raw::SparseMatrixCOO{T, Int32, VT, VI32}
@@ -82,6 +82,8 @@ struct SparseCondensedKKTSystem{T, VT, MT, QN, LS, VI, VI32, VTu1, VTu2, EXT} <:
 
     # extra
     ext::EXT
+    # operators for the products with hess_com and J (stored transposed, as jt_csc)
+    ops::OPS
 end
 
 """
@@ -196,7 +198,8 @@ function create_kkt_system(
         border,
         _linear_solver,
         ind_ineq, cb.ind_lb, cb.ind_ub,
-        ext
+        ext,
+        KKTOperators(operator(hess_com, 'N'), operator(hess_com, 'T'), operator(jt_csc, 'T'), operator(jt_csc, 'N')),
     )
 end
 
@@ -340,11 +343,15 @@ function compress_jacobian!(kkt::SparseCondensedKKTSystem{T, VT, MT}) where {T, 
     transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
+# the KKT systems are real, so 'C' is 'T'
+hess_op(kkt::Union{SparseKKTSystem, SparseCondensedKKTSystem}, transa::Char = 'N') = transa == 'N' ? kkt.ops.hess : kkt.ops.hess_t
+jac_op(kkt::Union{SparseKKTSystem, SparseCondensedKKTSystem}, transa::Char = 'N') = transa == 'N' ? kkt.ops.jac : kkt.ops.jac_t
+
 function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVector)
     n = size(kkt.hess_com, 1)
     m = size(kkt.jt_csc, 2)
 
-    mul!(view(y, 1:n), kkt.jt_csc, x)
+    mul!(view(y, 1:n), jac_op(kkt, 'T'), x)
     y[size(kkt.jt_csc,1)+1:end] .= -x
 end
 

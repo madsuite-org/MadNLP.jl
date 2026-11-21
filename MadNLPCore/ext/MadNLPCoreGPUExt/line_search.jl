@@ -7,9 +7,9 @@ function get_varphi(
     mu
 ) where {T, VT <: AbstractGPUVectorOrSubVector{T}}
     return obj_val + mapreduce(
-        (x1,x2) -> _get_varphi(x1,x2,mu), +, x_lr, xl_r
+        (x1, x2) -> get_barrier_term(x1, x2, mu), +, x_lr, xl_r
     ) + mapreduce(
-        (x1,x2) -> _get_varphi(x1,x2,mu), +, xu_r, x_ur
+        (x1, x2) -> get_barrier_term(x1, x2, mu), +, xu_r, x_ur
     )
 end
 

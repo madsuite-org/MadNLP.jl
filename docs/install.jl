@@ -2,6 +2,9 @@ using Pkg
 
 ROOT = pwd()
 
+# A runner's registry may predate a release that a compat entry already requires.
+Pkg.Registry.update()
+
 # Develop the packages of this repository first: they are not registered.
 Pkg.develop([
     PackageSpec(path=joinpath(ROOT, "MadCore")),
