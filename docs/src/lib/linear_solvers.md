@@ -72,3 +72,31 @@ JacobiScaler
 MaxNormScaler
 RuizScaler
 ```
+
+## Fill-reducing orderings
+With the option `kkt_ordering`, a sparse KKT system hands its linear solver the matrix
+`P A Pᵀ` permuted by a fill-reducing ordering, for every sparse linear solver on the host and on
+a GPU. The ordering is computed once on the host, from the pattern of the KKT matrix; the
+scaling and the shifts above apply first. Load Metis to use `MetisOrdering`, and AMD to use
+`AMDOrdering`, `SymAMDOrdering` and `ColAMDOrdering`:
+
+```julia
+using MadNLP, Metis
+madnlp(nlp; kkt_ordering = MetisOrdering())
+```
+
+A linear solver that computes its own ordering reorders the permuted matrix again. Solvers
+whose factorization depends on the primal and dual blocks of the KKT matrix (`SDSSolver`) do
+not support an ordering yet.
+
+```@docs
+PermutedSolver
+AbstractOrdering
+DefaultOrdering
+MetisOrdering
+AMDOrdering
+SymAMDOrdering
+ColAMDOrdering
+UserOrdering
+ordering_permutation
+```

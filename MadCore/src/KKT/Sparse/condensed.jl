@@ -100,6 +100,7 @@ function create_kkt_system(
     kkt_scaler::AbstractScaler=NoScaler(),
     primal_shift=0.0,
     dual_shift=0.0,
+    kkt_ordering::AbstractOrdering=DefaultOrdering(),
     equality_shift::Float64 = 1e-8,
     equality_shift_retry::Bool = true,
     equality_shift_retry_factor::Float64 = 100.0,
@@ -162,7 +163,7 @@ function create_kkt_system(
     aug_com, dptr, hptr, jptr = build_condensed_aug_symbolic(hess_com, jt_csc)
 
     # tell the linear solver the saddle-point partition before it analyzes
-    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
+    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, n; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift, kkt_ordering))
     ext = get_sparse_condensed_ext(VT, hess_com, jptr, jt_csc_map, hess_csc_map)
     return SparseCondensedKKTSystem(
         hess, hess_raw, hess_com, hess_csc_map,

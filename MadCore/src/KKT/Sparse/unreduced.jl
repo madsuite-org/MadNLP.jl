@@ -54,6 +54,7 @@ function create_kkt_system(
     kkt_scaler::AbstractScaler=NoScaler(),
     primal_shift=0.0,
     dual_shift=0.0,
+    kkt_ordering::AbstractOrdering=DefaultOrdering(),
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     ind_lb = cb.ind_lb
@@ -151,7 +152,7 @@ function create_kkt_system(
 
     # tell the linear solver the saddle-point partition before it analyzes
     _np = length(pr_diag)
-    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, _np; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift))
+    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver, aug_com, _np; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift, kkt_ordering))
     return SparseUnreducedKKTSystem(
         hess, jac_callback, jac, quasi_newton, reg, pr_diag, du_diag,
         l_diag, u_diag, l_lower, u_lower, l_lower_aug, u_lower_aug,
