@@ -71,11 +71,11 @@ Metal = "1.11"
 Metis = "1"
 OpenBLAS32_jll = "0.3"
 Pardiso = "1"
-SparseDirectSolver = "0.4.1"
 NLPModels = "0.21.9"
 Printf = "1.10"
 SolverCore = "~0.3"
 SparseArrays = "1.10"
+SparseDirectSolver = "0.4.1"
 SuiteSparse = "1.10"
 Test = "1.10"
 cuBLAS = "6"
@@ -85,8 +85,10 @@ julia = "1.10"
 oneAPI = "2.10"
 
 [extras]
+AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
+Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "LDLFactorizations"]
+test = ["Test", "LDLFactorizations", "AMD", "Metis"]

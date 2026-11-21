@@ -26,7 +26,7 @@ end
             $prelude
             using cuMadNLP, MadNLPCore
             madnlp(MadNLPCore.PrecompileChainModel(100, CuVector{Float64}(undef, 0)); print_level = MadNLPCore.ERROR)
-            """, r"\b(cuMadNLP|Mad(NLPCore|Core|CoreGPU)(\w*Ext)?)\."; warm = k == 1
+            """, r"\b(cuMadNLP|Mad(NLPCore|Core)(\w*Ext)?)\."; warm = k == 1
         )
         # The test problem's constructor, called from the script's top level, is not part
         # of what the workload is for.
