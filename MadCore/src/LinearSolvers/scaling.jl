@@ -12,9 +12,8 @@ W A W + \\begin{bmatrix} σ_p I & 0 \\\\ 0 & -σ_d I \\end{bmatrix}
 ```
 
 (`σ_p = primal_shift`, `σ_d = dual_shift`) instead of `A`; without, it factorizes `A` itself.
-With an ordering other than [`DefaultOrdering`](@ref), the solver factorizes the matrix permuted by
-`kkt_ordering` (see [`PermutedSolver`](@ref)); the scaling and the shifts apply first, to the
-unpermuted matrix.
+With an ordering other than [`DefaultOrdering`](@ref), the solver factorizes the matrix in the
+pivot order of `kkt_ordering`, handed to it with [`set_permutation!`](@ref).
 """
 function create_kkt_linear_solver(
         linear_solver, A, n_primal;

@@ -33,7 +33,9 @@ Options of [`MadCore.SDSSolver`](@ref), passed as keywords of `madnlp`.
   dissection, `"algo3"` AMD, `"default"` the cost-model choice).
 * `sds_tuning`: performance settings (a `SparseDirectSolver.SDSTuning`); `nothing` selects the
   profile of the GPU architecture.
-* `sds_user_perm`: a 1-based permutation that replaces the reordering.
+* `sds_user_perm`: a 1-based permutation that replaces the reordering: row and column `i` of
+  the factorized matrix are row and column `sds_user_perm[i]`. The option `kkt_ordering` sets
+  it (see [`MadCore.set_permutation!`](@ref)).
 * `sds_fused`: run the fused pipeline (`true`) or the stock one (`false`); `nothing` lets
   SparseDirectSolver choose. `:bk` runs the stock pipeline; `sds_fused = true` with `:bk` raises
   `SparseDirectSolver.InvalidValueError`.
@@ -144,6 +146,7 @@ function MadCore.introduce(M::SDSState)
 end
 
 MadCore.default_options(::Type{SDSState}) = SDSSolverOptions()
+MadCore.set_permutation!(opt::SDSSolverOptions, perm) = (opt.sds_user_perm = perm; opt)
 MadCore.input_type(::Type{SDSState}) = :csc
 MadCore.is_supported(::Type{SDSState}, ::Type{T}) where {T <: Union{Float32, Float64}} = true
 

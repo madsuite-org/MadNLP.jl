@@ -1,4 +1,7 @@
 @kwdef mutable struct LDLFactorizationsOptions <: AbstractOptions
+    # the pivot order, the permutation P of LDLFactorizations instead of its AMD ordering:
+    # row and column i of the factorized matrix are row and column ldl_user_perm[i]
+    ldl_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 const LDLF = LDLFactorizations
 
@@ -18,12 +21,8 @@ function LDLState(
     # TODO: convert tril to triu, not full
     full, tril_to_full_view = get_tril_to_full(T,tril)
 
-    return LDLState(
-        LDLF.ldl(
-            full
-        ),
-        tril, full, tril_to_full_view, opt, logger
-    )
+    inner = opt.ldl_user_perm === nothing ? LDLF.ldl(full) : LDLF.ldl(full; P = opt.ldl_user_perm)
+    return LDLState(inner, tril, full, tril_to_full_view, opt, logger)
 end
 
 function factorize!(M::LDLState)
@@ -59,6 +58,7 @@ function inertia(M::LDLState)
 end
 input_type(::Type{LDLState}) = :csc
 default_options(::Type{LDLState}) = LDLFactorizationsOptions()
+set_permutation!(opt::LDLFactorizationsOptions, perm) = (opt.ldl_user_perm = perm; opt)
 
 function improve!(M::LDLState)
     return false
