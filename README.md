@@ -39,9 +39,9 @@ For NVIDIA GPUs, install `cuMadNLP`. `rocMadNLP` (AMD GPUs), `oneMadNLP` (Intel 
 not load MadNLP, so load it as well to solve a model on the CPU or to use JuMP. The HSL
 linear solvers are available in MadNLP once a licensed HSL library is installed; the
 Pardiso and Krylov.jl solvers become available when Pardiso.jl or Krylov.jl is loaded
-alongside MadNLP. The fill-reducing orderings of the option `kkt_ordering`, which apply to
-every linear solver, become available when Metis.jl (`MetisOrdering()`) or AMD.jl
-(`AMDOrdering()`, `SymAMDOrdering()`, `ColAMDOrdering()`) is loaded.
+alongside MadNLP. The fill-reducing orderings of the option `kkt_ordering`, which replace the
+ordering of every linear solver, become available when Metis.jl (`MetisOrdering()`) or AMD.jl
+(`AMDOrdering()`) is loaded.
 
 This repository contains the packages below. All of them except `MadNLPTests` share one
 version number and are released together.

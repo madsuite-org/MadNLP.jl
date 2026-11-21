@@ -5,21 +5,22 @@
     AbstractOrdering
 
 Symmetric fill-reducing permutation `P A Pᵀ` of the matrix a sparse KKT system factorizes,
-set with the option `kkt_ordering`. The linear solver factorizes the permuted matrix, and each
-solve is permuted back, so the KKT system and iterative refinement are unchanged. It applies
-to every sparse linear solver; a solver that computes its own ordering reorders the permuted
-matrix again.
+set with the option `kkt_ordering`. The permutation is computed once on the host, from the
+pattern of the KKT matrix, and replaces the ordering of the linear solver, which receives it
+through its user-permutation interface (see [`set_permutation!`](@ref)) and factorizes the
+KKT matrix in that order. A linear solver without such an interface supports only
+`DefaultOrdering`.
 
-Available orderings: [`DefaultOrdering`](@ref), [`MetisOrdering`](@ref) (with Metis loaded),
-[`AMDOrdering`](@ref), [`SymAMDOrdering`](@ref) and [`ColAMDOrdering`](@ref) (with AMD
-loaded), and [`UserOrdering`](@ref).
+Available orderings: [`DefaultOrdering`](@ref) (the linear solver orders the matrix itself),
+[`MetisOrdering`](@ref) (with Metis loaded) and [`AMDOrdering`](@ref) (with AMD loaded).
 """
 abstract type AbstractOrdering end
 
 """
     DefaultOrdering()
 
-No permutation: the linear solver factorizes the KKT matrix as assembled.
+No ordering at the KKT level: the linear solver factorizes the KKT matrix as assembled, with
+its own fill-reducing ordering.
 """
 struct DefaultOrdering <: AbstractOrdering end
 
@@ -37,49 +38,17 @@ Approximate minimum degree ordering of AMD. Implemented in the extension loaded 
 """
 struct AMDOrdering <: AbstractOrdering end
 
-"""
-    SymAMDOrdering()
-
-Symmetric approximate minimum degree ordering of COLAMD (`symamd`). Implemented in the
-extension loaded by `AMD`.
-"""
-struct SymAMDOrdering <: AbstractOrdering end
-
-"""
-    ColAMDOrdering()
-
-Column approximate minimum degree ordering of COLAMD (`colamd`), applied to the symmetric
-matrix. Implemented in the extension loaded by `AMD`.
-"""
-struct ColAMDOrdering <: AbstractOrdering end
-
-"""
-    UserOrdering(perm::Vector{Int})
-
-The permutation `perm`, given by the user: row and column `i` of the factorized matrix are
-row and column `perm[i]` of the KKT matrix.
-"""
-struct UserOrdering <: AbstractOrdering
-    perm::Vector{Int}
-end
-
 backend_package(::Type{MetisOrdering}) = "Metis"
-backend_package(::Type{<:Union{AMDOrdering, SymAMDOrdering, ColAMDOrdering}}) = "AMD"
+backend_package(::Type{AMDOrdering}) = "AMD"
 
 """
     ordering_permutation(ordering::AbstractOrdering, A::SparseMatrixCSC) -> Vector{Int}
 
 Return the permutation `perm` of the symmetric matrix whose lower triangle is `A`: row and
-column `i` of the permuted matrix are row and column `perm[i]` of the original. Only the
-pattern of `A` is read. The methods of `MetisOrdering` and of the AMD orderings are defined
-in the extensions loaded by Metis and AMD.
+column `i` of the permuted matrix are row and column `perm[i]` of the original, so `perm[i]`
+is the `i`-th pivot. Only the pattern of `A` is read. The methods of `MetisOrdering` and
+`AMDOrdering` are defined in the extensions loaded by Metis and AMD.
 """
 function ordering_permutation end
 
 ordering_permutation(::DefaultOrdering, A::SparseMatrixCSC) = collect(1:size(A, 1))
-
-function ordering_permutation(o::UserOrdering, A::SparseMatrixCSC)
-    (length(o.perm) == size(A, 1) && isperm(o.perm)) ||
-        throw(ArgumentError("UserOrdering needs a permutation of 1:$(size(A, 1)), the size of the KKT matrix."))
-    return o.perm
-end

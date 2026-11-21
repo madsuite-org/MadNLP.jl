@@ -24,6 +24,9 @@ module MadCoreAppleAccelerateExt
       `SparseScalingDefault` or `SparseScalingEquilibriationInf`.
     - `accelerate_pivtol`, `accelerate_pivtolmax`: initial and largest relative pivot threshold.
     - `accelerate_zero_tolerance`: pivots smaller in absolute value are zero.
+    - `accelerate_user_perm`: the pivot order, as `SparseOrderUser` instead of
+      `accelerate_order`: row and column `i` of the factorized matrix are row and column
+      `accelerate_user_perm[i]` (see [`MadCore.set_permutation!`](@ref)).
     """
     @kwdef mutable struct AccelerateOptions <: AbstractOptions
         accelerate_factorization::AA.SparseFactorization_t = AA.SparseFactorizationLDLTTPP
@@ -32,12 +35,14 @@ module MadCoreAppleAccelerateExt
         accelerate_pivtol::Float64 = 1.0e-4
         accelerate_pivtolmax::Float64 = 1.0e-1
         accelerate_zero_tolerance::Float64 = 1.0e-20
+        accelerate_user_perm::Union{Nothing, Vector{Int}} = nothing
     end
 
     mutable struct AccelerateState{T, Ti} <: AbstractLinearSolver{T}
         tril::SparseMatrixCSC{T, Ti}
         colptr::Vector{Clong} # 0-based indices; the values are tril.nzval
         rowval::Vector{Cint}
+        order::Vector{Cint} # 0-based, read with SparseOrderUser
         matrix::AA.SparseMatrix{T}
         fact::Base.RefValue{AA.SparseOpaqueFactorization{T}}
         nfoptions::AA.SparseNumericFactorOptions
@@ -55,6 +60,14 @@ module MadCoreAppleAccelerateExt
         AA.SparseNumericFactorOptions(T).control, opt.accelerate_scaling, C_NULL, pivtol, opt.accelerate_zero_tolerance,
     )
 
+    # The ordering of the symbolic factorization: `accelerate_order`, or the given pivot order.
+    # The order is kept in the state, which holds the pointer.
+    _order(::Nothing, method) = (Cint[], method, C_NULL)
+    function _order(perm::Vector{Int}, _)
+        order = Cint.(perm .- 1)
+        return order, AA.SparseOrderUser, pointer(order)
+    end
+
     # AppleAccelerate's error callback throws through the C++ frames of libSparse; the status
     # of the factorization reports the failure instead.
     _ignore_error(::Cstring) = nothing
@@ -65,12 +78,13 @@ module MadCoreAppleAccelerateExt
         structure = AA.SparseMatrixStructure(
             Cint(n), Cint(n), pointer(colptr), pointer(rowval), AA.ATT_SYMMETRIC | AA.ATT_LOWER_TRIANGLE, UInt8(1),
         )
+        order, order_method, order_ptr = _order(opt.accelerate_user_perm, opt.accelerate_order)
         d = AA.SparseSymbolicFactorOptions()
         sfoptions = AA.SparseSymbolicFactorOptions(
-            d.control, opt.accelerate_order, C_NULL, C_NULL, d.malloc, d.free, @cfunction(_ignore_error, Cvoid, (Cstring,)),
+            d.control, order_method, order_ptr, C_NULL, d.malloc, d.free, @cfunction(_ignore_error, Cvoid, (Cstring,)),
         )
         M = AccelerateState{T, Ti}(
-            tril, colptr, rowval, AA.SparseMatrix(structure, pointer(tril.nzval)), Ref(AA.SparseOpaqueFactorization(T)),
+            tril, colptr, rowval, order, AA.SparseMatrix(structure, pointer(tril.nzval)), Ref(AA.SparseOpaqueFactorization(T)),
             _numeric_options(T, opt), sfoptions, UInt8[], false, opt, logger,
         )
         return finalizer(M) do M
@@ -154,6 +168,7 @@ module MadCoreAppleAccelerateExt
     introduce(M::AccelerateState) = "Apple Accelerate ($(M.opt.accelerate_factorization))"
 
     MadCore.default_options(::Type{AccelerateState}) = AccelerateOptions()
+    MadCore.set_permutation!(opt::AccelerateOptions, perm) = (opt.accelerate_user_perm = perm; opt)
     MadCore.input_type(::Type{AccelerateState}) = :csc
     MadCore.is_supported(::Type{AccelerateState}, ::Type{T}) where {T <: AbstractFloat} = T in (Float32, Float64)
     MadCore.solver_type(::Type{MadCore.AccelerateSolver}) = AccelerateState

@@ -10,6 +10,9 @@
     ma77_static::Float64 = 0.0
     ma77_u::Float64 = 1e-8
     ma77_umax::Float64 = 1e-4
+    # the pivot order instead of the solver's ordering: row and column i of the factorized
+    # matrix are row and column ma77_user_perm[i] (see set_permutation!)
+    ma77_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 mutable struct Ma77State{T,INT} <: AbstractLinearSolver{T}
@@ -44,18 +47,7 @@ function Ma77State(
 
     keep = [C_NULL]
 
-    mc68control.f_array_in = 1
-    mc68control.f_array_out = 1
-    HSL.mc68_order(
-        INT,
-        INT(opt.ma77_order),
-        INT(csc.n),
-        csc.colptr,
-        csc.rowval,
-        order,
-        mc68control,
-        mc68info,
-    )
+    hsl_pivot_order!(order, opt.ma77_user_perm, opt.ma77_order, csc, mc68control, mc68info)
 
     info = Ma77Info{T,INT}()
     control = Ma77Control{T,INT}()

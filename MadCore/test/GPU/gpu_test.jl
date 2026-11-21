@@ -40,27 +40,18 @@ cuda_testset = [
         [],
     ],
     [
-        "CUDSS-SYMAMD",
-        ()->MadNLP.Optimizer(
-            linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            kkt_ordering=MadCore.SymAMDOrdering(),
-        ),
-        [],
-    ],
-    [
-        "CUDSS-COLAMD",
-        ()->MadNLP.Optimizer(
-            linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            kkt_ordering=MadCore.ColAMDOrdering(),
-        ),
-        [],
-    ],
-    [
         "CUDSS-METIS",
         ()->MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
+            print_level=MadNLP.ERROR,
+            kkt_ordering = MadCore.MetisOrdering(),
+        ),
+        [],
+    ],
+    [
+        "SDS-METIS",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCore.SDSSolver,
             print_level=MadNLP.ERROR,
             kkt_ordering=MadCore.MetisOrdering(),
         ),
@@ -348,4 +339,43 @@ end
 @testset "Scaling sweep with a long column" begin
     HAS_CUDA && CUDA.functional() && test_scaling_sweep(CuArray)
     HAS_AMDGPU && AMDGPU.functional() && test_scaling_sweep(ROCArray)
+end
+
+# A given permutation, to check that the linear solver factorizes in the order it is handed.
+struct GivenOrdering <: MadCore.AbstractOrdering
+    perm::Vector{Int}
+end
+MadCore.ordering_permutation(o::GivenOrdering, ::SparseArrays.SparseMatrixCSC) = o.perm
+
+# The lower triangle of an arrowhead matrix whose dense row and column come first: eliminated
+# first, it fills the whole factor; eliminated last, it fills nothing.
+function arrowhead(n)
+    d = [i == 1 ? 4.0n : (iseven(i) ? -4.0 : 4.0) for i in 1:n]
+    return SparseArrays.sparse(vcat(1:n, 2:n), vcat(1:n, fill(1, n - 1)), vcat(d, ones(n - 1)), n, n)
+end
+
+function test_given_order(ls, factor_size)
+    n = 40
+    A = arrowhead(n)
+    K = A + copy(A') - SparseArrays.spdiagm(0 => [A[i, i] for i in 1:n])
+    b = randn(n)
+    sizes = map((vcat(2:n, 1), collect(1:n))) do p
+        S = MadCore.create_kkt_linear_solver(ls, CUDA.CUSPARSE.CuSparseMatrixCSC{Float64, Cint}(A), n; kkt_ordering = GivenOrdering(p))
+        MadCore.factorize!(S)
+        x = Array(MadCore.solve_linear_system!(S, CuVector(b)))
+        @test K * x ≈ b
+        @test MadCore.inertia(S) == (n ÷ 2, 0, n ÷ 2)
+        factor_size(S)
+    end
+    # the dense column last fills nothing, first the whole factor: the solver keeps the order
+    # it is handed, where its own ordering would have avoided the fill of the second
+    @test sizes[1] < 3n
+    return @test sizes[2] > n^2 / 4
+end
+
+@testset "kkt_ordering is the pivot order of the GPU solver" begin
+    if HAS_CUDA && CUDA.functional()
+        @testset "CUDSSSolver" test_given_order(MadCore.CUDSSSolver, S -> CUDSS.cudss_get(S.inner, "lu_nnz"))
+        @testset "SDSSolver" test_given_order(MadCore.SDSSolver, S -> SparseDirectSolver.getparam(S.inner, "lu_nnz"))
+    end
 end
