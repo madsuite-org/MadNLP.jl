@@ -1,8 +1,6 @@
 MadCore.@kwdef mutable struct CudssSolverOptions <: MadCore.AbstractOptions
     # Use LDLᵀ by default in CUDSS as Cholesky can lead to undefined behavior.
     cudss_algorithm::MadCore.LinearFactorization = MadCore.LDL
-    cudss_ordering::ORDERING = DEFAULT_ORDERING
-    cudss_perm::Vector{Cint} = Cint[]
     cudss_ir::Int = 0
     cudss_ir_tol::Float64 = 1.0e-8  # currently ignored by cuDSS
     cudss_pivot_threshold::Float64 = 0.0
@@ -136,12 +134,6 @@ function CUDSSState(
 
     solver = CUDSS.CudssSolver(csc.colPtr, csc.rowVal, csc.nzVal, structure, view)
     set_cudss_options!(solver, opt)
-
-    perm = MadCore.ordering_permutation(Val(opt.cudss_ordering), csc, opt.cudss_perm)
-    if perm !== nothing
-        opt.cudss_perm = perm
-        CUDSS.cudss_set(solver, "user_perm", perm)
-    end
 
     # Check if we want to use the batch solver for matrices with a common sparsity pattern
     nbatch = solver.matrix.nbatch

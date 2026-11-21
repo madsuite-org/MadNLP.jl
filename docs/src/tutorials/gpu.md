@@ -93,6 +93,11 @@ On the CPU, `preset = ShiftedPreset` selects the same setting with CHOLMOD's LDL
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 
+The option `kkt_ordering` permutes the KKT matrix by a fill-reducing ordering, computed on the
+host, before it reaches the linear solver; it applies to every linear solver, e.g.
+`using Metis; madnlp(nlp; kkt_ordering = MetisOrdering())`. cuDSS still runs its own reordering
+on the permuted matrix.
+
 `preset = CondensedPreset` condenses every constraint. The equality constraints are enforced, and
 their multipliers are eliminated through a small dual shift (1e-8), so the condensed matrix is
 positive definite and is factorized by cuDSS's Cholesky without pivoting; the refinement targets the

@@ -178,6 +178,7 @@ kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passe
 kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset` and `CondensedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
+kkt\\_ordering                 | `NoOrdering()`       | fill-reducing permutation of the matrix factorized by a sparse KKT system, for every linear solver (an `AbstractOrdering`): `MetisOrdering()` with Metis loaded, `AMDOrdering()`, `SymAMDOrdering()` or `ColAMDOrdering()` with AMD loaded, or `UserOrdering(perm)`
 equality\\_shift               | 1e-8                 | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 100 `preset_perturbation(T)` (1e-8 in `Float64`)
 equality\\_shift\\_retry         | `true`               | on a wrong inertia, retry the condensed factorization with a hundredfold larger equality shift (at most twice) before the Hessian is perturbed
 equality\\_shift\\_retry\\_on\\_refinement | `false` | also retry when the refinement fails on a factorization of the right inertia
@@ -326,6 +327,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     kkt_scaler::AbstractScaler = NoScaler()
     primal_shift::T = 0.
     dual_shift::T = 0.
+    # fill-reducing permutation of the matrix factorized by a sparse KKT system, applied after
+    # the scaling and the shifts
+    kkt_ordering::AbstractOrdering = NoOrdering()
     # the shift δ of the equality rows that SparseCondensedKKTSystem condenses (weight 1 / (δ - Σd)):
     # 100 preset_perturbation(T), 1e-8 in Float64
     equality_shift::T = 100 * preset_perturbation(T)
@@ -509,7 +513,7 @@ function load_options(nlp::AbstractNLPModel{T,VT}, options::Dict{Symbol, Any}) w
 end
 
 
-# The options `kkt_scaler`, `primal_shift` and `dual_shift` that differ from their defaults, as
+# The options `kkt_scaler`, `primal_shift`, `dual_shift` and `kkt_ordering` that differ from their defaults, as
 # keyword arguments of `create_kkt_system`; a KKT system that does not take them is unaffected
 # as long as they are left at their defaults.
 function factorization_options(opt)
@@ -517,6 +521,7 @@ function factorization_options(opt)
     opt.kkt_scaler isa NoScaler || (kw = merge(kw, (; kkt_scaler = opt.kkt_scaler)))
     iszero(opt.primal_shift) || (kw = merge(kw, (; primal_shift = opt.primal_shift)))
     iszero(opt.dual_shift) || (kw = merge(kw, (; dual_shift = opt.dual_shift)))
+    opt.kkt_ordering isa NoOrdering || (kw = merge(kw, (; kkt_ordering = opt.kkt_ordering)))
     # the equality-shift options belong to SparseCondensedKKTSystem; another KKT system (the dense-row
     # fallback to ShiftedPreset) does not take them
     opt.kkt_system <: SparseCondensedKKTSystem || return kw
