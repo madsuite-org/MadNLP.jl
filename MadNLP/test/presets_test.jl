@@ -46,6 +46,9 @@
     @test co32.equality_shift_max ≈ 1.0f6 * MadNLP.MadNLPCore.preset_perturbation(Float32)
     @test co32.equality_shift * co32.equality_shift_retry_factor <= co32.equality_shift_max
     @test MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset).equality_shift_max ≈ 1.0e-4
+    # the same defaults without the preset (the condensed KKT system under another preset)
+    o32 = MadNLP.MadNLPOptions{Float32}(nlp32; kkt_system = MadNLP.SparseCondensedKKTSystem)
+    @test o32.equality_shift ≈ 100 * MadNLP.MadNLPCore.preset_perturbation(Float32) && o32.equality_shift_max ≈ co32.equality_shift_max
 
     # The shifted options apply to the augmented system only
     cond = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.ShiftedPreset, kkt_system = MadNLP.SparseCondensedKKTSystem)
