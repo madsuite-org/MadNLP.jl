@@ -21,7 +21,7 @@ using CUDA, LinearAlgebra, SparseArrays
     M = MadCore.create_linear_solver(MadCore.LapackCUDASolver, CUDA.CUSPARSE.CuSparseMatrixCSC(sparse(L)))
     @test M.fact isa CuMatrix{Float64}
     MadCore.factorize!(M)
-    x = CUDA.ones(8)
+    x = CUDA.ones(Float64, 8)
     MadCore.solve_linear_system!(M, x)
     @test A * Array(x) ≈ ones(8)
     # The marker does not choose the device: a host matrix gets the host solver, and
@@ -30,7 +30,7 @@ using CUDA, LinearAlgebra, SparseArrays
     M = MadCore.create_linear_solver(MadCore.LapackCPUSolver, CuMatrix(L))
     @test M.fact isa Matrix{Float64}
     MadCore.factorize!(M)
-    x = CUDA.ones(8)
+    x = CUDA.ones(Float64, 8)
     MadCore.solve_linear_system!(M, x)
     @test A * Array(x) ≈ ones(8)
 end
