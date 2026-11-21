@@ -33,9 +33,6 @@ include("cusolver.jl")
 include("cuda.jl")
 include("timer.jl")
 
-MadCore.create_linear_solver(::Type{MadCore.LapackCUDASolver}, A; kwargs...) = LapackCUDAState(A; kwargs...)
-MadCore.default_options(::Type{MadCore.LapackCUDASolver}) = MadCore.default_options(LapackCUDAState)
-MadCore.input_type(::Type{MadCore.LapackCUDASolver}) = MadCore.input_type(LapackCUDAState)
-MadCore.is_supported(::Type{MadCore.LapackCUDASolver}, ::Type{T}) where {T <: AbstractFloat} = MadCore.is_supported(LapackCUDAState, T)
+MadCore.solver_type(::Type{MadCore.LapackCUDASolver}) = LapackCUDAState
 
 end

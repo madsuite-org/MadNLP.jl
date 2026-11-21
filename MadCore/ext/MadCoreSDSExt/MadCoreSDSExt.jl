@@ -147,9 +147,6 @@ MadCore.default_options(::Type{SDSState}) = SDSSolverOptions()
 MadCore.input_type(::Type{SDSState}) = :csc
 MadCore.is_supported(::Type{SDSState}, ::Type{T}) where {T <: Union{Float32, Float64}} = true
 
-MadCore.create_linear_solver(::Type{MadCore.SDSSolver}, A; kwargs...) = SDSState(A; kwargs...)
-MadCore.default_options(::Type{MadCore.SDSSolver}) = SDSSolverOptions()
-MadCore.input_type(::Type{MadCore.SDSSolver}) = :csc
-MadCore.is_supported(::Type{MadCore.SDSSolver}, ::Type{T}) where {T <: AbstractFloat} = MadCore.is_supported(SDSState, T)
+MadCore.solver_type(::Type{MadCore.SDSSolver}) = SDSState
 
 end

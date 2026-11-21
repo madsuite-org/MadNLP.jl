@@ -16,9 +16,6 @@ include("rocsolver.jl")
 include("rocm.jl")
 include("timer.jl")
 
-MadCore.create_linear_solver(::Type{MadCore.LapackROCmSolver}, A; kwargs...) = LapackROCmState(A; kwargs...)
-MadCore.default_options(::Type{MadCore.LapackROCmSolver}) = MadCore.default_options(LapackROCmState)
-MadCore.input_type(::Type{MadCore.LapackROCmSolver}) = MadCore.input_type(LapackROCmState)
-MadCore.is_supported(::Type{MadCore.LapackROCmSolver}, ::Type{T}) where {T <: AbstractFloat} = MadCore.is_supported(LapackROCmState, T)
+MadCore.solver_type(::Type{MadCore.LapackROCmSolver}) = LapackROCmState
 
 end

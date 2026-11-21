@@ -34,9 +34,6 @@ include("cudss.jl")
 include("kernels_schur.jl")
 include("cuda_schur.jl")
 
-MadCore.create_linear_solver(::Type{MadCore.CUDSSSolver}, A; kwargs...) = CUDSSState(A; kwargs...)
-MadCore.default_options(::Type{MadCore.CUDSSSolver}) = MadCore.default_options(CUDSSState)
-MadCore.input_type(::Type{MadCore.CUDSSSolver}) = MadCore.input_type(CUDSSState)
-MadCore.is_supported(::Type{MadCore.CUDSSSolver}, ::Type{T}) where {T <: AbstractFloat} = MadCore.is_supported(CUDSSState, T)
+MadCore.solver_type(::Type{MadCore.CUDSSSolver}) = CUDSSState
 
 end
