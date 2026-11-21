@@ -48,6 +48,19 @@ PardisoMKLSolver
 PanuaPardisoSolver
 ```
 
+## Dense linear solvers
+The dense KKT systems factorize their matrix with LAPACK on the host, or with the dense
+library of the GPU. All use the same solver type, whose workspace selects the library.
+
+```@docs
+LapackSolver
+lapack_workspace
+LapackCPUSolver
+LapackCUDASolver
+LapackROCmSolver
+LapackOneMKLSolver
+```
+
 ## Iterative refinement
 MadNLP uses iterative refinement to improve the
 accuracy of the solution returned by the linear solver.
