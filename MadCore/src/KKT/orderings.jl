@@ -10,18 +10,18 @@ solve is permuted back, so the KKT system and iterative refinement are unchanged
 to every sparse linear solver; a solver that computes its own ordering reorders the permuted
 matrix again.
 
-Available orderings: [`NoOrdering`](@ref), [`MetisOrdering`](@ref) (with Metis loaded),
+Available orderings: [`DefaultOrdering`](@ref), [`MetisOrdering`](@ref) (with Metis loaded),
 [`AMDOrdering`](@ref), [`SymAMDOrdering`](@ref) and [`ColAMDOrdering`](@ref) (with AMD
 loaded), and [`UserOrdering`](@ref).
 """
 abstract type AbstractOrdering end
 
 """
-    NoOrdering()
+    DefaultOrdering()
 
 No permutation: the linear solver factorizes the KKT matrix as assembled.
 """
-struct NoOrdering <: AbstractOrdering end
+struct DefaultOrdering <: AbstractOrdering end
 
 """
     MetisOrdering()
@@ -76,7 +76,7 @@ in the extensions loaded by Metis and AMD.
 """
 function ordering_permutation end
 
-ordering_permutation(::NoOrdering, A::SparseMatrixCSC) = collect(1:size(A, 1))
+ordering_permutation(::DefaultOrdering, A::SparseMatrixCSC) = collect(1:size(A, 1))
 
 function ordering_permutation(o::UserOrdering, A::SparseMatrixCSC)
     (length(o.perm) == size(A, 1) && isperm(o.perm)) ||

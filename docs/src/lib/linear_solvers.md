@@ -92,7 +92,7 @@ not support an ordering yet.
 ```@docs
 PermutedSolver
 AbstractOrdering
-NoOrdering
+DefaultOrdering
 MetisOrdering
 AMDOrdering
 SymAMDOrdering

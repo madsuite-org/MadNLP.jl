@@ -15,7 +15,7 @@ export LapackCPUSolver, MumpsSolver, LDLSolver, UmfpackSolver, CHOLMODSolver, Ac
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver
 export KrylovIterator
 export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
-export AbstractOrdering, NoOrdering, MetisOrdering, AMDOrdering, SymAMDOrdering, ColAMDOrdering, UserOrdering
+export AbstractOrdering, DefaultOrdering, MetisOrdering, AMDOrdering, SymAMDOrdering, ColAMDOrdering, UserOrdering
 export MadNLPExecutionStats, SchurComplementKKTSystem, solve!, madsuite
 
 """

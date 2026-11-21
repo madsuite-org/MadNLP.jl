@@ -28,7 +28,7 @@ end
     b = randn(rng, n + m)
 
     @testset "permutations" begin
-        for o in (ORDERINGS..., MadNLP.NoOrdering(), MadNLP.UserOrdering(randperm(rng, n + m)))
+        for o in (ORDERINGS..., MadNLP.DefaultOrdering(), MadNLP.UserOrdering(randperm(rng, n + m)))
             p = MadNLP.ordering_permutation(o, A)
             @test p isa Vector{Int}
             @test length(p) == n + m && isperm(p)
