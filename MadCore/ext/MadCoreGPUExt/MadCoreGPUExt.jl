@@ -1,12 +1,13 @@
 module MadCoreGPUExt
 
 import LinearAlgebra
-import SparseArrays: SparseMatrixCSC, nonzeros, nnz
+import SparseArrays: SparseMatrixCSC, nonzeros, nnz, getcolptr, rowvals
 import LinearAlgebra: Symmetric, mul!, norm, dot
 
 # GPU abstractions
 import Adapt: adapt
 import GPUArraysCore: AbstractGPUVector, AbstractGPUMatrix, AbstractGPUArray, @allowscalar
+import GPUArrays: AbstractGPUSparseMatrixCSC
 # Kernels
 import KernelAbstractions: @kernel, @index, synchronize, @Const, get_backend, @localmem, @synchronize
 
@@ -24,7 +25,6 @@ import MadCore:
 import MadCore:
     get_inf_du, get_inf_compl, get_min_complementarity, get_average_complementarity,
     get_alpha_max, get_alpha_z, SubVector, count_lu_bounds
-import MadCore: gpu_transfer!, _gpu_sparse_csc_to_dense!, _transfer_coo_to_csc!
 
 const AbstractGPUVectorOrSubVector{T,VT<:AbstractGPUVector{T}} = Union{AbstractGPUVector{T}, SubVector{T, VT}}
 

@@ -1,12 +1,10 @@
-# GPU sparse CSC to dense matrix transfer (uses _csc_to_dense_kernel! from kernels_sparse.jl).
-# Works for any GPU sparse CSC type with .colPtr, .rowVal, .nzVal fields.
-# Called from per-backend gpu_transfer! stubs that dispatch on concrete sparse CSC types.
-function _gpu_sparse_csc_to_dense!(y::AbstractGPUMatrix{T}, x) where {T}
+# GPU sparse CSC to dense matrix (uses _csc_to_dense_kernel! from kernels_sparse.jl).
+function MadCore.copy_to_dense!(y::AbstractGPUMatrix{T}, x::AbstractGPUSparseMatrixCSC{T}) where {T}
     n = size(y, 2)
     fill!(y, zero(T))
     backend = get_backend(y)
-    _csc_to_dense_kernel!(backend)(y, x.colPtr, x.rowVal, x.nzVal, ndrange = n)
-    return
+    _csc_to_dense_kernel!(backend)(y, getcolptr(x), rowvals(x), nonzeros(x), ndrange = n)
+    return y
 end
 
 # Workaround for broken norm() on views of GPU arrays.

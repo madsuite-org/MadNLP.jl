@@ -1,11 +1,4 @@
 #=
-    oneSparseMatrixCSC to oneMatrix
-=#
-
-MadCore.gpu_transfer!(y::oneMatrix{T}, x::oneMKL.oneSparseMatrixCSC{T}) where {T} =
-    MadCore._gpu_sparse_csc_to_dense!(y, x)
-
-#=
     BLAS wrappers
 =#
 

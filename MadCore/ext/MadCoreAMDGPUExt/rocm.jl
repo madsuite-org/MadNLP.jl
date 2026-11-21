@@ -12,13 +12,6 @@ function rocSPARSE.ROCSparseMatrixCSC{Tv,Ti}(A::SparseMatrixCSC{Tv,Ti}) where {T
 end
 
 #=
-    ROCSparseMatrixCSC to ROCMatrix
-=#
-
-MadCore.gpu_transfer!(y::ROCMatrix{T}, x::rocSPARSE.ROCSparseMatrixCSC{T}) where {T} =
-    MadCore._gpu_sparse_csc_to_dense!(y, x)
-
-#=
     MadCore._ger!
 =#
 

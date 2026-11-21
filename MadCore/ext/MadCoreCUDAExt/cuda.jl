@@ -12,13 +12,6 @@ function cuSPARSE.CuSparseMatrixCSC{Tv, Ti}(A::SparseMatrixCSC{Tv, Ti}) where {T
 end
 
 #=
-    CuSparseMatrixCSC to CuMatrix
-=#
-
-MadCore.gpu_transfer!(y::CuMatrix{T}, x::cuSPARSE.CuSparseMatrixCSC{T}) where {T} =
-    MadCore._gpu_sparse_csc_to_dense!(y, x)
-
-#=
     MadCore._ger!
 =#
 

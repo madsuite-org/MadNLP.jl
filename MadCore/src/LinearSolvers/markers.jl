@@ -151,3 +151,48 @@ in MadNLPPardiso; that name is now exported by Pardiso.jl.
 """
 struct PanuaPardisoSolver end
 backend_package(::Type{PanuaPardisoSolver}) = "Pardiso"
+
+"""
+    CUDSSSolver
+
+Select the sparse direct solver cuDSS on NVIDIA GPUs. Implemented in the extension
+loaded by CUDACore, cuBLAS, cuSOLVER, cuSPARSE and CUDSS.
+"""
+struct CUDSSSolver end
+backend_package(::Type{CUDSSSolver}) = "CUDA and CUDSS"
+
+"""
+    LapackCUDASolver
+
+Select the dense factorizations of cuSOLVER on NVIDIA GPUs. Implemented in the
+extension loaded by CUDACore, cuBLAS, cuSOLVER and cuSPARSE.
+"""
+struct LapackCUDASolver end
+backend_package(::Type{LapackCUDASolver}) = "CUDA"
+
+"""
+    LapackROCmSolver
+
+Select the dense factorizations of rocSOLVER on AMD GPUs. Implemented in the
+extension loaded by AMDGPU.
+"""
+struct LapackROCmSolver end
+backend_package(::Type{LapackROCmSolver}) = "AMDGPU"
+
+"""
+    LapackOneMKLSolver
+
+Select the dense factorizations of oneMKL on Intel GPUs. Implemented in the
+extension loaded by oneAPI.
+"""
+struct LapackOneMKLSolver end
+backend_package(::Type{LapackOneMKLSolver}) = "oneAPI"
+
+"""
+    SDSSolver
+
+Select the sparse direct solver SparseDirectSolver.jl on any GPU, or on the CPU for a host
+KKT matrix (`SparseMatrixCSC`). Implemented in the extension loaded by SparseDirectSolver.
+"""
+struct SDSSolver end
+backend_package(::Type{SDSSolver}) = "SparseDirectSolver"

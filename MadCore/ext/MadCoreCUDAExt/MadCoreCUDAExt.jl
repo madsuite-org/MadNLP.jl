@@ -17,7 +17,7 @@ import MadCore:
     solve_cholesky!, solve_lu!, solve_qr!, solve_evd!, solve_bunchkaufman!
 
 import MadCore: ORDERING, DEFAULT_ORDERING, METIS_ORDERING, AMD_ORDERING,
-    USER_ORDERING, SYMAMD_ORDERING, COLAMD_ORDERING, gpu_transfer!
+    USER_ORDERING, SYMAMD_ORDERING, COLAMD_ORDERING
 
 import KernelAbstractions: @kernel, @index, @Const, synchronize, get_backend
 
@@ -35,7 +35,6 @@ include("lapackgpu.jl")
 include("cusolver.jl")
 include("cuda.jl")
 include("timer.jl")
-include("scaling.jl")
 
 MadCore.create_linear_solver(::Type{MadCore.LapackCUDASolver}, A; kwargs...) = LapackCUDAState(A; kwargs...)
 MadCore.default_options(::Type{MadCore.LapackCUDASolver}) = MadCore.default_options(LapackCUDAState)

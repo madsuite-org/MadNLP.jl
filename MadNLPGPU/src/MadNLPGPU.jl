@@ -21,7 +21,7 @@ end
 for name in (
         :CUDSSSolver, :LapackCUDASolver, :LapackROCmSolver, :LapackOneMKLSolver, :SDSSolver,
         :ORDERING, :DEFAULT_ORDERING, :METIS_ORDERING, :AMD_ORDERING, :USER_ORDERING,
-        :SYMAMD_ORDERING, :COLAMD_ORDERING, :EventTimer, :gpu_transfer!,
+        :SYMAMD_ORDERING, :COLAMD_ORDERING, :EventTimer,
     )
     @eval import MadCore: $name
 end

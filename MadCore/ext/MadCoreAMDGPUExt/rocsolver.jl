@@ -42,7 +42,6 @@ mutable struct LapackROCmState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, Al
     end
 end
 
-MadCore.transfer_matrix!(M::LapackROCmState) = MadCore.gpu_transfer!(M.fact, M.A)
 MadCore._get_info(M::LapackROCmState) = sum(M.info)
 MadCore.default_options(::Type{LapackROCmState}) = MadCore.LapackOptions(MadCore.EVD)
 MadCore.introduce(M::LapackROCmState) = "rocSOLVER v$(rocSOLVER.version()) -- ($(M.opt.lapack_algorithm))"

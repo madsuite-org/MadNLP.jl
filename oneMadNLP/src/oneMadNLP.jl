@@ -10,7 +10,7 @@ module oneMadNLP
 
 import MadCore, MadNLPCore
 # Triggers of MadCoreGPUExt, the GPU KKT systems and kernels
-import Adapt, GPUArraysCore, KernelAbstractions
+import Adapt, GPUArrays, GPUArraysCore, KernelAbstractions
 import oneAPI
 using oneAPI: oneVector, oneAPIBackend
 # SparseDirectSolver loads MadCoreSDSExt, which implements SDSSolver.

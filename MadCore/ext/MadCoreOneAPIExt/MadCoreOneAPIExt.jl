@@ -12,7 +12,6 @@ using oneAPI.oneMKL, oneAPI.Support
 include("oneapi_sparse.jl")
 include("onemkl.jl")
 include("oneapi.jl")
-include("scaling.jl")
 
 MadCore.create_linear_solver(::Type{MadCore.LapackOneMKLSolver}, A; kwargs...) = LapackOneMKLState(A; kwargs...)
 MadCore.default_options(::Type{MadCore.LapackOneMKLSolver}) = MadCore.default_options(LapackOneMKLState)

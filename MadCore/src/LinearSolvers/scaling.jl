@@ -53,11 +53,11 @@ mutable struct ScaledShiftedSolver{T, MT, VT, VI, LS, SC <: AbstractScaler} <: A
     logger::MadNLPLogger
 end
 
-# The sparse matrix types a ScaledShiftedSolver handles; a GPU package adds its own.
-scaling_nzval(A::SparseMatrixCSC) = nonzeros(A)
-scaling_index_type(::SparseMatrixCSC{T, Ti}) where {T, Ti} = Ti
-scaling_host_pattern(A::SparseMatrixCSC) = (Vector{Int}(getcolptr(A)), Vector{Int}(rowvals(A)))
-scaling_device(::SparseMatrixCSC, v::Vector) = v
+# The sparse matrices a ScaledShiftedSolver handles: `SparseMatrixCSC` and the GPU sparse
+# matrices, through `nonzeros`, `getcolptr` and `rowvals`.
+scaling_nzval(A::AbstractSparseMatrix) = nonzeros(A)
+scaling_index_type(::AbstractSparseMatrix{T, Ti}) where {T, Ti} = Ti
+scaling_host_pattern(A::AbstractSparseMatrix) = (Vector{Int}(host_array(getcolptr(A))), Vector{Int}(host_array(rowvals(A))))
 
 function ScaledShiftedSolver(
         linear_solver, A, n_primal;
@@ -77,7 +77,7 @@ function ScaledShiftedSolver(
     off = rows .!= cols
     S = sparse(vcat(rows, cols[off]), vcat(cols, rows[off]), vcat(1:length(rows), findall(off)), n, n)
     Ti = scaling_index_type(A)
-    dv(v) = scaling_device(A, v)
+    dv(v) = device_array(A, v)
     fac = copy(A)
     inner = create_linear_solver(linear_solver, fac; opt, logger)
     return ScaledShiftedSolver(

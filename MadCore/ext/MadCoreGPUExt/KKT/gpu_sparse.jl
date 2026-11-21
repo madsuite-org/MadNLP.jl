@@ -2,13 +2,13 @@
 ##### GPU wrappers for SparseCondensedKKTSystem  #####
 ######################################################
 
-# Generic GPU sparse functions dispatching on AbstractGPUVector / AbstractGPUArray.
-# Per-backend stubs for functions needing concrete sparse CSC types
-# (transfer!, nzval, _get_sparse_csc, get_tril_to_full, _sym_length)
-# remain in per-extension files.
+# GPU sparse functions dispatching on AbstractGPUVector / AbstractGPUArray. The
+# sparse helpers of MadCore (transfer!, nzval, get_tril_to_full, _sym_length) are
+# generic over the GPU sparse matrices; the backends only build their sparse
+# matrix type (`_get_sparse_csc`).
 
 #=
-    MadCore.transfer! (COO to CSC), shared by the backends' stubs
+    MadCore.transfer! (COO to CSC): the accumulation into the CSC nonzeros
 =#
 
 # Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `_transfer!`:
@@ -66,7 +66,7 @@ function _csc_grouping(cscmap::AbstractVector)
     return grouping
 end
 
-function _transfer_coo_to_csc!(nzval::AbstractGPUVector, V, cscmap)
+function MadCore._transfer!(nzval::AbstractGPUVector, V, cscmap)
     ptr, ptrptr = _csc_grouping(cscmap)
     fill!(nzval, zero(eltype(nzval)))
     if length(ptrptr) > 1

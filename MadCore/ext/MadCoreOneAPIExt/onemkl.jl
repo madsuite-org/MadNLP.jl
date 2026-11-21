@@ -45,7 +45,6 @@ mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, 
     end
 end
 
-MadCore.transfer_matrix!(M::LapackOneMKLState) = MadCore.gpu_transfer!(M.fact, M.A)
 MadCore.default_options(::Type{LapackOneMKLState}) = MadCore.LapackOptions(MadCore.EVD)
 MadCore.introduce(M::LapackOneMKLState) = "oneMKL -- ($(M.opt.lapack_algorithm))"
 MadCore.solve!(M::LapackOneMKLState{T}, x::oneVector{T}) where {T} = MadCore._solve!(M, x)

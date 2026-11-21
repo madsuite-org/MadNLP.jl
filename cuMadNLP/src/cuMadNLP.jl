@@ -12,7 +12,7 @@ module cuMadNLP
 import MadCore, MadNLPCore
 import CUDACore, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
 # Triggers of MadCoreGPUExt, the GPU KKT systems and kernels
-import Adapt, GPUArraysCore, KernelAbstractions
+import Adapt, GPUArrays, GPUArraysCore, KernelAbstractions
 # Fill-reducing orderings of cuDSS (`cudss_ordering`): MadCoreAMDExt and MadCoreMetisExt
 import AMD, Metis
 using CUDACore: CuVector, CUDABackend

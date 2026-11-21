@@ -51,7 +51,6 @@ mutable struct LapackCUDAState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, Al
     end
 end
 
-MadCore.transfer_matrix!(M::LapackCUDAState) = MadCore.gpu_transfer!(M.fact, M.A)
 MadCore._get_info(M::LapackCUDAState) = sum(M.info)
 MadCore.solve!(M::LapackCUDAState{T}, x::CuVector{T}) where {T} = MadCore._solve!(M, x)
 MadCore.introduce(M::LapackCUDAState) = "cuSOLVER v$(cuSOLVER.version()) -- ($(M.opt.lapack_algorithm))"

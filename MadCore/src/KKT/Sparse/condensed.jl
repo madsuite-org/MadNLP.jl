@@ -219,9 +219,10 @@ function jtprod!(y::AbstractVector, kkt::SparseCondensedKKTSystem, x::AbstractVe
 end
 
 function _sym_length(Jt)
+    colptr = host_array(getcolptr(Jt))
     len = 0
     for i=1:size(Jt,2)
-        n = Jt.colptr[i+1] - Jt.colptr[i]
+        n = colptr[i+1] - colptr[i]
         len += div(n^2 + n, 2)
     end
     return len
@@ -259,7 +260,7 @@ function getptr(array; by = (x,y)->x != y)
     findall(bitarray)
 end
 
-nzval(H) = H.nzval
+nzval(H) = nonzeros(H)
 
 @inbounds function build_condensed_aug_symbolic(H::AbstractSparseMatrix{Tv,Ti}, Jt) where {Tv, Ti}
     nnzjtsj = _sym_length(Jt)

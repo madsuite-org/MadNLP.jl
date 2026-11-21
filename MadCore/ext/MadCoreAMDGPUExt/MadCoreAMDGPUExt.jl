@@ -15,7 +15,6 @@ include("rocm_sparse.jl")
 include("rocsolver.jl")
 include("rocm.jl")
 include("timer.jl")
-include("scaling.jl")
 
 MadCore.create_linear_solver(::Type{MadCore.LapackROCmSolver}, A; kwargs...) = LapackROCmState(A; kwargs...)
 MadCore.default_options(::Type{MadCore.LapackROCmSolver}) = MadCore.default_options(LapackROCmState)
