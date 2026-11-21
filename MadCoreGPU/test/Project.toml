@@ -17,4 +17,4 @@ MadNLPCore = {path = "../../MadNLPCore"}
 MadNLPTests = {path = "../../MadNLPTests"}
 
 [compat]
-SparseDirectSolver = "0.4"
+SparseDirectSolver = "0.4.1"

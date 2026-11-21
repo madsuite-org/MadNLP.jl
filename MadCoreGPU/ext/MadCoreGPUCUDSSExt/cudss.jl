@@ -268,9 +268,15 @@ MadCore.is_supported(::Type{CUDSSState}, ::Type{Float64}) = true
 MadCore.introduce(M::CUDSSState) = "cuDSS v$(CUDSS.version())"
 MadCore.is_async(M::CUDSSState) = M.opt.cudss_asynchronous
 
+# cuDSS on the condensed system, under any preset: Cholesky of the positive definite matrix, without
+# pivoting or matching (a failed factorization reports a wrong inertia, on which the solver retries
+# with a larger equality shift or perturbs the Hessian)
 function MadCore.default_options(::MadCore.AbstractNLPModel{T, VT}, ::Type{MadCore.SparseCondensedKKTSystem}, linear_solver::Type{MadCoreGPU.CUDSSSolver}) where {T, VT <: CuVector{T}}
     opt = MadCore.default_options(linear_solver)
-    # MadCore.set_options!(opt, Dict(:cudss_algorithm => MadCore.CHOLESKY)) # commented out due to issue #539
-
+    opt.cudss_algorithm = MadCore.CHOLESKY
+    opt.cudss_pivot_epsilon = 0.0
+    opt.cudss_pivoting = false
+    opt.cudss_matching = false
+    opt.cudss_deferred_analysis = true
     return opt
 end

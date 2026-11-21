@@ -4,7 +4,7 @@
 Entry point of MadNLP on AMD GPUs. Loads MadNLPCore with the GPU KKT systems of
 MadCoreGPU, the rocSOLVER solvers and SparseDirectSolver.jl. Models on `ROCVector` are
 solved with [`ShiftedPreset`](@ref MadNLPCore.ShiftedPreset) by default: the augmented KKT
-system with the static LDLᵀ factorization of [`SDSSolver`](@ref).
+system with the LDLᵀ factorization of [`SDSSolver`](@ref) with diagonal pivoting.
 """
 module rocMadNLP
 

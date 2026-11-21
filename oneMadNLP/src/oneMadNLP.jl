@@ -4,7 +4,7 @@
 Entry point of MadNLP on Intel GPUs. Loads MadNLPCore with the GPU KKT systems of
 MadCoreGPU, the oneMKL solvers and SparseDirectSolver.jl. Models on `oneVector` are solved
 with [`ShiftedPreset`](@ref MadNLPCore.ShiftedPreset) by default: the augmented KKT system
-with the static LDLᵀ factorization of [`SDSSolver`](@ref).
+with the LDLᵀ factorization of [`SDSSolver`](@ref) with diagonal pivoting.
 """
 module oneMadNLP
 

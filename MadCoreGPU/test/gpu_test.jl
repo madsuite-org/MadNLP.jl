@@ -212,6 +212,16 @@ cuda_testset = [
         [],
     ],
     [
+        "SDS-ANALYSIS-EACH",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            sds_matching="algo6",
+            sds_analysis_each_factorization=true,
+        ),
+        [],
+    ],
+    [
         "SDS-CONDENSED",
         ()->MadNLP.Optimizer(
             linear_solver = MadCoreGPU.SDSSolver,
@@ -273,6 +283,16 @@ rocm_testset = [
             linear_solver = MadCoreGPU.SDSSolver,
             print_level=MadNLP.ERROR,
             preset=MadNLP.AugmentedPreset,
+        ),
+        [],
+    ],
+    [
+        "SDS-ANALYSIS-EACH",
+        ()->MadNLP.Optimizer(
+            linear_solver = MadCoreGPU.SDSSolver,
+            print_level=MadNLP.ERROR,
+            sds_matching="algo6",
+            sds_analysis_each_factorization=true,
         ),
         [],
     ],

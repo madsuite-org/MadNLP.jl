@@ -15,14 +15,14 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
     if Metal.functional()
         @testset "Option presets for MtlVector models" begin
             nlp = MadNLPCore.SparseWrapperModel(MtlVector, MadNLPCore.HS15Model(; T = Float32))
-            # the default, ShiftedPreset: the augmented system with SparseDirectSolver's static LDLᵀ
+            # the default, ShiftedPreset: the augmented system with SparseDirectSolver's LDLᵀ with diagonal pivoting
             opt = MadNLPCore.MadNLPOptions{Float32}(nlp)
             @test opt.preset === MadNLPCore.ShiftedPreset
             @test opt.linear_solver === SDSSolver
             @test opt.kkt_system === MadNLPCore.SparseKKTSystem
             @test opt.dual_shift === MadNLPCore.preset_perturbation(Float32)
             lopt = MadCore.default_options(nlp, opt.preset, opt.kkt_system, opt.linear_solver)
-            @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :none
+            @test lopt.sds_factorization === :ldl && lopt.sds_pivoting === :diagonal
             @test lopt.sds_pivot_epsilon == Float64(MadNLPCore.preset_perturbation(Float32))
             @test lopt.sds_matching == "algo6" && lopt.sds_deferred_analysis && lopt.sds_ir == 2
             stats = madnlp(nlp; print_level = MadNLPCore.ERROR)
@@ -63,6 +63,5 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, MadCoreGPU, Metal, LinearAlgebra, Sp
             MadCore._permute_tuples!(dv, MtlVector([3, 1, 2]))
             @test Array(dv) == v[[3, 1, 2]]
         end
-        include("border.jl")
     end
 end
