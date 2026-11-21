@@ -47,7 +47,7 @@ function create_kkt_system(
     kkt_scaler::AbstractScaler=NoScaler(),
     primal_shift=0.0,
     dual_shift=0.0,
-    kkt_ordering::AbstractOrdering=NoOrdering(),
+    kkt_ordering::AbstractOrdering=DefaultOrdering(),
 ) where {T,VT}
 
     n_slack = length(cb.ind_ineq)

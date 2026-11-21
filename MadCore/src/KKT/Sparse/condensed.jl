@@ -100,7 +100,7 @@ function create_kkt_system(
     kkt_scaler::AbstractScaler=NoScaler(),
     primal_shift=0.0,
     dual_shift=0.0,
-    kkt_ordering::AbstractOrdering=NoOrdering(),
+    kkt_ordering::AbstractOrdering=DefaultOrdering(),
     equality_shift::Float64 = 1e-8,
     equality_shift_retry::Bool = true,
     equality_shift_retry_factor::Float64 = 100.0,
