@@ -12,13 +12,13 @@
 # Scatter src[src_idx[i]] into batched A_kk nzval at the matching scenario slot.
 # Used for: Hessian diagonal entries, equality Jacobian entries, pr_diag, du_diag.
 @kernel function _scatter_to_Akk_batched!(
-    nzval,
-    @Const(src),
-    @Const(src_idx),
-    @Const(nzpos_flat),
-    @Const(nnz_per_block),
-    @Const(n_per_s),
-)
+        nzval,
+        @Const(src),
+        @Const(src_idx),
+        @Const(nzpos_flat),
+        @Const(nnz_per_block),
+        @Const(n_per_s),
+    )
     i = @index(Global)
     offset = ((i - 1) ÷ n_per_s) * nnz_per_block
     @inbounds nzval[offset + nzpos_flat[i]] += src[src_idx[i]]
@@ -29,13 +29,13 @@ end
 # (blk × nd) matrix — directly usable as a cuDSS multi-RHS dense matrix.
 # Used for: Hessian coupling entries, equality Jacobian coupling entries.
 @kernel function _scatter_to_Cdk_batched!(
-    C_dk,
-    @Const(src),
-    @Const(src_idx),
-    @Const(v_idx_flat),       # scenario-var index (1..blk)
-    @Const(d_idx_flat),       # design-var index (1..nd)
-    @Const(n_per_s),
-)
+        C_dk,
+        @Const(src),
+        @Const(src_idx),
+        @Const(v_idx_flat),       # scenario-var index (1..blk)
+        @Const(d_idx_flat),       # design-var index (1..nd)
+        @Const(n_per_s),
+    )
     i = @index(Global)
     k = (i - 1) ÷ n_per_s + 1
     @inbounds C_dk[v_idx_flat[i], d_idx_flat[i], k] += src[src_idx[i]]
@@ -43,16 +43,16 @@ end
 
 # Inequality condensation → A_kk (lower triangle).
 @kernel function _ineq_condense_Akk_kernel!(
-    nzval,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(nzpos_flat),
-    @Const(jcoo1_flat),
-    @Const(jcoo2_flat),
-    @Const(bufidx_flat),
-    @Const(nnz_per_block),
-    @Const(n_per_s),
-)
+        nzval,
+        @Const(jac),
+        @Const(diag_buffer),
+        @Const(nzpos_flat),
+        @Const(jcoo1_flat),
+        @Const(jcoo2_flat),
+        @Const(bufidx_flat),
+        @Const(nnz_per_block),
+        @Const(n_per_s),
+    )
     i = @index(Global)
     offset = ((i - 1) ÷ n_per_s) * nnz_per_block
     @inbounds nzval[offset + nzpos_flat[i]] += diag_buffer[bufidx_flat[i]] *
@@ -61,16 +61,16 @@ end
 
 # Inequality condensation → C_dk (blk_size × nd × ns; see _scatter_to_Cdk_batched!).
 @kernel function _ineq_condense_Cdk_kernel!(
-    C_dk,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(v_idx_flat),       # scenario-var index (1..blk)
-    @Const(d_idx_flat),       # design-var index (1..nd)
-    @Const(jcoo_d_flat),
-    @Const(jcoo_v_flat),
-    @Const(bufidx_flat),
-    @Const(n_per_s),
-)
+        C_dk,
+        @Const(jac),
+        @Const(diag_buffer),
+        @Const(v_idx_flat),       # scenario-var index (1..blk)
+        @Const(d_idx_flat),       # design-var index (1..nd)
+        @Const(jcoo_d_flat),
+        @Const(jcoo_v_flat),
+        @Const(bufidx_flat),
+        @Const(n_per_s),
+    )
     i = @index(Global)
     k = (i - 1) ÷ n_per_s + 1
     @inbounds C_dk[v_idx_flat[i], d_idx_flat[i], k] += diag_buffer[bufidx_flat[i]] *
@@ -80,15 +80,15 @@ end
 # Inequality condensation → S (atomic adds since multiple scenarios target the
 # same nd × nd dense matrix).
 @kernel function _ineq_condense_S_kernel!(
-    S,
-    @Const(jac),
-    @Const(diag_buffer),
-    @Const(row_flat),
-    @Const(col_flat),
-    @Const(jcoo1_flat),
-    @Const(jcoo2_flat),
-    @Const(bufidx_flat),
-)
+        S,
+        @Const(jac),
+        @Const(diag_buffer),
+        @Const(row_flat),
+        @Const(col_flat),
+        @Const(jcoo1_flat),
+        @Const(jcoo2_flat),
+        @Const(bufidx_flat),
+    )
     i = @index(Global)
     @inbounds begin
         val = diag_buffer[bufidx_flat[i]] * jac[jcoo1_flat[i]] * jac[jcoo2_flat[i]]
@@ -98,23 +98,23 @@ end
 
 # Initialize S from design-design Hessian
 @kernel function _init_S_hess_kernel!(
-    S,
-    @Const(hess),
-    @Const(coo_indices),
-    @Const(row_indices),
-    @Const(col_indices),
-)
+        S,
+        @Const(hess),
+        @Const(coo_indices),
+        @Const(row_indices),
+        @Const(col_indices),
+    )
     idx = @index(Global)
     @inbounds S[row_indices[idx], col_indices[idx]] += hess[coo_indices[idx]]
 end
 
 # Add pr_diag_dd to S diagonal
 @kernel function _init_S_diag_kernel!(
-    S,
-    @Const(pr_diag),
-    @Const(diag_offset),
-    @Const(nd),
-)
+        S,
+        @Const(pr_diag),
+        @Const(diag_offset),
+        @Const(nd),
+    )
     idx = @index(Global)
     if idx <= nd
         @inbounds S[idx, idx] += pr_diag[diag_offset + idx]
@@ -123,15 +123,15 @@ end
 
 # Extract per-scenario RHS from global wx/wy → rhs_k_batched (blk_size × ns)
 @kernel function _extract_rhs_kernel!(
-    rhs_k,
-    @Const(wx),
-    @Const(wy),
-    @Const(eq_global_indices),
-    @Const(nv),
-    @Const(nc_eq),
-    @Const(ns),
-    @Const(blk_size),
-)
+        rhs_k,
+        @Const(wx),
+        @Const(wy),
+        @Const(eq_global_indices),
+        @Const(nv),
+        @Const(nc_eq),
+        @Const(ns),
+        @Const(blk_size),
+    )
     i = @index(Global)
     k = (i - 1) ÷ blk_size + 1
     local_idx = (i - 1) % blk_size + 1
@@ -149,15 +149,15 @@ end
 
 # Write back per-scenario solution to global wx/wy
 @kernel function _writeback_rhs_kernel!(
-    wx,
-    wy,
-    @Const(rhs_k),
-    @Const(eq_global_indices),
-    @Const(nv),
-    @Const(nc_eq),
-    @Const(ns),
-    @Const(blk_size),
-)
+        wx,
+        wy,
+        @Const(rhs_k),
+        @Const(eq_global_indices),
+        @Const(nv),
+        @Const(nc_eq),
+        @Const(ns),
+        @Const(blk_size),
+    )
     i = @index(Global)
     k = (i - 1) ÷ blk_size + 1
     local_idx = (i - 1) % blk_size + 1

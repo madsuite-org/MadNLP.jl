@@ -16,15 +16,15 @@ mutable struct LapackROCmState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, Al
     logger::MadCore.MadNLPLogger
 
     function LapackROCmState(
-        A::MT;
-        option_dict::Dict{Symbol,Any} = Dict{Symbol,Any}(),
-        opt = MadCore.LapackOptions(),
-        logger = MadCore.MadNLPLogger(),
-        kwargs...,
-    ) where {MT<:AbstractMatrix}
+            A::MT;
+            option_dict::Dict{Symbol, Any} = Dict{Symbol, Any}(),
+            opt = MadCore.LapackOptions(),
+            logger = MadCore.MadNLPLogger(),
+            kwargs...,
+        ) where {MT <: AbstractMatrix}
         MadCore.set_options!(opt, option_dict, kwargs...)
         T = eltype(A)
-        m,n = size(A)
+        m, n = size(A)
         @assert m == n
         fact = ROCMatrix{T}(undef, m, n)
         sol = ROCVector{T}(undef, 0)
@@ -48,8 +48,10 @@ MadCore.introduce(M::LapackROCmState) = "rocSOLVER v$(rocSOLVER.version()) -- ($
 MadCore.solve!(M::LapackROCmState{T}, x::ROCVector{T}) where {T} = MadCore._solve!(M, x)
 
 for (potrf, potrs, T) in
-    ((:rocsolver_dpotrf_64, :rocsolver_dpotrs_64, :Float64),
-     (:rocsolver_spotrf_64, :rocsolver_spotrs_64, :Float32))
+    (
+        (:rocsolver_dpotrf_64, :rocsolver_dpotrs_64, :Float64),
+        (:rocsolver_spotrf_64, :rocsolver_spotrs_64, :Float32),
+    )
     @eval begin
         MadCore.setup_cholesky!(M::LapackROCmState{$T}) = M
 
@@ -82,8 +84,10 @@ for (potrf, potrs, T) in
 end
 
 for (getrf, getrs, T) in
-    ((:rocsolver_dgetrf_64, :rocsolver_dgetrs_64, :Float64),
-     (:rocsolver_sgetrf_64, :rocsolver_sgetrs_64, :Float32))
+    (
+        (:rocsolver_dgetrf_64, :rocsolver_dgetrs_64, :Float64),
+        (:rocsolver_sgetrf_64, :rocsolver_sgetrs_64, :Float32),
+    )
     @eval begin
         function MadCore.setup_lu!(M::LapackROCmState{$T})
             resize!(M.ipiv, M.n)
@@ -121,8 +125,10 @@ for (getrf, getrs, T) in
 end
 
 for (geqrf, ormqr, trsv, T) in
-    ((:rocsolver_dgeqrf_64, :rocsolver_dormqr, :rocblas_dtrsv_64, :Float64),
-     (:rocsolver_sgeqrf_64, :rocsolver_sormqr, :rocblas_strsv_64, :Float32))
+    (
+        (:rocsolver_dgeqrf_64, :rocsolver_dormqr, :rocblas_dtrsv_64, :Float64),
+        (:rocsolver_sgeqrf_64, :rocsolver_sormqr, :rocblas_strsv_64, :Float32),
+    )
     @eval begin
         function MadCore.setup_qr!(M::LapackROCmState{$T})
             resize!(M.tau, M.n)
@@ -172,8 +178,10 @@ for (geqrf, ormqr, trsv, T) in
 end
 
 for (syevd, gemv, T) in
-    ((:rocsolver_dsyevd, :rocblas_dgemv_64, :Float64),
-     (:rocsolver_ssyevd, :rocblas_sgemv_64, :Float32))
+    (
+        (:rocsolver_dsyevd, :rocblas_dgemv_64, :Float64),
+        (:rocsolver_ssyevd, :rocblas_sgemv_64, :Float32),
+    )
     @eval begin
         function MadCore.setup_evd!(M::LapackROCmState{$T})
             resize!(M.tau, M.n)

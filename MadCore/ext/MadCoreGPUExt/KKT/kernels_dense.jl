@@ -37,17 +37,17 @@ end
 =#
 
 @kernel function _build_dense_kkt_system_kernel!(
-    dest,
-    hess,
-    jac,
-    pr_diag,
-    du_diag,
-    diag_hess,
-    ind_ineq,
-    n,
-    m,
-    ns,
-)
+        dest,
+        hess,
+        jac,
+        pr_diag,
+        du_diag,
+        diag_hess,
+        ind_ineq,
+        n,
+        m,
+        ns,
+    )
     i, j = @index(Global, NTuple)
     @inbounds if (i <= n)
         # Transfer Hessian
@@ -62,8 +62,8 @@ end
         # Transfer Jacobian wrt slack
         js = i - n
         is = ind_ineq[js]
-        dest[is+n+ns, is+n] = -1
-        dest[is+n, is+n+ns] = -1
+        dest[is + n + ns, is + n] = -1
+        dest[is + n, is + n + ns] = -1
     elseif i <= n + ns + m
         # Transfer Jacobian wrt variable x
         i_ = i - n - ns
@@ -89,15 +89,15 @@ end
 =#
 
 @kernel function _build_condensed_kkt_system_kernel!(
-    dest,
-    hess,
-    jac,
-    pr_diag,
-    du_diag,
-    ind_eq,
-    n,
-    m_eq,
-)
+        dest,
+        hess,
+        jac,
+        pr_diag,
+        du_diag,
+        ind_eq,
+        n,
+        m_eq,
+    )
     i, j = @index(Global, NTuple)
 
     # Transfer Hessian
@@ -111,9 +111,9 @@ end
         i_ = i - n
         is = ind_eq[i_]
         # Jacobian / equality
-        dest[i_+n, j] = jac[is, j]
-        dest[j, i_+n] = jac[is, j]
+        dest[i_ + n, j] = jac[is, j]
+        dest[j, i_ + n] = jac[is, j]
         # Transfer dual regularization
-        dest[i_+n, i_+n] = du_diag[is]
+        dest[i_ + n, i_ + n] = du_diag[is]
     end
 end

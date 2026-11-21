@@ -28,7 +28,7 @@ NLPModels.obj(nlp::CyclicQPGPU, x::AbstractVector) = sum((x .- nlp.idx) .^ 2) / 
 NLPModels.grad!(nlp::CyclicQPGPU, x::AbstractVector, g::AbstractVector) = (g .= x .- nlp.idx; g)
 function NLPModels.cons!(nlp::CyclicQPGPU, x::AbstractVector, c::AbstractVector)
     n = nlp.n
-    c[1:n-1] .= view(x, 1:n-1) .- view(x, 2:n)
+    c[1:(n - 1)] .= view(x, 1:(n - 1)) .- view(x, 2:n)
     c[n:n] .= view(x, n:n) .- view(x, 1:1)
     return c
 end
@@ -50,8 +50,10 @@ NLPModels.hess_coord!(nlp::CyclicQPGPU, x::AbstractVector, y::AbstractVector, V:
 
 @testset "MadNLP -- CUDSSSolver: condensed mul! is linear in beta" begin
     n = 30
-    solver = MadNLPSolver(CyclicQPGPU(CUDA.zeros(Float64, n)); print_level=MadNLP.ERROR,
-                          kkt_system=MadNLP.SparseCondensedKKTSystem, linear_solver=MadCore.CUDSSSolver, max_iter=3)
+    solver = MadNLPSolver(
+        CyclicQPGPU(CUDA.zeros(Float64, n)); print_level = MadNLP.ERROR,
+        kkt_system = MadNLP.SparseCondensedKKTSystem, linear_solver = MadCore.CUDSSSolver, max_iter = 3
+    )
     MadNLP.solve!(solver)      # a few iterations so that the KKT matrix carries values
     kkt = MadNLP.get_kkt(solver)
     x = MadNLP.UnreducedKKTVector(kkt)
@@ -65,13 +67,13 @@ NLPModels.hess_coord!(nlp::CyclicQPGPU, x::AbstractVector, y::AbstractVector, V:
     kx = copy(MadNLP.full(w))
     copyto!(MadNLP.full(w), 2 .* w0 .+ 1)
     mul!(w, kkt, x, 1.0, 0.0)
-    @test Array(MadNLP.full(w)) ≈ Array(kx) atol=1e-10
+    @test Array(MadNLP.full(w)) ≈ Array(kx) atol = 1.0e-10
     # beta = 1: w = w0 + K x
     copyto!(MadNLP.full(w), w0)
     mul!(w, kkt, x, 1.0, 1.0)
-    @test Array(MadNLP.full(w)) ≈ Array(w0 .+ kx) atol=1e-10
+    @test Array(MadNLP.full(w)) ≈ Array(w0 .+ kx) atol = 1.0e-10
     # general alpha, beta
     copyto!(MadNLP.full(w), w0)
     mul!(w, kkt, x, -2.0, 0.5)
-    @test Array(MadNLP.full(w)) ≈ Array(0.5 .* w0 .- 2.0 .* kx) atol=1e-10
+    @test Array(MadNLP.full(w)) ≈ Array(0.5 .* w0 .- 2.0 .* kx) atol = 1.0e-10
 end

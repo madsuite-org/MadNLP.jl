@@ -28,7 +28,7 @@ NLPModels.obj(nlp::BoundedQPGPU, x::AbstractVector) = sum((x .- nlp.idx) .^ 2) /
 NLPModels.grad!(nlp::BoundedQPGPU, x::AbstractVector, g::AbstractVector) = (g .= x .- nlp.idx; g)
 function NLPModels.cons!(nlp::BoundedQPGPU, x::AbstractVector, c::AbstractVector)
     n = nlp.n
-    c[1:n-1] .= view(x, 1:n-1) .- view(x, 2:n)
+    c[1:(n - 1)] .= view(x, 1:(n - 1)) .- view(x, 2:n)
     c[n:n] .= view(x, n:n) .- view(x, 1:1)
     return c
 end
@@ -50,20 +50,24 @@ NLPModels.hess_coord!(nlp::BoundedQPGPU, x::AbstractVector, y::AbstractVector, V
 
 @testset "MadNLP -- CUDSSSolver: SparseKKTSystem on the device" begin
     n = 40
-    results_ref = MadNLP.madnlp(BoundedQPGPU(zeros(Float64, n)); kkt_system=MadNLP.SparseKKTSystem,
-                                linear_solver=MadNLP.UmfpackSolver, print_level=MadNLP.ERROR, tol=1e-8)
+    results_ref = MadNLP.madnlp(
+        BoundedQPGPU(zeros(Float64, n)); kkt_system = MadNLP.SparseKKTSystem,
+        linear_solver = MadNLP.UmfpackSolver, print_level = MadNLP.ERROR, tol = 1.0e-8
+    )
     @test results_ref.status == MadNLP.SOLVE_SUCCEEDED
     # the solution sits on the upper bounds for the large indices, so the bound duals
     # and the duplicate diagonal are exercised
     @test any(results_ref.solution .≈ n / 2)
 
-    solver = MadNLPSolver(BoundedQPGPU(CUDA.zeros(Float64, n)); print_level=MadNLP.ERROR,
-                          kkt_system=MadNLP.SparseKKTSystem, linear_solver=MadCore.CUDSSSolver, tol=1e-8)
+    solver = MadNLPSolver(
+        BoundedQPGPU(CUDA.zeros(Float64, n)); print_level = MadNLP.ERROR,
+        kkt_system = MadNLP.SparseKKTSystem, linear_solver = MadCore.CUDSSSolver, tol = 1.0e-8
+    )
     results = MadNLP.solve!(solver)
     @test results.status == MadNLP.SOLVE_SUCCEEDED
     # cuDSS without pivoting and UMFPACK take different regularization paths, so the
     # iteration counts differ; the solutions agree to the tolerance
-    @test results.objective ≈ results_ref.objective rtol=1e-7
-    @test Array(results.solution) ≈ results_ref.solution rtol=1e-6
-    @test Array(results.multipliers) ≈ results_ref.multipliers rtol=1e-6
+    @test results.objective ≈ results_ref.objective rtol = 1.0e-7
+    @test Array(results.solution) ≈ results_ref.solution rtol = 1.0e-6
+    @test Array(results.multipliers) ≈ results_ref.multipliers rtol = 1.0e-6
 end

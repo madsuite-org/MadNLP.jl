@@ -16,7 +16,7 @@ import MadCore
 import MadCore:
     @kwdef, MadNLPLogger, @debug, @warn, @error,
     AbstractOptions, AbstractLinearSolver, AbstractNLPModel, set_options!,
-    SymbolicException,FactorizationException,SolveException,InertiaException,
+    SymbolicException, FactorizationException, SolveException, InertiaException,
     introduce, factorize!, solve!, improve!, is_inertia, inertia, tril_to_full!,
     LapackOptions, input_type, is_supported, default_options,
     setup_cholesky!, setup_lu!, setup_qr!, setup_evd!, setup_bunchkaufman!,
@@ -26,7 +26,7 @@ import MadCore:
     get_inf_du, get_inf_compl, get_min_complementarity, get_average_complementarity,
     get_alpha_max, get_alpha_z, SubVector, count_lu_bounds
 
-const AbstractGPUVectorOrSubVector{T,VT<:AbstractGPUVector{T}} = Union{AbstractGPUVector{T}, SubVector{T, VT}}
+const AbstractGPUVectorOrSubVector{T, VT <: AbstractGPUVector{T}} = Union{AbstractGPUVector{T}, SubVector{T, VT}}
 
 include("KKT/kernels_dense.jl")
 include("KKT/kernels_sparse.jl")
@@ -48,7 +48,7 @@ function MadCore._get_sparse_csc(dims, colptr::AbstractGPUVector, rowval, nzval)
     error(
         "MadCore: cannot build a GPU sparse KKT system because the GPU backend " *
             "extension is not loaded. Load the GPU package (CUDA, AMDGPU, oneAPI or Metal) before " *
-        "solving a model with GPU arrays.",
+            "solving a model with GPU arrays.",
     )
 end
 

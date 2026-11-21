@@ -21,17 +21,17 @@ per-scenario length; the matching `gpu_*` vector then has length `ns * n_per_s_*
 and is indexed directly by the kernel global index.
 """
 struct GPUSchurComplementKKTSystem{
-    T,
-    VT <: AbstractVector{T},
-    MT <: AbstractMatrix{T},
-    QN,
-    LS,   # linear solver for Schur complement S (LapackCUDAState)
-    LS2,  # batched scenario solver (CUDSSState)
-    COO_T,   # SparseMatrixCOO type for hess_raw
-    COO_JT,  # SparseMatrixCOO type for jt_coo
-    CSC_T,   # CuSparseMatrixCSC type
-    VI <: AbstractVector{Int},
-} <: MadCore.AbstractCondensedKKTSystem{T, VT, MT, QN}
+        T,
+        VT <: AbstractVector{T},
+        MT <: AbstractMatrix{T},
+        QN,
+        LS,   # linear solver for Schur complement S (LapackCUDAState)
+        LS2,  # batched scenario solver (CUDSSState)
+        COO_T,   # SparseMatrixCOO type for hess_raw
+        COO_JT,  # SparseMatrixCOO type for jt_coo
+        CSC_T,   # CuSparseMatrixCSC type
+        VI <: AbstractVector{Int},
+    } <: MadCore.AbstractCondensedKKTSystem{T, VT, MT, QN}
 
     # COO value buffers on GPU
     hess::VT
@@ -73,9 +73,9 @@ struct GPUSchurComplementKKTSystem{
 
     # Dense blocks
     C_dk_batched::CuArray{T, 3}     # (blk_size, nd, ns) — per-scenario cross-block stored
-                                    # with scenario-var dim first, so each slice
-                                    # C_dk[:, :, k] is directly usable as the cuDSS
-                                    # multi-RHS input for `A_kk \ C_dk'`.
+    # with scenario-var dim first, so each slice
+    # C_dk[:, :, k] is directly usable as the cuDSS
+    # multi-RHS input for `A_kk \ C_dk'`.
     aug_com::MT                     # (nd, nd) — Schur complement S
 
     # Buffers
@@ -163,18 +163,18 @@ end
 
 # --- Dispatch: GPU path when callback uses CuVector ---
 function MadCore.create_kkt_system(
-    ::Type{MadCore.SchurComplementKKTSystem},
-    cb::MadCore.SparseCallback{T, VT},
-    linear_solver::Type;
-    opt_linear_solver=MadCore.default_options(linear_solver),
-    hessian_approximation=MadCore.ExactHessian,
-    qn_options=MadCore.QuasiNewtonOptions(),
-    schur_ns::Int=0,
-    schur_nv::Int=0,
-    schur_nd::Int=0,
-    schur_nc::Int=0,
-    schur_scenario_opt_linear_solver=MadCore.default_options(CUDSSState),
-) where {T, VT <: CuVector{T}}
+        ::Type{MadCore.SchurComplementKKTSystem},
+        cb::MadCore.SparseCallback{T, VT},
+        linear_solver::Type;
+        opt_linear_solver = MadCore.default_options(linear_solver),
+        hessian_approximation = MadCore.ExactHessian,
+        qn_options = MadCore.QuasiNewtonOptions(),
+        schur_ns::Int = 0,
+        schur_nv::Int = 0,
+        schur_nd::Int = 0,
+        schur_nc::Int = 0,
+        schur_scenario_opt_linear_solver = MadCore.default_options(CUDSSState),
+    ) where {T, VT <: CuVector{T}}
 
     n = cb.nvar
     m = cb.ncon
@@ -256,11 +256,11 @@ function MadCore.create_kkt_system(
     tmp_blk_nd_batched = CuArray{T, 3}(undef, blk_size, nd, ns)
 
     # --- Diagonal vectors on GPU ---
-    reg     = CuVector{T}(undef, n + ns_ineq)
+    reg = CuVector{T}(undef, n + ns_ineq)
     pr_diag = CuVector{T}(undef, n + ns_ineq)
     du_diag = CuVector{T}(undef, m)
-    l_diag  = CUDACore.fill(one(T), nlb)
-    u_diag  = CUDACore.fill(one(T), nub)
+    l_diag = CUDACore.fill(one(T), nlb)
+    u_diag = CUDACore.fill(one(T), nub)
     l_lower = CUDACore.fill(zero(T), nlb)
     u_lower = CUDACore.fill(zero(T), nub)
 
@@ -269,61 +269,61 @@ function MadCore.create_kkt_system(
 
     # --- Buffers ---
     diag_buffer = CuVector{T}(undef, max(ns_ineq, 1))
-    buffer      = CuVector{T}(undef, m)
+    buffer = CuVector{T}(undef, m)
     # Size matches the eq_global_indices gather/scatter shape used in
     # solve_kkt! step 7. ns * nc_eq_per_s == n_eq_total under the uniform-
     # scenario invariant validated in _build_schur_symbolic.
-    wy_eq_buf   = CuVector{T}(undef, ns * nc_eq_per_s)
-    rhs_d       = CuVector{T}(undef, nd)
+    wy_eq_buf = CuVector{T}(undef, ns * nc_eq_per_s)
+    rhs_d = CuVector{T}(undef, nd)
     rhs_k_batched = CuMatrix{T}(undef, blk_size, ns)
     solve_buffer = CuVector{T}(undef, blk_size * ns)
 
     # --- Transfer flattened index maps to GPU ---
-    gpu_hess_Akk_coo    = CuVector{Int}(flat.all_hess_Akk_coo)
-    gpu_hess_Akk_nzpos  = CuVector{Int}(flat.all_hess_Akk_nzpos)
-    gpu_hess_Cdk_coo    = CuVector{Int}(flat.all_hess_Cdk_coo)
-    gpu_hess_Cdk_row    = CuVector{Int}(flat.all_hess_Cdk_row)
-    gpu_hess_Cdk_col    = CuVector{Int}(flat.all_hess_Cdk_col)
-    gpu_pr_diag_global  = CuVector{Int}(flat.all_pr_diag_global)
-    gpu_pr_diag_nzpos   = CuVector{Int}(flat.all_pr_diag_nzpos)
-    gpu_du_diag_global  = CuVector{Int}(flat.all_du_diag_global)
-    gpu_du_diag_nzpos   = CuVector{Int}(flat.all_du_diag_nzpos)
-    gpu_jeq_Akk_coo     = CuVector{Int}(flat.all_jeq_Akk_coo)
-    gpu_jeq_Akk_nzpos   = CuVector{Int}(flat.all_jeq_Akk_nzpos)
-    gpu_jeq_Cdk_coo     = CuVector{Int}(flat.all_jeq_Cdk_coo)
-    gpu_jeq_Cdk_row     = CuVector{Int}(flat.all_jeq_Cdk_row)
-    gpu_jeq_Cdk_col     = CuVector{Int}(flat.all_jeq_Cdk_col)
-    gpu_ineq_Akk_nzpos  = CuVector{Int}(flat.all_ineq_Akk_nzpos)
-    gpu_ineq_Akk_jcoo1  = CuVector{Int}(flat.all_ineq_Akk_jcoo1)
-    gpu_ineq_Akk_jcoo2  = CuVector{Int}(flat.all_ineq_Akk_jcoo2)
+    gpu_hess_Akk_coo = CuVector{Int}(flat.all_hess_Akk_coo)
+    gpu_hess_Akk_nzpos = CuVector{Int}(flat.all_hess_Akk_nzpos)
+    gpu_hess_Cdk_coo = CuVector{Int}(flat.all_hess_Cdk_coo)
+    gpu_hess_Cdk_row = CuVector{Int}(flat.all_hess_Cdk_row)
+    gpu_hess_Cdk_col = CuVector{Int}(flat.all_hess_Cdk_col)
+    gpu_pr_diag_global = CuVector{Int}(flat.all_pr_diag_global)
+    gpu_pr_diag_nzpos = CuVector{Int}(flat.all_pr_diag_nzpos)
+    gpu_du_diag_global = CuVector{Int}(flat.all_du_diag_global)
+    gpu_du_diag_nzpos = CuVector{Int}(flat.all_du_diag_nzpos)
+    gpu_jeq_Akk_coo = CuVector{Int}(flat.all_jeq_Akk_coo)
+    gpu_jeq_Akk_nzpos = CuVector{Int}(flat.all_jeq_Akk_nzpos)
+    gpu_jeq_Cdk_coo = CuVector{Int}(flat.all_jeq_Cdk_coo)
+    gpu_jeq_Cdk_row = CuVector{Int}(flat.all_jeq_Cdk_row)
+    gpu_jeq_Cdk_col = CuVector{Int}(flat.all_jeq_Cdk_col)
+    gpu_ineq_Akk_nzpos = CuVector{Int}(flat.all_ineq_Akk_nzpos)
+    gpu_ineq_Akk_jcoo1 = CuVector{Int}(flat.all_ineq_Akk_jcoo1)
+    gpu_ineq_Akk_jcoo2 = CuVector{Int}(flat.all_ineq_Akk_jcoo2)
     gpu_ineq_Akk_bufidx = CuVector{Int}(flat.all_ineq_Akk_bufidx)
-    gpu_ineq_Cdk_row    = CuVector{Int}(flat.all_ineq_Cdk_row)
-    gpu_ineq_Cdk_col    = CuVector{Int}(flat.all_ineq_Cdk_col)
+    gpu_ineq_Cdk_row = CuVector{Int}(flat.all_ineq_Cdk_row)
+    gpu_ineq_Cdk_col = CuVector{Int}(flat.all_ineq_Cdk_col)
     gpu_ineq_Cdk_jcoo_d = CuVector{Int}(flat.all_ineq_Cdk_jcoo_d)
     gpu_ineq_Cdk_jcoo_v = CuVector{Int}(flat.all_ineq_Cdk_jcoo_v)
     gpu_ineq_Cdk_bufidx = CuVector{Int}(flat.all_ineq_Cdk_bufidx)
-    gpu_ineq_S_row      = CuVector{Int}(flat.all_ineq_S_row)
-    gpu_ineq_S_col      = CuVector{Int}(flat.all_ineq_S_col)
-    gpu_ineq_S_jcoo1    = CuVector{Int}(flat.all_ineq_S_jcoo1)
-    gpu_ineq_S_jcoo2    = CuVector{Int}(flat.all_ineq_S_jcoo2)
-    gpu_ineq_S_bufidx   = CuVector{Int}(flat.all_ineq_S_bufidx)
-    gpu_hess_S_coo      = CuVector{Int}(sym.hess_S_coo)
-    gpu_hess_S_row      = CuVector{Int}(sym.hess_S_row)
-    gpu_hess_S_col      = CuVector{Int}(sym.hess_S_col)
+    gpu_ineq_S_row = CuVector{Int}(flat.all_ineq_S_row)
+    gpu_ineq_S_col = CuVector{Int}(flat.all_ineq_S_col)
+    gpu_ineq_S_jcoo1 = CuVector{Int}(flat.all_ineq_S_jcoo1)
+    gpu_ineq_S_jcoo2 = CuVector{Int}(flat.all_ineq_S_jcoo2)
+    gpu_ineq_S_bufidx = CuVector{Int}(flat.all_ineq_S_bufidx)
+    gpu_hess_S_coo = CuVector{Int}(sym.hess_S_coo)
+    gpu_hess_S_row = CuVector{Int}(sym.hess_S_row)
+    gpu_hess_S_col = CuVector{Int}(sym.hess_S_col)
     gpu_eq_global_indices = CuVector{Int}(sym.eq_global_flat)
 
     # --- Create solvers ---
-    quasi_newton = MadCore.create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
+    quasi_newton = MadCore.create_quasi_newton(hessian_approximation, cb, n; options = qn_options)
     # cuDSS is the only sparse batched solver wired into this path; users tune it
     # via `schur_scenario_opt_linear_solver` rather than swapping the type.
-    scenario_solver = CUDSSState(A_kk_batched; opt=schur_scenario_opt_linear_solver)
-    _linear_solver = MadCore.LinearSolverBarrier(MadCore.create_linear_solver(linear_solver, aug_com; opt=opt_linear_solver))
+    scenario_solver = CUDSSState(A_kk_batched; opt = schur_scenario_opt_linear_solver)
+    _linear_solver = MadCore.LinearSolverBarrier(MadCore.create_linear_solver(linear_solver, aug_com; opt = opt_linear_solver))
 
     # --- Multi-RHS cuDSS descriptors for batched A_kk \ C_dk' ---
     # The descriptors hold the (blk × nd) shape per scenario and point at the
     # existing buffers each iteration.
-    scenario_b_multi = CUDSS.CudssMatrix(T, blk_size, nd; nbatch=ns)
-    scenario_x_multi = CUDSS.CudssMatrix(T, blk_size, nd; nbatch=ns)
+    scenario_b_multi = CUDSS.CudssMatrix(T, blk_size, nd; nbatch = ns)
+    scenario_x_multi = CUDSS.CudssMatrix(T, blk_size, nd; nbatch = ns)
     # Re-analyze for the multi-RHS shape so cuDSS plans enough workspace.
     # This is the LARGEST RHS shape we will ever solve with on this handle;
     # the later single-RHS solve at `solve_kkt!` step 3 reuses the same handle
@@ -336,7 +336,7 @@ function MadCore.create_kkt_system(
     CUDSS.cudss(
         "analysis", scenario_solver.inner,
         scenario_x_multi, scenario_b_multi;
-        asynchronous=scenario_solver.opt.cudss_asynchronous,
+        asynchronous = scenario_solver.opt.cudss_asynchronous,
     )
 
     return GPUSchurComplementKKTSystem(
@@ -372,7 +372,7 @@ MadCore.num_variables(kkt::GPUSchurComplementKKTSystem) = size(kkt.hess_csc, 1)
 
 function MadCore.get_slack_regularization(kkt::GPUSchurComplementKKTSystem)
     n = MadCore.num_variables(kkt)
-    return view(kkt.pr_diag, n+1:n+kkt.n_ineq)
+    return view(kkt.pr_diag, (n + 1):(n + kkt.n_ineq))
 end
 
 function MadCore.is_inertia_correct(kkt::GPUSchurComplementKKTSystem, num_pos, num_zero, num_neg)
@@ -389,22 +389,22 @@ function MadCore.jtprod!(y::VT, kkt::GPUSchurComplementKKTSystem, x::VT) where {
     nx = MadCore.num_variables(kkt)
     ns_ineq = kkt.n_ineq
     yx = view(y, 1:nx)
-    ys = view(y, 1+nx:nx+ns_ineq)
+    ys = view(y, (1 + nx):(nx + ns_ineq))
     mul!(yx, kkt.jt_csc, x)
     ys .= -@view(x[kkt.ind_ineq])
     return
 end
 
 function MadCore.compress_jacobian!(kkt::GPUSchurComplementKKTSystem)
-    MadCore.transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
+    return MadCore.transfer!(kkt.jt_csc, kkt.jt_coo, kkt.jt_csc_map)
 end
 
 function MadCore.compress_hessian!(kkt::GPUSchurComplementKKTSystem)
-    MadCore.transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
+    return MadCore.transfer!(kkt.hess_csc, kkt.hess_raw, kkt.hess_csc_map)
 end
 
 # --- build_kkt! ---
-function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
+function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where {T}
     ns = kkt.ns
     nv = kkt.nv
     nd = kkt.nd
@@ -416,7 +416,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
 
     # Compute condensing diagonal for inequalities
     if kkt.n_ineq > 0
-        Sigma_s = view(kkt.pr_diag, n+1:n+kkt.n_ineq)
+        Sigma_s = view(kkt.pr_diag, (n + 1):(n + kkt.n_ineq))
         Sigma_d = @view(kkt.du_diag[kkt.ind_ineq])
         kkt.diag_buffer .= Sigma_s ./ (one(T) .- Sigma_d .* Sigma_s)
     end
@@ -431,11 +431,11 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
     if n_hess_S > 0
         _init_S_hess_kernel!(backend)(
             kkt.aug_com, kkt.hess, kkt.hess_S_coo, kkt.hess_S_row, kkt.hess_S_col;
-            ndrange=n_hess_S,
+            ndrange = n_hess_S,
         )
     end
     if nd > 0
-        _init_S_diag_kernel!(backend)(kkt.aug_com, kkt.pr_diag, ns * nv, nd; ndrange=nd)
+        _init_S_diag_kernel!(backend)(kkt.aug_com, kkt.pr_diag, ns * nv, nd; ndrange = nd)
     end
 
     # Scatter Hessian diagonal → A_kk (flattened maps)
@@ -444,7 +444,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         _scatter_to_Akk_batched!(backend)(
             nzval, kkt.hess, kkt.gpu_hess_Akk_coo, kkt.gpu_hess_Akk_nzpos,
             nnz_s, n_hA;
-            ndrange=ns * n_hA,
+            ndrange = ns * n_hA,
         )
     end
 
@@ -454,7 +454,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         _scatter_to_Cdk_batched!(backend)(
             kkt.C_dk_batched, kkt.hess, kkt.gpu_hess_Cdk_coo,
             kkt.gpu_hess_Cdk_col, kkt.gpu_hess_Cdk_row, n_hC;
-            ndrange=ns * n_hC,
+            ndrange = ns * n_hC,
         )
     end
 
@@ -464,7 +464,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         _scatter_to_Akk_batched!(backend)(
             nzval, kkt.pr_diag, kkt.gpu_pr_diag_global, kkt.gpu_pr_diag_nzpos,
             nnz_s, n_pr;
-            ndrange=ns * n_pr,
+            ndrange = ns * n_pr,
         )
     end
 
@@ -474,7 +474,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         _scatter_to_Akk_batched!(backend)(
             nzval, kkt.du_diag, kkt.gpu_du_diag_global, kkt.gpu_du_diag_nzpos,
             nnz_s, n_du;
-            ndrange=ns * n_du,
+            ndrange = ns * n_du,
         )
     end
 
@@ -484,7 +484,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         _scatter_to_Akk_batched!(backend)(
             nzval, kkt.jac, kkt.gpu_jeq_Akk_coo, kkt.gpu_jeq_Akk_nzpos,
             nnz_s, n_jA;
-            ndrange=ns * n_jA,
+            ndrange = ns * n_jA,
         )
     end
 
@@ -494,7 +494,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
         _scatter_to_Cdk_batched!(backend)(
             kkt.C_dk_batched, kkt.jac, kkt.gpu_jeq_Cdk_coo,
             kkt.gpu_jeq_Cdk_col, kkt.gpu_jeq_Cdk_row, n_jC;
-            ndrange=ns * n_jC,
+            ndrange = ns * n_jC,
         )
     end
 
@@ -506,7 +506,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
             kkt.gpu_ineq_Akk_nzpos, kkt.gpu_ineq_Akk_jcoo1,
             kkt.gpu_ineq_Akk_jcoo2, kkt.gpu_ineq_Akk_bufidx,
             nnz_s, n_iA;
-            ndrange=ns * n_iA,
+            ndrange = ns * n_iA,
         )
     end
 
@@ -518,7 +518,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
             kkt.gpu_ineq_Cdk_col, kkt.gpu_ineq_Cdk_row,
             kkt.gpu_ineq_Cdk_jcoo_d, kkt.gpu_ineq_Cdk_jcoo_v,
             kkt.gpu_ineq_Cdk_bufidx, n_iC;
-            ndrange=ns * n_iC,
+            ndrange = ns * n_iC,
         )
     end
 
@@ -530,7 +530,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
             kkt.gpu_ineq_S_row, kkt.gpu_ineq_S_col,
             kkt.gpu_ineq_S_jcoo1, kkt.gpu_ineq_S_jcoo2,
             kkt.gpu_ineq_S_bufidx;
-            ndrange=ns * n_iS,
+            ndrange = ns * n_iS,
         )
     end
 
@@ -547,7 +547,7 @@ function MadCore.build_kkt!(kkt::GPUSchurComplementKKTSystem{T}) where T
     CUDSS.cudss(
         "solve", kkt.scenario_solver.inner,
         kkt.scenario_x_multi, kkt.scenario_b_multi;
-        asynchronous=kkt.scenario_solver.opt.cudss_asynchronous,
+        asynchronous = kkt.scenario_solver.opt.cudss_asynchronous,
     )
 
     # S -= Σ_k C_dk[:,:,k]' * tmp[:,:,k]
@@ -570,9 +570,9 @@ end
 
 # --- solve_kkt! ---
 function MadCore.solve_kkt!(
-    kkt::GPUSchurComplementKKTSystem{T},
-    w::MadCore.AbstractKKTVector{T},
-) where T
+        kkt::GPUSchurComplementKKTSystem{T},
+        w::MadCore.AbstractKKTVector{T},
+    ) where {T}
 
     ns = kkt.ns
     nv = kkt.nv
@@ -583,7 +583,7 @@ function MadCore.solve_kkt!(
     backend = CUDABackend()
 
     wx = view(MadCore.full(w), 1:n)
-    ws = view(MadCore.full(w), n+1:n+kkt.n_ineq)
+    ws = view(MadCore.full(w), (n + 1):(n + kkt.n_ineq))
     wy = MadCore.dual(w)
 
     Sigma_s = MadCore.get_slack_regularization(kkt)
@@ -602,10 +602,10 @@ function MadCore.solve_kkt!(
         _extract_rhs_kernel!(backend)(
             kkt.rhs_k_batched, wx, wy, kkt.eq_global_indices,
             nv, nc_eq, ns, blk;
-            ndrange=blk * ns,
+            ndrange = blk * ns,
         )
     end
-    copyto!(kkt.rhs_d, view(wx, ns*nv+1:ns*nv+nd))
+    copyto!(kkt.rhs_d, view(wx, (ns * nv + 1):(ns * nv + nd)))
 
     # Step 3: Forward elimination — batched solve
     copyto!(kkt.solve_buffer, vec(kkt.rhs_k_batched))
@@ -632,10 +632,10 @@ function MadCore.solve_kkt!(
         _writeback_rhs_kernel!(backend)(
             wx, wy, kkt.rhs_k_batched, kkt.eq_global_indices,
             nv, nc_eq, ns, blk;
-            ndrange=blk * ns,
+            ndrange = blk * ns,
         )
     end
-    copyto!(view(wx, ns*nv+1:ns*nv+nd), kkt.rhs_d)
+    copyto!(view(wx, (ns * nv + 1):(ns * nv + nd)), kkt.rhs_d)
 
     # Step 7: Recover inequality duals and slacks
     if kkt.n_ineq > 0
@@ -660,20 +660,20 @@ end
 
 # --- mul! for iterative refinement ---
 function MadCore.mul!(
-    w::MadCore.AbstractKKTVector{T, VT},
-    kkt::GPUSchurComplementKKTSystem{T},
-    x::MadCore.AbstractKKTVector,
-    alpha = one(T),
-    beta = zero(T),
-) where {T, VT <: CuVector{T}}
+        w::MadCore.AbstractKKTVector{T, VT},
+        kkt::GPUSchurComplementKKTSystem{T},
+        x::MadCore.AbstractKKTVector,
+        alpha = one(T),
+        beta = zero(T),
+    ) where {T, VT <: CuVector{T}}
     n = MadCore.num_variables(kkt)
 
     wx = @view(MadCore.primal(w)[1:n])
-    ws = @view(MadCore.primal(w)[n+1:end])
+    ws = @view(MadCore.primal(w)[(n + 1):end])
     wy = MadCore.dual(w)
 
     xx = @view(MadCore.primal(x)[1:n])
-    xs = @view(MadCore.primal(x)[n+1:end])
+    xs = @view(MadCore.primal(x)[(n + 1):end])
     xz = @view(MadCore.dual(x)[kkt.ind_ineq])
 
     wx .= beta .* wx
@@ -695,6 +695,6 @@ end
 function MadCore.mul_hess_blk!(wx::VT, kkt::GPUSchurComplementKKTSystem{T}, t) where {T, VT <: CuVector{T}}
     n = MadCore.num_variables(kkt)
     mul!(@view(wx[1:n]), Symmetric(kkt.hess_csc, :L), @view(t[1:n]))
-    fill!(@view(wx[n+1:end]), 0)
-    wx .+= t .* kkt.pr_diag
+    fill!(@view(wx[(n + 1):end]), 0)
+    return wx .+= t .* kkt.pr_diag
 end

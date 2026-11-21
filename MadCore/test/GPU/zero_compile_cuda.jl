@@ -15,17 +15,19 @@ function compiled_at_run_time(code, pattern; warm = true)
     lines = readlines(trace)
     rm(trace)
     return filter(l -> occursin(pattern, l), lines),
-           any(l -> occursin("typeof(Main.zero_compile_probe)", l), lines)
+        any(l -> occursin("typeof(Main.zero_compile_probe)", l), lines)
 end
 
 @testset "No compilation at run time (CUDA)" begin
     for (k, prelude) in enumerate(("", "struct Index end; Base.getindex(::AbstractArray, ::Index) = nothing"))
-        compiled, probe = compiled_at_run_time("""
+        compiled, probe = compiled_at_run_time(
+            """
             using CUDA, CUDSS
             $prelude
             using cuMadNLP, MadNLPCore
             madnlp(MadNLPCore.PrecompileChainModel(100, CuVector{Float64}(undef, 0)); print_level = MadNLPCore.ERROR)
-            """, r"\b(cuMadNLP|Mad(NLPCore|Core|CoreGPU)(\w*Ext)?)\."; warm = k == 1)
+            """, r"\b(cuMadNLP|Mad(NLPCore|Core|CoreGPU)(\w*Ext)?)\."; warm = k == 1
+        )
         # The test problem's constructor, called from the script's top level, is not part
         # of what the workload is for.
         filter!(l -> !occursin("MadNLPCore.PrecompileChainModel{", l), compiled)

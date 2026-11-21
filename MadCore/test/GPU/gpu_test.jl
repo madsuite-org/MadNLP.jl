@@ -24,45 +24,45 @@ cuda_testset = [
     # Temporarily commented out since LapackCUDASolver does not currently support sparse callbacks
     [
         "CUDSS",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR
+            print_level = MadNLP.ERROR
         ),
         [],
     ],
     [
         "CUDSS-AMD",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.AMD_ORDERING,
+            print_level = MadNLP.ERROR,
+            cudss_ordering = MadCore.AMD_ORDERING,
         ),
         [],
     ],
     [
         "CUDSS-SYMAMD",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.SYMAMD_ORDERING,
+            print_level = MadNLP.ERROR,
+            cudss_ordering = MadCore.SYMAMD_ORDERING,
         ),
         [],
     ],
     [
         "CUDSS-COLAMD",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.COLAMD_ORDERING,
+            print_level = MadNLP.ERROR,
+            cudss_ordering = MadCore.COLAMD_ORDERING,
         ),
         [],
     ],
     [
         "CUDSS-METIS",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.METIS_ORDERING,
+            print_level = MadNLP.ERROR,
+            cudss_ordering = MadCore.METIS_ORDERING,
         ),
         [],
     ],
@@ -70,30 +70,30 @@ cuda_testset = [
         "CUDSS-IR",
         # cuDSS's refinement fails (CUDSS_STATUS_IR_FAILED) on eigmina when matching and the
         # pivot epsilon of the default preset are both on
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             kkt_system = MadNLP.SparseCondensedKKTSystem,
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_ir=1,
-            cudss_matching=false,
+            print_level = MadNLP.ERROR,
+            cudss_ir = 1,
+            cudss_matching = false,
         ),
         [],
     ],
     [
         "CUDSS-HYBRID",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_hybrid_memory=true,
+            print_level = MadNLP.ERROR,
+            cudss_hybrid_memory = true,
         ),
         [],
     ],
     [
         "CUDSS-NOPIVOTING",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_pivoting=false,
+            print_level = MadNLP.ERROR,
+            cudss_pivoting = false,
         ),
         [],
     ],
@@ -101,132 +101,132 @@ cuda_testset = [
         # Bunch-Kaufman pivoting with matching: the analysis reads the values, so it is
         # deferred to the first factorization and redone when a solve is rejected
         "CUDSS-BUNCHKAUFMAN",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_pivot_type='B',
-            cudss_matching=true,
-            cudss_deferred_analysis=true,
-            cudss_reanalyze_on_improve=true,
+            print_level = MadNLP.ERROR,
+            cudss_pivot_type = 'B',
+            cudss_matching = true,
+            cudss_deferred_analysis = true,
+            cudss_reanalyze_on_improve = true,
         ),
         [],
     ],
     [
         "CUDSS-ANALYSIS-EACH",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_matching=true,
-            cudss_analysis_each_factorization=true,
+            print_level = MadNLP.ERROR,
+            cudss_matching = true,
+            cudss_analysis_each_factorization = true,
         ),
         [],
     ],
     [
         "CUDSS-NOREFACTORIZATION",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            cudss_pivot_type='B',
-            cudss_refactorization=false,
+            print_level = MadNLP.ERROR,
+            cudss_pivot_type = 'B',
+            cudss_refactorization = false,
         ),
         [],
     ],
     [
         "Formulation K2",
-        ()->MadNLP.Optimizer(
-            linear_solver=MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            kkt_system=MadNLP.SparseKKTSystem,
+        () -> MadNLP.Optimizer(
+            linear_solver = MadCore.CUDSSSolver,
+            print_level = MadNLP.ERROR,
+            kkt_system = MadNLP.SparseKKTSystem,
         ),
         [],
     ],
     [
         "Formulation K2.5",
-        ()->MadNLP.Optimizer(
-            linear_solver=MadCore.CUDSSSolver,
-            print_level=MadNLP.ERROR,
-            kkt_system=MadNLP.ScaledSparseKKTSystem,
+        () -> MadNLP.Optimizer(
+            linear_solver = MadCore.CUDSSSolver,
+            print_level = MadNLP.ERROR,
+            kkt_system = MadNLP.ScaledSparseKKTSystem,
         ),
         [],
     ],
     [
         "LapackGPU-BUNCHKAUFMAN",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackCUDASolver,
-            lapack_algorithm=MadNLP.BUNCHKAUFMAN,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.BUNCHKAUFMAN,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "LapackGPU-LU",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackCUDASolver,
-            lapack_algorithm=MadNLP.LU,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.LU,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "LapackGPU-QR",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackCUDASolver,
-            lapack_algorithm=MadNLP.QR,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.QR,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "LapackGPU-EVD",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackCUDASolver,
-            lapack_algorithm=MadNLP.EVD,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.EVD,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "LapackGPU-CHOLESKY",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackCUDASolver,
-            lapack_algorithm=MadNLP.CHOLESKY,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.CHOLESKY,
+            print_level = MadNLP.ERROR,
         ),
         ["infeasible", "lootsma", "eigmina", "lp_examodels_issue75"], # KKT system not PD
     ],
     [
         "SDS",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "SDS-BUNCHKAUFMAN",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
-            preset=MadNLP.AugmentedPreset,
+            print_level = MadNLP.ERROR,
+            preset = MadNLP.AugmentedPreset,
         ),
         [],
     ],
     [
         "SDS-ANALYSIS-EACH",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
-            sds_matching="algo6",
-            sds_analysis_each_factorization=true,
+            print_level = MadNLP.ERROR,
+            sds_matching = "algo6",
+            sds_analysis_each_factorization = true,
         ),
         [],
     ],
     [
         "SDS-CONDENSED",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
-            preset=MadNLP.CondensedPreset,
+            print_level = MadNLP.ERROR,
+            preset = MadNLP.CondensedPreset,
         ),
         [],
     ],
@@ -235,73 +235,73 @@ cuda_testset = [
 rocm_testset = [
     [
         "LapackROCmSolver-LU",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackROCmSolver,
-            lapack_algorithm=MadNLP.LU,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.LU,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "LapackROCmSolver-QR",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackROCmSolver,
-            lapack_algorithm=MadNLP.QR,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.QR,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "LapackROCmSolver-EVD",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackROCmSolver,
-            lapack_algorithm=MadNLP.EVD,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.EVD,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "LapackROCmSolver-CHOLESKY",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.LapackROCmSolver,
-            lapack_algorithm=MadNLP.CHOLESKY,
-            print_level=MadNLP.ERROR,
+            lapack_algorithm = MadNLP.CHOLESKY,
+            print_level = MadNLP.ERROR,
         ),
         ["infeasible", "lootsma", "eigmina", "lp_examodels_issue75"], # KKT system not PD
     ],
     [
         "SDS",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
+            print_level = MadNLP.ERROR,
         ),
         [],
     ],
     [
         "SDS-BUNCHKAUFMAN",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
-            preset=MadNLP.AugmentedPreset,
+            print_level = MadNLP.ERROR,
+            preset = MadNLP.AugmentedPreset,
         ),
         [],
     ],
     [
         "SDS-ANALYSIS-EACH",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
-            sds_matching="algo6",
-            sds_analysis_each_factorization=true,
+            print_level = MadNLP.ERROR,
+            sds_matching = "algo6",
+            sds_analysis_each_factorization = true,
         ),
         [],
     ],
     [
         "SDS-CONDENSED",
-        ()->MadNLP.Optimizer(
+        () -> MadNLP.Optimizer(
             linear_solver = MadCore.SDSSolver,
-            print_level=MadNLP.ERROR,
-            preset=MadNLP.CondensedPreset,
+            print_level = MadNLP.ERROR,
+            preset = MadNLP.CondensedPreset,
         ),
         [],
     ],
@@ -312,15 +312,15 @@ rocm_testset = [
         MadNLPTests.test_linear_solver(MadCore.LapackCUDASolver, Float32)
         MadNLPTests.test_linear_solver(MadCore.LapackCUDASolver, Float64)
         # Test LapackGPU wrapper
-        for (name,optimizer_constructor,exclude) in cuda_testset
-            test_madnlp(name,optimizer_constructor,exclude; Arr=CuArray)
+        for (name, optimizer_constructor, exclude) in cuda_testset
+            test_madnlp(name, optimizer_constructor, exclude; Arr = CuArray)
         end
     end
     if HAS_AMDGPU && AMDGPU.functional()
         MadNLPTests.test_linear_solver(MadCore.LapackROCmSolver, Float32)
         MadNLPTests.test_linear_solver(MadCore.LapackROCmSolver, Float64)
-        for (name,optimizer_constructor,exclude) in rocm_testset
-            test_madnlp(name,optimizer_constructor,exclude; Arr=ROCArray)
+        for (name, optimizer_constructor, exclude) in rocm_testset
+            test_madnlp(name, optimizer_constructor, exclude; Arr = ROCArray)
         end
     end
 end
@@ -342,7 +342,7 @@ function test_scaling_sweep(Arr)
     MC.scaling_sweep!(dnew, d, A.colptr, A.rowval, absnz, long_cols)
     dnew_device = Arr(zeros(n))
     MC.scaling_sweep!(dnew_device, Arr(d), Arr(Int32.(A.colptr)), Arr(Int32.(A.rowval)), Arr(absnz), Arr(Int32.(long_cols)))
-    @test Array(dnew_device) ≈ dnew
+    return @test Array(dnew_device) ≈ dnew
 end
 
 @testset "Scaling sweep with a long column" begin
