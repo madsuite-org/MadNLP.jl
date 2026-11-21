@@ -2,10 +2,15 @@ module MadCoreAMDExt
 
 import MadCore
 import AMD
-import SparseArrays: SparseMatrixCSC
+import SparseArrays: SparseMatrixCSC, getcolptr, rowvals, nnz
 
-MadCore.ordering_permutation(::Val{MadCore.AMD_ORDERING}, A, perm) = AMD.amd(SparseMatrixCSC(A))
-MadCore.ordering_permutation(::Val{MadCore.SYMAMD_ORDERING}, A, perm) = AMD.symamd(SparseMatrixCSC(A))
-MadCore.ordering_permutation(::Val{MadCore.COLAMD_ORDERING}, A, perm) = AMD.colamd(SparseMatrixCSC(A))
+# AMD orders the pattern of A + Aᵀ and SYMAMD reads the lower triangle, so both take the lower
+# triangle `A` as it is; COLAMD orders the columns of the full symmetric matrix.
+MadCore.ordering_permutation(::MadCore.AMDOrdering, A::SparseMatrixCSC) = Vector{Int}(AMD.amd(A))
+MadCore.ordering_permutation(::MadCore.SymAMDOrdering, A::SparseMatrixCSC) = Vector{Int}(AMD.symamd(A))
+function MadCore.ordering_permutation(::MadCore.ColAMDOrdering, A::SparseMatrixCSC)
+    L = SparseMatrixCSC(size(A)..., getcolptr(A), rowvals(A), ones(nnz(A)))
+    return Vector{Int}(AMD.colamd(L + L'))
+end
 
 end # module

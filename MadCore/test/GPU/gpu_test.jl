@@ -35,7 +35,7 @@ cuda_testset = [
         ()->MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.AMD_ORDERING,
+            kkt_ordering=MadCore.AMDOrdering(),
         ),
         [],
     ],
@@ -44,7 +44,7 @@ cuda_testset = [
         ()->MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.SYMAMD_ORDERING,
+            kkt_ordering=MadCore.SymAMDOrdering(),
         ),
         [],
     ],
@@ -53,7 +53,7 @@ cuda_testset = [
         ()->MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.COLAMD_ORDERING,
+            kkt_ordering=MadCore.ColAMDOrdering(),
         ),
         [],
     ],
@@ -62,7 +62,7 @@ cuda_testset = [
         ()->MadNLP.Optimizer(
             linear_solver = MadCore.CUDSSSolver,
             print_level=MadNLP.ERROR,
-            cudss_ordering=MadCore.METIS_ORDERING,
+            kkt_ordering=MadCore.MetisOrdering(),
         ),
         [],
     ],

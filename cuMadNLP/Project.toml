@@ -3,13 +3,11 @@ uuid = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 version = "0.12.0"
 
 [deps]
-AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
 CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
 CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
-Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 cuBLAS = "182d3088-87b7-4494-8cad-fc6afaa545bc"
 cuSOLVER = "887afef0-6a32-4de5-add4-7827692ba8fc"
@@ -20,14 +18,12 @@ MadCore = {path = "../MadCore"}
 MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]
-AMD = "0.5"
 CUDA = "6"
 CUDACore = "6"
 CUDSS = "1.0"
 Krylov = "0.10"
 MadCore = "=0.12.0"
 MadNLPCore = "=0.12.0"
-Metis = "1"
 PrecompileTools = "1.2"
 cuBLAS = "6"
 cuSOLVER = "6"

@@ -46,13 +46,15 @@ Return the name of the package that loads the extension implementing `marker`.
 """
 function backend_package end
 
-# A marker whose extension is not loaded has no methods; this hint names the package
-# to load in the resulting `MethodError`.
+# A marker or an ordering whose extension is not loaded has no methods; this hint names the
+# package to load in the resulting `MethodError`.
+_extension_marker(f, M::Type) = f in (create_linear_solver, default_options, input_type, is_supported, solver_type) ? M : nothing
+_extension_marker(f, o::AbstractOrdering) = f === ordering_permutation ? typeof(o) : nothing
+_extension_marker(f, x) = nothing
 function _missing_extension_hint(io, exc, argtypes, kwargs)
-    exc.f in (create_linear_solver, default_options, input_type, is_supported, solver_type) || return
     isempty(exc.args) && return
-    M = exc.args[1]
-    (M isa Type && hasmethod(backend_package, Tuple{Type{M}})) || return
+    M = _extension_marker(exc.f, exc.args[1])
+    (M !== nothing && hasmethod(backend_package, Tuple{Type{M}})) || return
     print(io, "\n$(nameof(M)) is implemented in a package extension that is not loaded. ")
     print(io, "Load $(backend_package(M)) to use $(nameof(M)).")
 end

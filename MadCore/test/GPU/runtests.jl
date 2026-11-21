@@ -1,6 +1,7 @@
 using Test, MadNLP, MadCore, MadNLPTests
 import SparseArrays
 import SparseDirectSolver  # loads MadCoreSDSExt (SDSSolver)
+import AMD, Metis  # load MadCoreAMDExt and MadCoreMetisExt (the orderings of kkt_ordering)
 
 # The GPU entry points set the option presets for GPU models; CI installs the one
 # matching the runner's GPU.
