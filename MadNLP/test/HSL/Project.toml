@@ -1,4 +1,5 @@
 [deps]
+AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
 HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 MadNLPTests = "b52a2a03-04ab-4a5f-9698-6a2deff93217"

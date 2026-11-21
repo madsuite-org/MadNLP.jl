@@ -7,6 +7,9 @@ using SparseArrays.LibSuiteSparse: cholmod_dense, cholmod_factor_struct, cholmod
     # With `LDL`, a pivot smaller than this in magnitude is replaced by a pivot of this magnitude
     # instead of ending the factorization. Zero leaves the pivots as they are.
     cholmod_dbound::Float64 = 0.0
+    # the pivot order instead of CHOLMOD's ordering: row and column i of the factorized matrix
+    # are row and column cholmod_user_perm[i]
+    cholmod_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 # `cholmod_analyze` reports the entries of L in `lnz`. Int32 indices must address L, and the
@@ -43,12 +46,12 @@ _cholmod_solve2(::Type{Int64}, args...) = cholmod_l_solve2(args...)
 _cholmod_free_dense(::Type{Int32}, args...) = cholmod_free_dense(args...)
 _cholmod_free_dense(::Type{Int64}, args...) = cholmod_l_free_dense(args...)
 
-# Return the fill-reducing permutation of `csc` and the entries of L it gives.
-function _cholmod_ordering(::Type{Ti}, csc::SparseMatrixCSC) where {Ti}
+# Return the fill-reducing permutation of `csc`, or `perm` if given, and the entries of L it gives.
+function _cholmod_ordering(::Type{Ti}, csc::SparseMatrixCSC, perm = nothing) where {Ti}
     pattern = SparseMatrixCSC{Float64, Ti}(
         csc.m, csc.n, Vector{Ti}(csc.colptr), Vector{Ti}(csc.rowval), ones(nnz(csc)),
     )
-    F = CHOLMOD.symbolic(CHOLMOD.Sparse(pattern, -1))
+    F = CHOLMOD.symbolic(CHOLMOD.Sparse(pattern, -1); perm)
     lnz = CHOLMOD.getcommon(Ti)[].lnz
     s = unsafe_load(CHOLMOD.typedpointer(F))
     perm = Int.(unsafe_wrap(Array, Ptr{Ti}(s.Perm), csc.n; own = false)) .+ 1
@@ -117,7 +120,7 @@ function CHOLMODState(
         error("[CHOLMOD] Option `cholmod_algorithm=LDL` is not supported for Julia version <= 1.9")
     end
 
-    perm, lnz = _cholmod_ordering(Int32, csc)
+    perm, lnz = _cholmod_ordering(Int32, csc, opt.cholmod_user_perm)
     Ti = lnz > max_lnz_int32 ? Int64 : Int32
     return CHOLMODState(Ti, csc, perm, opt, logger)
 end
@@ -222,6 +225,7 @@ function inertia(M::CHOLMODState)
 end
 input_type(::Type{CHOLMODState}) = :csc
 default_options(::Type{CHOLMODState}) = CHOLMODOptions()
+set_permutation!(opt::CHOLMODOptions, perm) = (opt.cholmod_user_perm = perm; opt)
 
 improve!(M::CHOLMODState) = false
 introduce(::CHOLMODState) = "cholmod v$(CHOLMOD.BUILD_VERSION)"

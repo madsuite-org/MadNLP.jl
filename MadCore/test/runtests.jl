@@ -34,10 +34,16 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         @test MadCore.is_async(S)
     end
 
+    # a given permutation, as an ordering of the KKT system
+    struct GivenOrdering <: MadCore.AbstractOrdering
+        perm::Vector{Int}
+    end
+    MadCore.ordering_permutation(o::GivenOrdering, ::SparseMatrixCSC) = o.perm
+
     @testset "Orderings without their backend" begin
         # Metis and AMD are not test dependencies, so their extensions are not loaded.
         A = sparse([1, 2, 2], [1, 1, 2], [2.0, 1.0, 0.0])
-        for (o, pkg) in ((MetisOrdering(), "Metis"), (AMDOrdering(), "AMD"), (ColAMDOrdering(), "AMD"))
+        for (o, pkg) in ((MetisOrdering(), "Metis"), (AMDOrdering(), "AMD"))
             err = try
                 MadCore.ordering_permutation(o, A)
             catch e
@@ -46,31 +52,15 @@ using Test, MadCore, SparseArrays, LinearAlgebra
             @test err isa MethodError
             @test occursin("Load $pkg", sprint(showerror, err))
         end
-        @test MadCore.ordering_permutation(UserOrdering([2, 1]), A) == [2, 1]
-        @test_throws ArgumentError MadCore.ordering_permutation(UserOrdering([1, 2, 3]), A)
+        @test MadCore.ordering_permutation(DefaultOrdering(), A) == [1, 2]
     end
 
-    @testset "PermutedSolver forwards is_factorized and is_async" begin
-        S = MadCore.create_kkt_linear_solver(FailedAsyncSolver, sparse([1, 2, 2], [1, 1, 2], [2.0, 1.0, 0.0]), 1; opt = nothing, kkt_ordering = UserOrdering([2, 1]))
-        @test S isa MadCore.PermutedSolver
-        MadCore.factorize!(S)
-        @test !MadCore.is_factorized(S)
-        @test MadCore.is_async(S)
-    end
-
-    @testset "PermutedSolver analyzes the current values" begin
-        struct AnalyzingSolver <: MadCore.AbstractLinearSolver{Float64}
-            A::SparseMatrixCSC{Float64, Int}
-            seen::Vector{Float64}
-        end
-        MadCore.create_linear_solver(::Type{AnalyzingSolver}, A; kwargs...) = AnalyzingSolver(A, Float64[])
-        MadCore.analyze!(S::AnalyzingSolver) = (append!(empty!(S.seen), nonzeros(S.A)); true)
-        A = sparse([1, 2, 2], [1, 1, 2], [0.0, 0.0, 0.0])
-        S = MadCore.create_kkt_linear_solver(AnalyzingSolver, A, 1; opt = nothing, kkt_ordering = UserOrdering([2, 1]))
-        nonzeros(A) .= [1.0, 2.0, 3.0]
-        @test MadCore.analyze!(S)
-        # P A Pᵀ = [3 2; 2 1]: the lower triangle by columns
-        @test S.inner.seen == [3.0, 2.0, 1.0]
+    @testset "An ordering needs a solver that accepts a permutation" begin
+        A = sparse([1, 2, 2], [1, 1, 2], [2.0, 1.0, 0.0])
+        @test_throws ArgumentError MadCore.create_kkt_linear_solver(FailedAsyncSolver, A, 1; opt = nothing, kkt_ordering = GivenOrdering([2, 1]))
+        @test_throws ArgumentError MadCore.create_kkt_linear_solver(LapackCPUSolver, A, 1; kkt_ordering = GivenOrdering([2, 1]))
+        # an ordering that does not return a permutation
+        @test_throws "did not return a permutation" MadCore.create_kkt_linear_solver(FailedAsyncSolver, A, 1; opt = nothing, kkt_ordering = GivenOrdering([1, 1]))
     end
 
     @testset "LDLSolver through its extension" begin
@@ -93,15 +83,15 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         @test A * x ≈ b
         @test MadCore.inertia(solver) == (2, 0, 1)
 
-        # the same matrix, permuted
-        S = MadCore.create_kkt_linear_solver(LDLSolver, tril_A, 2; kkt_ordering = UserOrdering([3, 1, 2]))
-        @test S isa MadCore.PermutedSolver
-        @test nonzeros(S.Ap) isa Vector{Float64} && eltype(rowvals(S.Ap)) == Int32
+        # the same matrix in a given pivot order, handed to LDLFactorizations as its P
+        opt = MadCore.default_options(LDLSolver)
+        S = MadCore.create_kkt_linear_solver(LDLSolver, tril_A, 2; opt, kkt_ordering = GivenOrdering([3, 1, 2]))
+        @test S.inner.P == [3, 1, 2]
+        @test opt.ldl_user_perm === nothing
         MadCore.factorize!(S)
         x = copy(b)
         MadCore.solve_linear_system!(S, x)
         @test A * x ≈ b
         @test MadCore.inertia(S) == (2, 0, 1)
-        @test occursin("with user ordering", MadCore.introduce(S))
     end
 end

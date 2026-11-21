@@ -178,7 +178,7 @@ kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passe
 kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset` and `CondensedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
-kkt\\_ordering                 | `DefaultOrdering()`       | fill-reducing permutation of the matrix factorized by a sparse KKT system, for every linear solver (an `AbstractOrdering`): `MetisOrdering()` with Metis loaded, `AMDOrdering()`, `SymAMDOrdering()` or `ColAMDOrdering()` with AMD loaded, or `UserOrdering(perm)`
+kkt\\_ordering                 | `DefaultOrdering()`       | fill-reducing permutation of the matrix factorized by a sparse KKT system, which replaces the ordering of the linear solver (an `AbstractOrdering`): `DefaultOrdering()` leaves the ordering to the linear solver, `MetisOrdering()` with Metis loaded, `AMDOrdering()` with AMD loaded
 equality\\_shift               | 1e-8                 | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 100 `preset_perturbation(T)` (1e-8 in `Float64`)
 equality\\_shift\\_retry         | `true`               | on a wrong inertia, retry the condensed factorization with a hundredfold larger equality shift (at most twice) before the Hessian is perturbed
 equality\\_shift\\_retry\\_on\\_refinement | `false` | also retry when the refinement fails on a factorization of the right inertia
@@ -327,8 +327,8 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     kkt_scaler::AbstractScaler = NoScaler()
     primal_shift::T = 0.
     dual_shift::T = 0.
-    # fill-reducing permutation of the matrix factorized by a sparse KKT system, applied after
-    # the scaling and the shifts
+    # fill-reducing permutation of the matrix factorized by a sparse KKT system, handed to the
+    # linear solver as its pivot order
     kkt_ordering::AbstractOrdering = DefaultOrdering()
     # the shift δ of the equality rows that SparseCondensedKKTSystem condenses (weight 1 / (δ - Σd)):
     # 100 preset_perturbation(T), 1e-8 in Float64

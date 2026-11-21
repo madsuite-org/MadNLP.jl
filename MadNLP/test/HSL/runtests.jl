@@ -1,4 +1,5 @@
 using Test, MadNLP, MadNLPTests, HSL, Quadmath
+import AMD  # loads MadCoreAMDExt (AMDOrdering)
 
 testset = [
     [
@@ -59,6 +60,14 @@ testset = [
         end
         for (name,optimizer_constructor,exclude) in testset
             test_madnlp(name,optimizer_constructor,exclude)
+        end
+        # kkt_ordering hands its permutation to each solver as the user pivot order
+        for (name, solver) in [("Ma27", Ma27Solver), ("Ma57", Ma57Solver), ("Ma77", Ma77Solver), ("Ma86", Ma86Solver), ("Ma97", Ma97Solver)]
+            test_madnlp(
+                "HSL-$name with AMDOrdering",
+                () -> MadNLP.Optimizer(linear_solver = solver, kkt_ordering = MadNLP.AMDOrdering(), print_level = MadNLP.ERROR),
+                name == "Ma77" ? ["unbounded"] : [],
+            )
         end
     end
 end
