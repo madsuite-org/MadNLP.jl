@@ -4,7 +4,7 @@
     PermutedSolver
 
 The linear solver `create_kkt_linear_solver` returns for an ordering other than
-[`NoOrdering`](@ref): it keeps the permuted copy `P A Pᵀ` of the matrix `A` (lower triangle,
+[`DefaultOrdering`](@ref): it keeps the permuted copy `P A Pᵀ` of the matrix `A` (lower triangle,
 CSC), factorizes it with the selected solver, and permutes each right-hand side and solution.
 The permutation is computed on the host from the pattern of `A`; the permuted matrix lives on
 the device of `A`.
@@ -52,8 +52,8 @@ function PermutedSolver(linear_solver, A; opt, logger, kkt_ordering::AbstractOrd
     )
 end
 
-# The linear solver of the matrix `A`, permuted by `kkt_ordering` unless it is `NoOrdering`.
-_create_ordered_solver(linear_solver, A, ::NoOrdering; opt, logger) = create_linear_solver(linear_solver, A; opt, logger)
+# The linear solver of the matrix `A`, permuted by `kkt_ordering` unless it is `DefaultOrdering`.
+_create_ordered_solver(linear_solver, A, ::DefaultOrdering; opt, logger) = create_linear_solver(linear_solver, A; opt, logger)
 _create_ordered_solver(linear_solver, A, kkt_ordering::AbstractOrdering; opt, logger) =
     PermutedSolver(linear_solver, A; opt, logger, kkt_ordering)
 

@@ -12,7 +12,7 @@ W A W + \\begin{bmatrix} σ_p I & 0 \\\\ 0 & -σ_d I \\end{bmatrix}
 ```
 
 (`σ_p = primal_shift`, `σ_d = dual_shift`) instead of `A`; without, it factorizes `A` itself.
-With an ordering other than [`NoOrdering`](@ref), the solver factorizes the matrix permuted by
+With an ordering other than [`DefaultOrdering`](@ref), the solver factorizes the matrix permuted by
 `kkt_ordering` (see [`PermutedSolver`](@ref)); the scaling and the shifts apply first, to the
 unpermuted matrix.
 """
@@ -20,7 +20,7 @@ function create_kkt_linear_solver(
         linear_solver, A, n_primal;
         opt = default_options(linear_solver), logger = MadNLPLogger(),
         kkt_scaler::AbstractScaler = NoScaler(), primal_shift = 0.0, dual_shift = 0.0,
-        kkt_ordering::AbstractOrdering = NoOrdering(),
+        kkt_ordering::AbstractOrdering = DefaultOrdering(),
     )
     set_block_structure!(opt, n_primal, size(A, 1) - n_primal)
     if kkt_scaler isa NoScaler && iszero(primal_shift) && iszero(dual_shift)
@@ -59,7 +59,7 @@ end
 
 function ScaledShiftedSolver(
         linear_solver, A, n_primal;
-        opt, logger, kkt_scaler, primal_shift, dual_shift, kkt_ordering = NoOrdering(),
+        opt, logger, kkt_scaler, primal_shift, dual_shift, kkt_ordering = DefaultOrdering(),
     )
     T = eltype(nonzeros(A))
     n = size(A, 1)
