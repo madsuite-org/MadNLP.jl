@@ -16,6 +16,7 @@ include("rocsolver.jl")
 include("rocm.jl")
 include("timer.jl")
 
-MadCore.solver_type(::Type{MadCore.LapackROCmSolver}) = LapackROCmState
+MadCore.solver_type(::Type{MadCore.LapackROCmSolver}) = MadCore.LapackSolver
+MadCore.default_options(::Type{MadCore.LapackROCmSolver}) = MadCore.LapackOptions(MadCore.EVD)
 
 end

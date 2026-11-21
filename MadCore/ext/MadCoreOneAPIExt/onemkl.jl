@@ -1,53 +1,23 @@
-mutable struct LapackOneMKLState{T, MT, Alg} <: MadCore.AbstractLapackSolver{T, Alg}
-    A::MT
-    fact::oneMatrix{T}
-    n::Int64
-    sol::oneVector{T}
-    tau::oneVector{T}
-    Λ::oneVector{T}
-    info::Base.RefValue{Cint}
-    ipiv::oneVector{Int64}
-    scratchpad::oneVector{T}
+# Workspace of a `MadCore.LapackSolver` on an Intel GPU, which calls oneMKL.
+mutable struct OneMKLWorkspace{T}
+    const info::Base.RefValue{Cint}
+    const ipiv::oneVector{Int64}
+    const scratchpad::oneVector{T}
     scratchpad_size::Int64
-    queue::oneAPI.oneL0.ZeCommandQueue
-    alpha::Base.RefValue{T}
-    beta::Base.RefValue{T}
-    opt::MadCore.LapackOptions
-    logger::MadCore.MadNLPLogger
-
-    function LapackOneMKLState(
-            A::MT;
-            option_dict::Dict{Symbol, Any} = Dict{Symbol, Any}(),
-            opt = MadCore.LapackOptions(),
-            logger = MadCore.MadNLPLogger(),
-            kwargs...,
-        ) where {MT <: AbstractMatrix}
-        MadCore.set_options!(opt, option_dict, kwargs...)
-        T = eltype(A)
-        m, n = size(A)
-        @assert m == n
-        fact = oneMatrix{T}(undef, m, n)
-        sol = oneVector{T}(undef, 0)
-        tau = oneVector{T}(undef, 0)
-        Λ = oneVector{T}(undef, 0)
-        info = Ref{Cint}(0)
-        ipiv = oneVector{Int64}(undef, 0)
-        scratchpad = oneVector{T}(undef, 0)
-        # oneMKL calls take `sycl_queue(queue)` each time: it orders them after the Julia work
-        # queued before, and the Julia work queued after them.
-        queue = oneAPI.global_queue(oneAPI.context(fact), oneAPI.device(fact))
-        alpha = Ref{T}(1)
-        beta = Ref{T}(0)
-        alg = opt.lapack_algorithm
-        solver = new{T, MT, alg}(A, fact, n, sol, tau, Λ, info, ipiv, scratchpad, 0, queue, alpha, beta, opt, logger)
-        MadCore.setup!(solver)
-        return solver
-    end
+    # oneMKL calls take `sycl_queue(queue)` each time: it orders them after the Julia work
+    # queued before, and the Julia work queued after them.
+    const queue::oneAPI.oneL0.ZeCommandQueue
 end
 
-MadCore.default_options(::Type{LapackOneMKLState}) = MadCore.LapackOptions(MadCore.EVD)
-MadCore.introduce(M::LapackOneMKLState) = "oneMKL -- ($(M.opt.lapack_algorithm))"
-MadCore.solve!(M::LapackOneMKLState{T}, x::oneVector{T}) where {T} = MadCore._solve!(M, x)
+function MadCore.lapack_workspace(fact::oneMatrix{T}) where {T}
+    queue = oneAPI.global_queue(oneAPI.context(fact), oneAPI.device(fact))
+    return OneMKLWorkspace{T}(Ref{Cint}(0), oneVector{Int64}(undef, 0), oneVector{T}(undef, 0), 0, queue)
+end
+
+const OneMKLLapackSolver{T} = MadCore.LapackSolver{T, <:Any, <:Any, <:oneMatrix{T}, <:Any, OneMKLWorkspace{T}}
+
+MadCore._get_info(M::OneMKLLapackSolver) = M.ws.info[]
+MadCore.introduce(M::OneMKLLapackSolver) = "oneMKL -- ($(M.opt.lapack_algorithm))"
 
 for (potrf, potrf_buffer, potrs, potrs_buffer, T) in
     (
@@ -55,30 +25,30 @@ for (potrf, potrf_buffer, potrs, potrs_buffer, T) in
         (:onemklSpotrf, :onemklSpotrf_scratchpad_size, :onemklSpotrs, :onemklSpotrs_scratchpad_size, :Float32),
     )
     @eval begin
-        function MadCore.setup_cholesky!(M::LapackOneMKLState{$T})
-            potrf_scratchpad_size = Support.$potrf_buffer(oneAPI.sycl_queue(M.queue), 'L', M.n, M.n)
-            potrs_scratchpad_size = Support.$potrs_buffer(oneAPI.sycl_queue(M.queue), 'L', M.n, one(Int64), M.n, M.n)
-            M.scratchpad_size = max(potrf_scratchpad_size, potrs_scratchpad_size)
-            resize!(M.scratchpad, M.scratchpad_size)
+        function MadCore.setup_cholesky!(M::OneMKLLapackSolver{$T})
+            potrf_scratchpad_size = Support.$potrf_buffer(oneAPI.sycl_queue(M.ws.queue), 'L', M.n, M.n)
+            potrs_scratchpad_size = Support.$potrs_buffer(oneAPI.sycl_queue(M.ws.queue), 'L', M.n, one(Int64), M.n, M.n)
+            M.ws.scratchpad_size = max(potrf_scratchpad_size, potrs_scratchpad_size)
+            resize!(M.ws.scratchpad, M.ws.scratchpad_size)
             return M
         end
 
-        function MadCore.factorize_cholesky!(M::LapackOneMKLState{$T})
-            M.info[] = Support.$potrf(
-                oneAPI.sycl_queue(M.queue),
+        function MadCore.factorize_cholesky!(M::OneMKLLapackSolver{$T})
+            M.ws.info[] = Support.$potrf(
+                oneAPI.sycl_queue(M.ws.queue),
                 'L',
                 M.n,
                 M.fact,
                 M.n,
-                M.scratchpad,
-                M.scratchpad_size,
+                M.ws.scratchpad,
+                M.ws.scratchpad_size,
             )
             return M
         end
 
-        function MadCore.solve_cholesky!(M::LapackOneMKLState{$T}, x::oneVector{$T})
+        function MadCore.solve_cholesky!(M::OneMKLLapackSolver{$T}, x::oneVector{$T})
             Support.$potrs(
-                oneAPI.sycl_queue(M.queue),
+                oneAPI.sycl_queue(M.ws.queue),
                 'L',
                 M.n,
                 one(Int64),
@@ -86,8 +56,8 @@ for (potrf, potrf_buffer, potrs, potrs_buffer, T) in
                 M.n,
                 x,
                 M.n,
-                M.scratchpad,
-                M.scratchpad_size,
+                M.ws.scratchpad,
+                M.ws.scratchpad_size,
             )
             return x
         end
@@ -100,42 +70,42 @@ for (getrf, getrf_buffer, getrs, getrs_buffer, T) in
         (:onemklSgetrf, :onemklSgetrf_scratchpad_size, :onemklSgetrs, :onemklSgetrs_scratchpad_size, :Float32),
     )
     @eval begin
-        function MadCore.setup_lu!(M::LapackOneMKLState{$T})
-            resize!(M.ipiv, M.n)
-            getrf_scratchpad_size = Support.$getrf_buffer(oneAPI.sycl_queue(M.queue), M.n, M.n, M.n)
-            getrs_scratchpad_size = Support.$getrs_buffer(oneAPI.sycl_queue(M.queue), 'N', M.n, one(Int64), M.n, M.n)
-            M.scratchpad_size = max(getrf_scratchpad_size, getrs_scratchpad_size)
-            resize!(M.scratchpad, M.scratchpad_size)
+        function MadCore.setup_lu!(M::OneMKLLapackSolver{$T})
+            resize!(M.ws.ipiv, M.n)
+            getrf_scratchpad_size = Support.$getrf_buffer(oneAPI.sycl_queue(M.ws.queue), M.n, M.n, M.n)
+            getrs_scratchpad_size = Support.$getrs_buffer(oneAPI.sycl_queue(M.ws.queue), 'N', M.n, one(Int64), M.n, M.n)
+            M.ws.scratchpad_size = max(getrf_scratchpad_size, getrs_scratchpad_size)
+            resize!(M.ws.scratchpad, M.ws.scratchpad_size)
             return M
         end
 
-        function MadCore.factorize_lu!(M::LapackOneMKLState{$T})
-            M.info[] = Support.$getrf(
-                oneAPI.sycl_queue(M.queue),
+        function MadCore.factorize_lu!(M::OneMKLLapackSolver{$T})
+            M.ws.info[] = Support.$getrf(
+                oneAPI.sycl_queue(M.ws.queue),
                 M.n,
                 M.n,
                 M.fact,
                 M.n,
-                M.ipiv,
-                M.scratchpad,
-                M.scratchpad_size,
+                M.ws.ipiv,
+                M.ws.scratchpad,
+                M.ws.scratchpad_size,
             )
             return M
         end
 
-        function MadCore.solve_lu!(M::LapackOneMKLState{$T}, x::oneVector{$T})
+        function MadCore.solve_lu!(M::OneMKLLapackSolver{$T}, x::oneVector{$T})
             Support.$getrs(
-                oneAPI.sycl_queue(M.queue),
+                oneAPI.sycl_queue(M.ws.queue),
                 'N',
                 M.n,
                 one(Int64),
                 M.fact,
                 M.n,
-                M.ipiv,
+                M.ws.ipiv,
                 x,
                 M.n,
-                M.scratchpad,
-                M.scratchpad_size,
+                M.ws.scratchpad,
+                M.ws.scratchpad_size,
             )
             return x
         end
@@ -148,33 +118,33 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, T) in
         (:onemklSgeqrf, :onemklSgeqrf_scratchpad_size, :onemklSormqr, :onemklSormqr_scratchpad_size, :onemklStrsv, :Float32),
     )
     @eval begin
-        function MadCore.setup_qr!(M::LapackOneMKLState{$T})
+        function MadCore.setup_qr!(M::OneMKLLapackSolver{$T})
             resize!(M.tau, M.n)
-            geqrf_scratchpad_size = Support.$geqrf_buffer(oneAPI.sycl_queue(M.queue), M.n, M.n, M.n)
-            ormqr_scratchpad_size = Support.$ormqr_buffer(oneAPI.sycl_queue(M.queue), 'L', 'T', M.n, one(Int64), M.n, M.n, M.n)
-            M.scratchpad_size = max(geqrf_scratchpad_size, ormqr_scratchpad_size)
-            resize!(M.scratchpad, M.scratchpad_size)
+            geqrf_scratchpad_size = Support.$geqrf_buffer(oneAPI.sycl_queue(M.ws.queue), M.n, M.n, M.n)
+            ormqr_scratchpad_size = Support.$ormqr_buffer(oneAPI.sycl_queue(M.ws.queue), 'L', 'T', M.n, one(Int64), M.n, M.n, M.n)
+            M.ws.scratchpad_size = max(geqrf_scratchpad_size, ormqr_scratchpad_size)
+            resize!(M.ws.scratchpad, M.ws.scratchpad_size)
             return M
         end
 
-        function MadCore.factorize_qr!(M::LapackOneMKLState{$T})
-            M.info[] = Support.$geqrf(
-                oneAPI.sycl_queue(M.queue),
+        function MadCore.factorize_qr!(M::OneMKLLapackSolver{$T})
+            M.ws.info[] = Support.$geqrf(
+                oneAPI.sycl_queue(M.ws.queue),
                 M.n,
                 M.n,
                 M.fact,
                 M.n,
                 M.tau,
-                M.scratchpad,
-                M.scratchpad_size,
+                M.ws.scratchpad,
+                M.ws.scratchpad_size,
             )
             return M
         end
 
-        function MadCore.solve_qr!(M::LapackOneMKLState{$T}, x::oneVector{$T})
+        function MadCore.solve_qr!(M::OneMKLLapackSolver{$T}, x::oneVector{$T})
             # Apply Q^T to x: x = Q^T * x
             Support.$ormqr(
-                oneAPI.sycl_queue(M.queue),
+                oneAPI.sycl_queue(M.ws.queue),
                 'L',          # side (left multiplication)
                 'T',          # trans (transpose)
                 M.n,          # m
@@ -185,8 +155,8 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, T) in
                 M.tau,        # tau
                 x,            # c (the RHS vector)
                 M.n,          # ldc
-                M.scratchpad,
-                M.scratchpad_size,
+                M.ws.scratchpad,
+                M.ws.scratchpad_size,
             )
             # Solve R*x = Q^T*b using triangular solve
             oneMKL.trsv!('U', 'N', 'N', M.fact, x)  # upper, no-trans, non-unit diagonal
@@ -195,66 +165,33 @@ for (geqrf, geqrf_buffer, ormqr, ormqr_buffer, trsv, T) in
     end
 end
 
-for (syevd, syevd_buffer, gemv, T) in
+for (syevd, syevd_buffer, T) in
     (
-        (:onemklDsyevd, :onemklDsyevd_scratchpad_size, :onemklDgemv, :Float64),
-        (:onemklSsyevd, :onemklSsyevd_scratchpad_size, :onemklSgemv, :Float32),
+        (:onemklDsyevd, :onemklDsyevd_scratchpad_size, :Float64),
+        (:onemklSsyevd, :onemklSsyevd_scratchpad_size, :Float32),
     )
     @eval begin
-        function MadCore.setup_evd!(M::LapackOneMKLState{$T})
+        function MadCore.setup_evd!(M::OneMKLLapackSolver{$T})
             resize!(M.tau, M.n)
             resize!(M.Λ, M.n)
-            M.scratchpad_size = Support.$syevd_buffer(oneAPI.sycl_queue(M.queue), 'V', 'L', M.n, M.n)
-            resize!(M.scratchpad, M.scratchpad_size)
+            M.ws.scratchpad_size = Support.$syevd_buffer(oneAPI.sycl_queue(M.ws.queue), 'V', 'L', M.n, M.n)
+            resize!(M.ws.scratchpad, M.ws.scratchpad_size)
             return M
         end
 
-        function MadCore.factorize_evd!(M::LapackOneMKLState{$T})
-            M.info[] = Support.$syevd(
-                oneAPI.sycl_queue(M.queue),
+        function MadCore.factorize_evd!(M::OneMKLLapackSolver{$T})
+            M.ws.info[] = Support.$syevd(
+                oneAPI.sycl_queue(M.ws.queue),
                 'V',
                 'L',
                 M.n,
                 M.fact,
                 M.n,
                 M.Λ,
-                M.scratchpad,
-                M.scratchpad_size,
+                M.ws.scratchpad,
+                M.ws.scratchpad_size,
             )
             return M
-        end
-
-        function MadCore.solve_evd!(M::LapackOneMKLState{$T}, x::oneVector{$T})
-            Support.$gemv(
-                oneAPI.sycl_queue(M.queue),
-                'T',
-                M.n,
-                M.n,
-                M.alpha,
-                M.fact,
-                M.n,
-                x,
-                one(Int64),
-                M.beta,
-                M.tau,
-                one(Int64),
-            )
-            M.tau ./= M.Λ
-            Support.$gemv(
-                oneAPI.sycl_queue(M.queue),
-                'N',
-                M.n,
-                M.n,
-                M.alpha,
-                M.fact,
-                M.n,
-                M.tau,
-                one(Int64),
-                M.beta,
-                x,
-                one(Int64),
-            )
-            return x
         end
     end
 end

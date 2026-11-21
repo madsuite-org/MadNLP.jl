@@ -33,6 +33,6 @@ include("cusolver.jl")
 include("cuda.jl")
 include("timer.jl")
 
-MadCore.solver_type(::Type{MadCore.LapackCUDASolver}) = LapackCUDAState
+MadCore.solver_type(::Type{MadCore.LapackCUDASolver}) = MadCore.LapackSolver
 
 end

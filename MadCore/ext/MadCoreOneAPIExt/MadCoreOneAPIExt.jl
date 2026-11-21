@@ -13,6 +13,7 @@ include("oneapi_sparse.jl")
 include("onemkl.jl")
 include("oneapi.jl")
 
-MadCore.solver_type(::Type{MadCore.LapackOneMKLSolver}) = LapackOneMKLState
+MadCore.solver_type(::Type{MadCore.LapackOneMKLSolver}) = MadCore.LapackSolver
+MadCore.default_options(::Type{MadCore.LapackOneMKLSolver}) = MadCore.LapackOptions(MadCore.EVD)
 
 end
