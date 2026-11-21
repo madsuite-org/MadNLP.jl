@@ -425,14 +425,15 @@ function MadNLPOptions{T}(
         preset <: Union{ShiftedPreset, CondensedPreset} && kkt_system <: Union{SparseKKTSystem, SparseCondensedKKTSystem} ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
     tol = get_tolerance(T,kkt_system)
 ) where {T}
-    return MadNLPOptions{T}(;
-        tol = tol,
-        callback = callback,
-        kkt_system = kkt_system,
-        linear_solver = linear_solver,
-        preset = preset,
-        preset_options(preset, T, kkt_system, tol)...,
-    )
+    opt = MadNLPOptions{T}(; tol, callback, kkt_system, linear_solver, preset)
+    # The preset's options are set on the result rather than splatted into the keyword call:
+    # their names depend on run-time values (the preset, the KKT system, whether Krylov is
+    # loaded), and a keyword merge whose names are not known at compile time compiles on
+    # every call. No default of `MadNLPOptions` reads a field that a preset sets.
+    for (k, v) in pairs(preset_options(preset, T, kkt_system, tol))
+        setfield!(opt, k, convert(fieldtype(typeof(opt), k), v))
+    end
+    return opt
 end
 
 function check_option_sanity(options)
