@@ -69,6 +69,7 @@
     @test co.barrier.sigma_max == 2.0 && co.barrier.mu_decrease_max == 10.0 && co.barrier.mu_min ≈ 1.0e-3 * co.tol
     @test co.iterator === MadNLP.RichardsonIterator && iszero(co.dual_shift)
     @test co.equality_shift == 1.0e-8
+    @test co.equality_shift_retry && !co.equality_shift_retry_on_refinement
     @test co.equality_shift_retry
     if Base.USE_GPL_LIBS
         lopt = MC.default_options(nlp, co.preset, co.kkt_system, co.linear_solver)

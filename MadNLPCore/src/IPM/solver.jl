@@ -825,22 +825,25 @@ function inertia_correction!(
     factorize_wrapper!(solver)
     num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
 
-    solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+    inertia_ok = is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+    solve_status = if inertia_ok
         # Try a backsolve. If the factorization has failed, solve_refine_wrapper returns false.
         solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver))
     else
         false
     end
     # Before the Hessian is perturbed, the KKT system may refactorize its matrix with a larger shift
-    # (SparseCondensedKKTSystem: a larger equality shift). This follows any failed solve: a
-    # factorization of the wrong inertia, or one of the right inertia on which the refinement failed;
-    # in both cases the larger shift makes the condensed matrix better conditioned. The retried
-    # factorization is further from the unshifted system the refinement targets, so the refinement
-    # contracts more slowly and gets equality_shift_retry_refinement times the steps.
-    while !solve_status && inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
+    # (SparseCondensedKKTSystem: a larger equality shift), which makes the condensed matrix better
+    # conditioned. This follows a factorization of the wrong inertia, and with
+    # equality_shift_retry_on_refinement also one of the right inertia on which the refinement failed.
+    # The retried factorization is further from the unshifted system the refinement targets, so the
+    # refinement contracts more slowly and gets equality_shift_retry_refinement times the steps.
+    while !solve_status && (!inertia_ok || get_opt(solver).equality_shift_retry_on_refinement) &&
+            inertia_retry!(get_kkt(solver), get_cnt(solver).k, get_inf_pr(solver), get_opt(solver).tol)
         factorize_wrapper!(solver)
         num_pos,num_zero,num_neg = inertia(get_kkt(solver).linear_solver)
-        solve_status = if is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+        inertia_ok = is_inertia_correct(get_kkt(solver), num_pos, num_zero, num_neg)
+        solve_status = if inertia_ok
             solve_refine_wrapper!(get_d(solver), solver, get_p(solver), get__w4(solver); max_iter_factor = get_opt(solver).equality_shift_retry_refinement)
         else
             false

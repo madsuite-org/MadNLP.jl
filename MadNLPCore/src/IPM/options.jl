@@ -180,6 +180,7 @@ primal\\_shift                 | 0.0                  | shift added to the prima
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
 equality\\_shift               | 1e-8                 | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 100 `preset_perturbation(T)` (1e-8 in `Float64`)
 equality\\_shift\\_retry         | `true`               | on a wrong inertia, retry the condensed factorization with a hundredfold larger equality shift (at most twice) before the Hessian is perturbed
+equality\\_shift\\_retry\\_on\\_refinement | `false` | also retry when the refinement fails on a factorization of the right inertia
 equality\\_shift\\_max           | 1e-4                 | the largest equality shift a retry may reach; 1e6 `preset_perturbation(T)` (1e-4 in `Float64`), so that it scales with the shift in another precision
 equality\\_shift\\_retry\\_factor | 100.0              | a retry multiplies the equality shift by this factor
 equality\\_shift\\_retry\\_count  | 2                  | retries per step
@@ -330,6 +331,9 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
     # the Hessian is perturbed (SparseCondensedKKTSystem)
     equality_shift_retry::Bool = true
+    # the retry also follows a failed refinement on a factorization of the right inertia (true), or a
+    # factorization of the wrong inertia only (false)
+    equality_shift_retry_on_refinement::Bool = false
     # a retry multiplies the shift by this factor, at most this many times per step, up to this shift
     equality_shift_retry_factor::T = 100.
     equality_shift_retry_count::Int = 2
