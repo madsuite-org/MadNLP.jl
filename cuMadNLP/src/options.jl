@@ -1,5 +1,6 @@
 # Option presets for models on NVIDIA GPUs: the linear solvers of the GPU option presets
-# (MadNLPCoreGPUExt), and cuDSS's options under each preset.
+# (MadNLPCoreGPUExt), and cuDSS's options on the augmented system under each preset (on the
+# condensed system they follow the matrix: MadCoreGPU's CUDSS extension).
 
 MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = CUDSSSolver
 MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = LapackCUDASolver
@@ -8,28 +9,13 @@ MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where
 # without which the solve of the indefinite augmented matrix has a backward error near 1e-5.
 # Matching depends on the values, so the analysis waits for the first matrix.
 function MadCore.default_options(
-        ::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{<:MadNLPCore.PivotBoundedPreset}, ::Type{<:MadNLPCore.SparsePresetKKTSystem},
+        ::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadNLPCore.SparseKKTSystem},
         ::Type{CUDSSSolver},
     ) where {T, VT <: CuVector{T}}
     opt = MadCore.default_options(CUDSSSolver)
     opt.cudss_algorithm = MadCore.LDL
     opt.cudss_pivot_epsilon = Float64(MadNLPCore.preset_perturbation(T))
     opt.cudss_matching = true
-    opt.cudss_deferred_analysis = true
-    return opt
-end
-
-# cuDSS under CondensedPreset: Cholesky of the positive definite condensed matrix, without
-# pivoting or matching.
-function MadCore.default_options(
-        ::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.CondensedPreset}, ::Type{MadCore.SparseCondensedKKTSystem},
-        ::Type{CUDSSSolver},
-    ) where {T, VT <: CuVector{T}}
-    opt = MadCore.default_options(CUDSSSolver)
-    opt.cudss_algorithm = MadCore.CHOLESKY
-    opt.cudss_pivot_epsilon = 0.0
-    opt.cudss_pivoting = false
-    opt.cudss_matching = false
     opt.cudss_deferred_analysis = true
     return opt
 end

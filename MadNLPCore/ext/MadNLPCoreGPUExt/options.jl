@@ -32,8 +32,8 @@ end
 # the first matrix; later factorizations keep it, and the refinement recovers the accuracy lost as it
 # goes stale.
 function MadNLPCore.default_options(
-        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{<:MadNLPCore.PivotBoundedPreset},
-        ::Type{<:MadNLPCore.SparsePresetKKTSystem}, ::Type{SDSSolver},
+        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{MadNLPCore.ShiftedPreset},
+        ::Type{MadNLPCore.SparseKKTSystem}, ::Type{SDSSolver},
     ) where {T}
     opt = MadNLPCore.default_options(SDSSolver)
     opt.sds_factorization = :ldl
@@ -45,13 +45,12 @@ function MadNLPCore.default_options(
     return opt
 end
 
-# SparseDirectSolver.jl under CondensedPreset: Cholesky of the positive definite condensed matrix, without
-# pivoting or matching, on the pipeline SparseDirectSolver chooses (the fused one on CUDA, AMDGPU and
-# oneAPI), as cuDSS under the same preset. A failed factorization reports a wrong inertia, on which the
-# preset retries with a larger equality shift.
+# SparseDirectSolver.jl on the condensed system, under any preset: Cholesky of the positive definite
+# matrix, without pivoting or matching, on the pipeline SparseDirectSolver chooses (the fused one on
+# CUDA, AMDGPU and oneAPI), as cuDSS. A failed factorization reports a wrong inertia, on which the
+# solver retries with a larger equality shift.
 function MadNLPCore.default_options(
-        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{MadNLPCore.CondensedPreset},
-        ::Type{MadNLPCore.SparseCondensedKKTSystem}, ::Type{SDSSolver},
+        ::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}, ::Type{MadNLPCore.SparseCondensedKKTSystem}, ::Type{SDSSolver},
     ) where {T}
     opt = MadNLPCore.default_options(SDSSolver)
     opt.sds_factorization = :cholesky

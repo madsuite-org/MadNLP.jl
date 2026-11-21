@@ -69,11 +69,6 @@ struct CondensedPreset <: AbstractPreset end
 preset_kkt_system(::Type{<:AbstractPreset}) = SparseKKTSystem
 preset_kkt_system(::Type{CondensedPreset}) = SparseCondensedKKTSystem
 
-# The preset whose sparse KKT systems are factorized LDLᵀ with small pivots bounded: its condensed
-# system keeps dense rows uncondensed, which leaves it indefinite.
-const PivotBoundedPreset = ShiftedPreset
-const SparsePresetKKTSystem = Union{SparseKKTSystem, SparseCondensedKKTSystem}
-
 # The host default; the GPU option preset (MadNLPCoreGPUExt) makes it ShiftedPreset on GPU models.
 default_preset(nlp) = AugmentedPreset
 
@@ -121,23 +116,25 @@ function has_dense_rows(nlp, dense_row_abs, dense_row_rel, dense_fill_rel)
     return fill > dense_fill_rel * (MadCore.get_nnzh(nlp) + MadCore.get_nnzj(nlp) + n)
 end
 
-# The options of a preset beyond the KKT system and the linear solver.
+# The options of a preset beyond the KKT system and the linear solver. ShiftedPreset and
+# CondensedPreset share the quality-function barrier rule and Ruiz equilibration of the factorized
+# matrix; each adds what its KKT system needs.
 preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} = (;)
+shared_preset_options(::Type{T}, tol) where {T} = (;
+    barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
+    kkt_scaler = RuizScaler(),
+)
 function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) where {T}
     kkt_system == SparseCondensedKKTSystem || return (;)
     return (;
+        shared_preset_options(T, tol)...,
         equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
         dual_initialization_method = DualInitializeLeastSquares,
-        kkt_scaler = RuizScaler(),
-        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
     )
 end
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
     kkt_system == SparseKKTSystem || return (;)
-    shifted = (;
-        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
-        slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
-    )
+    shifted = (; shared_preset_options(T, tol)..., slack_reset = true, dual_shift = preset_perturbation(T))
     # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
     return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))
 end
@@ -146,10 +143,12 @@ end
     default_options(nlp, preset, kkt_system, linear_solver)
 
 The options of `linear_solver` for the KKT system `kkt_system` of `nlp` under `preset`, which
-`load_options` reads. Falls back to `default_options(nlp, kkt_system, linear_solver)`. Packages
-specialize it per preset; the pivot-bounded LDLᵀ of `ShiftedPreset` and `CondensedPreset`
-dispatches on `PivotBoundedPreset` and `SparsePresetKKTSystem` (MadNLP for CHOLMOD, cuMadNLP for
-cuDSS, the GPU extension of MadNLPCore for SparseDirectSolver.jl).
+`load_options` reads. Falls back to `default_options(nlp, kkt_system, linear_solver)`, where the
+options follow the matrix: the condensed system (`SparseCondensedKKTSystem`) is positive definite and
+factorized by Cholesky under any preset. Packages specialize it per preset only where the preset
+changes the factorization of the same matrix: the pivot-bounded LDLᵀ of `ShiftedPreset` and the
+pivoting LDLᵀ of `AugmentedPreset` on the augmented system (MadNLP for CHOLMOD, cuMadNLP for cuDSS,
+the GPU extension of MadNLPCore for SparseDirectSolver.jl).
 """
 default_options(nlp::AbstractNLPModel, ::Type{<:AbstractPreset}, kkt_system, linear_solver) =
     default_options(nlp, kkt_system, linear_solver)
@@ -419,7 +418,7 @@ function MadNLPOptions{T}(
     callback = dense_callback ? DenseCallback : SparseCallback,
     kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
     linear_solver = dense_callback ? default_dense_solver(nlp) :
-        preset <: Union{ShiftedPreset, CondensedPreset} && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
+        preset <: Union{ShiftedPreset, CondensedPreset} && kkt_system <: Union{SparseKKTSystem, SparseCondensedKKTSystem} ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
     tol = get_tolerance(T,kkt_system)
 ) where {T}
     return MadNLPOptions{T}(;
