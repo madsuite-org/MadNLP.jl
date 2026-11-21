@@ -9,7 +9,7 @@ function test_gpu_operators(Arr, SpMat)
     ext = Base.get_extension(MadCoreGPU, :MadCoreGPUKrylovPreconditionersExt)
     @test ext !== nothing
     for (transa, opA) in (('N', A), ('T', transpose(A)))
-        op = MadCoreGPU.gpu_operator(dA, transa)
+        op = MadCore.operator(dA, transa)
         @test op isa ext.KrylovViewOperator            # the products run through a KrylovOperator
         p, q = size(opA)
         x, y = rand(q), rand(p)

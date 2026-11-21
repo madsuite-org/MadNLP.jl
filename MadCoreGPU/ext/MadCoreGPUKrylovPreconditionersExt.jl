@@ -4,7 +4,7 @@
 # small KKT system costs more than the product itself.
 module MadCoreGPUKrylovPreconditionersExt
 
-import MadCoreGPU
+import MadCoreGPU: MadCore
 import LinearAlgebra: LinearAlgebra, mul!
 import SparseArrays: AbstractSparseMatrix
 import GPUArraysCore: AbstractGPUVector
@@ -29,9 +29,9 @@ function LinearAlgebra.mul!(y::AbstractVector, A::KrylovViewOperator, x::Abstrac
 end
 LinearAlgebra.mul!(y::AbstractVector, A::KrylovViewOperator, x::AbstractVector) = mul!(y, A, x, true, false)
 
-function MadCoreGPU.gpu_operator(A::AbstractSparseMatrix, transa::Char)
-    fallback = transa == 'N' ? A : transpose(A)
-    applicable(KrylovOperator, A) || return fallback
+# a device sparse matrix becomes a KrylovOperator; any other sparse matrix keeps the generic method
+function MadCore.operator(A::AbstractSparseMatrix, transa::Char)
+    applicable(KrylovOperator, A) || return invoke(MadCore.operator, Tuple{Any, Char}, A, transa)
     return KrylovViewOperator(KrylovOperator(A; transa))
 end
 

@@ -310,4 +310,27 @@ The constraint Jacobian `J` of `kkt` (`transa = 'N'`), or its transpose (`'T'`) 
 """
 function jac_op end
 
-_transposed(A, transa::Char) = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
+"""
+    operator(A, transa::Char = 'N')
+
+`A` (`transa = 'N'`), its transpose (`'T'`) or its adjoint (`'C'`), as an object that
+`mul!(y, op, x, alpha, beta)` applies. The sparse KKT systems make their operators once, when
+they are created (see [`KKTOperators`](@ref)), and reuse them for every product. This method
+returns `A`, `transpose(A)` or `adjoint(A)`; a backend may add a method that returns an
+operator keeping the sparse library's setup across products.
+"""
+operator(A, transa::Char = 'N') = transa == 'N' ? A : transa == 'T' ? transpose(A) : adjoint(A)
+
+"""
+    KKTOperators
+
+The operators a sparse KKT system multiplies with, made once with [`operator`](@ref): the
+stored Hessian block (`hess`) and its transpose (`hess_t`), and the Jacobian (`jac`) and its
+transpose (`jac_t`). [`hess_op`](@ref) and [`jac_op`](@ref) return them.
+"""
+struct KKTOperators{H, HT, J, JT}
+    hess::H
+    hess_t::HT
+    jac::J
+    jac_t::JT
+end
