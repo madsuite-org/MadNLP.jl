@@ -1,7 +1,7 @@
 module MadCoreAMDGPUExt
 
 import LinearAlgebra
-import SparseArrays: SparseMatrixCSC, nonzeros, nnz
+import SparseArrays: nonzeros, nnz
 import LinearAlgebra: Symmetric
 
 import MadCore
