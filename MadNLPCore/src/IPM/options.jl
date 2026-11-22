@@ -227,6 +227,7 @@ __Initialization__||
 dual\\_initialized             | false                | specify if dual initial point is available
 dual\\_initialization\\_method | DualInitializeLeastSquares | method to compute the initial dual multipliers
 constr\\_mult\\_init\\_max     | 1e3                  | maximum allowable value in initial dual multipliers
+bound\\_mult\\_init\\_val     | 1.0                  | initial value of the bound multipliers zl, zu
 bound\\_push                   | 1e-2                 | minimum absolute distance from the initial point to bound
 bound\\_fac                    | 1e-2                 | minimum relative distance from the initial point to bound
 nlp\\_scaling                  | true                 | scale nonlinear program
@@ -360,6 +361,7 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     dual_initialized::Bool = false
     dual_initialization_method::Type = kkt_system <: SparseCondensedKKTSystem ? DualInitializeSetZero : DualInitializeLeastSquares
     constr_mult_init_max::T = 1e3
+    bound_mult_init_val::T = 1.0
     bound_push::T = 1e-2
     bound_fac::T = 1e-2
     nlp_scaling::Bool = true

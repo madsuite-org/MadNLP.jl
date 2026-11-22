@@ -52,8 +52,8 @@ function initialize!(solver::AbstractMadNLPSolver{T}) where T
         bound_fac=opt.bound_fac,
     )
     fill!(get_jacl(solver), zero(T))
-    fill!(get_zl_r(solver), one(T))
-    fill!(get_zu_r(solver), one(T))
+    fill!(get_zl_r(solver), T(opt.bound_mult_init_val))
+    fill!(get_zu_r(solver), T(opt.bound_mult_init_val))
 
     # Initializing scaling factors
     if opt.nlp_scaling
