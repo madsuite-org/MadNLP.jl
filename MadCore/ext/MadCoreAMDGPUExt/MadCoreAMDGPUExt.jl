@@ -18,4 +18,8 @@ include("timer.jl")
 
 MadCore.solver_type(::Type{MadCore.LapackROCmSolver}) = LapackROCmState
 
+# Default linear solvers of models on AMD GPUs (SDSSolver needs SparseDirectSolver loaded).
+MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:ROCVector{T}}) where {T} = MadCore.SDSSolver
+MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:ROCVector{T}}) where {T} = MadCore.LapackROCmSolver
+
 end

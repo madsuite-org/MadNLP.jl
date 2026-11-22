@@ -23,6 +23,5 @@ end
 using MadCore: LapackOneMKLSolver, SDSSolver
 export LapackOneMKLSolver, SDSSolver, oneAPIBackend
 
-include("options.jl")
 
 end # module

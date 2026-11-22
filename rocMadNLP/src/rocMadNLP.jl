@@ -24,7 +24,6 @@ end
 using MadCore: LapackROCmSolver, SDSSolver
 export LapackROCmSolver, SDSSolver, ROCBackend
 
-include("options.jl")
 include("precompile.jl")
 
 end # module

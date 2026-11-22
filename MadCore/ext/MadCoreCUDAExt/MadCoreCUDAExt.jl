@@ -35,4 +35,8 @@ include("timer.jl")
 
 MadCore.solver_type(::Type{MadCore.LapackCUDASolver}) = LapackCUDAState
 
+# Default linear solvers of models on NVIDIA GPUs (cuDSS needs CUDSS loaded).
+MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = MadCore.CUDSSSolver
+MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = MadCore.LapackCUDASolver
+
 end

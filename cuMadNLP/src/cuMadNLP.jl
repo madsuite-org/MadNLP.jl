@@ -25,7 +25,6 @@ end
 using MadCore: LapackCUDASolver, CUDSSSolver
 export LapackCUDASolver, CUDSSSolver, CUDABackend
 
-include("options.jl")
 include("precompile.jl")
 
 end # module

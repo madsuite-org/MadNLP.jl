@@ -29,6 +29,5 @@ end
 using MadCore: SDSSolver
 export SDSSolver, MetalBackend
 
-include("options.jl")
 
 end # module

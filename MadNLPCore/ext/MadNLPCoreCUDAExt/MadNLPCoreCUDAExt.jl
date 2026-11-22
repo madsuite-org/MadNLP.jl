@@ -1,18 +1,20 @@
-# Option presets for models on NVIDIA GPUs: the linear solvers of the GPU option presets
-# (MadNLPCoreGPUExt), and cuDSS's options on the augmented system under each preset (on the
-# condensed system they follow the matrix: MadCore's CUDSS extension).
+module MadNLPCoreCUDAExt
 
-MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = CUDSSSolver
-MadCore.default_dense_solver(::MadCore.AbstractNLPModel{T, <:CuVector{T}}) where {T} = LapackCUDASolver
+# cuDSS's options on the augmented system under each option preset of MadNLPCore, for models on
+# NVIDIA GPUs (on the condensed system they follow the matrix: MadCore's CUDSS extension).
+
+import MadCore
+import MadNLPCore
+using CUDACore: CuVector
 
 # cuDSS under ShiftedPreset: LDLᵀ with small pivots bounded and with matching,
 # without which the solve of the indefinite augmented matrix has a backward error near 1e-5.
 # Matching depends on the values, so the analysis waits for the first matrix.
 function MadCore.default_options(
         ::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadNLPCore.SparseKKTSystem},
-        ::Type{CUDSSSolver},
+        ::Type{MadCore.CUDSSSolver},
     ) where {T, VT <: CuVector{T}}
-    opt = MadCore.default_options(CUDSSSolver)
+    opt = MadCore.default_options(MadCore.CUDSSSolver)
     opt.cudss_algorithm = MadCore.LDL
     opt.cudss_pivot_epsilon = Float64(MadNLPCore.preset_perturbation(T))
     opt.cudss_matching = true
@@ -26,9 +28,9 @@ end
 # off and every factorization re-pivots on the current values.
 function MadCore.default_options(
         ::MadNLPCore.AbstractNLPModel{T, VT}, ::Type{MadNLPCore.AugmentedPreset}, ::Type{MadNLPCore.SparseKKTSystem},
-        ::Type{CUDSSSolver},
+        ::Type{MadCore.CUDSSSolver},
     ) where {T, VT <: CuVector{T}}
-    opt = MadCore.default_options(CUDSSSolver)
+    opt = MadCore.default_options(MadCore.CUDSSSolver)
     opt.cudss_algorithm = MadCore.LDL
     opt.cudss_pivoting = true
     opt.cudss_pivot_type = 'B'
@@ -39,3 +41,5 @@ function MadCore.default_options(
     opt.cudss_reanalyze_on_improve = true
     return opt
 end
+
+end # module
