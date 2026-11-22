@@ -1,7 +1,7 @@
 module MadCoreCUDAExt
 
 import LinearAlgebra
-import SparseArrays: SparseMatrixCSC, nonzeros, nnz
+import SparseArrays: nonzeros, nnz
 import LinearAlgebra: Symmetric, mul!
 
 import MadCore

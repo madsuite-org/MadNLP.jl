@@ -1,17 +1,4 @@
 #=
-    SparseMatrixCSC to ROCSparseMatrixCSC
-=#
-
-function rocSPARSE.ROCSparseMatrixCSC{Tv, Ti}(A::SparseMatrixCSC{Tv, Ti}) where {Tv, Ti}
-    return rocSPARSE.ROCSparseMatrixCSC{Tv, Ti}(
-        ROCVector(A.colptr),
-        ROCVector(A.rowval),
-        ROCVector(A.nzval),
-        size(A),
-    )
-end
-
-#=
     MadCore._ger!
 =#
 
