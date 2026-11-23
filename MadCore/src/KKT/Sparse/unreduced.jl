@@ -54,7 +54,7 @@ function create_kkt_system(
     kkt_scaler::AbstractScaler=NoScaler(),
     primal_shift=0.0,
     dual_shift=0.0,
-    kkt_ordering::AbstractOrdering=DefaultOrdering(),
+        kkt_ordering::AbstractOrdering = DefaultOrdering(),
 ) where {T, VT}
     ind_ineq = cb.ind_ineq
     ind_lb = cb.ind_lb
