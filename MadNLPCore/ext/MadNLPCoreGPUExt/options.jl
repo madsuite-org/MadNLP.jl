@@ -14,14 +14,7 @@ function MadNLPCore.MadNLPOptions{T}(
         linear_solver = dense_callback ? MadNLPCore.default_dense_solver(nlp) : MadNLPCore.default_sparse_solver(nlp),
         tol = MadNLPCore.get_tolerance(T, kkt_system),
     ) where {T, VT <: AbstractGPUVector{T}}
-    return MadNLPCore.MadNLPOptions{T}(;
-        tol = tol,
-        callback = callback,
-        kkt_system = kkt_system,
-        linear_solver = linear_solver,
-        preset = preset,
-        MadNLPCore.preset_options(preset, T, kkt_system, tol)...,
-    )
+    return MadNLPCore.options_with_preset(T, preset, tol, callback, kkt_system, linear_solver)
 end
 
 # SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset: LDLᵀ with diagonal pivoting
