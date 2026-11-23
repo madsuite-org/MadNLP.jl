@@ -1,0 +1,32 @@
+name = "MadNLPApp"
+uuid = "7d1c5b9e-3a42-4f0e-8c61-2b9d4e7a1f53"
+version = "0.1.0"
+
+[deps]
+AmplNLReader = "77dd3d4c-cb1d-5e09-9340-85030ff7ba66"
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+
+[sources]
+MadCore = {path = "../MadCore"}
+MadNLP = {path = "../MadNLP"}
+MadNLPCore = {path = "../MadNLPCore"}
+
+[compat]
+AmplNLReader = "0.11, 0.12"
+MadCore = "=0.12.0"
+MadNLP = "=0.12.0"
+MadNLPCore = "=0.12.0"
+NLPModels = "0.21.9"
+julia = "1.12"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]

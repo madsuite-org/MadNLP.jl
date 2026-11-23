@@ -1,0 +1,10 @@
+[deps]
+JuliaC = "acedd4c2-ced6-4a15-accc-2607eb759ba2"
+MadNLPApp = "7d1c5b9e-3a42-4f0e-8c61-2b9d4e7a1f53"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[sources]
+MadNLPApp = {path = ".."}
+
+[compat]
+JuliaC = "0.3"

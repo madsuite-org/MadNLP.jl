@@ -1,0 +1,5 @@
+precompile(Tuple{Type{Array{Float64, 1}}, Array{Float64, 1}})
+precompile(Tuple{Type{Array{Float64, 1}}, UndefInitializer, Int64})
+precompile(Tuple{typeof(Base.Broadcast.broadcasted), typeof(Base.:(*)), Float64, Array{Float64, 1}})
+precompile(Tuple{typeof(Base.pointer), Array{Float64, 1}})
+precompile(Tuple{typeof(MadCore.introduce), MadCoreMUMPSExt.MumpsState{Float64}})
