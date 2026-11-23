@@ -459,7 +459,10 @@ function check_option_sanity(options)
     end
 end
 
-function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
+load_options(nlp::AbstractNLPModel; options...) = load_options(nlp, Dict{Symbol, Any}(options))
+
+# The options as a Dict: compiled once, not for every set of keyword names and value types.
+function load_options(nlp::AbstractNLPModel{T,VT}, options::Dict{Symbol, Any}) where {T, VT}
 
     primary_opt, options = _get_primary_options(options)
     dense_row_fallback = pop!(primary_opt, :dense_row_fallback, true)
