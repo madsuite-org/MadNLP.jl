@@ -228,6 +228,17 @@ end
     @test a.obj_val ≈ b.obj_val
 end
 
+@testset "bound_mult_init_val" begin
+    nlp = MadNLPTests.HS15Model()
+    solver = MadNLP.MadNLPSolver(nlp; print_level=MadNLP.ERROR, bound_mult_init_val=1e-4)
+    MadNLP.initialize!(solver)
+    @test all(==(1e-4), MadNLP.get_zl_r(solver))
+    @test all(==(1e-4), MadNLP.get_zu_r(solver))
+    solver = MadNLP.MadNLPSolver(nlp; print_level=MadNLP.ERROR, bound_mult_init_val=1e-4)
+    MadNLP.solve!(solver)
+    @test solver.status == MadNLP.SOLVE_SUCCEEDED
+end
+
 @testset "MadNLP scaling" begin
     MadNLPTests.test_scaling()
 end
