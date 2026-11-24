@@ -125,7 +125,7 @@ end
 # The solver for loaded options. Separate from the keyword constructor so that it is
 # compiled once per model and option types, not again for every set of keyword names and
 # value types a caller passes.
-function build_solver(nlp::AbstractNLPModel{T,VT}, options::NamedTuple) where {T, VT}
+function build_solver(nlp::AbstractNLPModel{T, VT}, options::NamedTuple) where {T, VT}
 
     ipm_opt = options.interior_point
     logger = options.logger
