@@ -1,6 +1,9 @@
 # Build libmadnlp and the madnlp executable into one bundle:
 #
-#   julia --project=MadNLPApp/build MadNLPApp/build/build.jl OUT [trim]
+#   julia --project=MadNLPApp/build MadNLPApp/build/build.jl OUT [trim] [cuda]
+#
+# With `cuda`, the build environment is build/cuda (MadNLPApp with cuMadNLP and CUDACore), so
+# the library also exports cnlp_solve_device (MadNLP on a CUDA GPU, ext/MadNLPAppCUDAExt.jl).
 #
 #   OUT/madnlp/lib/libmadnlp.so       madnlp_solve, cnlp_solve, madnlp_main (+ a private Julia runtime)
 #   OUT/madnlp/bin/madnlp             the AMPL .nl solver, a launcher for madnlp_main
@@ -12,14 +15,18 @@ using JuliaC, Random
 
 out = abspath(ARGS[1])
 trim = length(ARGS) >= 2 ? ARGS[2] : "no"
+device = length(ARGS) >= 3 ? ARGS[3] : ""
+device in ("", "cuda") || error("device is cuda or nothing, not $device")
 app = dirname(@__DIR__)
+project = device == "cuda" ? joinpath(@__DIR__, "cuda") : app
+ENV["MADNLPAPP_DEVICE"] = device
 dest = joinpath(out, "madnlp")
 rm(dest; recursive = true, force = true); mkpath(dest)
 
 # the CPUs the binary runs on: any x86-64, with code cloned for the common extensions
 cpu = get(ENV, "JULIA_CPU_TARGET", "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)")
 img = JuliaC.ImageRecipe(
-    file = joinpath(@__DIR__, "libmadnlp.jl"), project = app, cpu_target = cpu, output_type = "--output-lib", add_ccallables = true,
+    file = joinpath(@__DIR__, "libmadnlp.jl"), project = project, cpu_target = cpu, output_type = "--output-lib", add_ccallables = true,
     trim_mode = trim, julia_args = ["--experimental"], verbose = true
 )
 t = @elapsed JuliaC.compile_products(img)

@@ -2,6 +2,10 @@
 # solve path, plus the method instances that traced runs of a built library still compiled
 # (precompile_statements.jl, collected with MADNLPAPP_TRACE=1; see check.sh).
 using MadNLPApp
+# the CUDA build (build.jl ... cuda): loading these loads MadNLPAppCUDAExt, cnlp_solve_device
+if get(ENV, "MADNLPAPP_DEVICE", "") == "cuda"
+    using CUDACore, cuMadNLP
+end
 
 module PrecompileStatements
     for (id, m) in Base.loaded_modules

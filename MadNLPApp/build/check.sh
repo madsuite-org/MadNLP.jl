@@ -8,7 +8,8 @@
 # each with stdout to a file, a pipe and a terminal. Writes OUT/compiled.tsv (one row per
 # run, written as it finishes: case, stdout, status, Julia compile ms) and
 # OUT/precompile_statements.jl (the methods that were compiled, for build/libmadnlp.jl).
-# Exits 1 when any run compiled something.
+# Exits 1 when any run compiled something. CHECK_DEVICE=cuda runs the models through
+# cnlp_solve_device (a CUDA build, models with a CUDA tier).
 B=$1; RUNS=$2; NL=$3; OUT=$4
 S=${CNLP_SOLVE:-$HOME/.cnlplib/bin/cnlp-solve}
 mkdir -p "$OUT"; T="$OUT/compiled.tsv"; P="$OUT/trace.txt"
@@ -29,7 +30,7 @@ run3() {  # case cmd...
 export MADNLPAPP_TRACE=1
 while read -r lib model args; do
     case "$lib" in ''|'#'*) continue ;; esac
-    run3 "$(basename "$lib" .so):$model $args" "$S" "$lib:$model" $args --solver "$B/lib/libmadnlp.so"
+    run3 "$(basename "$lib" .so):$model $args" "$S" "$lib:$model" $args --solver "$B/lib/libmadnlp.so" ${CHECK_DEVICE:+--device $CHECK_DEVICE}
 done < "$RUNS"
 d=$(mktemp -d); cp "$NL" "$d/"; stub="$d/$(basename "$NL" .nl)"
 run3 "$(basename "$NL")" "$B/bin/madnlp" "$stub" -AMPL

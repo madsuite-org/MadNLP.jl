@@ -9,13 +9,19 @@ using CNLPLib: CNLPLib, CNLPProblem, CNLPResult, ProblemModel
 # MadNLP's level names (INFO, ERROR, ...) or 1-6, and 0 for quiet; a value naming one of
 # MadNLP's types (linear_solver=LapackCPUSolver) is that type; otherwise integers, numbers
 # and booleans are read as such. `sb` (Ipopt's banner switch) is accepted and ignored.
+# where option values naming types (linear_solver=...) are looked up; a device extension
+# adds its solver package (cuMadNLP: CUDSSSolver, ...)
+const OPTION_MODULES = Module[MadNLP]
+
 function parse_value(key::Symbol, v::String)
     if key === :print_level || key === :file_print_level
         n = tryparse(Int, v)
         n === nothing && return getfield(MadCore, Symbol(uppercase(v)))::MadCore.LogLevels
         return n == 0 ? MadCore.ERROR : MadCore.LogLevels(n)
     end
-    isdefined(MadNLP, Symbol(v)) && (t = getfield(MadNLP, Symbol(v)); t isa Type) && return t
+    for mod in OPTION_MODULES
+        isdefined(mod, Symbol(v)) && (t = getfield(mod, Symbol(v)); t isa Type) && return t
+    end
     v == "true" && return true
     v == "false" && return false
     n = tryparse(Int, v); n === nothing || return n
@@ -82,21 +88,24 @@ function report_compiled(ns)
     return nothing
 end
 
-function c_solve(
-        problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}},
-        result::Ptr{CNLPResult}
-    )::Int64
+"""
+    c_solve(model, nopt, keys, vals, result)
+
+Solve for a C caller: `model()` builds the model (from the problem's host callbacks, or
+with its device callbacks), options come as C strings, the outcome goes to `result`.
+Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
+"""
+function c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult})::Int64
     trace = trace_on()
     ct0 = trace ? compile_ns() : UInt64(0)
-    rc = _c_solve(problem, nopt, keys, vals, result)
+    rc = _c_solve(model, nopt, keys, vals, result)
     trace ? report_compiled(compile_ns() - ct0) : (flush(stdout); flush(stderr))
     return rc
 end
+c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
+    c_solve(() -> ProblemModel(problem), nopt, keys, vals, result)
 
-function _c_solve(
-        problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}},
-        result::Ptr{CNLPResult}
-    )::Int64
+function _c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult})::Int64
     kw = try
         options(CNLPLib.solver_options(nopt, keys, vals))
     catch e
@@ -104,7 +113,7 @@ function _c_solve(
         return 1
     end
     try
-        m = ProblemModel(problem)
+        m = model()
         s = run_madnlp(m, kw)
         CNLPLib.set_result!(
             result, m, s.solution, s.multipliers, s.multipliers_L, s.multipliers_U,

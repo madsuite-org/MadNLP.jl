@@ -1,0 +1,18 @@
+# The environment of the CUDA build (build.jl OUT no cuda): MadNLPApp with cuMadNLP and
+# CUDACore, which loads MadNLPAppCUDAExt (cnlp_solve_device).
+[deps]
+CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
+CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
+MadNLPApp = "7d1c5b9e-3a42-4f0e-8c61-2b9d4e7a1f53"
+MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
+cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
+
+[sources]
+CNLPLib = {url = "https://github.com/madsuite-org/CNLPLib.jl", rev = "solver-device"}
+MadCore = {path = "../../../MadCore"}
+MadNLP = {path = "../../../MadNLP"}
+MadNLPApp = {path = "../.."}
+MadNLPCore = {path = "../../../MadNLPCore"}
+cuMadNLP = {path = "../../../cuMadNLP"}
