@@ -78,4 +78,35 @@ using Test, MadCore, SparseArrays, LinearAlgebra
             @test !Base.ispublic(MadCore, :defined_names)
         end
     end
+
+    @testset "cuDSS orderings" begin
+        # Lower triangle of a symmetric 3x3 matrix.
+        A = sparse([1, 2, 3, 3], [1, 1, 2, 3], [2.0, 1.0, 1.0, 3.0], 3, 3)
+        @test MadCore.ordering_permutation(Val(MadCore.DEFAULT_ORDERING), A, Int[]) === nothing
+        @test MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, [2, 1, 3]) == [2, 1, 3]
+        @test_throws ArgumentError MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, Int[])
+        @test_throws ArgumentError MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, [1, 1, 2])
+        # Without Metis and AMD loaded, the error names the package to load.
+        function msg(o)
+            err = try
+                MadCore.ordering_permutation(Val(o), A, Int[])
+            catch e
+                e
+            end
+            return sprint(showerror, err)
+        end
+        if Base.get_extension(MadCore, :MadCoreMetisExt) === nothing
+            @test occursin("Load Metis", msg(MadCore.METIS_ORDERING))
+        end
+        if Base.get_extension(MadCore, :MadCoreAMDExt) === nothing
+            for o in (MadCore.AMD_ORDERING, MadCore.SYMAMD_ORDERING, MadCore.COLAMD_ORDERING)
+                @test occursin("Load AMD", msg(o))
+            end
+        end
+        @eval using AMD, Metis
+        for o in (MadCore.METIS_ORDERING, MadCore.AMD_ORDERING, MadCore.SYMAMD_ORDERING, MadCore.COLAMD_ORDERING)
+            p = Base.invokelatest(MadCore.ordering_permutation, Val(o), A, Int[])
+            @test length(p) == size(A, 1) && isperm(p)
+        end
+    end
 end

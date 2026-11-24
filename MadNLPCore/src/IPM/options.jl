@@ -34,8 +34,8 @@ mu_decrease_max = 10, mu_min = 1e-3 tol)`) and slack reset. On the host the fact
 Julia's GPL libraries), on an NVIDIA GPU cuDSS's; GMRES needs the Krylov package, without which a
 solve is refined by Richardson iterations. The options beyond the linear solver apply to
 `SparseKKTSystem` only. On AMD, Intel and Apple GPUs the factorization is SparseDirectSolver.jl's
-static LDLᵀ after matching, with the same pivot bound and two steps of iterative refinement in
-the solver.
+LDLᵀ with diagonal pivoting inside each front, after matching, with the same pivot bound and two
+steps of iterative refinement in the solver.
 """
 struct ShiftedPreset <: AbstractPreset end
 
@@ -50,21 +50,24 @@ struct AugmentedPreset <: AbstractPreset end
 """
     CondensedPreset
 
-The condensed KKT system (`SparseCondensedKKTSystem`): the equality constraints relaxed as pairs
-of inequalities and the bounds relaxed, with zero initial multipliers, factorized by the same
-pivot-bounded LDLᵀ as `ShiftedPreset` (dense rows may be left uncondensed, which keeps the system
-indefinite), with the monotone barrier rule.
+The condensed KKT system (`SparseCondensedKKTSystem`) with the equality constraints enforced and
+condensed through a dual shift δ (`equality_shift`, 1e-8 in `Float64`): the multiplier of an
+equality row is eliminated with the weight 1 / (δ - Σd), so the condensed matrix is positive
+definite and is factorized by Cholesky (cuDSS on an NVIDIA GPU, SparseDirectSolver.jl on AMD, Intel and Apple
+GPUs, CHOLMOD on the host) without
+pivoting, after Ruiz equilibration (`kkt_scaler = RuizScaler()`), with the quality-function barrier
+rule of [`ShiftedPreset`](@ref) and Richardson refinement on the unshifted system. When the factorization reports a wrong inertia, it is retried
+with a larger shift before the Hessian is perturbed (`equality_shift_retry`). A model whose
+condensed matrix would be dense or far larger than the augmented one (a Jacobian row with more than
+`dense_row_abs` nonzeros and more than `dense_row_rel` times the number of variables, or rows whose
+squared nonzero counts add up to more than `dense_fill_rel` times the size of the augmented matrix)
+is solved with [`ShiftedPreset`](@ref) instead; `dense_row_fallback = false` keeps this preset.
 """
 struct CondensedPreset <: AbstractPreset end
 
 # The KKT system of a sparse model under a preset, when `kkt_system` is not given.
 preset_kkt_system(::Type{<:AbstractPreset}) = SparseKKTSystem
 preset_kkt_system(::Type{CondensedPreset}) = SparseCondensedKKTSystem
-
-# The presets whose sparse KKT systems are factorized LDLᵀ with small pivots bounded: the condensed
-# system can keep dense rows uncondensed, which leaves it indefinite.
-const PivotBoundedPreset = Union{ShiftedPreset, CondensedPreset}
-const SparsePresetKKTSystem = Union{SparseKKTSystem, SparseCondensedKKTSystem}
 
 # The host default; the GPU option preset (MadNLPCoreGPUExt) makes it ShiftedPreset on GPU models.
 default_preset(nlp) = AugmentedPreset
@@ -81,22 +84,57 @@ const SHIFTED_MU_MIN_RATIO = 1.0e-3
 """
     preset_perturbation(T)
 
-The dual shift of [`ShiftedPreset`](@ref) and the pivot bound of its LDLᵀ factorization, and of
-[`CondensedPreset`](@ref)'s, in precision `T`: 1e-10 in `Float64`. In another precision it is
-scaled by `(eps(T) / eps(Float64))^(5/8)`, which keeps it at about the same place, on a logarithmic
-scale, between the unit roundoff and 1 (about 3e-5 in `Float32`).
+The dual shift of [`ShiftedPreset`](@ref) and the pivot bound of its LDLᵀ factorization, in
+precision `T`: 1e-10 in `Float64`; the equality shift of [`CondensedPreset`](@ref) is 100 times
+it. In another precision it is scaled by `(eps(T) / eps(Float64))^(5/8)`, which keeps it at about
+the same place, on a logarithmic scale, between the unit roundoff and 1 (about 3e-5 in `Float32`).
 """
 preset_perturbation(::Type{T}) where {T} =
     T(1.0e-10 * exp2(5 * (exponent(eps(T)) - exponent(eps(Float64))) / 8))
 
-# The options of a preset beyond the KKT system and the linear solver.
+# The rule of CondensedPreset's fallback to ShiftedPreset (load_options). The condensed matrix holds
+# the outer product of every Jacobian row, so a row with more than dense_row_abs nonzeros and more
+# than dense_row_rel times the number of variables turns it dense, and rows whose squared nonzero
+# counts add up to more than dense_fill_rel times the size of the augmented matrix (nnz(H) + nnz(J)
+# + n) make it far larger than the system it replaces (YATP1CNE: 350 nonzeros per row over 123,200
+# rows, a factor CHOLMOD refuses; the A2N family: 37 million nonzeros, 25 s per factorization).
+# TODO: both rules are stopgaps for how Jᵀ D J is formed and factorized; a better formation of the
+# condensed matrix may make them unnecessary (Sungho, 2026-11-16).
+function has_dense_rows(nlp, dense_row_abs, dense_row_rel, dense_fill_rel)
+    m = MadCore.get_ncon(nlp)
+    n = MadCore.get_nvar(nlp)
+    m == 0 && return false
+    I = similar(MadCore.get_x0(nlp), Int, MadCore.get_nnzj(nlp))
+    J = similar(I)
+    MadCore.jac_structure!(nlp, I, J)
+    cnt = zeros(Int, m)
+    for r in Array(I)
+        cnt[r] += 1
+    end
+    any(c -> c > dense_row_abs && c > dense_row_rel * n, cnt) && return true
+    fill = sum(c -> c * c, cnt)
+    return fill > dense_fill_rel * (MadCore.get_nnzh(nlp) + MadCore.get_nnzj(nlp) + n)
+end
+
+# The options of a preset beyond the KKT system and the linear solver. ShiftedPreset and
+# CondensedPreset share the quality-function barrier rule and Ruiz equilibration of the factorized
+# matrix; each adds what its KKT system needs.
 preset_options(::Type{<:AbstractPreset}, ::Type{T}, kkt_system, tol) where {T} = (;)
+shared_preset_options(::Type{T}, tol) where {T} = (;
+    barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
+    kkt_scaler = RuizScaler(),
+)
+function preset_options(::Type{CondensedPreset}, ::Type{T}, kkt_system, tol) where {T}
+    kkt_system == SparseCondensedKKTSystem || return (;)
+    return (;
+        shared_preset_options(T, tol)...,
+        equality_treatment = EnforceEquality, fixed_variable_treatment = MakeParameter,
+        dual_initialization_method = DualInitializeLeastSquares,
+    )
+end
 function preset_options(::Type{ShiftedPreset}, ::Type{T}, kkt_system, tol) where {T}
     kkt_system == SparseKKTSystem || return (;)
-    shifted = (;
-        barrier = QualityFunctionUpdate{T}(sigma_max = T(SHIFTED_SIGMA_MAX), mu_decrease_max = T(SHIFTED_MU_DECREASE_MAX), mu_min = T(SHIFTED_MU_MIN_RATIO) * tol),
-        slack_reset = true, kkt_scaler = RuizScaler(), dual_shift = preset_perturbation(T),
-    )
+    shifted = (; shared_preset_options(T, tol)..., slack_reset = true, dual_shift = preset_perturbation(T))
     # GMRES refinement where the Krylov package is loaded (MadNLP loads it)
     return Base.get_extension(MadCore, :MadCoreKrylovExt) === nothing ? shifted : merge(shifted, (; iterator = KrylovIterator))
 end
@@ -105,10 +143,12 @@ end
     default_options(nlp, preset, kkt_system, linear_solver)
 
 The options of `linear_solver` for the KKT system `kkt_system` of `nlp` under `preset`, which
-`load_options` reads. Falls back to `default_options(nlp, kkt_system, linear_solver)`. Packages
-specialize it per preset; the pivot-bounded LDLᵀ of `ShiftedPreset` and `CondensedPreset`
-dispatches on `PivotBoundedPreset` and `SparsePresetKKTSystem` (MadNLP for CHOLMOD, cuMadNLP for
-cuDSS, the GPU extension of MadNLPCore for SparseDirectSolver.jl).
+`load_options` reads. Falls back to `default_options(nlp, kkt_system, linear_solver)`, where the
+options follow the matrix: the condensed system (`SparseCondensedKKTSystem`) is positive definite and
+factorized by Cholesky under any preset. Packages specialize it per preset only where the preset
+changes the factorization of the same matrix: the pivot-bounded LDLᵀ of `ShiftedPreset` and the
+pivoting LDLᵀ of `AugmentedPreset` on the augmented system (MadNLP for CHOLMOD, cuMadNLP for cuDSS,
+the GPU extension of MadNLPCore for SparseDirectSolver.jl).
 """
 default_options(nlp::AbstractNLPModel, ::Type{<:AbstractPreset}, kkt_system, linear_solver) =
     default_options(nlp, kkt_system, linear_solver)
@@ -125,6 +165,7 @@ callback                       | [`SparseCallback`](@ref) | type of callback (`S
 kkt\\_system                   | [`SparseKKTSystem`](@ref) | type of primal-dual KKT system
 linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
 preset                         | [`AugmentedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`): `AugmentedPreset`, `ShiftedPreset` (the default on a GPU) or `CondensedPreset`; options given explicitly take precedence
+dense\\_row\\_fallback           | `true`               | under `CondensedPreset`, solve a model whose condensed matrix would be dense or far larger than the augmented one (`dense_row_abs`, `dense_row_rel`, `dense_fill_rel`) with `ShiftedPreset`
 ||
 __General options__||
 ||
@@ -134,9 +175,23 @@ blas\\_num\\_threads           | 1                    | number of threads to use
 iterator                       | `RichardsonIterator` | iterative refinement method used to solve the KKT system; `KrylovIterator` under `ShiftedPreset` where Krylov is loaded
 intermediate\\_callback        | `NoUserCallback()`   | intermediate callback called at each IPM iteration
 kkt\\_options                  | `Dict{Symbol,Any}()` | additional options passed to `create_kkt_system`
-kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset`
+kkt\\_scaler                   | `NoScaler()`         | scaling of the matrix factorized by a sparse KKT system (an `AbstractScaler`); `RuizScaler()` under `ShiftedPreset` and `CondensedPreset`
 primal\\_shift                 | 0.0                  | shift added to the primal diagonal of the matrix factorized by a sparse KKT system
 dual\\_shift                   | 0.0                  | shift subtracted from the dual diagonal of the matrix factorized by a sparse KKT system; `preset_perturbation(T)` (1e-10 in `Float64`) under `ShiftedPreset`
+equality\\_shift               | 1e-8                 | shift δ of the equality rows condensed by `SparseCondensedKKTSystem` (weight 1 / (δ - Σd)); 100 `preset_perturbation(T)` (1e-8 in `Float64`)
+equality\\_shift\\_retry         | `true`               | on a wrong inertia, retry the condensed factorization with a hundredfold larger equality shift (at most twice) before the Hessian is perturbed
+equality\\_shift\\_retry\\_on\\_refinement | `false` | also retry when the refinement fails on a factorization of the right inertia
+equality\\_shift\\_max           | 1e-4                 | the largest equality shift a retry may reach; 1e6 `preset_perturbation(T)` (1e-4 in `Float64`), so that it scales with the shift in another precision
+equality\\_shift\\_retry\\_factor | 100.0              | a retry multiplies the equality shift by this factor
+equality\\_shift\\_retry\\_count  | 2                  | retries per step
+equality\\_shift\\_retry\\_refinement | 3              | a retried factorization gets this many times the refinement steps
+equality\\_shift\\_retry\\_backoff | 64                | after consecutive steps whose retries failed, no retry for 2, 4, 8, ... iterations, at most this many
+equality\\_shift\\_watchdog\\_window | 20               | every this many iterations, the watchdog checks that the primal infeasibility, when above the tolerance and retries were used, fell below `equality_shift_watchdog_ratio` times its value at the start of the window
+equality\\_shift\\_watchdog\\_hold | 100               | iterations without a retry after the watchdog fires
+equality\\_shift\\_watchdog\\_ratio | 0.5               | see `equality_shift_watchdog_window`
+dense\\_row\\_abs                | 512                  | a Jacobian row with more than this many nonzeros and more than `dense_row_rel` times the number of variables is dense: `CondensedPreset` solves the model with `ShiftedPreset` instead (`dense_row_fallback`)
+dense\\_row\\_rel                | 0.1                  | see `dense_row_abs`
+dense\\_fill\\_rel               | 20                   | when the squared nonzero counts of the Jacobian rows add up to more than this many times the size of the augmented matrix (nnz(H) + nnz(J) + n), the condensed matrix is far larger than it: `CondensedPreset` solves the model with `ShiftedPreset` instead
 __Output options__||
 ||
 output\\_file                  | `""`                 | if not `""`, the output log is teed to the file at this path
@@ -172,6 +227,7 @@ __Initialization__||
 dual\\_initialized             | false                | specify if dual initial point is available
 dual\\_initialization\\_method | DualInitializeLeastSquares | method to compute the initial dual multipliers
 constr\\_mult\\_init\\_max     | 1e3                  | maximum allowable value in initial dual multipliers
+bound\\_mult\\_init\\_val     | 1.0                  | initial value of the bound multipliers zl, zu
 bound\\_push                   | 1e-2                 | minimum absolute distance from the initial point to bound
 bound\\_fac                    | 1e-2                 | minimum relative distance from the initial point to bound
 nlp\\_scaling                  | true                 | scale nonlinear program
@@ -270,11 +326,42 @@ tau\\_min                      | 0.99                 | lower bound on fraction-
     kkt_scaler::AbstractScaler = NoScaler()
     primal_shift::T = 0.
     dual_shift::T = 0.
+    # the shift δ of the equality rows that SparseCondensedKKTSystem condenses (weight 1 / (δ - Σd)):
+    # 100 preset_perturbation(T), 1e-8 in Float64
+    equality_shift::T = 100 * preset_perturbation(T)
+    # wrong inertia: retry the condensed factorization with a hundredfold larger equality shift before
+    # the Hessian is perturbed (SparseCondensedKKTSystem)
+    equality_shift_retry::Bool = true
+    # the retry also follows a failed refinement on a factorization of the right inertia (true), or a
+    # factorization of the wrong inertia only (false)
+    equality_shift_retry_on_refinement::Bool = false
+    # a retry multiplies the shift by this factor, at most this many times per step, up to this shift
+    equality_shift_retry_factor::T = 100.
+    equality_shift_retry_count::Int = 2
+    # 1e6 preset_perturbation(T), 1e-4 in Float64: it scales with the shift in another precision
+    equality_shift_max::T = 1.0e6 * preset_perturbation(T)
+    # a retried factorization gets this many times the refinement steps
+    equality_shift_retry_refinement::Int = 3
+    # after consecutive steps whose retries failed, no retry for 2, 4, 8, ... iterations, at most this many
+    equality_shift_retry_backoff::Int = 64
+    # every `window` iterations, if retries were used and the primal infeasibility is above the tolerance
+    # and not below `ratio` times its value at the start of the window, no retry for `hold` iterations
+    equality_shift_watchdog_window::Int = 20
+    equality_shift_watchdog_hold::Int = 100
+    equality_shift_watchdog_ratio::T = 0.5
+    # a Jacobian row with more than dense_row_abs nonzeros and more than dense_row_rel times the number of
+    # variables turns the condensed matrix dense, and rows whose squared nonzero counts add up to more
+    # than dense_fill_rel times the size of the augmented matrix make it far larger than that matrix:
+    # CondensedPreset solves the model with ShiftedPreset instead (the primary option dense_row_fallback)
+    dense_row_abs::Int = 512
+    dense_row_rel::T = 0.1
+    dense_fill_rel::T = 20.0
 
     # initialization options
     dual_initialized::Bool = false
     dual_initialization_method::Type = kkt_system <: SparseCondensedKKTSystem ? DualInitializeSetZero : DualInitializeLeastSquares
     constr_mult_init_max::T = 1e3
+    bound_mult_init_val::T = 1.0
     bound_push::T = 1e-2
     bound_fac::T = 1e-2
     nlp_scaling::Bool = true
@@ -337,17 +424,23 @@ function MadNLPOptions{T}(
     callback = dense_callback ? DenseCallback : SparseCallback,
     kkt_system = dense_callback ? DenseCondensedKKTSystem : preset_kkt_system(preset),
     linear_solver = dense_callback ? default_dense_solver(nlp) :
-        preset <: PivotBoundedPreset && kkt_system <: SparsePresetKKTSystem ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
+        preset <: Union{ShiftedPreset, CondensedPreset} && kkt_system <: Union{SparseKKTSystem, SparseCondensedKKTSystem} ? shifted_sparse_solver(nlp) : default_sparse_solver(nlp),
     tol = get_tolerance(T,kkt_system)
 ) where {T}
-    return MadNLPOptions{T}(;
-        tol = tol,
-        callback = callback,
-        kkt_system = kkt_system,
-        linear_solver = linear_solver,
-        preset = preset,
-        preset_options(preset, T, kkt_system, tol)...,
-    )
+    return options_with_preset(T, preset, tol, callback, kkt_system, linear_solver)
+end
+
+# The options of `preset`, with the given tolerance, callback, KKT system and linear solver.
+# The preset's options are set on the result rather than splatted into the keyword call: their
+# names depend on run-time values (the preset, the KKT system, whether Krylov is loaded), and a
+# keyword merge whose names are not known at compile time compiles on every call. No default of
+# `MadNLPOptions` reads a field that a preset sets.
+function options_with_preset(::Type{T}, preset, tol, callback, kkt_system, linear_solver) where {T}
+    opt = MadNLPOptions{T}(; tol, callback, kkt_system, linear_solver, preset)
+    for (k, v) in pairs(preset_options(preset, T, kkt_system, tol))
+        setfield!(opt, k, convert(fieldtype(typeof(opt), k), v))
+    end
+    return opt
 end
 
 function check_option_sanity(options)
@@ -366,13 +459,25 @@ function check_option_sanity(options)
     end
 end
 
-function load_options(nlp::AbstractNLPModel{T,VT}; options...) where {T, VT}
+load_options(nlp::AbstractNLPModel; options...) = load_options(nlp, Dict{Symbol, Any}(options))
+
+# The options as a Dict: compiled once, not for every set of keyword names and value types.
+function load_options(nlp::AbstractNLPModel{T,VT}, options::Dict{Symbol, Any}) where {T, VT}
 
     primary_opt, options = _get_primary_options(options)
+    dense_row_fallback = pop!(primary_opt, :dense_row_fallback, true)
 
     # Initiate interior-point options
     opt_ipm = MadNLPOptions{T}(nlp; primary_opt...)
     linear_solver_options = set_options!(opt_ipm, options)
+    # CondensedPreset falls back to ShiftedPreset on a model whose condensed matrix would be dense or
+    # far larger than the augmented one: the options are rebuilt under that preset
+    if dense_row_fallback && opt_ipm.preset === CondensedPreset &&
+            has_dense_rows(nlp, opt_ipm.dense_row_abs, opt_ipm.dense_row_rel, opt_ipm.dense_fill_rel)
+        primary_opt[:preset] = ShiftedPreset
+        opt_ipm = MadNLPOptions{T}(nlp; primary_opt...)
+        linear_solver_options = set_options!(opt_ipm, options)
+    end
 
     check_option_sanity(opt_ipm)
     # Initiate linear-solver options
@@ -412,5 +517,14 @@ function factorization_options(opt)
     opt.kkt_scaler isa NoScaler || (kw = merge(kw, (; kkt_scaler = opt.kkt_scaler)))
     iszero(opt.primal_shift) || (kw = merge(kw, (; primal_shift = opt.primal_shift)))
     iszero(opt.dual_shift) || (kw = merge(kw, (; dual_shift = opt.dual_shift)))
-    return kw
+    # the equality-shift options belong to SparseCondensedKKTSystem; another KKT system (the dense-row
+    # fallback to ShiftedPreset) does not take them
+    opt.kkt_system <: SparseCondensedKKTSystem || return kw
+    return merge(kw, (;
+        equality_shift = Float64(opt.equality_shift), equality_shift_retry = opt.equality_shift_retry,
+        equality_shift_retry_factor = Float64(opt.equality_shift_retry_factor), equality_shift_retry_count = opt.equality_shift_retry_count,
+        equality_shift_max = Float64(opt.equality_shift_max), equality_shift_retry_backoff = opt.equality_shift_retry_backoff,
+        equality_shift_watchdog_window = opt.equality_shift_watchdog_window, equality_shift_watchdog_hold = opt.equality_shift_watchdog_hold,
+        equality_shift_watchdog_ratio = Float64(opt.equality_shift_watchdog_ratio),
+    ))
 end

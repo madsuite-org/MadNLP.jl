@@ -3,6 +3,9 @@
 parse_option(::Type{Module},str::String) = eval(Symbol(str))
 parse_option(::Type{<:AbstractUserCallback}, f::Any) = f
 parse_option(type::Type{T},i::Int64) where {T<:Enum} = type(i)
+# A real option takes the type of its field, e.g. `bound_relax_factor = 0.0` for a solver in
+# `Float32` or in `ForwardDiff.Dual`.
+parse_option(::Type{T}, x::Real) where {T<:Real} = convert(T, x)
 
 function set_options!(opt::AbstractOptions, options)
     other_options = Dict{Symbol, Any}()
@@ -52,7 +55,7 @@ function _get_primary_options(options)
     primary_opt = Dict{Symbol,Any}()
     remaining_opt = Dict{Symbol,Any}()
     for (k,v) in options
-        if k in [:tol, :linear_solver, :callback, :kkt_system, :preset]
+        if k in [:tol, :linear_solver, :callback, :kkt_system, :preset, :dense_row_fallback]
             primary_opt[k] = v
         else
             remaining_opt[k] = v

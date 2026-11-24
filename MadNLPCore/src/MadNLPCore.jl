@@ -11,7 +11,7 @@ end
 import NLPModels
 import Base: @kwdef, copyto!, finalize, string
 import LinearAlgebra: axpy!, dot, mul!, norm
-import MadCore: @warn, AbstractDenseKKTSystem, AbstractIterator, AbstractUserCallback, BFGS,
+import MadCore: @phase_region, @timed_region, @warn, AbstractDenseKKTSystem, AbstractIterator, AbstractUserCallback, BFGS,
     DampedBFGS, DenseCallback, DenseCondensedKKTSystem, DenseKKTSystem,
     LINESEARCH_SUCCEEDED, ModelBarrier, NoUserCallback, RESTORE, ROBUST, RichardsonIterator,
     UserCallbackRegular, UserCallbackRestore, UserCallbackRobust, _get_primary_options,
@@ -20,7 +20,7 @@ import MadCore: @warn, AbstractDenseKKTSystem, AbstractIterator, AbstractUserCal
     get_inf_barrier, get_inf_pr_orig, get_inf_total, get_min_complementarity, get_sc,
     get_sd, get_tolerance, has_constraints, is_dense_callback, is_valid, mul_hess_blk!,
     parse_option, print_init, reset_bound_dual!, set_aug_rhs!, set_blas_num_threads,
-    set_initial_rhs!, timer_flush!
+    set_initial_rhs!, timer_flush!, _now, _reset_regions!, attach_counters!, inertia_retry!
 import NLPModels: AbstractNLPModel, get_x0, obj
 import Printf: @sprintf
 

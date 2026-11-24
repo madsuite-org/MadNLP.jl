@@ -28,8 +28,8 @@ On Apple GPUs, install mtlMadNLP the same way:
 ```julia
 pkg> add https://github.com/madsuite-org/MadNLP.jl:mtlMadNLP
 ```
-Metal has no `Float64`, so models must use `Float32`, and only the condensed KKT system with
-SparseDirectSolver.jl is available.
+Metal has no `Float64`, so models must use `Float32`. Sparse models use SparseDirectSolver.jl, and dense
+models factorize on the host. See [Running MadNLP on Apple silicon](@ref).
 
 All of them load MadNLPCore and set the default options for models whose data live on the GPU.
 They do not load MadNLP, so they bring no CPU linear solver: load MadNLP as well to solve

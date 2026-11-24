@@ -17,7 +17,7 @@ import SparseArrays: sparse
         include("presets_test.jl")
         include("barrier_test.jl")
         include("restoration_test.jl")
-        include("condensed_border_test.jl")
+        include("condensed_preset_test.jl")
         include("madnlp_dense.jl")
         include("madnlp_quasi_newton.jl")
         include("regression_test.jl")
@@ -34,4 +34,9 @@ import SparseArrays: sparse
     end
 
     include("zero_compile_test.jl")
+
+    # last: loading AppleAccelerate forwards BLAS and LAPACK to Accelerate
+    Sys.isapple() && @testset "Apple Accelerate" begin
+        include("accelerate_test.jl")
+    end
 end # @testset

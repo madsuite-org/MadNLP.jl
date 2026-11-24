@@ -24,18 +24,26 @@ export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
 # MUMPS is the default sparse linear solver of MadNLP. MadCore and MadNLPCore have none.
 MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = MumpsSolver
 
-# ShiftedPreset and CondensedPreset factorize by CHOLMOD's LDLᵀ, with small pivots bounded as
-# cuDSS's are on a GPU; without Julia's GPL libraries, by MUMPS.
+# ShiftedPreset factorizes by CHOLMOD's LDLᵀ, with small pivots bounded as cuDSS's are on a GPU,
+# and CondensedPreset by CHOLMOD's Cholesky; without Julia's GPL libraries, by MUMPS.
 MadNLPCore.shifted_sparse_solver(::NLPModels.AbstractNLPModel) = Base.USE_GPL_LIBS ? MadCore.CHOLMODSolver : MumpsSolver
 if Base.USE_GPL_LIBS
-    # CHOLMOD under ShiftedPreset and CondensedPreset: LDLᵀ with small pivots bounded
+    # CHOLMOD under ShiftedPreset on the augmented system: LDLᵀ with small pivots bounded
     function MadCore.default_options(
-            ::NLPModels.AbstractNLPModel{T}, ::Type{<:MadNLPCore.PivotBoundedPreset}, ::Type{<:MadNLPCore.SparsePresetKKTSystem},
+            ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
             ::Type{MadCore.CHOLMODSolver},
         ) where {T}
         opt = MadCore.default_options(MadCore.CHOLMODSolver)
         opt.cholmod_algorithm = MadCore.LDL
         opt.cholmod_dbound = Float64(MadNLPCore.preset_perturbation(T))
+        return opt
+    end
+    # CHOLMOD on the condensed system, under any preset: Cholesky of the positive definite matrix
+    function MadCore.default_options(
+            ::NLPModels.AbstractNLPModel{T}, ::Type{MadCore.SparseCondensedKKTSystem}, ::Type{MadCore.CHOLMODSolver},
+        ) where {T}
+        opt = MadCore.default_options(MadCore.CHOLMODSolver)
+        opt.cholmod_algorithm = MadCore.CHOLESKY
         return opt
     end
 end

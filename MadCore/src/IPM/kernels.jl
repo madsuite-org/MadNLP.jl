@@ -15,17 +15,6 @@ function _set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSol
     return
 end
 
-# the border diagonal of the condensed system, Σd - 1/Σs on the kept rows, tends to zero
-# when a slack reaches its bound (the constraint becomes active); the perturbation δ = border_delta μ^border_delta_exp
-# keeps the static factorization away from that pivot (mul! stays exact, so refinement
-# removes the bias)
-function set_aug_diagonal!(kkt::SparseCondensedKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where {T}
-    _set_aug_diagonal!(kkt, solver)
-    b = kkt.border
-    b.delta[1] = b.delta_base * get_mu(solver)^b.delta_exp
-    return
-end
-
 function _set_aug_diagonal!(kkt::AbstractKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
     @views kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
@@ -152,13 +141,15 @@ end
 
 function set_initial_bounds!(xl::AbstractVector{T}, xu::AbstractVector{T}, tol) where T
     # If `tol` is set to zero, keep the bounds unchanged.
+    # An infinite bound stays as it is: relaxing it would compute `Inf * tol`, whose
+    # derivative is `NaN` when `T` is a dual number (`Inf * 0`).
     if tol > zero(T)
         map!(
-            x->x - max(one(T), abs(x)) * tol,
+            x->isfinite(x) ? x - max(one(T), abs(x)) * tol : x,
             xl, xl
         )
         map!(
-            x->x + max(one(T), abs(x)) * tol,
+            x->isfinite(x) ? x + max(one(T), abs(x)) * tol : x,
             xu, xu
         )
     end

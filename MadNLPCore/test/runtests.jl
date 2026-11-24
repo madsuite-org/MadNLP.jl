@@ -2,6 +2,7 @@ using Test, MadNLPCore, NLPModels
 
 include("hs15.jl")
 include("wachbieg.jl")
+include("forwarddiff.jl")
 
 # A package that keeps MadCore as a weak dependency exports a plain type and defines,
 # in its extension, the methods of the linear solver interface for it.
@@ -127,5 +128,27 @@ struct MyLDL end
             print_level = MadNLPCore.ERROR,
         )
         @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+    end
+
+    @testset "Differentiate the solve with ForwardDiff" begin
+        D = ForwardDiff.Dual{Nothing, Float64, 1}
+        # LDLFactorizations is generic, but `is_supported` only lists `AbstractFloat`s.
+        @eval MadNLPCore.is_supported(::Type{LDLSolver}, ::Type{$D}) = true
+        # `bound_relax_factor` is given as a `Float64` and converted to the solver's type.
+        options = (linear_solver = LDLSolver, print_level = MadNLPCore.ERROR, tol = 1e-10, bound_relax_factor = 1e-8)
+        p = 100.0
+        stats = madnlp(ParametricHS15(ForwardDiff.Dual{Nothing}(p, 1.0)); options...)
+        @test stats.status == MadNLPCore.SOLVE_SUCCEEDED
+        x = ForwardDiff.value.(stats.solution)
+        dx = ForwardDiff.partials.(stats.solution, 1)
+        df = ForwardDiff.partials(stats.objective, 1)
+        @test all(isfinite, dx) && isfinite(df)
+        # The constraints do not depend on p: df/dp = ∂f/∂p at the solution.
+        @test df ≈ (x[2] - x[1]^2)^2 rtol = 1e-6
+        # dx/dp against central finite differences of the Float64 solve
+        h = 1e-4
+        xp = madnlp(ParametricHS15(p + h); options...).solution
+        xm = madnlp(ParametricHS15(p - h); options...).solution
+        @test dx ≈ (xp .- xm) ./ (2h) rtol = 1e-4
     end
 end

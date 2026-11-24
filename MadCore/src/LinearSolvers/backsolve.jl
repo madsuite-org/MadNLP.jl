@@ -1,23 +1,28 @@
-@kwdef mutable struct RichardsonOptions <: AbstractOptions
+# The tolerances have the type `T` of the solver, which can be any `Real`
+# (e.g. a `ForwardDiff.Dual`), not only a type that converts to `Float64`.
+@kwdef mutable struct RichardsonOptions{T <: Real} <: AbstractOptions
     richardson_max_iter::Int = 10
-    richardson_tol::Float64
-    richardson_acceptable_tol::Float64
+    richardson_tol::T
+    richardson_acceptable_tol::T
 end
+
+Base.convert(::Type{RichardsonOptions{T}}, opt::RichardsonOptions) where {T} =
+    RichardsonOptions{T}(opt.richardson_max_iter, opt.richardson_tol, opt.richardson_acceptable_tol)
 
 struct RichardsonIterator{T, KKT <: AbstractKKTSystem{T}} <: AbstractIterator{T}
     kkt::KKT
-    opt::RichardsonOptions
+    opt::RichardsonOptions{T}
     cnt::MadNLPCounters
     logger::MadNLPLogger
 end
 
 function RichardsonIterator(
-    kkt;
-    opt = RichardsonOptions(),
+    kkt::AbstractKKTSystem{T};
+    opt = default_options(RichardsonIterator, sqrt(eps(T))),
     logger = MadNLPLogger(),
     cnt = MadNLPCounters()
-)
-    return RichardsonIterator(
+) where {T}
+    return RichardsonIterator{T, typeof(kkt)}(
         kkt, opt, cnt, logger
     )
 end
@@ -28,7 +33,8 @@ function solve_refine!(
     x::VT,
     iterator::R,
     b::VT,
-    w::VT
+    w::VT;
+    max_iter_factor::Integer = 1,   # times richardson_max_iter (a retried factorization of the condensed system)
     ) where {T, VT, R <: RichardsonIterator{T}}
     @debug(iterator.logger, "Iterative solver initiated")
 
@@ -36,17 +42,19 @@ function solve_refine!(
     residual_ratio = zero(T)
 
     fill!(full(x), zero(T))
+    # a zero right-hand side takes no backsolve
+    iterator.cnt.ir = 0
 
     if norm_b != zero(T)
         copyto!(full(w), full(b))
-        iterator.cnt.ir = 0
 
         while true
             solve_kkt!(iterator.kkt, w)
             axpy!(one(T), full(w), full(x))
             copyto!(full(w), full(b))
 
-            mul!(w, iterator.kkt, x, -one(T), one(T))
+            @timed_region iterator.cnt :kkt_mul_time mul!(w, iterator.kkt, x, -one(T), one(T))
+            iterator.cnt.kkt_mul_cnt += 1
 
             norm_w = norm(full(w), Inf)
             norm_x = norm(full(x), Inf)
@@ -58,7 +66,7 @@ function solve_refine!(
             @debug(iterator.logger, @sprintf("%4i %6.2e", iterator.cnt.ir, residual_ratio))
             iterator.cnt.ir += 1
 
-            if (iterator.cnt.ir >= iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
+            if (iterator.cnt.ir >= max_iter_factor * iterator.opt.richardson_max_iter) || (residual_ratio < iterator.opt.richardson_tol)
                 break
             end
         end

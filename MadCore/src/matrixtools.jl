@@ -37,13 +37,28 @@ function diag!(dest::AbstractVector{T}, src::AbstractMatrix{T}) where T
         dest[i] = src[i, i]
     end
 end
-get_tril_to_full(csc::SparseMatrixCSC{Tv,Ti}) where {Tv, Ti} = get_tril_to_full(Tv,csc)
-function get_tril_to_full(T,csc::SparseMatrixCSC{Tv,Ti}) where {Tv,Ti<:Integer}
+get_tril_to_full(csc::AbstractSparseMatrix{Tv, Ti}) where {Tv, Ti} = get_tril_to_full(Tv, csc)
+function get_tril_to_full(T, csc::AbstractSparseMatrix{Tv, Ti}) where {Tv, Ti <: Integer}
+    m, n = size(csc)
     cscind = SparseMatrixCSC{Int,Ti}(Symmetric(
-        SparseMatrixCSC{Int,Ti}(csc.m,csc.n,csc.colptr,csc.rowval,collect(1:nnz(csc))),:L))
-    return SparseMatrixCSC{T,Ti}(
-        csc.m,csc.n,cscind.colptr,cscind.rowval,Vector{T}(undef,nnz(cscind))),view(csc.nzval,cscind.nzval)
+            SparseMatrixCSC{Int, Ti}(m, n, host_array(getcolptr(csc)), host_array(rowvals(csc)), collect(1:nnz(csc))), :L
+        )
+    )
+    full = _get_sparse_csc(
+        (m, n),
+        device_array(csc, cscind.colptr),
+        device_array(csc, cscind.rowval),
+        similar(nonzeros(csc), T, nnz(cscind)),
+    )
+    return full, view(nonzeros(csc), device_array(csc, cscind.nzval))
 end
+
+# Host and device copies of the index arrays of a sparse matrix. The GPU sparse
+# matrices (`GPUArrays.AbstractGPUSparseMatrixCSC`) go through the generic methods.
+host_array(v::Vector) = v
+host_array(v::AbstractVector) = Array(v)
+device_array(::SparseMatrixCSC, v::Vector) = v
+device_array(A::AbstractSparseMatrix, v::Vector) = copyto!(similar(nonzeros(A), eltype(v), length(v)), v)
 function tril_to_full!(dense::Matrix{T}) where T
     for i=1:size(dense,1)
         Threads.@threads for j=i:size(dense,2)
@@ -84,8 +99,9 @@ function transfer_values!(vec1, vec2, map)
     end
 end
 
-function transfer!(dest::SparseMatrixCSC, src::SparseMatrixCOO, map::Vector{Int})
-    return transfer_values!(dest.nzval, src.V, map)
+function transfer!(dest::AbstractSparseMatrix, src::SparseMatrixCOO, map)
+    transfer_values!(nonzeros(dest), src.V, map)
+    return dest
 end
 
 function get_mapping(dest::SparseMatrixCSC{Tv1,Ti1}, src::SparseMatrixCOO{Tv2,Ti2}) where {Tv1,Tv2,Ti1,Ti2}

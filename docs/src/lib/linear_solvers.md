@@ -28,6 +28,8 @@ together with the package it wraps (MadNLP loads MUMPS, SuiteSparse, LDLFactoriz
 
 ```@docs
 create_linear_solver
+AbstractSolverMarker
+solver_type
 backend_package
 default_sparse_solver
 default_dense_solver
@@ -36,6 +38,7 @@ MumpsSolver
 LDLSolver
 UmfpackSolver
 CHOLMODSolver
+AccelerateSolver
 Ma27Solver
 Ma57Solver
 Ma77Solver

@@ -1,10 +1,15 @@
-@kwdef mutable struct KrylovOptions <: AbstractOptions
+# The tolerances have the type `T` of the solver (any `Real`, e.g. a `ForwardDiff.Dual`).
+@kwdef mutable struct KrylovOptions{T <: Real} <: AbstractOptions
     krylov_memory::Int = 20
     krylov_max_iter::Int = 10
     krylov_max_cycles::Int = 5
-    krylov_tol::Float64
-    krylov_acceptable_tol::Float64
+    krylov_tol::T
+    krylov_acceptable_tol::T
 end
+
+Base.convert(::Type{KrylovOptions{T}}, opt::KrylovOptions) where {T} = KrylovOptions{T}(
+    opt.krylov_memory, opt.krylov_max_iter, opt.krylov_max_cycles, opt.krylov_tol, opt.krylov_acceptable_tol,
+)
 
 # The KKT system acting on the full vector of an `UnreducedKKTVector`.
 struct KKTOperator{T, KKT <: AbstractKKTSystem{T}, KV <: AbstractKKTVector{T}}
@@ -39,7 +44,7 @@ struct KrylovState{T, KKT <: AbstractKKTSystem{T}, Op, Prec, W} <: AbstractItera
     op::Op
     prec::Prec
     workspace::W
-    opt::KrylovOptions
+    opt::KrylovOptions{T}
     cnt::MadNLPCounters
     logger::MadNLPLogger
 end
@@ -54,7 +59,7 @@ function KrylovState(
     prec = KKTPreconditioner(kkt, UnreducedKKTVector(kkt))
     n = length(full(op.x))
     workspace = Krylov.GmresWorkspace(n, n, typeof(full(op.x)); memory = opt.krylov_memory)
-    return KrylovState(kkt, op, prec, workspace, opt, cnt, logger)
+    return KrylovState(kkt, op, prec, workspace, convert(KrylovOptions{T}, opt), cnt, logger)
 end
 
 default_options(::Type{KrylovState}, tol) =
@@ -64,7 +69,7 @@ default_options(::Type{KrylovState}, tol) =
 # far: GMRES's own residual estimate can fall far below the true residual when the
 # factorization is inexact (a shifted or statically pivoted LDLᵀ), and only a restart from the
 # true residual corrects the solution beyond that point.
-function solve_refine!(x::VT, it::KrylovState{T}, b::VT, w::VT) where {T, VT <: AbstractKKTVector{T}}
+function solve_refine!(x::VT, it::KrylovState{T}, b::VT, w::VT; max_iter_factor::Integer = 1) where {T, VT <: AbstractKKTVector{T}}
     @debug(it.logger, "Iterative solver initiated")
     norm_b = norm(full(b), Inf)
     fill!(full(x), zero(T))
@@ -78,7 +83,7 @@ function solve_refine!(x::VT, it::KrylovState{T}, b::VT, w::VT) where {T, VT <: 
             it.workspace, it.op, full(w);
             N = it.prec, ldiv = true,
             atol = zero(T), rtol = T(it.opt.krylov_tol),
-            itmax = it.opt.krylov_max_iter,
+            itmax = max_iter_factor * it.opt.krylov_max_iter,
         )
         full(x) .+= Krylov.solution(it.workspace)
         it.cnt.ir += Krylov.iteration_count(it.workspace)

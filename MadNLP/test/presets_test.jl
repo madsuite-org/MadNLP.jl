@@ -40,22 +40,40 @@
     nlp32 = MadNLP.MadNLPCore.PrecompileChainModel(100, Float32[])
     sh32 = MadNLP.MadNLPOptions{Float32}(nlp32; preset = MadNLP.ShiftedPreset)
     @test sh32.dual_shift === MadNLP.MadNLPCore.preset_perturbation(Float32)
+    # CondensedPreset in Float32: the cap of the retried equality shift scales with the shift, so that
+    # a retry stays possible (the shift, 100 preset_perturbation, is about 3e-3 there)
+    co32 = MadNLP.MadNLPOptions{Float32}(nlp32; preset = MadNLP.CondensedPreset)
+    @test co32.equality_shift_max ≈ 1.0f6 * MadNLP.MadNLPCore.preset_perturbation(Float32)
+    @test co32.equality_shift * co32.equality_shift_retry_factor <= co32.equality_shift_max
+    @test MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset).equality_shift_max ≈ 1.0e-4
+    # the same defaults without the preset (the condensed KKT system under another preset)
+    o32 = MadNLP.MadNLPOptions{Float32}(nlp32; kkt_system = MadNLP.SparseCondensedKKTSystem)
+    @test o32.equality_shift ≈ 100 * MadNLP.MadNLPCore.preset_perturbation(Float32) && o32.equality_shift_max ≈ co32.equality_shift_max
 
     # The shifted options apply to the augmented system only
     cond = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.ShiftedPreset, kkt_system = MadNLP.SparseCondensedKKTSystem)
     @test cond.kkt_scaler isa MadNLP.NoScaler && iszero(cond.dual_shift)
     @test cond.barrier isa MadNLP.MonotoneUpdate && !cond.slack_reset
 
-    # CondensedPreset: the condensed system, factorized by the same pivot-bounded LDLᵀ
+    # CondensedPreset: the condensed system with the equalities enforced and condensed through the
+    # shift, factorized by Cholesky after Ruiz equilibration, with ShiftedPreset's quality-function
+    # barrier and Richardson refinement
     co = MadNLP.MadNLPOptions{Float64}(nlp; preset = MadNLP.CondensedPreset)
     @test co.preset === MadNLP.CondensedPreset
     @test co.kkt_system === MadNLP.SparseCondensedKKTSystem
-    @test co.equality_treatment === MadNLP.RelaxEquality
+    @test co.equality_treatment === MadNLP.EnforceEquality && co.fixed_variable_treatment === MadNLP.MakeParameter
+    @test co.dual_initialization_method === MadNLP.DualInitializeLeastSquares
     @test co.linear_solver === (Base.USE_GPL_LIBS ? MadNLP.CHOLMODSolver : MadNLP.MumpsSolver)
-    @test co.kkt_scaler isa MadNLP.NoScaler && co.barrier isa MadNLP.MonotoneUpdate
+    @test co.kkt_scaler isa MadNLP.RuizScaler && !co.slack_reset
+    @test co.barrier isa MadNLP.QualityFunctionUpdate{Float64}
+    @test co.barrier.sigma_max == 2.0 && co.barrier.mu_decrease_max == 10.0 && co.barrier.mu_min ≈ 1.0e-3 * co.tol
+    @test co.iterator === MadNLP.RichardsonIterator && iszero(co.dual_shift)
+    @test co.equality_shift == 1.0e-8
+    @test co.equality_shift_retry && !co.equality_shift_retry_on_refinement
+    @test co.equality_shift_retry
     if Base.USE_GPL_LIBS
         lopt = MC.default_options(nlp, co.preset, co.kkt_system, co.linear_solver)
-        @test lopt.cholmod_algorithm == MadNLP.LDL && lopt.cholmod_dbound == 1.0e-10
+        @test lopt.cholmod_algorithm == MadNLP.CHOLESKY && lopt.cholmod_dbound == 0.0
     end
 
     # Every preset solves, and an option given explicitly overrides the preset

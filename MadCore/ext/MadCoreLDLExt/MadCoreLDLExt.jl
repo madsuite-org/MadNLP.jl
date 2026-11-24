@@ -7,14 +7,11 @@ for name in MadCore.public_names()
 end
 import Base: @kwdef, size
 import LinearAlgebra: ldiv!
-import MadCore: get_tril_to_full, nzval
+import MadCore: get_tril_to_full
 import SparseArrays: SparseMatrixCSC
 
 include("ldl.jl")
 
-MadCore.create_linear_solver(::Type{MadCore.LDLSolver}, A; kwargs...) = LDLState(A; kwargs...)
-MadCore.default_options(::Type{MadCore.LDLSolver}) = MadCore.default_options(LDLState)
-MadCore.input_type(::Type{MadCore.LDLSolver}) = MadCore.input_type(LDLState)
-MadCore.is_supported(::Type{MadCore.LDLSolver}, ::Type{T}) where {T <: AbstractFloat} = MadCore.is_supported(LDLState, T)
+MadCore.solver_type(::Type{MadCore.LDLSolver}) = LDLState
 
 end # module

@@ -34,11 +34,11 @@ jobs:
           julia --project=./MadCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
           julia --project=./MadNLPCore --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test(coverage=true)'
       - name: test oneMadNLP without a GPU
-        # loads the oneAPI extension of MadCoreGPU; the solves need an Intel GPU
+        # loads the oneAPI extension of MadCore; the solves need an Intel GPU
         if: matrix.os == 'ubuntu-latest'
         run: julia --project=./oneMadNLP --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test()'
       - name: test mtlMadNLP without a GPU
-        # loads the Metal extension of MadCoreGPU; the solves need an Apple GPU
+        # loads the Metal extension of MadCore; the solves need an Apple GPU
         if: matrix.os == 'ubuntu-latest'
         run: julia --project=./mtlMadNLP --color=yes -e 'using Pkg; Pkg.Registry.update(); Pkg.test()'
       - name: test MadNLP
@@ -116,7 +116,7 @@ jobs:
         with:
           channel: ${{ matrix.julia-version }}
       - name: Setup test environment
-        shell: julia --project=./MadCoreGPU/test --color=yes {0}
+        shell: julia --project=./MadCore/test/GPU --color=yes {0}
         run: |
           using Pkg
           Pkg.Registry.update()
@@ -124,7 +124,6 @@ jobs:
               PackageSpec(path="./MadCore"),
               PackageSpec(path="./MadNLPCore"),
               PackageSpec(path="./MadNLP"),
-              PackageSpec(path="./MadCoreGPU"),
               PackageSpec(path="./MadNLPTests"),
           ])
       # Julia 1.13's Pkg auto-precompile looks up changed indirect deps by name
@@ -133,7 +132,7 @@ jobs:
         if: matrix.gpu == 'cuda'
         env:
           JULIA_PKG_PRECOMPILE_AUTO: 0
-        shell: julia --project=./MadCoreGPU/test --color=yes {0}
+        shell: julia --project=./MadCore/test/GPU --color=yes {0}
         run: |
           using Pkg
           Pkg.add(["CUDA", "CUDSS"])
@@ -142,31 +141,31 @@ jobs:
         if: matrix.gpu == 'amdgpu'
         env:
           JULIA_PKG_PRECOMPILE_AUTO: 0
-        shell: julia --project=./MadCoreGPU/test --color=yes {0}
+        shell: julia --project=./MadCore/test/GPU --color=yes {0}
         run: |
           using Pkg
           Pkg.add("AMDGPU")
           Pkg.develop(path="./rocMadNLP")
-      - name: test MadCoreGPU
+      - name: test the GPU extensions of MadCore
         env:
           MADNLP_GPU_BACKEND: ${{ matrix.gpu }}
-        run: julia --project=./MadCoreGPU/test --code-coverage=user --color=yes MadCoreGPU/test/runtests.jl
+        run: julia --project=./MadCore/test/GPU --code-coverage=user --color=yes MadCore/test/GPU/runtests.jl
       - name: test cuMadNLP
         if: matrix.gpu == 'cuda'
-        run: julia --project=./MadCoreGPU/test --code-coverage=user --color=yes cuMadNLP/test/runtests.jl
+        run: julia --project=./MadCore/test/GPU --code-coverage=user --color=yes cuMadNLP/test/runtests.jl
       - name: test MadNLPGPU
         if: matrix.gpu == 'cuda'
-        shell: julia --project=./MadCoreGPU/test --color=yes {0}
+        shell: julia --project=./MadCore/test/GPU --color=yes {0}
         run: |
           using Pkg
           Pkg.develop(path="./MadNLPGPU")
           include(joinpath(pwd(), "MadNLPGPU", "test", "runtests.jl"))
       - name: test rocMadNLP
         if: matrix.gpu == 'amdgpu'
-        run: julia --project=./MadCoreGPU/test --code-coverage=user --color=yes rocMadNLP/test/runtests.jl
+        run: julia --project=./MadCore/test/GPU --code-coverage=user --color=yes rocMadNLP/test/runtests.jl
       - uses: julia-actions/julia-processcoverage@v1
         with:
-          directories: MadCoreGPU/src,MadCoreGPU/ext,MadNLPCore/ext,cuMadNLP/src,rocMadNLP/src
+          directories: MadCore/src,MadCore/ext,MadNLPCore/ext,cuMadNLP/src,rocMadNLP/src
       - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
