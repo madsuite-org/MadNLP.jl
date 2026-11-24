@@ -122,53 +122,6 @@ function eval_lag_hess_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSy
     return hess
 end
 
-function eval_jac_wrapper!(solver::AbstractMadNLPSolver, kkt::AbstractDenseKKTSystem, x::PrimalVector{T}) where T
-    nlp = get_nlp(solver)
-    cnt = get_cnt(solver)
-    ns = length(get_ind_ineq(solver))
-    @trace(get_logger(solver), "Evaluating constraint Jacobian.")
-    jac = get_jacobian(kkt)
-    @timed_region cnt :eval_function_time @timed_region cnt :eval_jac_time eval_jac_callback!(
-        get_cb(solver),
-        variable(x),
-        jac,
-    )
-    compress_jacobian!(kkt)
-    cnt.con_jac_cnt+=1
-    if cnt.con_jac_cnt == 1 && !is_valid(jac)
-        throw(InvalidNumberException(:jac))
-    end
-    @trace(get_logger(solver),"Constraint Jacobian evaluation finished.")
-    return jac
-end
-
-function eval_lag_hess_wrapper!(
-    solver::AbstractMadNLPSolver,
-    kkt::AbstractDenseKKTSystem{T, VT, MT, QN},
-    x::PrimalVector{T},
-    l::AbstractVector{T};
-    is_resto=false,
-) where {T, VT, MT, QN<:ExactHessian}
-    nlp = get_nlp(solver)
-    cnt = get_cnt(solver)
-    @trace(get_logger(solver),"Evaluating Lagrangian Hessian.")
-    hess = get_hessian(kkt)
-    scale = is_resto ? zero(T) : get_minimize(nlp) ? one(T) : -one(T)
-    @timed_region cnt :eval_function_time @timed_region cnt :eval_hess_time eval_lag_hess_callback!(
-        get_cb(solver),
-        variable(x),
-        l,
-        hess;
-        obj_weight = scale,
-    )
-    compress_hessian!(kkt)
-    cnt.lag_hess_cnt+=1
-    if cnt.lag_hess_cnt == 1 && !is_valid(hess)
-        throw(InvalidNumberException(:hess))
-    end
-    return hess
-end
-
 function eval_lag_hess_wrapper!(
     solver::AbstractMadNLPSolver,
     kkt::AbstractKKTSystem{T, VT, MT, QN},

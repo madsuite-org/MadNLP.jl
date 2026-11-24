@@ -36,9 +36,8 @@ struct SparseKKTSystem{T, VT, MT, QN, LS, VI, VI32} <: AbstractReducedKKTSystem{
     ind_ub::VI
 end
 
-# Build KKT system directly from SparseCallback
-function create_kkt_system(
-    ::Type{SparseKKTSystem},
+# The data shared by the sparse augmented KKT systems, built from a SparseCallback
+function _sparse_augmented_data(
     cb::SparseCallback{T,VT},
     linear_solver::Type;
     opt_linear_solver=default_options(linear_solver),
@@ -80,7 +79,7 @@ function create_kkt_system(
     I = create_array(cb, Int32, aug_mat_length)
     J = create_array(cb, Int32, aug_mat_length)
     V = VT(undef, aug_mat_length)
-    fill!(V, 0.0)  # Need to initiate V to avoid NaN
+    fill!(V, zero(T))  # Need to initiate V to avoid NaN
 
     offset = n_tot+n_jac+n_slack+n_hess+m
 
@@ -134,16 +133,29 @@ function create_kkt_system(
         aug_com, _np; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift
     ))
 
-    return SparseKKTSystem(
+    return (;
         hess, jac_callback, jac, quasi_newton, reg, pr_diag, du_diag,
         l_diag, u_diag, l_lower, u_lower,
         aug_raw, aug_com, aug_csc_map,
         hess_raw, hess_com, hess_csc_map,
         jac_raw, jac_com, jac_csc_map,
-        _linear_solver,
-        ind_ineq, cb.ind_lb, cb.ind_ub,
+        linear_solver = _linear_solver,
+        ind_ineq, n_tot,
     )
+end
 
+# Build KKT system directly from SparseCallback
+function create_kkt_system(::Type{SparseKKTSystem}, cb::SparseCallback, linear_solver::Type; kwargs...)
+    d = _sparse_augmented_data(cb, linear_solver; kwargs...)
+    return SparseKKTSystem(
+        d.hess, d.jac_callback, d.jac, d.quasi_newton, d.reg, d.pr_diag, d.du_diag,
+        d.l_diag, d.u_diag, d.l_lower, d.u_lower,
+        d.aug_raw, d.aug_com, d.aug_csc_map,
+        d.hess_raw, d.hess_com, d.hess_csc_map,
+        d.jac_raw, d.jac_com, d.jac_csc_map,
+        d.linear_solver,
+        d.ind_ineq, cb.ind_lb, cb.ind_ub,
+    )
 end
 
 num_variables(kkt::SparseKKTSystem) = length(kkt.pr_diag)

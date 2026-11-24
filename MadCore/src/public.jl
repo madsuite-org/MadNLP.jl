@@ -33,7 +33,7 @@ const PUBLIC_NAMES = (
     # Sparse matrix tools
     :coo_to_csc, :force_lower_triangular!, :SparseMatrixCOO, :transfer!,
     # Interior-point helpers
-    :AbstractMadNLPSolver, :adjust_boundary!, :default_sparse_solver,
+    :AbstractMadNLPSolver, :adjust_boundary!, :default_sparse_solver, :define_solver_accessors,
     :dual_inf_perturbation!, :finish_aug_solve!, :get_alpha_max, :get_alpha_z,
     :get_average_complementarity, :get_inf_compl, :get_inf_du, :get_inf_pr,
     :get_min_complementarity, :get_sc, :get_sd, :initialize_variable,

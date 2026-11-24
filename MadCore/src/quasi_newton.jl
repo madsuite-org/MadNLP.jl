@@ -191,16 +191,16 @@ function update!(qn::DampedBFGS{T, VT}, Bk::AbstractMatrix, sk::AbstractVector, 
     return true
 end
 
-function init!(qn::Union{BFGS, DampedBFGS}, Bk::AbstractMatrix{T}, g0::AbstractVector{T}, f0::T) where T
+# Scaling of the initial Hessian approximation, by the rule of Gilbert and Lemaréchal.
+function initial_scaling(g0::AbstractVector{T}, f0::T) where T
     norm_g0 = dot(g0, g0)
-    # Initiate B0 with Gilbert & Lemaréchal rule.
-    rho0 = if norm_g0 < sqrt(eps(T))
-        one(T)
-    elseif f0 ≈ zero(T)
-        one(T) / norm_g0
-    else
-        abs(f0) / norm_g0
-    end
+    norm_g0 < sqrt(eps(T)) && return one(T)
+    f0 ≈ zero(T) && return one(T) / norm_g0
+    return abs(f0) / norm_g0
+end
+
+function init!(qn::Union{BFGS, DampedBFGS}, Bk::AbstractMatrix{T}, g0::AbstractVector{T}, f0::T) where T
+    rho0 = initial_scaling(g0, f0)
     Bk[diagind(Bk)] .= T(2) * rho0
     return
 end
@@ -423,15 +423,7 @@ function update!(qn::CompactLBFGS{T}, Bk, sk, yk) where {T}
 end
 
 function init!(qn::CompactLBFGS{T}, Bk::AbstractVector{T}, g0::AbstractVector{T}, f0::T) where T
-    norm_g0 = dot(g0, g0)
-    # Initiate B0 with Gilbert & Lemaréchal rule.
-    rho0 = if norm_g0 < sqrt(eps(T))
-        one(T)
-    elseif f0 ≈ zero(T)
-        one(T) / norm_g0
-    else
-        abs(f0) / norm_g0
-    end
+    rho0 = initial_scaling(g0, f0)
     Bk .= (T(2) * rho0 * qn.init_value)
     return
 end

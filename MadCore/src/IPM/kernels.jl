@@ -1,18 +1,6 @@
 
 # KKT system updates -------------------------------------------------------
 # Set diagonal
-function set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
-    fill!(kkt.reg, get_opt(solver).default_primal_regularization)
-    fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
-    kkt.l_diag .= get_xl_r(solver) .- get_x_lr(solver)   # (Xˡ - X)
-    kkt.u_diag .= get_x_ur(solver) .- get_xu_r(solver)   # (X - Xᵘ)
-    copyto!(kkt.l_lower, get_zl_r(solver))
-    copyto!(kkt.u_lower, get_zu_r(solver))
-
-    set_aug_diagonal!(kkt)
-    return
-end
-
 function set_aug_diagonal!(kkt::AbstractKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
     @views kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
@@ -25,17 +13,6 @@ function set_aug_diagonal!(kkt::AbstractUnreducedKKTSystem)
     kkt.l_lower_aug .= sqrt.(kkt.l_lower)
     kkt.u_lower_aug .= sqrt.(kkt.u_lower)
     return
-end
-
-function set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
-    fill!(kkt.reg, get_opt(solver).default_primal_regularization)
-    fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
-    # Ensure l_diag and u_diag have only non negative entries
-    kkt.l_diag .= get_x_lr(solver) .- get_xl_r(solver)   # (X - Xˡ)
-    kkt.u_diag .= get_xu_r(solver) .- get_x_ur(solver)   # (Xᵘ - X)
-    copyto!(kkt.l_lower, get_zl_r(solver))
-    copyto!(kkt.u_lower, get_zu_r(solver))
-    set_aug_diagonal!(kkt)
 end
 
 function set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}) where T

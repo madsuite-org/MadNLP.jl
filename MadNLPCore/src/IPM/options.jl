@@ -468,7 +468,9 @@ load_options(nlp::AbstractNLPModel; options...) = load_options(nlp, Dict{Symbol,
 # The options as a Dict: compiled once, not for every set of keyword names and value types.
 function load_options(nlp::AbstractNLPModel{T,VT}, options::Dict{Symbol, Any}) where {T, VT}
 
-    primary_opt, options = get_primary_options(options)
+    primary_opt, options = get_primary_options(
+        options, (:tol, :linear_solver, :callback, :kkt_system, :preset, :dense_row_fallback),
+    )
     dense_row_fallback = pop!(primary_opt, :dense_row_fallback, true)
 
     # Initiate interior-point options

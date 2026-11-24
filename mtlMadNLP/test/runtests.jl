@@ -8,9 +8,10 @@ using Test, mtlMadNLP, MadNLPCore, MadCore, Metal, LinearAlgebra, SparseArrays
         SDSExt = Base.get_extension(MadCore, :MadCoreSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
-        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to MtlVector models
-        preset = which(MadNLPCore.MadNLPOptions{Float32}, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}})
-        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
+        # the GPU defaults of MadNLPCoreGPUExt (preset and shifted-preset solver) apply to MtlVector models
+        GPUExt = Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
+        @test which(MadNLPCore.default_preset, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}}).module === GPUExt
+        @test which(MadNLPCore.shifted_sparse_solver, Tuple{MadNLPCore.AbstractNLPModel{Float32, MtlVector{Float32}}}).module === GPUExt
     end
     if Metal.functional()
         @testset "Option presets for MtlVector models" begin

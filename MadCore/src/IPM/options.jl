@@ -48,11 +48,11 @@ function print_ignored_options(logger,option_dict)
     end
 end
 
-function get_primary_options(options)
+function get_primary_options(options, keys = (:tol, :linear_solver, :callback, :kkt_system))
     primary_opt = Dict{Symbol,Any}()
     remaining_opt = Dict{Symbol,Any}()
     for (k,v) in options
-        if k in [:tol, :linear_solver, :callback, :kkt_system, :preset, :dense_row_fallback]
+        if k in keys
             primary_opt[k] = v
         else
             remaining_opt[k] = v
