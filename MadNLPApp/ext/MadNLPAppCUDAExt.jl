@@ -14,11 +14,39 @@ function __init__()
     return nothing
 end
 
-c_solve_device(
-    p::Ptr{CNLPProblem}, d::Ptr{CNLPDeviceProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
-    vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
-) =
-    c_solve(() -> ProblemModel(p, d), nopt, keys, vals, result)
+function c_solve_device(
+        p::Ptr{CNLPProblem}, d::Ptr{CNLPDeviceProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
+        vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
+    )
+    solve() = c_solve(() -> ProblemModel(p, d), nopt, keys, vals, result)
+    MadNLPApp.trace_on() || return solve()
+    # MADNLPAPP_TRACE=1: also report the GPU kernels compiled at run time
+    empty!(COMPILED)
+    rc = CUDACore.GPUCompiler.with_compile_hook(solve, kernel_hook)
+    println(
+        stderr, string(
+            "madnlp: GPU kernels compiled at run time: ", length(COMPILED),
+            isempty(COMPILED) ? "" : " (" * join(COMPILED, ", ") * ")"
+        )
+    )
+    flush(stderr)
+    return rc
+end
+
+# GPUCompiler reports every kernel lookup to the hook; a lookup with no compiled image
+# cached is a kernel about to be compiled at run time.
+const COMPILED = String[]
+const COMPILED_LOCK = ReentrantLock()
+function kernel_hook(job)
+    res = CUDACore.GPUCompiler.cached_results(CUDACore.CUDACompilerResults, job)
+    if res === nothing || res.image === nothing
+        name = string(job.source.def.name)
+        lock(COMPILED_LOCK) do
+            name in COMPILED || push!(COMPILED, name)
+        end
+    end
+    return nothing
+end
 
 "The cnlp solver interface's device entry point (`cnlp_solver.h` 0.2): CUDA."
 Base.@ccallable function cnlp_solve_device(
@@ -61,7 +89,8 @@ function solve_lib_device(path::String, model::String, args::Vector{String})
     return r[].status
 end
 
-# The build compiles this path by calling `solve_lib_device` from build/libmadnlp.jl: it
-# needs CNLPLib's own CUDA extension, which is not loaded while this extension precompiles.
+# The build compiles the device path with build/cuda/MadNLPAppCUDAWarmup, a package whose
+# precompile workload calls `solve_lib_device`: CNLPLib's own CUDA extension, which it
+# needs, is not loaded while this extension precompiles.
 
 end # module

@@ -17,7 +17,10 @@ printf 'case\tstdout\tstatus\tjulia_ms\n' > "$T"; : > "$P"
 row() {  # case kind logfile
     st=$(grep -o -m1 '^[a-z_]*  objective\|EXIT: .*\|MadNLP: [A-Z_]*' "$3" | head -1 | sed 's/  objective//')
     # no report line means the trace did not run: counted as a failure, never as 0
-    ms=$(grep -o 'compiled at run time: [0-9]*' "$3" | grep -o '[0-9]*$' | awk '{s+=$1; n++} END {print n ? s : "noreport"}')
+    ms=$(grep -o 'compiled at run time: [0-9]* ms' "$3" | grep -o '[0-9]* ms' | awk '{s+=$1; n++} END {print n ? s : "noreport"}')
+    # a device solve also reports GPU kernels compiled at run time; any counts as compiling
+    k=$(grep -o 'GPU kernels compiled at run time: [0-9]*' "$3" | grep -o '[0-9]*$' | awk '{s+=$1} END {print s+0}')
+    [ "$ms" != noreport ] && [ "$k" -gt 0 ] && ms="$ms+${k}kernels"
     printf '%s\t%s\t%s\t%s\n' "$1" "$2" "${st:-?}" "$ms" >> "$T"
     grep -o 'precompile(.*' "$3" >> "$P"
 }
