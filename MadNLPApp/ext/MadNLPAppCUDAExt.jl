@@ -7,7 +7,6 @@ module MadNLPAppCUDAExt
 import CNLPLib, CUDACore, cuMadNLP
 using CNLPLib: CNLPDeviceProblem, CNLPProblem, CNLPResult, ProblemModel
 using MadNLPApp: MadNLPApp, c_solve
-using PrecompileTools: @setup_workload, @compile_workload
 
 function __init__()
     # option values name cuMadNLP's types too (linear_solver=CUDSSSolver, ...)
@@ -39,8 +38,8 @@ Base.@ccallable function cnlp_solve_device(
     return c_solve_device(p, d, nopt, keys, vals, result)
 end
 
-# The device solve path, compiled at build time: each `LIB MODEL ARGS...` of
-# MADNLPAPP_WARMUP_RUNS whose library has a CUDA tier, solved through cnlp_solve_device.
+# A library model solved through cnlp_solve_device: what the build runs to compile the
+# device path (build/libmadnlp.jl), and a test helper.
 function solve_lib_device(path::String, model::String, args::Vector{String})
     lib = CNLPLib.load(path)
     vals = Any[something(tryparse(Int, a), tryparse(Float64, a), a) for a in args]
@@ -62,19 +61,7 @@ function solve_lib_device(path::String, model::String, args::Vector{String})
     return r[].status
 end
 
-@setup_workload begin
-    runs = get(ENV, "MADNLPAPP_WARMUP_RUNS", "")
-    @compile_workload begin
-        if !isempty(runs) && CUDACore.functional()
-            for line in eachline(runs)
-                w = split(line)
-                (isempty(w) || startswith(w[1], "#")) && continue
-                l = CNLPLib.load(String(w[1]))
-                CNLPLib.Libdl.dlsym(l.handle, Symbol(w[2], "_device"); throw_error = false) === nothing && continue
-                solve_lib_device(String(w[1]), String(w[2]), String.(w[3:end]))
-            end
-        end
-    end
-end
+# The build compiles this path by calling `solve_lib_device` from build/libmadnlp.jl: it
+# needs CNLPLib's own CUDA extension, which is not loaded while this extension precompiles.
 
 end # module

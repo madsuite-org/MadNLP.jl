@@ -5,6 +5,21 @@ using MadNLPApp
 # the CUDA build (build.jl ... cuda): loading these loads MadNLPAppCUDAExt, cnlp_solve_device
 if get(ENV, "MADNLPAPP_DEVICE", "") == "cuda"
     using CUDACore, cuMadNLP
+    # the device path, compiled here: each MADNLPAPP_WARMUP_RUNS model whose library has a
+    # CUDA tier, solved through cnlp_solve_device (precompiling the extension cannot do it)
+    let ext = Base.get_extension(MadNLPApp, :MadNLPAppCUDAExt), runs = get(ENV, "MADNLPAPP_WARMUP_RUNS", "")
+        ext === nothing && error("MadNLPAppCUDAExt is not loaded")
+        if !isempty(runs) && CUDACore.functional()
+            for line in eachline(runs)
+                w = split(line)
+                (isempty(w) || startswith(w[1], "#")) && continue
+                l = MadNLPApp.CNLPLib.load(String(w[1]))
+                MadNLPApp.CNLPLib.Libdl.dlsym(l.handle, Symbol(w[2], "_device"); throw_error = false) === nothing && continue
+                st = ext.solve_lib_device(String(w[1]), String(w[2]), String.(w[3:end]))
+                println(stderr, "warm-up on the device: ", w[2], " status ", st)
+            end
+        end
+    end
 end
 
 module PrecompileStatements

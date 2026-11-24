@@ -10,7 +10,7 @@ MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
 cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 
 [sources]
-CNLPLib = {url = "https://github.com/madsuite-org/CNLPLib.jl", rev = "solver-device"}
+CNLPLib = {url = "https://github.com/madsuite-org/CNLPLib.jl", rev = "master"}
 MadCore = {path = "../../../MadCore"}
 MadNLP = {path = "../../../MadNLP"}
 MadNLPApp = {path = "../.."}
