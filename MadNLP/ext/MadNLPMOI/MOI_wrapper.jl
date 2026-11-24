@@ -1714,27 +1714,9 @@ function MOI.get(model::Optimizer, ::MOI.RawStatusString)
 end
 
 
-### MOI.PrimalStatus
+### MOI.PrimalStatus and MOI.DualStatus
 
-function MOI.get(model::Optimizer, attr::MOI.PrimalStatus)
-    if !(1 <= attr.result_index <= MOI.get(model, MOI.ResultCount()))
-        return MOI.NO_SOLUTION
-    end
-    status = model.result.status
-    if status == MadNLP.SOLVE_SUCCEEDED
-        return MOI.FEASIBLE_POINT
-    elseif status == MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
-        return MOI.NEARLY_FEASIBLE_POINT
-    elseif status == MadNLP.INFEASIBLE_PROBLEM_DETECTED
-        return MOI.INFEASIBLE_POINT
-    else
-        return MOI.UNKNOWN_RESULT_STATUS
-    end
-end
-
-### MOI.DualStatus
-
-function MOI.get(model::Optimizer, attr::MOI.DualStatus)
+function MOI.get(model::Optimizer, attr::Union{MOI.PrimalStatus, MOI.DualStatus})
     if !(1 <= attr.result_index <= MOI.get(model, MOI.ResultCount()))
         return MOI.NO_SOLUTION
     end

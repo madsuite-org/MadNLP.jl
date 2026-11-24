@@ -108,16 +108,10 @@ const NLP_SOLVER_FIELDS = (
     :intermediate_callback, :output,
 )
 
-for attribute in NLP_SOLVER_FIELDS
-    getter = Symbol("get_", attribute)
-    setter = Symbol("set_", attribute, "!")
-    @eval begin
-        @inline $getter(solver::MadNLPSolver) = getfield(solver, $(QuoteNode(attribute)))
-        @inline $setter(solver::MadNLPSolver, rhs) = setfield!(solver, $(QuoteNode(attribute)), rhs)
-    end
-end
+define_solver_accessors(@__MODULE__, MadNLPSolver, NLP_SOLVER_FIELDS)
 
 include("kernels.jl")
+define_solver_accessors(@__MODULE__, MadNLPSolver, FILTER_FIELDS)
 include("restoration.jl")
 include("feasibility.jl")
 include("inertiacorrector.jl")

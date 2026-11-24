@@ -14,14 +14,26 @@ const SOLVER_FIELDS = (
     :inf_pr, :inf_du, :inf_compl, :mu, :del_w, :del_c, :status,
 )
 
-for attribute in SOLVER_FIELDS
-    getter = Symbol("get_", attribute)
-    setter = Symbol("set_", attribute, "!")
-    @eval begin
-        @inline $getter(solver::AbstractMadNLPSolver) = getfield(solver, $(QuoteNode(attribute)))
-        @inline $setter(solver::AbstractMadNLPSolver, rhs) = setfield!(solver, $(QuoteNode(attribute)), rhs)
+"""
+    define_solver_accessors(mod::Module, S::Type, fields)
+
+Define in `mod`, for each field `x` in `fields`, the getter `get_x(solver::S)` and the setter
+`set_x!(solver::S, val)`, which read and write the field of the same name. A getter or setter
+that `mod` imports from MadCore gets a new method.
+"""
+function define_solver_accessors(mod::Module, S::Type, fields)
+    for attribute in fields
+        getter = Symbol("get_", attribute)
+        setter = Symbol("set_", attribute, "!")
+        Core.eval(mod, quote
+            @inline $getter(solver::$S) = getfield(solver, $(QuoteNode(attribute)))
+            @inline $setter(solver::$S, rhs) = setfield!(solver, $(QuoteNode(attribute)), rhs)
+        end)
     end
+    return
 end
+
+define_solver_accessors(@__MODULE__, AbstractMadNLPSolver, SOLVER_FIELDS)
 
 # Getter of a field that only some solvers have, used by `solve_refine_wrapper!`. The solver
 # that has the field adds the method.
@@ -29,5 +41,4 @@ function get_iterator end
 
 # Computed quantities
 # TODO(@anton) I now think these would be useful to have, but which quantities are wrapped this way is a good question
-get_kkt_error(solver::AbstractMadNLPSolver) = max(get_inf_pr(solver), get_inf_du(solver), get_inf_compl(solver))
 get_inf_compl(solver::AbstractMadNLPSolver{T}, sc::T; mu=get_mu(solver)) where {T} = get_inf_compl(get_x_lr(solver),get_xl_r(solver),get_zl_r(solver),get_xu_r(solver),get_x_ur(solver),get_zu_r(solver), mu, sc)

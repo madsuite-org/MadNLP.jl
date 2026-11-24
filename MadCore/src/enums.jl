@@ -15,7 +15,6 @@
       SCALAR2  = 2,
       SCALAR3  = 3,
       SCALAR4  = 4,
-      CONSTANT = 5,
 )
 
 @enum(Status::Int,

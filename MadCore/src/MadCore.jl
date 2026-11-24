@@ -21,8 +21,9 @@ export MadNLPExecutionStats, SchurComplementKKTSystem, solve!, madsuite
     AbstractMadNLPSolver{T}
 
 Supertype of the interior-point solvers built on MadCore. The helpers in MadCore
-(statistics, logging, KKT assembly, step computations) access the solver through
-its fields, so a subtype is expected to carry the same fields as `MadNLPSolver`.
+(statistics, logging, KKT assembly, step computations) access the solver through the
+getters of `MadCore.SOLVER_FIELDS`, so a subtype carries those fields or overloads their
+getters.
 """
 abstract type AbstractMadNLPSolver{T} end
 

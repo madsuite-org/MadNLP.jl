@@ -55,7 +55,9 @@ function compress_hessian!(kkt::AbstractSparseKKTSystem)
     transfer!(kkt.hess_com, kkt.hess_raw, kkt.hess_csc_map)
 end
 
-function initialize!(kkt::AbstractSparseKKTSystem{T}) where T
+initialize!(kkt::AbstractSparseKKTSystem) = _initialize_sparse!(kkt)
+
+function _initialize_sparse!(kkt::AbstractKKTSystem{T}) where T
     fill!(kkt.reg, one(T))
     fill!(kkt.pr_diag, one(T))
     fill!(kkt.du_diag, zero(T))
