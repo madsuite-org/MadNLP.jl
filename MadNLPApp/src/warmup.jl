@@ -73,9 +73,10 @@ toy_callbacks() = (
     @cfunction(toy_hs, Int64, (Ptr{Cvoid}, Ptr{Int64}, Ptr{Int64})),
     @cfunction(toy_hess, Int64, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64}, Float64, Ptr{Float64})),
 )
-function solve_toy(; s = 1.0, b = 1.0, opts = Pair{String, String}[])
+function solve_toy(; s = 1.0, b = 1.0, fixed = false, opts = Pair{String, String}[])
     t = Toy(s, b)
-    x0, lv, uv, lc, uc = [0.5, 0.5], [-1.0, -1.0], [2.0, 2.0], [b], [b]
+    # with `fixed`, x2 is fixed at 0.5: the other solver type a default solve can reach
+    x0, lv, uv, lc, uc = [0.5, 0.5], [-1.0, fixed ? 0.5 : -1.0], [2.0, fixed ? 0.5 : 2.0], [b], [b]
     GC.@preserve t x0 lv uv lc uc begin
         p = Ref(
             CNLPProblem(
@@ -91,7 +92,18 @@ end
     runs = get(ENV, "MADNLPAPP_WARMUP_RUNS", "")
     nls = split(get(ENV, "MADNLPAPP_WARMUP_NL", ""))
     @compile_workload begin
+        # MadNLP's own precompile workload, again here: loading MadNLPApp's dependencies
+        # invalidates much of what MadNLP compiled (Quadmath's convert(::Type{Float128},
+        # ::Number) alone ~1400 method instances), so a solve recompiled it at run time.
+        # The solver type does not depend on the model (madnlp wraps it in a ModelBarrier),
+        # so these synthetic problems cover every model's solve.
+        MadNLPCore._precompile_solves(
+            Float64[];
+            presets = (MadNLPCore.AugmentedPreset, MadNLPCore.ShiftedPreset, MadNLPCore.CondensedPreset)
+        )
+        MadNLPCore._precompile_linear_solver(Float64[], MadCore.LapackCPUSolver)
         solve_toy()                                             # minimize
+        solve_toy(fixed = true)                                 # a fixed variable
         solve_toy(s = -1.0)                                     # maximize
         solve_toy(b = 10.0)                                     # infeasible: restoration
         solve_toy(opts = ["max_iter" => "1"])                   # iteration limit

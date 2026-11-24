@@ -1,6 +1,6 @@
 precompile(Tuple{Base.var"#656#657"{CUDACore.var"#start_retired_drainer##0#start_retired_drainer##1", Base.Timer}})
 precompile(Tuple{Type{Base.Cmd}, Array{String, 1}})
-precompile(Tuple{Type{NamedTuple{(:env,), T} where {T <: Tuple}}, Tuple{Base.Dict{String, String}}})
+precompile(Tuple{Type{NamedTuple{(:env,), T} where T<:Tuple}, Tuple{Base.Dict{String, String}}})
 precompile(Tuple{typeof(Base.copy), Base.EnvDict})
 precompile(Tuple{typeof(Base.length), CUDACore.CuArray{Int64, 1, CUDACore.DeviceMemory}})
 precompile(Tuple{typeof(Base.read), Base.PipeEndpoint})
