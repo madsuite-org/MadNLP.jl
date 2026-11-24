@@ -3,6 +3,53 @@
 # Fields used only by the filter line search and the restoration phase.
 const FILTER_FIELDS = (:theta_min, :theta_max, :ftype, :filter, :RR, :watchdog)
 
+# Termination measures and the initial right-hand side of MadNLPSolver
+get_inf_barrier(solver::AbstractMadNLPSolver) = max(get_inf_pr(solver),get_inf_du(solver),get_inf_compl_mu(solver))
+# Violation of the bounds l <= g <= u by g; zero inside them.
+bound_violation(g, l, u) = max(l - g, g - u, zero(g))
+
+"""
+    get_inf_pr_orig(solver)
+
+Primal infeasibility for the termination test. On equality rows it is |c|. On an inequality row
+it is the larger of two quantities.
+- The violation of the slack bounds by g(x) = c + s. Those bounds are the constraint bounds
+  after scaling and the `bound_relax_factor` relaxation.
+- The slack residual |c| weighted by the row's multiplier, |y| |c|.
+A slack that lags g(x) inside the bounds therefore counts only as far as its multiplier makes it
+matter. In particular, a slack held at its bound with a nonzero multiplier, while g(x) is inside,
+still has to close the gap for the solve to stop.
+"""
+function get_inf_pr_orig(solver::AbstractMadNLPSolver{T}) where {T}
+    # _w4 is scratch outside a linear solve; _w1 holds a backup during restore!
+    buf = dual(get__w4(solver))
+    ind_ineq = get_ind_ineq(solver)
+    copyto!(buf, get_c(solver))
+    c = view(get_c(solver), ind_ineq)
+    y = view(get_y(solver), ind_ineq)
+    s = slack(get_x(solver))
+    view(buf, ind_ineq) .= max.(
+        bound_violation.(c .+ s, slack(get_xl(solver)), slack(get_xu(solver))),
+        abs.(y) .* abs.(c),
+    )
+    return norm(buf, Inf)
+end
+# The convergence test uses this measure in place of the slack residual; the filter and the
+# barrier sub-problem keep the slack residual.
+get_inf_total(solver::AbstractMadNLPSolver) = max(get_inf_pr_orig(solver), get_inf_du(solver), get_inf_compl(solver))
+
+function set_initial_rhs!(solver::AbstractMadNLPSolver{T}, kkt::AbstractKKTSystem) where T
+    f = primal(get_f(solver))
+    zl = primal(get_zl(solver))
+    zu = primal(get_zu(solver))
+    px = primal(get_p(solver))
+    px .= .-f .+ zl .- zu
+    fill!(dual(get_p(solver)), zero(T))
+    fill!(dual_lb(get_p(solver)), zero(T))
+    fill!(dual_ub(get_p(solver)), zero(T))
+    return
+end
+
 for attribute in FILTER_FIELDS
     getter = Symbol("get_", attribute)
     setter = Symbol("set_", attribute, "!")

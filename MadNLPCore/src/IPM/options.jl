@@ -1,5 +1,9 @@
 # Options of the filter line-search interior-point method
 
+get_tolerance(::Type{T},::Type{KKT}) where {T, KKT} = 10^round(log10(eps(T))/2)
+get_tolerance(::Type{T},::Type{SparseCondensedKKTSystem}) where T = 10^(round(log10(eps(T))/2))
+
+
 # Convert a barrier update built with another float type (e.g. `MonotoneUpdate()`,
 # which defaults to Float64) to the precision of the solver.
 function parse_option(::Type{AbstractBarrierUpdate{T}}, barrier::AbstractBarrierUpdate) where T

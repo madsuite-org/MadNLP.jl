@@ -153,18 +153,6 @@ function set_initial_bounds!(xl::AbstractVector{T}, xu::AbstractVector{T}, tol) 
     end
 end
 
-function set_initial_rhs!(solver::AbstractMadNLPSolver{T}, kkt::AbstractKKTSystem) where T
-    f = primal(get_f(solver))
-    zl = primal(get_zl(solver))
-    zu = primal(get_zu(solver))
-    px = primal(get_p(solver))
-    px .= .-f .+ zl .- zu
-    fill!(dual(get_p(solver)), zero(T))
-    fill!(dual_lb(get_p(solver)), zero(T))
-    fill!(dual_ub(get_p(solver)), zero(T))
-    return
-end
-
 # Kernel functions ---------------------------------------------------------
 is_valid(val::R) where R <: Real = !(isnan(val) || isinf(val))
 is_valid(vec::AbstractArray) = isempty(vec) ? true : mapreduce(is_valid, &, vec)
