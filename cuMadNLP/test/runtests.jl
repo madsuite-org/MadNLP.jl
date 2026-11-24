@@ -10,9 +10,10 @@ using Test, cuMadNLP, MadNLPCore, MadCore, CUDA
         # cuMadNLP loads CUDA and CUDSS, so the GPU solvers of MadCore are available.
         @test MadCore.default_options(CUDSSSolver) isa MadCore.AbstractOptions
         @test MadCore.default_options(LapackCUDASolver) isa MadCore.AbstractOptions
-        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to CuVector models
-        preset = which(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, CuVector{Float64}}})
-        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
+        # the GPU defaults of MadNLPCoreGPUExt (preset and shifted-preset solver) apply to CuVector models
+        GPUExt = Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
+        @test which(MadNLPCore.default_preset, Tuple{MadNLPCore.AbstractNLPModel{Float64, CuVector{Float64}}}).module === GPUExt
+        @test which(MadNLPCore.shifted_sparse_solver, Tuple{MadNLPCore.AbstractNLPModel{Float64, CuVector{Float64}}}).module === GPUExt
     end
     if CUDA.functional()
         @testset "Option presets for CuVector models" begin
