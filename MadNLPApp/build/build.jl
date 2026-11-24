@@ -18,16 +18,20 @@ rm(dest; recursive = true, force = true); mkpath(dest)
 
 # the CPUs the binary runs on: any x86-64, with code cloned for the common extensions
 cpu = get(ENV, "JULIA_CPU_TARGET", "generic;sandybridge,-xsaveopt,clone_all;haswell,-rdrnd,base(1);x86-64-v4,-rdrnd,base(1)")
-img = JuliaC.ImageRecipe(file = joinpath(@__DIR__, "libmadnlp.jl"), project = app, cpu_target = cpu, output_type = "--output-lib", add_ccallables = true,
-                         trim_mode = trim, julia_args = ["--experimental"], verbose = true)
+img = JuliaC.ImageRecipe(
+    file = joinpath(@__DIR__, "libmadnlp.jl"), project = app, cpu_target = cpu, output_type = "--output-lib", add_ccallables = true,
+    trim_mode = trim, julia_args = ["--experimental"], verbose = true
+)
 t = @elapsed JuliaC.compile_products(img)
 link = JuliaC.LinkRecipe(image_recipe = img, outname = joinpath(dest, "libmadnlp"), rpath = JuliaC.RPATH_BUNDLE)
 JuliaC.link_products(link)
 # a salt of its own for the privatized runtime (see ExaModelsCompiler: identical salts collide)
-fetch(Threads.@spawn begin
-    Random.seed!(rand(Random.RandomDevice(), UInt128))
-    JuliaC.bundle_products(JuliaC.BundleRecipe(link_recipe = link, output_dir = dest, privatize = true))
-end)
+fetch(
+    Threads.@spawn begin
+        Random.seed!(rand(Random.RandomDevice(), UInt128))
+        JuliaC.bundle_products(JuliaC.BundleRecipe(link_recipe = link, output_dir = dest, privatize = true))
+    end
+)
 rm(joinpath(dest, "share"); recursive = true, force = true)
 
 mkpath(joinpath(dest, "bin")); mkpath(joinpath(dest, "include"))

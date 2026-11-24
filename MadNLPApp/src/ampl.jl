@@ -9,9 +9,9 @@
 using AmplNLReader: AmplNLReader, AmplModel, write_sol
 
 const USAGE = """usage: madnlp model[.nl] [-AMPL] [key=value ...]
-  Solves an AMPL .nl file with MadNLP (CPU). With -AMPL, writes model.sol.
-  Options (also read from the environment variable madnlp_options), e.g.
-    tol=1e-8 max_iter=500 print_level=INFO linear_solver=LapackCPUSolver"""
+Solves an AMPL .nl file with MadNLP (CPU). With -AMPL, writes model.sol.
+Options (also read from the environment variable madnlp_options), e.g.
+  tol=1e-8 max_iter=500 print_level=INFO linear_solver=LapackCPUSolver"""
 
 function main(args::Vector{String})::Cint
     trace = trace_on()
@@ -55,8 +55,10 @@ function _main(args::Vector{String})::Cint
         if ampl
             # AMPL's duals are the objective's sensitivities to the constraints' right-hand
             # sides, -y for NLPModels' y (grad f + J'y - zL + zU = 0), in either sense.
-            write_sol(nlp, "MadNLP: " * string(stats.status), Vector{Float64}(stats.solution),
-                      -Vector{Float64}(stats.multipliers))
+            write_sol(
+                nlp, "MadNLP: " * string(stats.status), Vector{Float64}(stats.solution),
+                -Vector{Float64}(stats.multipliers)
+            )
         end
         return status_of(stats.status) <= CNLPLib.CNLP_ACCEPTABLE ? 0 : 1
     finally
@@ -74,4 +76,3 @@ Base.@ccallable function madnlp_main(argc::Cint, argv::Ptr{Ptr{UInt8}})::Cint
         Cint(2)
     end
 end
-

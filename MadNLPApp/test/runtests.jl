@@ -32,15 +32,21 @@ function run(; minimize = true, opts = ("print_level" => "0",), obj = F.obj)
     lc, uc = [1.0], [1.0]
     x, y, zl, zu = zeros(4), zeros(1), zeros(4), zeros(4)
     GC.@preserve x0 lv uv lc uc x y zl zu begin
-        p = Ref(CProblem(C_NULL, 4, 1, 2, 4, minimize ? 1 : 0, pointer(x0), pointer(lv), pointer(uv),
-                         pointer(lc), pointer(uc), C_NULL, C_NULL, C_NULL,
-                         obj, F.grad, F.cons, F.js, F.jac, F.hs, F.hess))
+        p = Ref(
+            CProblem(
+                C_NULL, 4, 1, 2, 4, minimize ? 1 : 0, pointer(x0), pointer(lv), pointer(uv),
+                pointer(lc), pointer(uc), C_NULL, C_NULL, C_NULL,
+                obj, F.grad, F.cons, F.js, F.jac, F.hs, F.hess
+            )
+        )
         r = Ref(CResult(pointer(x), pointer(y), pointer(zl), pointer(zu), 0.0, -1, -1, ntuple(_ -> 0x00, 128)))
         ks = [String(k) for (k, _) in opts]; vs = [String(v) for (_, v) in opts]
         GC.@preserve ks vs begin
             kp = [pointer(k) for k in ks]; vp = [pointer(v) for v in vs]
-            rc = GC.@preserve kp vp c_solve(Base.unsafe_convert(Ptr{CProblem}, p), Int64(length(ks)),
-                                             pointer(kp), pointer(vp), Base.unsafe_convert(Ptr{CResult}, r))
+            rc = GC.@preserve kp vp c_solve(
+                Base.unsafe_convert(Ptr{CProblem}, p), Int64(length(ks)),
+                pointer(kp), pointer(vp), Base.unsafe_convert(Ptr{CResult}, r)
+            )
         end
         msg = String(filter(!iszero, collect(r[].solver_status)))
         return (; rc, x = copy(x), y = copy(y), zl = copy(zl), zu = copy(zu), r = r[], msg)
@@ -51,18 +57,18 @@ end
     @testset "minimize" begin
         s = run()
         @test s.rc == 0 && s.r.status == 0
-        @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1e-7
-        @test s.y ≈ [1.0] atol = 1e-7
-        @test s.r.objective ≈ 0.5 atol = 1e-8
+        @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1.0e-7
+        @test s.y ≈ [1.0] atol = 1.0e-7
+        @test s.r.objective ≈ 0.5 atol = 1.0e-8
         @test s.r.iterations >= 1
         @test startswith(s.msg, "MadNLP: SOLVE_SUCCEEDED")
     end
     @testset "maximize: same x, same y in the convention" begin
         s = run(minimize = false)
         @test s.rc == 0 && s.r.status == 0
-        @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1e-7
-        @test s.y ≈ [1.0] atol = 1e-7
-        @test s.r.objective ≈ -0.5 atol = 1e-8
+        @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1.0e-7
+        @test s.y ≈ [1.0] atol = 1.0e-7
+        @test s.r.objective ≈ -0.5 atol = 1.0e-8
     end
     @testset "options" begin
         s = run(opts = ("print_level" => "ERROR", "tol" => "1e-10", "max_iter" => "50", "sb" => "yes"))
@@ -82,5 +88,5 @@ end
 @testset "quasi-Newton (Jacobian products)" begin
     s = run(opts = ("print_level" => "0", "hessian_approximation" => "CompactLBFGS"))
     @test s.rc == 0 && s.r.status == 0
-    @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1e-6
+    @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1.0e-6
 end

@@ -31,8 +31,10 @@ function solve_via_c(p, opts::Vector{Pair{String, String}})
     r = Ref(CNLPResult(pointer(x), pointer(y), pointer(zl), pointer(zu), 0.0, -1, -1, ntuple(_ -> 0x00, 128)))
     kp = [pointer(k) for k in ks]; vp = [pointer(v) for v in vs]
     GC.@preserve p x y zl zu ks vs r kp vp begin
-        c_solve(Base.unsafe_convert(Ptr{CNLPProblem}, p), Int64(length(ks)), pointer(kp), pointer(vp),
-                Base.unsafe_convert(Ptr{CNLPResult}, r))
+        c_solve(
+            Base.unsafe_convert(Ptr{CNLPProblem}, p), Int64(length(ks)), pointer(kp), pointer(vp),
+            Base.unsafe_convert(Ptr{CNLPResult}, r)
+        )
     end
     return r[].status
 end
@@ -75,8 +77,12 @@ function solve_toy(; s = 1.0, b = 1.0, opts = Pair{String, String}[])
     t = Toy(s, b)
     x0, lv, uv, lc, uc = [0.5, 0.5], [-1.0, -1.0], [2.0, 2.0], [b], [b]
     GC.@preserve t x0 lv uv lc uc begin
-        p = Ref(CNLPProblem(pointer_from_objref(t), 2, 1, 2, 2, s > 0 ? 1 : 0, pointer(x0), pointer(lv),
-                            pointer(uv), pointer(lc), pointer(uc), C_NULL, C_NULL, C_NULL, toy_callbacks()...))
+        p = Ref(
+            CNLPProblem(
+                pointer_from_objref(t), 2, 1, 2, 2, s > 0 ? 1 : 0, pointer(x0), pointer(lv),
+                pointer(uv), pointer(lc), pointer(uc), C_NULL, C_NULL, C_NULL, toy_callbacks()...
+            )
+        )
         return solve_via_c(p, ["print_level" => "0"; opts])
     end
 end

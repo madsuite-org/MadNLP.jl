@@ -77,13 +77,15 @@ end
 compile_ns() = Base.cumulative_compile_time_ns()[1]
 # The caller is C: flush before returning, or what Julia buffered is lost when it exits.
 function report_compiled(ns)
-    println(stderr, string("madnlp: compiled at run time: ", round(Int, ns / 1e6), " ms of Julia methods"))
+    println(stderr, string("madnlp: compiled at run time: ", round(Int, ns / 1.0e6), " ms of Julia methods"))
     flush(stdout); flush(stderr)
     return nothing
 end
 
-function c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}},
-                 result::Ptr{CNLPResult})::Int64
+function c_solve(
+        problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}},
+        result::Ptr{CNLPResult}
+    )::Int64
     trace = trace_on()
     ct0 = trace ? compile_ns() : UInt64(0)
     rc = _c_solve(problem, nopt, keys, vals, result)
@@ -91,8 +93,10 @@ function c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, 
     return rc
 end
 
-function _c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}},
-                  result::Ptr{CNLPResult})::Int64
+function _c_solve(
+        problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}},
+        result::Ptr{CNLPResult}
+    )::Int64
     kw = try
         options(CNLPLib.solver_options(nopt, keys, vals))
     catch e
@@ -102,8 +106,10 @@ function _c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
     try
         m = ProblemModel(problem)
         s = run_madnlp(m, kw)
-        CNLPLib.set_result!(result, m, s.solution, s.multipliers, s.multipliers_L, s.multipliers_U,
-                            s.objective, status_of(s.status), s.iter, "MadNLP: " * string(s.status))
+        CNLPLib.set_result!(
+            result, m, s.solution, s.multipliers, s.multipliers_L, s.multipliers_U,
+            s.objective, status_of(s.status), s.iter, "MadNLP: " * string(s.status)
+        )
         return 0
     catch e
         CNLPLib.set_failure!(result, sprint(showerror, e))
@@ -116,8 +122,10 @@ end
 const VERSION_STRING = "0.1.0"
 
 "The C entry point: solve the problem with MadNLP (include/madnlp.h)."
-Base.@ccallable function madnlp_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
-                                      vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult})::Int64
+Base.@ccallable function madnlp_solve(
+        problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
+        vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
+    )::Int64
     return c_solve(problem, nopt, keys, vals, result)
 end
 
@@ -126,8 +134,10 @@ Base.@ccallable function madnlp_version(buf::Ptr{UInt8}, cap::Int64)::Int64
 end
 
 # the cnlp solver interface (cnlp_solver.h): the same entry point, under cnlp's names
-Base.@ccallable function cnlp_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
-                                    vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult})::Int64
+Base.@ccallable function cnlp_solve(
+        problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
+        vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
+    )::Int64
     return c_solve(problem, nopt, keys, vals, result)
 end
 
