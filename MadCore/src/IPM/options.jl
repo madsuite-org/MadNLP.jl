@@ -51,7 +51,7 @@ function print_ignored_options(logger,option_dict)
     end
 end
 
-function _get_primary_options(options)
+function get_primary_options(options)
     primary_opt = Dict{Symbol,Any}()
     remaining_opt = Dict{Symbol,Any}()
     for (k,v) in options

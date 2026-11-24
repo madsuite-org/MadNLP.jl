@@ -397,7 +397,7 @@ function create_sparse_fixed_handler(
     return fixed_handler, n, get_nnzj(nlp.meta), get_nnzh(nlp.meta)
 end
 
-function _parse_indexes(lvar::AbstractVector{T}, uvar, lcon, ucon, equality_treatment) where {T}
+function parse_indexes(lvar::AbstractVector{T}, uvar, lcon, ucon, equality_treatment) where {T}
     m = length(lcon)
     if m > 0
         if equality_treatment == EnforceEquality
@@ -506,7 +506,7 @@ function create_callback(
         uvar = uvar[ind_free]
     end
 
-    indexes = _parse_indexes(lvar, uvar, lcon, ucon, equality_treatment)
+    indexes = parse_indexes(lvar, uvar, lcon, ucon, equality_treatment)
 
     return SparseCallback(
         nlp,
@@ -565,7 +565,7 @@ function create_callback(
     lcon = get_lcon(nlp)
     ucon = get_ucon(nlp)
 
-    indexes = _parse_indexes(lvar, uvar, lcon, ucon, equality_treatment)
+    indexes = parse_indexes(lvar, uvar, lcon, ucon, equality_treatment)
 
     # Get fixed variables
     ind_fixed = findall(lvar .== uvar)
@@ -606,17 +606,17 @@ end
 # Constant subtracted from each constraint. Under `RelaxEquality` every row is a
 # slack row whose bounds carry the right-hand side, so the constant is zero and the
 # relaxation is applied once, to the slack bounds.
-function _treat_equality_initialize!(::EnforceEquality, rhs, lcon, ucon)
+function treat_equality_initialize!(::EnforceEquality, rhs, lcon, ucon)
     rhs .= (lcon .== ucon) .* lcon
     return
 end
-function _treat_equality_initialize!(::RelaxEquality, rhs, lcon, ucon)
+function treat_equality_initialize!(::RelaxEquality, rhs, lcon, ucon)
     fill!(rhs, zero(eltype(rhs)))
     return
 end
 # Initiate fixed variables. By default, do nothing.
-function _treat_fixed_variable_initialize!(cb::AbstractCallback, x0, lvar, uvar) end
-function _treat_fixed_variable_initialize!(
+function treat_fixed_variable_initialize!(cb::AbstractCallback, x0, lvar, uvar) end
+function treat_fixed_variable_initialize!(
     cb::DenseCallback{T, VT, VI, NLP, FH},
     x0,
     lvar,
@@ -655,7 +655,7 @@ function initialize!(
     lcon = get_lcon(nlp)
     ucon = get_ucon(nlp)
 
-    _treat_fixed_variable_initialize!(cb, x0, lvar, uvar)
+    treat_fixed_variable_initialize!(cb, x0, lvar, uvar)
 
     set_initial_bounds!(lvar, uvar, tol)
     initialize_variables!(x0, lvar, uvar, bound_push, bound_fac)
@@ -664,7 +664,7 @@ function initialize!(
 
     slack(xl) .= view(lcon, ind_ineq)
     slack(xu) .= view(ucon, ind_ineq)
-    _treat_equality_initialize!(cb.equality_handler, rhs, lcon, ucon)
+    treat_equality_initialize!(cb.equality_handler, rhs, lcon, ucon)
     copyto!(slack(x), @view(con_buffer[ind_ineq]))
 
     set_initial_bounds!(slack(xl), slack(xu), tol)

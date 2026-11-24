@@ -1,9 +1,7 @@
 
 # KKT system updates -------------------------------------------------------
 # Set diagonal
-set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T = _set_aug_diagonal!(kkt, solver)
-
-function _set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
+function set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
     fill!(kkt.reg, get_opt(solver).default_primal_regularization)
     fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
     kkt.l_diag .= get_xl_r(solver) .- get_x_lr(solver)   # (Xˡ - X)
@@ -11,18 +9,18 @@ function _set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSol
     copyto!(kkt.l_lower, get_zl_r(solver))
     copyto!(kkt.u_lower, get_zu_r(solver))
 
-    _set_aug_diagonal!(kkt)
+    set_aug_diagonal!(kkt)
     return
 end
 
-function _set_aug_diagonal!(kkt::AbstractKKTSystem)
+function set_aug_diagonal!(kkt::AbstractKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
     @views kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
     @views kkt.pr_diag[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
     return
 end
 
-function _set_aug_diagonal!(kkt::AbstractUnreducedKKTSystem)
+function set_aug_diagonal!(kkt::AbstractUnreducedKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
     kkt.l_lower_aug .= sqrt.(kkt.l_lower)
     kkt.u_lower_aug .= sqrt.(kkt.u_lower)
@@ -37,10 +35,10 @@ function set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}, solver::AbstractMadNLP
     kkt.u_diag .= get_xu_r(solver) .- get_x_ur(solver)   # (Xᵘ - X)
     copyto!(kkt.l_lower, get_zl_r(solver))
     copyto!(kkt.u_lower, get_zu_r(solver))
-    _set_aug_diagonal!(kkt)
+    set_aug_diagonal!(kkt)
 end
 
-function _set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}) where T
+function set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}) where T
     xlzu = kkt.buffer1
     xuzl = kkt.buffer2
     fill!(xlzu, zero(T))
@@ -264,7 +262,7 @@ function get_alpha_z(
     return alpha_z
 end
 
-function _initialize_variables!(x::T, xl, xu, bound_push, bound_fac) where T
+function initialize_variable(x::T, xl, xu, bound_push, bound_fac) where T
     if xl!=-T(Inf) && xu!=T(Inf)
         return min(
             xu-min(bound_push*max(1,abs(xu)), bound_fac*(xu-xl)),
@@ -279,7 +277,7 @@ function _initialize_variables!(x::T, xl, xu, bound_push, bound_fac) where T
 end
 
 function initialize_variables!(x, xl, xu, bound_push, bound_fac)
-    map!((x,l,u) -> _initialize_variables!(x,l,u, bound_push, bound_fac), x, x, xl, xu)
+    map!((x,l,u) -> initialize_variable(x,l,u, bound_push, bound_fac), x, x, xl, xu)
 end
 
 function adjust_boundary!(

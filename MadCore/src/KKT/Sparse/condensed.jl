@@ -404,7 +404,7 @@ function _set_colptr!(colptr, ptr2, sym2, guide)
     end
 end
 
-@inbounds function _build_condensed_aug_coord!(aug_com::SparseMatrixCSC{Tv,Ti}, pr_diag, H, Jt, diag_buffer, dptr, hptr, jptr) where {Tv, Ti}
+@inbounds function build_condensed_aug_coord!(aug_com::SparseMatrixCSC{Tv,Ti}, pr_diag, H, Jt, diag_buffer, dptr, hptr, jptr) where {Tv, Ti}
     fill!(aug_com.nzval, zero(Tv))
 
     @simd for idx in eachindex(hptr)
@@ -425,8 +425,8 @@ end
 
 # the condensed block H + Σx + Jtᵀ D Jt into aug, from the Jacobian columns Jt and the
 # diagonal D; the symbolic maps dptr/hptr/jptr were built for exactly these arguments
-function _build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem{T,VT,MT}, aug::MT, Jt::MT, D::VT) where {T, VT, MT <: SparseMatrixCSC{T}}
-    _build_condensed_aug_coord!(aug, kkt.pr_diag, kkt.hess_com, Jt, D, kkt.dptr, kkt.hptr, kkt.jptr)
+function build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem{T,VT,MT}, aug::MT, Jt::MT, D::VT) where {T, VT, MT <: SparseMatrixCSC{T}}
+    build_condensed_aug_coord!(aug, kkt.pr_diag, kkt.hess_com, Jt, D, kkt.dptr, kkt.hptr, kkt.jptr)
 end
 
 """
@@ -434,7 +434,7 @@ end
 
 Update the values of the condensed matrix of `kkt` from its Hessian, Jacobian and diagonals.
 """
-build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_aug_coord!(kkt, kkt.aug_com, kkt.jt_csc, kkt.diag_buffer)
+build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = build_condensed_aug_coord!(kkt, kkt.aug_com, kkt.jt_csc, kkt.diag_buffer)
 
 
 # The weights of the condensed equality rows: D_i = 1 / (δ - Σd_i), with δ the base shift or, once,

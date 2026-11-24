@@ -454,7 +454,7 @@ end
 =#
 
 # the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`
-function MadCore._build_condensed_aug_coord!(
+function MadCore.build_condensed_aug_coord!(
         kkt::MadCore.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
     ) where {T, VT <: AbstractGPUVector{T}}
     fill!(nonzeros(aug), zero(T))

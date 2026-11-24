@@ -80,7 +80,7 @@ function test_kkt_system(kkt, cb)
     fill!(kkt.u_lower, 1e-3)
 
     # Update diagonal terms manually.
-    MadNLP._set_aug_diagonal!(kkt)
+    MadNLP.set_aug_diagonal!(kkt)
 
     # Factorization
     MadNLP.build_kkt!(kkt)

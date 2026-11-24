@@ -45,8 +45,8 @@ struct MyLDL end
 
     @testset "Any type selects a linear solver" begin
         @eval begin
-            MadNLPCore.create_linear_solver(::Type{MyLDL}, A; kwargs...) =
-                MadNLPCore.create_linear_solver(LDLSolver, A; kwargs...)
+            MadNLPCore.MadCore.create_linear_solver(::Type{MyLDL}, A; kwargs...) =
+                MadNLPCore.MadCore.create_linear_solver(LDLSolver, A; kwargs...)
             MadNLPCore.default_options(::Type{MyLDL}) = MadNLPCore.default_options(LDLSolver)
             MadNLPCore.input_type(::Type{MyLDL}) = MadNLPCore.input_type(LDLSolver)
             MadNLPCore.is_supported(::Type{MyLDL}, ::Type{T}) where {T <: AbstractFloat} =

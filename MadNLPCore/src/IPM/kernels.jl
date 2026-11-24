@@ -65,7 +65,7 @@ function set_aug_RR!(kkt::AbstractKKTSystem, solver::AbstractMadNLPSolver, RR::R
     kkt.l_diag .= get_xl_r(solver) .- get_x_lr(solver)
     kkt.u_diag .= get_x_ur(solver) .- get_xu_r(solver)
 
-    _set_aug_diagonal!(kkt)
+    set_aug_diagonal!(kkt)
     return
 end
 
@@ -82,7 +82,7 @@ function set_aug_RR!(kkt::ScaledSparseKKTSystem, solver::AbstractMadNLPSolver, R
     kkt.l_diag .= get_x_lr(solver) .- get_xl_r(solver)
     kkt.u_diag .= get_xu_r(solver) .- get_x_ur(solver)
 
-    _set_aug_diagonal!(kkt)
+    set_aug_diagonal!(kkt)
     return
 end
 

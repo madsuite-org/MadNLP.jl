@@ -20,8 +20,9 @@ const PUBLIC_NAMES = (
     :eval_grad_f_callback!, :eval_grad_f_wrapper!, :eval_jac_callback!, :eval_jac_wrapper!,
     :eval_lag_hess_callback!, :eval_lag_hess_wrapper!, :hess_sparsity_callback!,
     :initialize!, :jac_sparsity_callback!, :MakeParameter, :n_constraints, :n_variables,
-    :NoFixedVariables, :RelaxBound, :RelaxEquality, :set_con_scale_sparse!,
-    :set_jac_scale_sparse!, :set_obj_scale!, :set_scaling!, :SparseCallback, :unpack_cons!,
+    :NoFixedVariables, :parse_indexes, :RelaxBound, :RelaxEquality, :set_con_scale_sparse!,
+    :set_jac_scale_sparse!, :set_obj_scale!, :set_scaling!, :SparseCallback,
+    :treat_equality_initialize!, :treat_fixed_variable_initialize!, :unpack_cons!,
     :unpack_x!, :unpack_y!, :unpack_z!, :update_z!,
     # Linear solvers
     :AbstractLinearSolver, :default_options, :factorize!, :factorize_wrapper!, :inertia,
@@ -35,12 +36,13 @@ const PUBLIC_NAMES = (
     :AbstractMadNLPSolver, :adjust_boundary!, :default_sparse_solver,
     :dual_inf_perturbation!, :finish_aug_solve!, :get_alpha_max, :get_alpha_z,
     :get_average_complementarity, :get_inf_compl, :get_inf_du, :get_inf_pr,
-    :get_min_complementarity, :get_sc, :get_sd, :InvalidNumberException,
-    :MadNLPExecutionStats, :NotEnoughDegreesOfFreedomException, :print_ignored_options,
-    :print_init, :print_iter, :print_summary, :reduce_rhs!, :reset_bound_dual!,
-    :set_aug_diagonal!, :set_aug_rhs!, :set_initial_bounds!, :set_options!, :solve_kkt!,
-    :solve_refine_wrapper!, :SparseWrapperModel, :SubVector, :transfer_values!, :unpack_obj,
-    :update_con_scale_sparse!, :update_x!, :UserCallbackRegular,
+    :get_min_complementarity, :get_sc, :get_sd, :initialize_variable,
+    :InvalidNumberException, :MadNLPExecutionStats, :NotEnoughDegreesOfFreedomException,
+    :print_ignored_options, :print_init, :print_iter, :print_summary, :reduce_rhs!,
+    :reset_bound_dual!, :set_aug_diagonal!, :set_aug_rhs!, :set_initial_bounds!,
+    :set_options!, :solve_kkt!, :solve_refine_wrapper!, :SparseWrapperModel, :SubVector,
+    :transfer_values!, :unpack_obj, :update_con_scale_sparse!, :update_x!,
+    :UserCallbackRegular,
     # Status and option values
     :CHOLESKY, :CompactLBFGS, :DIVERGING_ITERATES, :ERROR, :ERROR_IN_STEP_COMPUTATION,
     :INFEASIBLE_PROBLEM_DETECTED, :INFO, :INITIAL, :INTERNAL_ERROR,
@@ -54,7 +56,8 @@ const PUBLIC_NAMES = (
     :var"@debug", :var"@info", :var"@notice", :var"@trace", :var"@warn",
     # Options, counters and timers
     :AbstractOptions, :format_time, :get_intermediate_callback, :get_level, :get_mu,
-    :get_status_output, :get_tau, :LogLevels, :MadNLPCounters, :MadNLPLogger, :madsuite,
+    :get_primary_options, :get_status_output, :get_tau, :LogLevels, :MadNLPCounters,
+    :MadNLPLogger, :madsuite,
 )
 
 """
