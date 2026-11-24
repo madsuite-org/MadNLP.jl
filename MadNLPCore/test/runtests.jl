@@ -12,7 +12,7 @@ struct MyLDL end
     nlp = HS15Model()
 
     @testset "Solver fields match the MadCore getters" begin
-        @test Set(fieldnames(MadNLPSolver)) == Set((MadNLPCore.MadCore.SOLVER_FIELDS..., MadNLPCore.FILTER_FIELDS...))
+        @test Set(fieldnames(MadNLPSolver)) == Set((MadNLPCore.MadCore.SOLVER_FIELDS..., MadNLPCore.NLP_SOLVER_FIELDS..., MadNLPCore.FILTER_FIELDS...))
     end
 
     @testset "Public names of MadCore are not exported" begin

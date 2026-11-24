@@ -101,6 +101,22 @@ mutable struct MadNLPSolver{
     output::Dict
 end
 
+# Fields of `MadNLPSolver` beyond `MadCore.SOLVER_FIELDS`, with their getters and setters.
+const NLP_SOLVER_FIELDS = (
+    :_w3, :_w4, :x_trial, :c_trial, :obj_val_trial, :c_slk, :x_trial_lr, :x_trial_ur,
+    :iterator, :inf_compl_mu, :tau, :alpha, :alpha_z, :del_w_last, :inertia_corrector,
+    :intermediate_callback, :output,
+)
+
+for attribute in NLP_SOLVER_FIELDS
+    getter = Symbol("get_", attribute)
+    setter = Symbol("set_", attribute, "!")
+    @eval begin
+        @inline $getter(solver::MadNLPSolver) = getfield(solver, $(QuoteNode(attribute)))
+        @inline $setter(solver::MadNLPSolver, rhs) = setfield!(solver, $(QuoteNode(attribute)), rhs)
+    end
+end
+
 include("kernels.jl")
 include("restoration.jl")
 include("feasibility.jl")

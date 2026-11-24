@@ -55,7 +55,7 @@ const PUBLIC_NAMES = (
     # Logging
     :var"@debug", :var"@info", :var"@notice", :var"@trace", :var"@warn",
     # Options, counters and timers
-    :AbstractOptions, :format_time, :get_intermediate_callback, :get_level, :get_mu,
+    :AbstractOptions, :format_time, :get_level, :get_mu,
     :get_primary_options, :get_status_output, :get_tau, :LogLevels, :MadNLPCounters,
     :MadNLPLogger, :madsuite,
 )

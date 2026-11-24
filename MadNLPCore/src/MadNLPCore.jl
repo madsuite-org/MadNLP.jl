@@ -21,7 +21,8 @@ import MadCore: @phase_region, @timed_region, @warn, AbstractDenseKKTSystem, Abs
     get_sd, get_tolerance, has_constraints, is_dense_callback, is_valid, mul_hess_blk!,
     parse_option, print_init, reset_bound_dual!, set_aug_rhs!, set_blas_num_threads,
     set_initial_rhs!, timer_flush!, _now, _reset_regions!, attach_counters!, inertia_retry!,
-    get_kkt, input_type, is_inertia, should_regularize_dual
+    get_kkt, input_type, is_inertia, should_regularize_dual, get__w4, get_iterator,
+    get_inf_compl_mu
 import NLPModels: AbstractNLPModel, get_x0, obj
 import Printf: @sprintf
 
