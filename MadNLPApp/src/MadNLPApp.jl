@@ -16,7 +16,7 @@ module MadNLPApp
 using MadNLP: MadNLP, madnlp
 import MadCore, MadNLPCore
 import NLPModels
-using NLPModels: AbstractNLPModel, NLPModelMeta, Counters, increment!
+using NLPModels: AbstractNLPModel
 
 include("capi.jl")
 include("ampl.jl")

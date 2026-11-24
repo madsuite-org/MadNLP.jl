@@ -4,21 +4,23 @@ version = "0.1.0"
 
 [deps]
 AmplNLReader = "77dd3d4c-cb1d-5e09-9340-85030ff7ba66"
+CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
 MadNLP = "2621e9c9-9eb4-46b1-8089-e8c72242dfb6"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
-Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 
 [sources]
+# until CNLPLib (with the solver interface, CNLPLib.jl#10) is registered
+CNLPLib = {url = "https://github.com/madsuite-org/CNLPLib.jl", rev = "solver-interface"}
 MadCore = {path = "../MadCore"}
 MadNLP = {path = "../MadNLP"}
 MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]
 AmplNLReader = "0.11, 0.12"
+CNLPLib = "0.4"
 MadCore = "=0.12.0"
 MadNLP = "=0.12.0"
 MadNLPCore = "=0.12.0"

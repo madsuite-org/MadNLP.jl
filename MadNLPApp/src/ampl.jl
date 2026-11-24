@@ -58,7 +58,7 @@ function _main(args::Vector{String})::Cint
             write_sol(nlp, "MadNLP: " * string(stats.status), Vector{Float64}(stats.solution),
                       -Vector{Float64}(stats.multipliers))
         end
-        return status_of(stats.status) <= ACCEPTABLE ? 0 : 1
+        return status_of(stats.status) <= CNLPLib.CNLP_ACCEPTABLE ? 0 : 1
     finally
         finalize(nlp)
     end

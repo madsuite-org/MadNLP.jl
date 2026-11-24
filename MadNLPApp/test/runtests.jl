@@ -1,5 +1,6 @@
 using Test, MadNLPApp
-using MadNLPApp: CProblem, CResult, c_solve
+using MadNLPApp: c_solve
+using CNLPLib: CNLPProblem as CProblem, CNLPResult as CResult
 
 # min s * sum_i (x_i - 1)^2  s.t.  x_1 + x_2 = 1 (n = 4), with s = 1 (min) or the
 # maximization of -sum_i (x_i - 1)^2: the same solution x = (0.5, 0.5, 1, 1), and in the
