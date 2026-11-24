@@ -118,9 +118,14 @@ The constructor allocates all the memory required in the interior-point
 algorithm, so the main algorithm remains allocation free.
 
 """
-function MadNLPSolver(nlp::AbstractNLPModel{T,VT}; kwargs...) where {T, VT}
+function MadNLPSolver(nlp::AbstractNLPModel; kwargs...)
+    return build_solver(nlp, load_options(nlp; kwargs...))
+end
 
-    options = load_options(nlp; kwargs...)
+# The solver for loaded options. Separate from the keyword constructor so that it is
+# compiled once per model and option types, not again for every set of keyword names and
+# value types a caller passes.
+function build_solver(nlp::AbstractNLPModel{T,VT}, options::NamedTuple) where {T, VT}
 
     ipm_opt = options.interior_point
     logger = options.logger
