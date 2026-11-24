@@ -11,11 +11,33 @@ together with `default_options`, `input_type` and `is_supported`, which are call
 with the type. A package that keeps MadCore as a weak dependency can export a plain
 `struct FooSolver end` and define these methods in its extension.
 
-A marker such as [`MumpsSolver`](@ref) is an empty type that gets these methods from
-its package extension; until the extension is loaded, the `MethodError` names the
-package to load.
+A marker such as [`MumpsSolver`](@ref) is an empty subtype of [`AbstractSolverMarker`](@ref)
+whose package extension names the solver implementing it with [`solver_type`](@ref);
+until the extension is loaded, the `MethodError` names the package to load.
 """
 function create_linear_solver end
+
+"""
+    AbstractSolverMarker
+
+Supertype of the markers of the linear solvers implemented in package extensions. A
+marker `M` forwards `create_linear_solver`, `default_options`, `input_type` and
+`is_supported` to the solver `solver_type(M)`.
+"""
+abstract type AbstractSolverMarker end
+
+"""
+    solver_type(marker::Type{<:AbstractSolverMarker})
+
+Return the linear solver type implementing `marker`. Defined by the extension that
+implements it, e.g. `MadCore.solver_type(::Type{MadCore.MumpsSolver}) = MumpsState`.
+"""
+function solver_type end
+
+create_linear_solver(::Type{M}, A; kwargs...) where {M <: AbstractSolverMarker} = solver_type(M)(A; kwargs...)
+default_options(::Type{M}) where {M <: AbstractSolverMarker} = default_options(solver_type(M))
+input_type(::Type{M}) where {M <: AbstractSolverMarker} = input_type(solver_type(M))
+is_supported(::Type{M}, ::Type{T}) where {M <: AbstractSolverMarker, T <: AbstractFloat} = is_supported(solver_type(M), T)
 
 """
     backend_package(marker::Type)
@@ -27,7 +49,7 @@ function backend_package end
 # A marker whose extension is not loaded has no methods; this hint names the package
 # to load in the resulting `MethodError`.
 function _missing_extension_hint(io, exc, argtypes, kwargs)
-    exc.f in (create_linear_solver, default_options, input_type, is_supported) || return
+    exc.f in (create_linear_solver, default_options, input_type, is_supported, solver_type) || return
     isempty(exc.args) && return
     M = exc.args[1]
     (M isa Type && hasmethod(backend_package, Tuple{Type{M}})) || return
@@ -41,7 +63,7 @@ end
 Select the sparse symmetric indefinite solver MUMPS. Implemented in the extension
 loaded by `MUMPS_seq_jll` and `OpenBLAS32_jll`.
 """
-struct MumpsSolver end
+struct MumpsSolver <: AbstractSolverMarker end
 backend_package(::Type{MumpsSolver}) = "MUMPS_seq_jll and OpenBLAS32_jll"
 
 """
@@ -50,7 +72,7 @@ backend_package(::Type{MumpsSolver}) = "MUMPS_seq_jll and OpenBLAS32_jll"
 Select the sparse LDLᵀ factorization of LDLFactorizations.jl. Implemented in the
 extension loaded by `LDLFactorizations`.
 """
-struct LDLSolver end
+struct LDLSolver <: AbstractSolverMarker end
 backend_package(::Type{LDLSolver}) = "LDLFactorizations"
 
 """
@@ -59,7 +81,7 @@ backend_package(::Type{LDLSolver}) = "LDLFactorizations"
 Select the sparse LU factorization of UMFPACK. Implemented in the extension loaded
 by `SuiteSparse`.
 """
-struct UmfpackSolver end
+struct UmfpackSolver <: AbstractSolverMarker end
 backend_package(::Type{UmfpackSolver}) = "SuiteSparse"
 
 """
@@ -68,7 +90,7 @@ backend_package(::Type{UmfpackSolver}) = "SuiteSparse"
 Select the sparse Cholesky or LDLᵀ factorization of CHOLMOD. Implemented in the
 extension loaded by `SuiteSparse`.
 """
-struct CHOLMODSolver end
+struct CHOLMODSolver <: AbstractSolverMarker end
 backend_package(::Type{CHOLMODSolver}) = "SuiteSparse"
 
 """
@@ -78,7 +100,7 @@ Select the sparse LDLᵀ factorization of Apple Accelerate (threshold partial pi
 default), which reports the inertia on macOS 13 and later. Implemented in the extension
 loaded by `AppleAccelerate`, on macOS only.
 """
-struct AccelerateSolver end
+struct AccelerateSolver <: AbstractSolverMarker end
 backend_package(::Type{AccelerateSolver}) = "AppleAccelerate"
 
 """
@@ -128,7 +150,7 @@ for (name, number) in ((:Ma27Solver, 27), (:Ma57Solver, 57), (:Ma77Solver, 77), 
     Implemented in the extension loaded by `HSL`.
     """
     @eval begin
-        @doc $doc struct $name end
+        @doc $doc struct $name <: AbstractSolverMarker end
         backend_package(::Type{$name}) = "HSL"
     end
 end
@@ -139,7 +161,7 @@ end
 Select the sparse symmetric indefinite solver Pardiso of Intel MKL. Implemented in
 the extension loaded by `Pardiso`.
 """
-struct PardisoMKLSolver end
+struct PardisoMKLSolver <: AbstractSolverMarker end
 backend_package(::Type{PardisoMKLSolver}) = "Pardiso"
 
 """
@@ -149,5 +171,50 @@ Select the sparse symmetric solver of Panua Pardiso, which needs a license.
 Implemented in the extension loaded by `Pardiso`. It was called `PardisoSolver`
 in MadNLPPardiso; that name is now exported by Pardiso.jl.
 """
-struct PanuaPardisoSolver end
+struct PanuaPardisoSolver <: AbstractSolverMarker end
 backend_package(::Type{PanuaPardisoSolver}) = "Pardiso"
+
+"""
+    CUDSSSolver
+
+Select the sparse direct solver cuDSS on NVIDIA GPUs. Implemented in the extension
+loaded by CUDACore, cuBLAS, cuSOLVER, cuSPARSE and CUDSS.
+"""
+struct CUDSSSolver <: AbstractSolverMarker end
+backend_package(::Type{CUDSSSolver}) = "CUDA and CUDSS"
+
+"""
+    LapackCUDASolver
+
+Select the dense factorizations of cuSOLVER on NVIDIA GPUs. Implemented in the
+extension loaded by CUDACore, cuBLAS, cuSOLVER and cuSPARSE.
+"""
+struct LapackCUDASolver <: AbstractSolverMarker end
+backend_package(::Type{LapackCUDASolver}) = "CUDA"
+
+"""
+    LapackROCmSolver
+
+Select the dense factorizations of rocSOLVER on AMD GPUs. Implemented in the
+extension loaded by AMDGPU.
+"""
+struct LapackROCmSolver <: AbstractSolverMarker end
+backend_package(::Type{LapackROCmSolver}) = "AMDGPU"
+
+"""
+    LapackOneMKLSolver
+
+Select the dense factorizations of oneMKL on Intel GPUs. Implemented in the
+extension loaded by oneAPI.
+"""
+struct LapackOneMKLSolver <: AbstractSolverMarker end
+backend_package(::Type{LapackOneMKLSolver}) = "oneAPI"
+
+"""
+    SDSSolver
+
+Select the sparse direct solver SparseDirectSolver.jl on any GPU, or on the CPU for a host
+KKT matrix (`SparseMatrixCSC`). Implemented in the extension loaded by SparseDirectSolver.
+"""
+struct SDSSolver <: AbstractSolverMarker end
+backend_package(::Type{SDSSolver}) = "SparseDirectSolver"

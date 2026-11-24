@@ -153,10 +153,10 @@ module MadCoreAppleAccelerateExt
 
     introduce(M::AccelerateState) = "Apple Accelerate ($(M.opt.accelerate_factorization))"
 
-    MadCore.create_linear_solver(::Type{MadCore.AccelerateSolver}, A; kwargs...) = AccelerateState(A; kwargs...)
-    MadCore.default_options(::Type{MadCore.AccelerateSolver}) = AccelerateOptions()
-    MadCore.input_type(::Type{MadCore.AccelerateSolver}) = :csc
-    MadCore.is_supported(::Type{MadCore.AccelerateSolver}, ::Type{T}) where {T <: AbstractFloat} = T in (Float32, Float64)
+    MadCore.default_options(::Type{AccelerateState}) = AccelerateOptions()
+    MadCore.input_type(::Type{AccelerateState}) = :csc
+    MadCore.is_supported(::Type{AccelerateState}, ::Type{T}) where {T <: AbstractFloat} = T in (Float32, Float64)
+    MadCore.solver_type(::Type{MadCore.AccelerateSolver}) = AccelerateState
 
 end # @static if
 

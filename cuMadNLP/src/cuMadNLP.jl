@@ -2,15 +2,17 @@
     cuMadNLP
 
 Entry point of MadNLP on NVIDIA GPUs. Loads MadNLPCore with the GPU KKT systems of
-MadCoreGPU and the cuSOLVER and cuDSS linear solvers. Models on `CuVector` are
+MadCore's GPU extensions and the cuSOLVER and cuDSS linear solvers. Models on `CuVector` are
 solved by default with the augmented KKT system and cuDSS, after Ruiz scaling and a dual
 shift of the factorized matrix, with GMRES refinement, the quality-function barrier rule and
 slack reset: the default preset, [`ShiftedPreset`](@ref).
 """
 module cuMadNLP
 
-import MadCore, MadCoreGPU, MadNLPCore
+import MadCore, MadNLPCore
 import CUDACore, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
+# Fill-reducing orderings of cuDSS (`cudss_ordering`): MadCoreAMDExt and MadCoreMetisExt
+import AMD, Metis
 using CUDACore: CuVector, CUDABackend
 import PrecompileTools
 import Krylov   # GMRES refinement (KrylovIterator) of the default options
@@ -20,10 +22,9 @@ for name in names(MadNLPCore)
     name === :MadNLPCore && continue
     @eval export $name
 end
-using MadCoreGPU: LapackCUDASolver, CUDSSSolver
+using MadCore: LapackCUDASolver, CUDSSSolver
 export LapackCUDASolver, CUDSSSolver, CUDABackend
 
-include("options.jl")
 include("precompile.jl")
 
 end # module

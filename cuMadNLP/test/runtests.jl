@@ -1,13 +1,13 @@
-using Test, cuMadNLP, MadNLPCore, MadCore, MadCoreGPU, CUDA
+using Test, cuMadNLP, MadNLPCore, MadCore, CUDA
 
 @testset "cuMadNLP" begin
     @testset "Exports and extensions" begin
-        @test CUDSSSolver === MadCoreGPU.CUDSSSolver
-        @test LapackCUDASolver === MadCoreGPU.LapackCUDASolver
+        @test CUDSSSolver === MadCore.CUDSSSolver
+        @test LapackCUDASolver === MadCore.LapackCUDASolver
         @test madnlp === MadNLPCore.madnlp
         @test :CUDABackend in names(cuMadNLP)
         @test cuMadNLP.CUDABackend === CUDA.CUDABackend
-        # cuMadNLP loads CUDA and CUDSS, so the solvers of MadCoreGPU are available.
+        # cuMadNLP loads CUDA and CUDSS, so the GPU solvers of MadCore are available.
         @test MadCore.default_options(CUDSSSolver) isa MadCore.AbstractOptions
         @test MadCore.default_options(LapackCUDASolver) isa MadCore.AbstractOptions
         # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to CuVector models

@@ -10,44 +10,85 @@ SolverCore = "ff4d7338-4cf1-434d-91df-b86cb86fb843"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 
 [weakdeps]
+AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
+AMDGPU = "21141c5a-9bdb-4563-92ae-f87d6854732e"
+Adapt = "79e6a3ab-5dfb-504d-930d-738a2a938a0e"
 AppleAccelerate = "13e28ba4-7ad8-5781-acae-3021b1ed3924"
+CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
+CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
+GPUArrays = "0c68f7d7-f131-5f86-a1c3-88cf8149b2d7"
+GPUArraysCore = "46192b85-c4d5-4398-a991-12ede77f4527"
 HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
+KernelAbstractions = "63c18a36-062a-441e-b654-da1e3ab1ce7c"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
 MUMPS_seq_jll = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
+Metal = "dde4c033-4e86-420c-a63e-0dd931031962"
+Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
 OpenBLAS32_jll = "656ef2d0-ae68-5445-9ca0-591084a874a2"
 Pardiso = "46dd5b70-b6fb-5a00-ae2d-e8fea33afaf2"
+SparseDirectSolver = "dc8e0fd9-41f1-440b-9624-22817132f700"
 SuiteSparse = "4607b0f0-06f3-5cda-b6b1-a6196a1729e9"
+cuBLAS = "182d3088-87b7-4494-8cad-fc6afaa545bc"
+cuSOLVER = "887afef0-6a32-4de5-add4-7827692ba8fc"
+cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
+oneAPI = "8f75cd03-7ff8-4ecb-9b8f-daf728133b1b"
 
 [extensions]
+MadCoreAMDExt = "AMD"
+MadCoreAMDGPUExt = ["AMDGPU", "KernelAbstractions"]
 MadCoreAppleAccelerateExt = "AppleAccelerate"
+MadCoreCUDAExt = ["CUDACore", "KernelAbstractions", "cuBLAS", "cuSOLVER", "cuSPARSE"]
+MadCoreCUDSSExt = ["CUDACore", "CUDSS", "KernelAbstractions", "cuBLAS", "cuSOLVER", "cuSPARSE"]
+MadCoreGPUExt = ["Adapt", "GPUArrays", "GPUArraysCore", "KernelAbstractions"]
 MadCoreHSLExt = "HSL"
 MadCoreKrylovExt = "Krylov"
 MadCoreLDLExt = "LDLFactorizations"
 MadCoreMUMPSExt = ["MUMPS_seq_jll", "OpenBLAS32_jll"]
+MadCoreMetalExt = ["GPUArrays", "KernelAbstractions", "Metal"]
+MadCoreMetisExt = "Metis"
+MadCoreOneAPIExt = "oneAPI"
 MadCorePardisoExt = "Pardiso"
+MadCoreSDSExt = "SparseDirectSolver"
 MadCoreSuiteSparseExt = "SuiteSparse"
 
 [compat]
+AMD = "0.5"
+AMDGPU = "2.10"
+Adapt = "4"
 AppleAccelerate = "0.6"
+CUDACore = "6"
+CUDSS = "1.0"
+GPUArrays = "11.3, 12"
+GPUArraysCore = "0.2"
 HSL = "0.5.3"
+KernelAbstractions = "0.10"
 Krylov = "0.10"
 LDLFactorizations = "0.10"
 LinearAlgebra = "1.10"
 MUMPS_seq_jll = "~500.900"
+Metal = "1.11"
+Metis = "1"
 OpenBLAS32_jll = "0.3"
 Pardiso = "1"
 NLPModels = "0.21.9"
 Printf = "1.10"
 SolverCore = "~0.3"
 SparseArrays = "1.10"
+SparseDirectSolver = "0.4.1"
 SuiteSparse = "1.10"
 Test = "1.10"
+cuBLAS = "6"
+cuSOLVER = "6"
+cuSPARSE = "6"
 julia = "1.10"
+oneAPI = "2.10"
 
 [extras]
+AMD = "14f7f29c-3bd6-536c-9a0b-7339e30b5a3e"
 LDLFactorizations = "40e66cde-538c-5869-a4ad-c39174c6795b"
+Metis = "2679e427-3c69-5b7f-982b-ece356f1e94b"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "LDLFactorizations"]
+test = ["Test", "LDLFactorizations", "AMD", "Metis"]
