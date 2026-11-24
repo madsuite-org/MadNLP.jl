@@ -259,12 +259,6 @@ function _build_condensed_aug_symbolic_jt(Jt, sym, sym2)
     end
 end
 
-"""
-    getptr(array; by = (x, y) -> x != y)
-
-Return the indices at which a new group starts in `array`, followed by `length(array) + 1`.
-Two consecutive entries `x` and `y` are in different groups when `by(x, y)` holds.
-"""
 function getptr(array; by = (x,y)->x != y)
     bitarray = similar(array, Bool, length(array)+1)
     fill!(bitarray, true)

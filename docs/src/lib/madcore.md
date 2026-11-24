@@ -20,18 +20,12 @@ The manipulation of the KKT systems and their right-hand sides is described in
 ## KKT systems
 
 ```@docs
-AbstractDenseKKTSystem
-get_slack_regularization
 get_sparse_condensed_ext
 build_hessian_structure
 build_condensed_aug_symbolic
 build_condensed_aug_coord!
-mul_hess_blk!
 kktmul!
 madnlp_unsafe_wrap
-diag_add!
-getptr
-nzval
 ```
 
 ## KKT vectors
