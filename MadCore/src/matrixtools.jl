@@ -91,7 +91,14 @@ function _get_coo_to_csc(I,J,cscind,map)
         @inbounds map[i] = cscind[I[i],J[i]]
     end
 end
-function transfer_values!(vec1, vec2, map)
+"""
+    coo_to_csc_values!(nzval, V, map)
+
+Set the nonzeros `nzval` of a CSC matrix from the COO values `V`, with the map returned by
+[`coo_to_csc`](@ref): `nzval` is zeroed, then `V[i]` is added to `nzval[map[i]]`, so
+duplicate COO entries are summed.
+"""
+function coo_to_csc_values!(vec1, vec2, map)
     T = eltype(vec1)
     fill!(vec1, zero(T))
     for i=1:length(map)
@@ -100,7 +107,7 @@ function transfer_values!(vec1, vec2, map)
 end
 
 function transfer!(dest::AbstractSparseMatrix, src::SparseMatrixCOO, map)
-    transfer_values!(nonzeros(dest), src.V, map)
+    coo_to_csc_values!(nonzeros(dest), src.V, map)
     return dest
 end
 

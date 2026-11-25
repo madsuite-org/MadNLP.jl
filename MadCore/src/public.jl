@@ -33,16 +33,15 @@ const PUBLIC_NAMES = (
     # Sparse matrix tools
     :coo_to_csc, :force_lower_triangular!, :SparseMatrixCOO, :transfer!,
     # Interior-point helpers
-    :AbstractMadNLPSolver, :adjust_boundary!, :default_sparse_solver, :define_solver_accessors,
-    :dual_inf_perturbation!, :finish_aug_solve!, :get_alpha_max, :get_alpha_z,
-    :get_average_complementarity, :get_inf_compl, :get_inf_du, :get_inf_pr,
+    :AbstractMadNLPSolver, :adjust_boundary!, :coo_to_csc_values!, :default_sparse_solver,
+    :define_solver_accessors, :dual_inf_perturbation!, :finish_aug_solve!, :get_alpha_max,
+    :get_alpha_z, :get_average_complementarity, :get_inf_compl, :get_inf_du, :get_inf_pr,
     :get_min_complementarity, :get_sc, :get_sd, :initialize_variable,
     :InvalidNumberException, :MadNLPExecutionStats, :NotEnoughDegreesOfFreedomException,
     :print_ignored_options, :print_init, :print_iter, :print_summary, :reduce_rhs!,
     :reset_bound_dual!, :set_aug_diagonal!, :set_aug_rhs!, :set_initial_bounds!,
     :set_options!, :solve_kkt!, :solve_refine_wrapper!, :SparseWrapperModel, :SubVector,
-    :transfer_values!, :unpack_obj, :update_con_scale_sparse!, :update_x!,
-    :UserCallbackRegular,
+    :unpack_obj, :update_con_scale_sparse!, :update_x!, :UserCallbackRegular,
     # Status and option values
     :CHOLESKY, :CompactLBFGS, :DIVERGING_ITERATES, :ERROR, :ERROR_IN_STEP_COMPUTATION,
     :INFEASIBLE_PROBLEM_DETECTED, :INFO, :INITIAL, :INTERNAL_ERROR,
@@ -55,9 +54,8 @@ const PUBLIC_NAMES = (
     # Logging
     :var"@debug", :var"@info", :var"@notice", :var"@trace", :var"@warn",
     # Options, counters and timers
-    :AbstractOptions, :format_time, :get_level, :get_mu,
-    :get_primary_options, :get_status_output, :get_tau, :LogLevels, :MadNLPCounters,
-    :MadNLPLogger, :madsuite,
+    :AbstractOptions, :format_time, :get_level, :get_mu, :get_primary_options,
+    :get_status_output, :get_tau, :LogLevels, :MadNLPCounters, :MadNLPLogger, :madsuite,
 )
 
 """

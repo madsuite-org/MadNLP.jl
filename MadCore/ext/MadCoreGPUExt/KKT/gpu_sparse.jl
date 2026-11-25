@@ -11,7 +11,7 @@
     MadCore.transfer! (COO to CSC): the accumulation into the CSC nonzeros
 =#
 
-# Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `transfer_values!`:
+# Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `coo_to_csc_values!`:
 # `nzval[map[k]] += V[k]`). The COO of the augmented KKT system has duplicate (i, i) entries
 # (primal-dual diagonal and Hessian diagonal) that must be summed, so a non-accumulating
 # scatter (`copyto!` into a view) would drop all but one of each group.
@@ -66,7 +66,7 @@ function _csc_grouping(cscmap::AbstractVector)
     return grouping
 end
 
-function MadCore.transfer_values!(nzval::AbstractGPUVector, V, cscmap)
+function MadCore.coo_to_csc_values!(nzval::AbstractGPUVector, V, cscmap)
     ptr, ptrptr = _csc_grouping(cscmap)
     fill!(nzval, zero(eltype(nzval)))
     if length(ptrptr) > 1
