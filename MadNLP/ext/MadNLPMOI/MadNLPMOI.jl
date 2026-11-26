@@ -10,7 +10,6 @@ function __init__()
     return
 end
 
-include("NLPBlockEvaluator.jl")
 include("MOI_wrapper.jl")
 
 end # module MadNLPMOI

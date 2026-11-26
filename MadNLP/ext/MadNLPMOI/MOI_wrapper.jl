@@ -23,7 +23,6 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     name_to_constraint_index::Union{Nothing, Dict{String, Union{Nothing, MOI.ConstraintIndex}}}
 
     nlp_data::MOI.NLPBlockData
-    # A user-supplied legacy block appends rows to the backend evaluator.
     uses_nlp_block::Bool
     nlp_dual_start::Union{Nothing, Vector{Float64}}
 
@@ -38,7 +37,6 @@ mutable struct Optimizer <: MOI.AbstractOptimizer
     needs_new_nlp::Bool
     has_only_linear_constraints::Bool
     objective_type::Type
-    has_nonlinear_constraints_or_parameters::Bool
     jprod_available::Bool
     hprod_available::Bool
     hess_available::Bool
@@ -78,7 +76,6 @@ function Optimizer(; kwargs...)
         true,
         true,
         Nothing,
-        false,
         false,
         false,
         false,
@@ -140,7 +137,6 @@ function MOI.empty!(model::Optimizer)
     model.needs_new_nlp = true
     model.has_only_linear_constraints = true
     model.objective_type = Nothing
-    model.has_nonlinear_constraints_or_parameters = false
     model.jprod_available = false
     model.hprod_available = false
     model.hess_available = false
@@ -173,7 +169,6 @@ end
 function MOI.add_constrained_variable(model::Optimizer, set::MOI.Parameter{Float64})
     _check_no_nlp_block(model)
     result = MOI.add_constrained_variable(model.model, set)
-    model.has_nonlinear_constraints_or_parameters = true
     model.solver = nothing
     return result
 end
@@ -297,7 +292,6 @@ function MOI.add_constraint(model::Optimizer, f::MOI.AbstractFunction, set::MOI.
         _check_no_nlp_block(model)
     end
     ci = MOI.add_constraint(model.model, f, set)
-    model.has_nonlinear_constraints_or_parameters |= f isa MOI.ScalarNonlinearFunction
     model.has_only_linear_constraints &= _is_linear(typeof(f))
     model.solver = nothing
     return ci
@@ -517,13 +511,24 @@ end
 
 ### MOI.NLPBlockDualStart
 
-MOI.supports(::Optimizer, ::MOI.NLPBlockDualStart) = true
+const _BuiltinAD = Union{
+    MOI.Nonlinear.ExprGraphOnly,
+    MOI.Nonlinear.SparseReverseMode,
+    MOI.Nonlinear.SymbolicMode,
+}
+
+function MOI.supports(model::Optimizer, ::Union{MOI.NLPBlock, MOI.NLPBlockDualStart})
+    return model.ad_backend isa _BuiltinAD
+end
 
 function MOI.set(
-    model::Optimizer,
-    ::MOI.NLPBlockDualStart,
-    values::Union{Nothing,Vector},
-)
+        model::Optimizer,
+        attr::MOI.NLPBlockDualStart,
+        values::Union{Nothing, Vector},
+    )
+    if !MOI.supports(model, attr)
+        throw(MOI.UnsupportedAttribute(attr))
+    end
     model.nlp_dual_start = values
     model.needs_new_nlp = true
     return
@@ -533,25 +538,52 @@ MOI.get(model::Optimizer, ::MOI.NLPBlockDualStart) = model.nlp_dual_start
 
 ### MOI.NLPBlock
 
-MOI.supports(::Optimizer, ::MOI.NLPBlock) = true
-
-function MOI.get(model::Optimizer, ::MOI.NLPBlock)
+function MOI.get(model::Optimizer, attr::MOI.NLPBlock)
+    if !MOI.supports(model, attr)
+        throw(MOI.UnsupportedAttribute(attr))
+    end
     if model.uses_nlp_block || model.solver === nothing
         return model.nlp_data
     end
-    bounds = MOIU.constraint_bounds(model.model)
-    pairs = MOI.NLPBoundsPair.(bounds.lower, bounds.upper)
-    return MOI.NLPBlockData(pairs, model.evaluator, model.objective_type !== Nothing)
+    return MOI.NLPBlockData(model.evaluator)
 end
 
-function MOI.set(model::Optimizer, ::MOI.NLPBlock, data::MOI.NLPBlockData)
-    if model.objective_type == MOI.ScalarNonlinearFunction || model.has_nonlinear_constraints_or_parameters
+function MOI.set(model::Optimizer, attr::MOI.NLPBlock, data::MOI.NLPBlockData)
+    if !MOI.supports(model, attr)
+        throw(MOI.UnsupportedAttribute(attr))
+    end
+    types = MOI.get(model.model, MOI.ListOfConstraintTypesPresent())
+    if model.objective_type == MOI.ScalarNonlinearFunction ||
+            any(F == MOI.ScalarNonlinearFunction || S == MOI.Parameter{Float64} for (F, S) in types)
         error("Cannot mix the new and legacy nonlinear APIs")
     end
     model.nlp_data = data
     model.uses_nlp_block = !(data.evaluator isa _EmptyNLPEvaluator)
     model.solver = nothing
     return
+end
+
+# Insert the supplied evaluator into MOI's built-in oracle and quadratic layers.
+function _legacy_evaluator(model::Optimizer, vars)
+    data = model.nlp_data
+    quad = model.model
+    block_model = MOI.Nonlinear.Model()
+    if data.has_objective
+        MOI.set(block_model, MOI.ObjectiveSense(), MOI.get(model, MOI.ObjectiveSense()))
+        qp = quad.qp
+        # Keep the overridden objective out of the QP Hessian.
+        if model.objective_type !== Nothing
+            qp = deepcopy(qp)
+            F = MOI.ScalarAffineFunction{Float64}
+            MOI.set(qp, MOI.ObjectiveFunction{F}(), zero(F))
+        end
+        quad = MOI.Nonlinear.ModelWithQuad{Float64}(
+            qp, quad.inner; objective_sink = MOI.Nonlinear._INNER,
+        )
+    end
+    block = MOI.Nonlinear.Evaluator(block_model, data.evaluator)
+    oracles = MOI.Nonlinear.EvaluatorWithOracles(quad.inner, block, vars)
+    return MOI.Nonlinear.EvaluatorWithQuad(quad, oracles)
 end
 
 ### Objective forwarding
@@ -640,6 +672,9 @@ function MOI.set(
     ::MOI.AutomaticDifferentiationBackend,
     backend::MOI.Nonlinear.AbstractAutomaticDifferentiation,
 )
+    if model.uses_nlp_block && !(backend isa _BuiltinAD)
+        error("Cannot set a custom AD backend with an NLPBlock.")
+    end
     new_model = MOI.Nonlinear.model(backend)
     if typeof(new_model) != typeof(model.model)
         if !MOI.is_empty(model)
@@ -715,16 +750,12 @@ function _setup_model(model::Optimizer)
         return
     end
     vars = MOI.VariableIndex.(1:nvar)
-    model.evaluator = MOI.Nonlinear.Evaluator(model.model, model.ad_backend, vars)
-    ncon = length(MOIU.constraint_bounds(model.model).lower)
-    if model.uses_nlp_block
-        data = model.nlp_data
-        model.evaluator = _NLPBlockEvaluator(
-            model.evaluator, data.evaluator, data.has_objective,
-            !isempty(data.constraint_bounds), _objective_sign(model),
-            ncon, 0, 0, zeros(nvar),
-        )
+    model.evaluator = if model.uses_nlp_block
+        _legacy_evaluator(model, vars)
+    else
+        MOI.Nonlinear.Evaluator(model.model, model.ad_backend, vars)
     end
+    ncon = length(MOIU.constraint_bounds(model.model).lower)
     features = MOI.features_available(model.evaluator)
     has_hessian = :Hess in features
     has_jacobian_operator = :JacVec in features

@@ -90,6 +90,7 @@ end
 
         first = _TestAD(Ref(0))
         MOI.set(model, attr, first)
+        @test !MOI.supports(model, MOI.NLPBlock())
         storage = model.model
         @test typeof(storage) == typeof(MOI.Nonlinear.model(first))
         x = MOI.add_variable(model)
@@ -119,39 +120,15 @@ end
         @test typeof(model.model) == typeof(storage)
         MOI.set(model, attr, default)
         @test typeof(model.model) == typeof(MOI.Nonlinear.model(default))
-        return
-    end
-
-    function test_ad_backend_legacy_block()
-        model = MadNLP.Optimizer()
-        MOI.set(model, MOI.Silent(), true)
-        backend = _TestAD(Ref(0))
-        MOI.set(model, MOI.AutomaticDifferentiationBackend(), backend)
-        x = MOI.add_variable(model)
-        MOI.add_constraint(model, 2.0 * x * x, MOI.LessThan(8.0))
-        f = -3.0 * x * x
-        MOI.set(model, MOI.ObjectiveFunction{typeof(f)}(), f)
-        MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
-        legacy = MOI.Nonlinear.Model()
-        MOI.Nonlinear.set_objective(legacy, :(-($x - 1)^2))
-        MOI.Nonlinear.add_constraint(legacy, :($x^2), MOI.LessThan(4.0))
-        evaluator = MOI.Nonlinear.Evaluator(legacy, MOI.Nonlinear.SparseReverseMode(), [x])
-        bounds = [MOI.NLPBoundsPair(-Inf, 4.0)]
-        for has_objective in (true, false)
-            MOI.set(model, MOI.NLPBlock(), MOI.NLPBlockData(bounds, evaluator, has_objective))
-            MOI.optimize!(model)
-            @test MOI.get(model, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
-            @test MOI.get(model, MOI.VariablePrimal(), x) ≈ (has_objective ? 1.0 : 0.0) atol = 1.0e-6
-            Jv, Jtv, Hv = zeros(2), zeros(1), zeros(1)
-            MOI.eval_constraint_jacobian_product(model, Jv, [2.0], [2.0])
-            MOI.eval_constraint_jacobian_transpose_product(model, Jtv, [2.0], [0.5, 2.0])
-            MOI.eval_hessian_lagrangian_product(model, Hv, [2.0], [2.0], 3.0, [0.5, 2.0])
-            @test Jv == [16.0, 8.0]
-            @test Jtv == [12.0]
-            # Objective curvature is 2 for the block and 6 for the backend.
-            @test Hv == [has_objective ? 24.0 : 48.0]
-        end
-        @test backend.evaluations[] == 2
+        block = MOI.NLPBlockData(MOI.Nonlinear.Evaluator(MOI.Nonlinear.Model()))
+        MOI.set(model, MOI.NLPBlock(), block)
+        MOI.set(model, attr, MOI.Nonlinear.SymbolicMode())
+        @test MOI.supports(model, MOI.NLPBlock())
+        @test_throws ErrorException MOI.set(model, attr, first)
+        MOI.empty!(model)
+        MOI.set(model, attr, first)
+        @test_throws MOI.UnsupportedAttribute MOI.set(model, MOI.NLPBlock(), block)
+        @test_throws MOI.UnsupportedAttribute MOI.set(model, MOI.NLPBlockDualStart(), Float64[])
         return
     end
 
