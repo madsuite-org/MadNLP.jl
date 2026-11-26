@@ -4,6 +4,23 @@ using Quadmath
 import SparseArrays: sparse
 
 @testset "MadNLP test" begin
+    @testset "User-facing names are public in MadNLP" begin
+        # option values and types a user writes as `MadNLP.name`; none may warn in the REPL
+        user_names = (
+            :TRACE, :DEBUG, :INFO, :NOTICE, :WARN, :ERROR, :SOLVE_SUCCEEDED,
+            :SparseKKTSystem, :DenseKKTSystem, :DenseCondensedKKTSystem, :SparseCondensedKKTSystem,
+            :SparseCallback, :DenseCallback, :BFGS, :DampedBFGS, :CompactLBFGS, :ExactHessian,
+            :LU, :QR, :CHOLESKY, :BUNCHKAUFMAN, :RichardsonIterator, :MonotoneUpdate,
+            :QualityFunctionUpdate, :InertiaBased, :InertiaFree, :MadNLPOptions, :get_kkt,
+        )
+        @test all(n -> isdefined(MadNLP, n), user_names)
+        if VERSION >= v"1.11"
+            @test all(n -> Base.ispublic(MadNLP, n), user_names)
+            @test all(n -> Base.ispublic(MadNLP, n), MadNLP.MadCore.public_names())
+            @test all(n -> Base.ispublic(MadNLP, n), MadNLP.MadNLPCore.PUBLIC_NAMES)
+            @test all(n -> Base.ispublic(MadNLP.MadNLPCore, n), MadNLP.MadNLPCore.PUBLIC_NAMES)
+        end
+    end
     @testset "Matrix tools" begin
         include("matrix_test.jl")
     end

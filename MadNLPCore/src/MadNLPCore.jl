@@ -34,6 +34,19 @@ version() = string(pkgversion(@__MODULE__))
 introduce() = "\033[34mMad\033[31mN\033[32mL\033[35mP\033[0m version v$(version())"
 
 include(joinpath("IPM", "IPM.jl"))
+
+# The public names of MadNLPCore besides its exports: the option values a user passes.
+const PUBLIC_NAMES = (
+    :AbstractBarrierUpdate, :AbstractAdaptiveUpdate, :MonotoneUpdate, :LOQOUpdate,
+    :QualityFunctionUpdate, :AbstractInertiaCorrector, :InertiaAuto, :InertiaBased,
+    :InertiaFree, :InertiaIgnore, :DualInitializeOptions, :DualInitializeLeastSquares,
+    :DualInitializeSetZero, :preset_perturbation,
+)
+# Declared public, with the public names of MadCore it imports, so that `MadNLPCore.name`
+# raises no warning in the REPL. The keyword `public` does not parse on Julia 1.10.
+@static if VERSION >= v"1.11"
+    eval(Expr(:public, filter(n -> !Base.isexported(@__MODULE__, n), [PUBLIC_NAMES..., MadCore.public_names()...])...))
+end
 include("precompile_models.jl")
 
 madsuite(::Val{:madnlp}, args...; kwargs...) = madnlp(args...; kwargs...)

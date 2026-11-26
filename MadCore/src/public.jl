@@ -1,35 +1,41 @@
-# The public API of MadCore: what a solver or a linear solver built on MadCore needs. The
-# packages of this repository are pinned to the same version and may use internal names.
+# The public API of MadCore: the names a user passes as options or calls, and what a solver
+# or a linear solver built on MadCore needs. The packages of this repository are pinned to the
+# same version and may use internal names.
 
 const PUBLIC_NAMES = (
     # KKT systems
-    :AbstractKKTSystem, :block_structure, :build_condensed_aug_coord!,
+    :AbstractCondensedKKTSystem, :AbstractKKTSystem, :AbstractReducedKKTSystem,
+    :AbstractUnreducedKKTSystem, :block_structure, :build_condensed_aug_coord!,
     :build_condensed_aug_symbolic, :build_hessian_structure, :build_kkt!,
-    :compress_hessian!, :compress_jacobian!, :create_kkt_system, :factorize_kkt!,
-    :get_hessian, :get_jacobian, :get_sparse_condensed_ext, :is_inertia_correct, :jtprod!,
-    :kktmul!, :madnlp_unsafe_wrap, :num_variables, :regularize_diagonal!,
-    :ScaledSparseKKTSystem, :SparseCondensedKKTSystem, :SparseKKTSystem,
-    :SparseUnreducedKKTSystem,
+    :compress_hessian!, :compress_jacobian!, :create_kkt_system, :DenseCondensedKKTSystem,
+    :DenseKKTSystem, :factorize_kkt!, :get_hessian, :get_jacobian, :get_kkt,
+    :get_sparse_condensed_ext, :is_inertia_correct, :jtprod!, :kktmul!, :madnlp_unsafe_wrap,
+    :num_variables, :regularize_diagonal!, :ScaledSparseKKTSystem,
+    :SparseCondensedKKTSystem, :SparseKKTSystem, :SparseUnreducedKKTSystem,
     # KKT vectors
     :AbstractKKTVector, :dual, :dual_lb, :dual_ub, :full, :primal, :primal_dual,
     :PrimalVector, :slack, :UnreducedKKTVector, :variable,
     # Callbacks
     :AbstractCallback, :AbstractEqualityTreatment, :AbstractFixedVariableTreatment,
-    :create_array, :create_callback, :create_sparse_fixed_handler, :EnforceEquality,
-    :eval_cons_callback!, :eval_cons_wrapper!, :eval_f_callback, :eval_f_wrapper,
-    :eval_grad_f_callback!, :eval_grad_f_wrapper!, :eval_jac_callback!, :eval_jac_wrapper!,
-    :eval_lag_hess_callback!, :eval_lag_hess_wrapper!, :hess_sparsity_callback!,
-    :initialize!, :jac_sparsity_callback!, :MakeParameter, :n_constraints, :n_variables,
-    :NoFixedVariables, :parse_indexes, :RelaxBound, :RelaxEquality, :set_con_scale_sparse!,
-    :set_jac_scale_sparse!, :set_obj_scale!, :set_scaling!, :SparseCallback,
-    :treat_equality_initialize!, :treat_fixed_variable_initialize!, :unpack_cons!,
-    :unpack_x!, :unpack_y!, :unpack_z!, :update_z!,
+    :AbstractUserCallback, :create_array, :create_callback, :create_sparse_fixed_handler,
+    :DenseCallback, :EnforceEquality, :eval_cons_callback!, :eval_cons_wrapper!,
+    :eval_f_callback, :eval_f_wrapper, :eval_grad_f_callback!, :eval_grad_f_wrapper!,
+    :eval_jac_callback!, :eval_jac_wrapper!, :eval_lag_hess_callback!,
+    :eval_lag_hess_wrapper!, :hess_sparsity_callback!, :initialize!,
+    :jac_sparsity_callback!, :MakeParameter, :n_constraints, :n_variables,
+    :NoFixedVariables, :NoUserCallback, :parse_indexes, :RelaxBound, :RelaxEquality,
+    :set_con_scale_sparse!, :set_jac_scale_sparse!, :set_obj_scale!, :set_scaling!,
+    :SparseCallback, :treat_equality_initialize!, :treat_fixed_variable_initialize!,
+    :unpack_cons!, :unpack_x!, :unpack_y!, :unpack_z!, :update_z!,
     # Linear solvers
-    :AbstractLinearSolver, :default_options, :factorize!, :factorize_wrapper!, :inertia,
-    :introduce, :is_supported, :LDLSolver, :LinearSolverException, :MumpsSolver,
-    :set_block_structure!, :solve_linear_system!, :SolveException,
+    :AbstractIterator, :AbstractLinearSolver, :BUNCHKAUFMAN, :default_options, :EVD,
+    :factorize!, :factorize_wrapper!, :inertia, :introduce, :is_supported, :LapackOptions,
+    :LDLSolver, :LinearFactorization, :LinearSolverException, :LU, :MumpsSolver, :QR,
+    :RichardsonIterator, :set_block_structure!, :solve_linear_system!, :SolveException,
     # Quasi-Newton
-    :create_quasi_newton, :ExactHessian, :QuasiNewtonOptions, :update!,
+    :AbstractHessian, :AbstractQuasiNewton, :BFGS, :BFGSInitStrategy, :create_quasi_newton,
+    :DampedBFGS, :ExactHessian, :QuasiNewtonOptions, :SCALAR1, :SCALAR2, :SCALAR3, :SCALAR4,
+    :update!,
     # Sparse matrix tools
     :coo_to_csc, :force_lower_triangular!, :SparseMatrixCOO, :transfer!,
     # Interior-point helpers
@@ -43,14 +49,15 @@ const PUBLIC_NAMES = (
     :set_options!, :solve_kkt!, :solve_refine_wrapper!, :SparseWrapperModel, :SubVector,
     :unpack_obj, :update_con_scale_sparse!, :update_x!, :UserCallbackRegular,
     # Status and option values
-    :CHOLESKY, :CompactLBFGS, :DIVERGING_ITERATES, :ERROR, :ERROR_IN_STEP_COMPUTATION,
-    :INFEASIBLE_PROBLEM_DETECTED, :INFO, :INITIAL, :INTERNAL_ERROR,
-    :INVALID_NUMBER_CONSTRAINTS, :INVALID_NUMBER_DETECTED, :INVALID_NUMBER_GRADIENT,
-    :INVALID_NUMBER_HESSIAN_LAGRANGIAN, :INVALID_NUMBER_JACOBIAN, :INVALID_NUMBER_OBJECTIVE,
-    :LDL, :LINESEARCH_SUCCEEDED, :MAXIMUM_ITERATIONS_EXCEEDED, :MAXIMUM_WALLTIME_EXCEEDED,
-    :NOT_ENOUGH_DEGREES_OF_FREEDOM, :REGULAR, :RESTORATION_FAILED, :RESTORE, :ROBUST,
-    :SEARCH_DIRECTION_BECOMES_TOO_SMALL, :SOLVE_SUCCEEDED, :SOLVED_TO_ACCEPTABLE_LEVEL,
-    :Status, :UNBOUNDED_PROBLEM_DETECTED, :USER_REQUESTED_STOP,
+    :CHOLESKY, :CompactLBFGS, :DEBUG, :DIVERGING_ITERATES, :ERROR,
+    :ERROR_IN_STEP_COMPUTATION, :INFEASIBLE_PROBLEM_DETECTED, :INFO, :INITIAL,
+    :INTERNAL_ERROR, :INVALID_NUMBER_CONSTRAINTS, :INVALID_NUMBER_DETECTED,
+    :INVALID_NUMBER_GRADIENT, :INVALID_NUMBER_HESSIAN_LAGRANGIAN, :INVALID_NUMBER_JACOBIAN,
+    :INVALID_NUMBER_OBJECTIVE, :LDL, :LINESEARCH_SUCCEEDED, :MAXIMUM_ITERATIONS_EXCEEDED,
+    :MAXIMUM_WALLTIME_EXCEEDED, :NOT_ENOUGH_DEGREES_OF_FREEDOM, :NOTICE, :REGULAR,
+    :RESTORATION_FAILED, :RESTORE, :ROBUST, :SEARCH_DIRECTION_BECOMES_TOO_SMALL,
+    :SOLVE_SUCCEEDED, :SOLVED_TO_ACCEPTABLE_LEVEL, :Status, :TRACE,
+    :UNBOUNDED_PROBLEM_DETECTED, :USER_REQUESTED_STOP, :WARN,
     # Logging
     :var"@debug", :var"@info", :var"@notice", :var"@trace", :var"@warn",
     # Options, counters and timers
