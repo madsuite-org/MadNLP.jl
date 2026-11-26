@@ -1,30 +1,79 @@
-# MadNLP on a CUDA GPU (cuMadNLP), for the cnlp solver interface's device entry point:
-# `cnlp_solve_device` solves a problem evaluated through its device callbacks, with the
-# solver's vectors on the GPU. Loaded when the build environment has cuMadNLP and CUDACore,
-# which is what makes the CUDA build of libmadnlp.
-module MadNLPAppCUDAExt
+"""
+    cuMadNLPApp
+
+MadNLP on a CUDA GPU (cuMadNLP), compiled ahead of time as `libcumadnlp`, a cnlp solver
+(`cnlp solve ... --solver cumadnlp`): `cnlp_solve_device` solves a problem evaluated through
+its device callbacks, with the solver's vectors on the GPU. The CPU solver is MadNLPApp.
+"""
+module cuMadNLPApp
 
 import CNLPLib, CUDACore, cuMadNLP, NLPModels
+import MadCore, MadNLPCore
 using CNLPLib: CNLPDeviceProblem, CNLPProblem, CNLPResult, ProblemModel
-using MadNLPApp: MadNLPApp, c_solve
+using NLPModels: AbstractNLPModel
+
+# ── options and the solve (as MadNLPApp's, with cuMadNLP's types) ────────────────────────
+const OPTION_MODULES = Module[cuMadNLP, MadCore, MadNLPCore]
+function parse_value(key::Symbol, v::String)
+    if key === :print_level || key === :file_print_level
+        n = tryparse(Int, v)
+        n === nothing && return getfield(MadCore, Symbol(uppercase(v)))::MadCore.LogLevels
+        return n == 0 ? MadCore.ERROR : MadCore.LogLevels(n)
+    end
+    for mod in OPTION_MODULES
+        isdefined(mod, Symbol(v)) && (t = getfield(mod, Symbol(v)); t isa Type) && return t
+    end
+    v == "true" && return true
+    v == "false" && return false
+    n = tryparse(Int, v); n === nothing || return n
+    x = tryparse(Float64, v); x === nothing || return x
+    return v
+end
+options(opts) = Pair{Symbol, Any}[Symbol(k) => parse_value(Symbol(k), String(v)) for (k, v) in opts if k != "sb"]
+
+function status_of(s)
+    s == MadCore.SOLVE_SUCCEEDED && return CNLPLib.CNLP_SOLVED
+    s == MadCore.SOLVED_TO_ACCEPTABLE_LEVEL && return CNLPLib.CNLP_ACCEPTABLE
+    s == MadCore.INFEASIBLE_PROBLEM_DETECTED && return CNLPLib.CNLP_INFEASIBLE
+    s == MadCore.DIVERGING_ITERATES && return CNLPLib.CNLP_UNBOUNDED
+    s == MadCore.MAXIMUM_ITERATIONS_EXCEEDED && return CNLPLib.CNLP_ITERATION_LIMIT
+    s == MadCore.MAXIMUM_WALLTIME_EXCEEDED && return CNLPLib.CNLP_TIME_LIMIT
+    return CNLPLib.CNLP_ERROR
+end
+# madnlp(model; options...) with the options as a Dict: compiled once, not per option set
+function outcome(m::AbstractNLPModel, kw::Vector{Pair{Symbol, Any}})
+    nlp = MadCore.ModelBarrier(m)
+    s = MadNLPCore.solve!(MadNLPCore.build_solver(nlp, MadNLPCore.load_options(nlp, Dict{Symbol, Any}(kw))))
+    return (s.solution, s.multipliers, s.multipliers_L, s.multipliers_U, s.objective,
+            status_of(s.status), s.iter, "MadNLP: " * string(s.status))
+end
+
+# CUMADNLPAPP_TRACE=1: every method compiled at run time on stderr, and the total after each
+# solve; with a device solve also the model's first GPU evaluations and the GPU kernels
+# compiled at run time (a build is checked to report 0)
+const TRACE = CNLPLib.CompileTrace("CUMADNLPAPP_TRACE")
+const BLAS = String[]   # see MadNLPApp: recorded at the first call, restored before each solve
+blas() = (isempty(BLAS) && append!(BLAS, CNLPLib.blas_state()); BLAS)
+c_solve(model, nopt, keys, vals, result) =
+    CNLPLib.serve(outcome, model, nopt, keys, vals, result; options, blas = blas(), trace = TRACE, name = "cumadnlp")
 
 function __init__()
-    # option values name cuMadNLP's types too (linear_solver=CUDSSSolver, ...)
-    cuMadNLP in MadNLPApp.OPTION_MODULES || push!(MadNLPApp.OPTION_MODULES, cuMadNLP)
+    TRACE.on = -1; empty!(BLAS)   # an image keeps the build's
     # When the library loads (not while it is being built), bring up the GPU and solve a tiny
     # problem on it: the CUDA context, the cuBLAS, cuSPARSE and cuDSS handles, the solver's
     # kernels and cuDSS's first call are then done before a caller times its solve, as
     # empower does at startup. MADNLPAPP_WARMUP=0 skips it.
     if ccall(:jl_generating_output, Cint, ()) == 0 && get(ENV, "MADNLPAPP_WARMUP", "1") != "0"
-        # quietly: MADNLPAPP_TRACE reports describe the caller's solves, not this one
-        trace = MadNLPApp.TRACE[]
+        # quietly: CUMADNLPAPP_TRACE reports describe the caller's solves, not this one
+        trace = TRACE.on
         try
-            MadNLPApp.TRACE[] = 0
+            TRACE.on = 0
             CUDACore.functional() && (solve_toy_device(false); solve_toy_device(true))
         catch err
-            @warn "madnlp: the GPU warm-up failed; the first solve brings up the GPU instead" exception = err
+            @warn "cumadnlp: the GPU warm-up failed; the first solve brings up the GPU instead" exception = err
         end
-        MadNLPApp.TRACE[] = trace
+        TRACE.on = trace
+        empty!(BLAS)   # recorded by the caller's first call, not by the warm-up
     end
     return nothing
 end
@@ -33,8 +82,8 @@ function c_solve_device(
         p::Ptr{CNLPProblem}, d::Ptr{CNLPDeviceProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
         vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
     )
-    MadNLPApp.trace_on() || return c_solve(() -> ProblemModel(p, d), nopt, keys, vals, result)
-    # MADNLPAPP_TRACE=1: evaluate the model once on the device before solving, and report how
+    CNLPLib.tracing(TRACE) || return c_solve(() -> ProblemModel(p, d), nopt, keys, vals, result)
+    # CUMADNLPAPP_TRACE=1: evaluate the model once on the device before solving, and report how
     # long its first evaluations took: loading the model library's GPU code, and the driver
     # compiling its PTX when the driver's cache (~/.nv/ComputeCache) does not hold it yet
     m = ProblemModel(p, d)
@@ -42,17 +91,17 @@ function c_solve_device(
     t_again = first_evaluations(m)
     println(
         stderr, string(
-            "madnlp: model library, first GPU evaluations ", round(Int, 1000t_first), " ms (then ",
+            "cumadnlp: model library, first GPU evaluations ", round(Int, 1000t_first), " ms (then ",
             round(Int, 1000t_again), " ms): loading its GPU code, and compiling it in the driver if not cached"
         )
     )
     solve() = c_solve(() -> m, nopt, keys, vals, result)
-    # MADNLPAPP_TRACE=1: also report the GPU kernels compiled at run time
+    # CUMADNLPAPP_TRACE=1: also report the GPU kernels compiled at run time
     empty!(COMPILED)
     rc = CUDACore.GPUCompiler.with_compile_hook(solve, kernel_hook)
     println(
         stderr, string(
-            "madnlp: GPU kernels compiled at run time: ", length(COMPILED),
+            "cumadnlp: GPU kernels compiled at run time: ", length(COMPILED),
             isempty(COMPILED) ? "" : " (" * join(COMPILED, ", ") * ")"
         )
     )
@@ -152,23 +201,23 @@ Base.@ccallable function cnlp_solve_device(
     )::Int64
     dev = unsafe_load(d).device
     if dev != CNLPLib.CNLP_DEVICE_CUDA
-        CNLPLib.set_failure!(result, "madnlp: device $dev is not supported (CUDA is $(CNLPLib.CNLP_DEVICE_CUDA))")
+        CNLPLib.set_failure!(result, "cumadnlp: device $dev is not supported (CUDA is $(CNLPLib.CNLP_DEVICE_CUDA))")
         return Int64(1)
     end
     if !CUDACore.functional()
-        CNLPLib.set_failure!(result, "madnlp: no usable CUDA GPU")
+        CNLPLib.set_failure!(result, "cumadnlp: no usable CUDA GPU")
         return Int64(2)
     end
     return c_solve_device(p, d, nopt, keys, vals, result)
 end
 
 # A library model solved through cnlp_solve_device: what the build runs to compile the
-# device path (build/libmadnlp.jl), and a test helper.
+# device path (build/cuMadNLPAppWarmup), and a test helper.
 function solve_lib_device(path::String, model::String, args::Vector{String})
     lib = CNLPLib.load(path)
     vals = Any[something(tryparse(Int, a), tryparse(Float64, a), a) for a in args]
     m = CNLPLib.CNLPModel(lib, Symbol(model), vals...)
-    md = CNLPLib.CNLPModel(lib, Symbol(model), vals...; device = :cuda)
+    md = CNLPLib.CNLPModel(lib, Symbol(model), vals...; backend = CUDACore.CUDABackend())
     h = CNLPLib.problem(m)
     d = CNLPLib.device_problem(h, md)
     n, k = m.meta.nvar, m.meta.ncon
@@ -185,8 +234,19 @@ function solve_lib_device(path::String, model::String, args::Vector{String})
     return r[].status
 end
 
-# The build compiles the device path with build/cuda/MadNLPAppCUDAWarmup, a package whose
-# precompile workload calls `solve_lib_device`: CNLPLib's own CUDA extension, which it
-# needs, is not loaded while this extension precompiles.
+# The host entry point: this solver runs on the GPU only.
+Base.@ccallable function cnlp_solve(
+        p::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
+    )::Int64
+    blas()
+    CNLPLib.set_failure!(result, "cumadnlp solves on a CUDA GPU (cnlp_solve_device, a model with a CUDA tier); on the CPU, use madnlp")
+    return Int64(2)
+end
+Base.@ccallable cnlp_solver_version()::Int64 = (blas(); Int64(CNLPLib.CNLP_SOLVER_VERSION))
+Base.@ccallable cnlp_solver_name(buf::Ptr{UInt8}, cap::Int64)::Int64 = (blas(); CNLPLib.copyout("cumadnlp", buf, cap))
+
+# The build compiles the device path with build/cuMadNLPAppWarmup, a package whose precompile
+# workload calls `solve_toy_device` and `solve_lib_device`: CNLPLib's own CUDA extension, which
+# they need, is loaded there.
 
 end # module

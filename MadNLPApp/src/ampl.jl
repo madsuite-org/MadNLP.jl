@@ -14,10 +14,10 @@ Options (also read from the environment variable madnlp_options), e.g.
   tol=1e-8 max_iter=500 print_level=INFO linear_solver=LapackCPUSolver"""
 
 function main(args::Vector{String})::Cint
-    trace = trace_on()
-    ct0 = trace ? compile_ns() : UInt64(0)
+    trace = CNLPLib.tracing(TRACE)
+    ct0 = trace ? CNLPLib.compile_ns() : UInt64(0)
     rc = _main(args)
-    trace ? report_compiled(compile_ns() - ct0) : (flush(stdout); flush(stderr))
+    trace ? CNLPLib.report(TRACE, "madnlp", CNLPLib.compile_ns() - ct0) : (flush(stdout); flush(stderr))
     return rc
 end
 

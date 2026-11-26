@@ -1,8 +1,11 @@
 # MadNLPApp
 
-MadNLP compiled ahead of time (`juliac`), for callers that are not Julia. One bundle carries:
+MadNLP on the CPU compiled ahead of time (`juliac`), for callers that are not Julia. It is
+MadNLPCore with MUMPS as the linear solver; the HSL solvers are not included, since their
+license does not allow redistributing them. The GPU solver is [cuMadNLPApp](../cuMadNLPApp).
+One bundle carries:
 
-- `lib/libmadnlp.so`, a shared library with a C entry point, `madnlp_solve` (`include/madnlp.h`):
+- `lib/libmadnlp.so` (also as `lib/libcnlp_madnlp.so`), a shared library with a C entry point, `madnlp_solve` (`include/madnlp.h`):
   a problem given as sizes, bounds, a starting point and evaluation callbacks, solved with
   MadNLP on the CPU. The same function is exported as `cnlp_solve`, so the library is also a
   solver for [cnlplib](https://cnlplib.madsuite.org) (`cnlp solve LIB:MODEL ... --solver madnlp`).

@@ -1,17 +1,16 @@
 # The C entry point: `madnlp_solve(problem, noptions, keys, values, result)`, with the
 # structs of include/madnlp.h, which are cnlplib's cnlp_problem and cnlp_result
-# (`cnlp_solver.h`; CNLPLib carries the binding). The problem is solved with MadNLP.
+# (`cnlp_solver.h`). CNLPLib carries the binding and what a solver library does around its
+# solve (`CNLPLib.serve`); what is MadNLP's is here.
 
-using CNLPLib: CNLPLib, CNLPProblem, CNLPResult, ProblemModel
+using CNLPLib: CNLPProblem, CNLPResult, ProblemModel
 
 # ── options ─────────────────────────────────────────────────────────────────────────
 # key=value strings, as a user wrote them, to MadNLP's options. print_level takes
 # MadNLP's level names (INFO, ERROR, ...) or 1-6, and 0 for quiet; a value naming one of
 # MadNLP's types (linear_solver=LapackCPUSolver) is that type; otherwise integers, numbers
 # and booleans are read as such. `sb` (Ipopt's banner switch) is accepted and ignored.
-# where option values naming types (linear_solver=...) are looked up; a device extension
-# adds its solver package (cuMadNLP: CUDSSSolver, ...)
-const OPTION_MODULES = Module[MadNLP]
+const OPTION_MODULES = Module[MadCore, MadNLPCore]
 
 function parse_value(key::Symbol, v::String)
     if key === :print_level || key === :file_print_level
@@ -64,68 +63,32 @@ function run_madnlp(m::AbstractNLPModel, kw::Vector{Pair{Symbol, Any}})
     return MadNLPCore.solve!(solver)
 end
 
-# MADNLPAPP_TRACE=1: list every method compiled at run time on stderr, as a
-# `precompile(...)` statement with its compile time, and report the total after each solve
-# (what the library still lacks; a build is checked to report 0).
-# (-1: not yet read from the environment; reset when the library loads, since the
-# build-time workload leaves its own setting in the image)
-const TRACE = Ref(-1)
-function trace_on()
-    if TRACE[] < 0
-        TRACE[] = get(ENV, "MADNLPAPP_TRACE", "0") == "1" ? 1 : 0
-        if TRACE[] == 1
-            ccall(:jl_force_trace_compile_timing_enable, Cvoid, ())
-            Base.cumulative_compile_timing(true)
-        end
-    end
-    return TRACE[] == 1
+function madnlp_outcome(m, kw)
+    s = run_madnlp(m, kw)
+    return (s.solution, s.multipliers, s.multipliers_L, s.multipliers_U, s.objective,
+            status_of(s.status), s.iter, "MadNLP: " * string(s.status))
 end
-compile_ns() = Base.cumulative_compile_time_ns()[1]
-# The caller is C: flush before returning, or what Julia buffered is lost when it exits.
-function report_compiled(ns)
-    println(stderr, string("madnlp: compiled at run time: ", round(Int, ns / 1.0e6), " ms of Julia methods"))
-    flush(stdout); flush(stderr)
-    return nothing
-end
+
+# MADNLPAPP_TRACE=1: every method compiled at run time on stderr, and the total after each
+# solve (what the library still lacks; a build is checked to report 0)
+const TRACE = CNLPLib.CompileTrace("MADNLPAPP_TRACE")
+# The BLAS this library forwards libblastrampoline to, recorded at the first call into the
+# library (when all of it has started, MUMPS's LP64 OpenBLAS included) and restored before
+# every solve: another Julia runtime in the process (a model library) may open the same
+# libblastrampoline by name when it starts, and forward it elsewhere.
+const BLAS = String[]
+blas() = (isempty(BLAS) && append!(BLAS, CNLPLib.blas_state()); BLAS)
 
 """
     c_solve(model, nopt, keys, vals, result)
 
-Solve for a C caller: `model()` builds the model (from the problem's host callbacks, or
-with its device callbacks), options come as C strings, the outcome goes to `result`.
-Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
+Solve for a C caller: `model()` builds the model, options come as C strings, the outcome
+goes to `result`. Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
 """
-function c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult})::Int64
-    trace = trace_on()
-    ct0 = trace ? compile_ns() : UInt64(0)
-    restore_blas!()
-    rc = _c_solve(model, nopt, keys, vals, result)
-    trace ? report_compiled(compile_ns() - ct0) : (flush(stdout); flush(stderr))
-    return rc
-end
+c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
+    CNLPLib.serve(madnlp_outcome, model, nopt, keys, vals, result; options, blas = blas(), trace = TRACE, name = "madnlp")
 c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
     c_solve(() -> ProblemModel(problem), nopt, keys, vals, result)
-
-function _c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult})::Int64
-    kw = try
-        options(CNLPLib.solver_options(nopt, keys, vals))
-    catch e
-        CNLPLib.set_failure!(result, "invalid option: " * sprint(showerror, e))
-        return 1
-    end
-    try
-        m = model()
-        s = run_madnlp(m, kw)
-        CNLPLib.set_result!(
-            result, m, s.solution, s.multipliers, s.multipliers_L, s.multipliers_U,
-            s.objective, status_of(s.status), s.iter, "MadNLP: " * string(s.status)
-        )
-        return 0
-    catch e
-        CNLPLib.set_failure!(result, sprint(showerror, e))
-        return 2
-    end
-end
 
 # ── the library's exports (`juliac --output-lib`) ─────────────────────────────────────
 
@@ -140,7 +103,8 @@ Base.@ccallable function madnlp_solve(
 end
 
 Base.@ccallable function madnlp_version(buf::Ptr{UInt8}, cap::Int64)::Int64
-    return copyout(VERSION_STRING, buf, cap)
+    blas()
+    return CNLPLib.copyout(VERSION_STRING, buf, cap)
 end
 
 # the cnlp solver interface (cnlp_solver.h): the same entry point, under cnlp's names
@@ -152,17 +116,11 @@ Base.@ccallable function cnlp_solve(
 end
 
 Base.@ccallable function cnlp_solver_version()::Int64
-    blas_libs()
+    blas()
     return Int64(CNLPLib.CNLP_SOLVER_VERSION)
 end
 
 Base.@ccallable function cnlp_solver_name(buf::Ptr{UInt8}, cap::Int64)::Int64
-    blas_libs()
-    return copyout("madnlp", buf, cap)
-end
-
-function copyout(s::String, buf::Ptr{UInt8}, cap::Int64)
-    b = codeunits(s); n = length(b)
-    buf == C_NULL || cap <= 0 || GC.@preserve b unsafe_copyto!(buf, pointer(b), min(n, Int(cap)))
-    return Int64(n)
+    blas()
+    return CNLPLib.copyout("madnlp", buf, cap)
 end

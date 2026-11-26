@@ -92,9 +92,7 @@ end
     runs = get(ENV, "MADNLPAPP_WARMUP_RUNS", "")
     nls = split(get(ENV, "MADNLPAPP_WARMUP_NL", ""))
     @compile_workload begin
-        # MadNLP's own precompile workload, again here: loading MadNLPApp's dependencies
-        # invalidates much of what MadNLP compiled (Quadmath's convert(::Type{Float128},
-        # ::Number) alone ~1400 method instances), so a solve recompiled it at run time.
+        # MadNLPCore's standard precompile workload, for the solver types a solve reaches.
         # The solver type does not depend on the model (madnlp wraps it in a ModelBarrier),
         # so these synthetic problems cover every model's solve.
         MadNLPCore._precompile_solves(

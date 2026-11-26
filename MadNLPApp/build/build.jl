@@ -1,25 +1,21 @@
 # Build libmadnlp and the madnlp executable into one bundle:
 #
-#   julia --project=MadNLPApp/build MadNLPApp/build/build.jl OUT [trim] [cuda]
-#
-# With `cuda`, the build environment is build/cuda (MadNLPApp with cuMadNLP and CUDACore), so
-# the library also exports cnlp_solve_device (MadNLP on a CUDA GPU, ext/MadNLPAppCUDAExt.jl).
+#   julia --project=MadNLPApp/build MadNLPApp/build/build.jl OUT [trim]
 #
 #   OUT/madnlp/lib/libmadnlp.so       madnlp_solve, cnlp_solve, madnlp_main (+ a private Julia runtime)
+#   OUT/madnlp/lib/libcnlp_madnlp.so  the same, under the name `cnlp` looks for
 #   OUT/madnlp/bin/madnlp             the AMPL .nl solver, a launcher for madnlp_main
 #   OUT/madnlp/include/madnlp.h
 #
 # trim is juliac's trim mode (default "no"). The environment variables of the workload
-# (MADNLPAPP_WARMUP_RUNS, MADNLPAPP_WARMUP_NL; src/warmup.jl) choose what it solves.
+# (MADNLPAPP_WARMUP_RUNS, MADNLPAPP_WARMUP_NL; src/warmup.jl) choose what it solves. The GPU
+# solver is built by cuMadNLPApp/build/build.jl.
 using JuliaC, Random
 
 out = abspath(ARGS[1])
 trim = length(ARGS) >= 2 ? ARGS[2] : "no"
-device = length(ARGS) >= 3 ? ARGS[3] : ""
-device in ("", "cuda") || error("device is cuda or nothing, not $device")
 app = dirname(@__DIR__)
-project = device == "cuda" ? joinpath(@__DIR__, "cuda") : app
-ENV["MADNLPAPP_DEVICE"] = device
+project = app
 dest = joinpath(out, "madnlp")
 rm(dest; recursive = true, force = true); mkpath(dest)
 
@@ -40,6 +36,7 @@ fetch(
     end
 )
 rm(joinpath(dest, "share"); recursive = true, force = true)
+symlink("libmadnlp.so", joinpath(dest, "lib", "libcnlp_madnlp.so"))
 
 mkpath(joinpath(dest, "bin")); mkpath(joinpath(dest, "include"))
 cp(joinpath(app, "include", "madnlp.h"), joinpath(dest, "include", "madnlp.h"); force = true)
