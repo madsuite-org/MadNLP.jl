@@ -25,7 +25,7 @@ struct GPUSchurComplementKKTSystem{
         VT <: AbstractVector{T},
         MT <: AbstractMatrix{T},
         QN,
-        LS,   # linear solver for Schur complement S (LapackCUDAState)
+        LS,   # linear solver for Schur complement S (MadCore.LapackSolver)
         LS2,  # batched scenario solver (CUDSSState)
         COO_T,   # SparseMatrixCOO type for hess_raw
         COO_JT,  # SparseMatrixCOO type for jt_coo
