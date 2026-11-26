@@ -25,7 +25,7 @@ export AbstractOrdering, DefaultOrdering, MetisOrdering, AMDOrdering
 # The public names of MadCore and MadNLPCore are public in MadNLP too, so that
 # `MadNLP.name` raises no warning in the REPL. The keyword `public` does not parse on Julia 1.10.
 @static if VERSION >= v"1.11"
-    let pub = union(MadCore.public_names(), MadNLPCore.PUBLIC_NAMES,
+    let pub = union(MadCore.public_names(), MadNLPCore.NLPCORE_PUBLIC_NAMES,
                       filter(n -> Base.isexported(MadCore, n), names(MadCore)),
                       filter(n -> Base.isexported(MadNLPCore, n), names(MadNLPCore)))
         eval(Expr(:public, filter(n -> n ∉ (:MadCore, :MadNLPCore) && !Base.isexported(@__MODULE__, n), pub)...))
