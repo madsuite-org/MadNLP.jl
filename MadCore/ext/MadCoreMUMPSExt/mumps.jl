@@ -283,6 +283,6 @@ end
 introduce(M::MumpsState)="MUMPS v$(join(Char(c) for c in M.mumps_struc.version_number if c != 0))"
 input_type(::Type{MumpsState}) = :csc
 default_options(::Type{MumpsState}) = MumpsOptions()
-set_permutation!(opt::MumpsOptions, perm) = (opt.mumps_user_perm = perm; opt)
+MadCore.set_permutation!(opt::MumpsOptions, perm) = (opt.mumps_user_perm = perm; opt)
 is_supported(::Type{MumpsState},::Type{Float32}) = true
 is_supported(::Type{MumpsState},::Type{Float64}) = true

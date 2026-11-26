@@ -58,7 +58,7 @@ function inertia(M::LDLState)
 end
 input_type(::Type{LDLState}) = :csc
 default_options(::Type{LDLState}) = LDLFactorizationsOptions()
-set_permutation!(opt::LDLFactorizationsOptions, perm) = (opt.ldl_user_perm = perm; opt)
+MadCore.set_permutation!(opt::LDLFactorizationsOptions, perm) = (opt.ldl_user_perm = perm; opt)
 
 function improve!(M::LDLState)
     return false

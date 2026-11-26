@@ -22,7 +22,7 @@ end
 end
 
 const PardisoOptions = Union{PardisoMKLOptions, PanuaPardisoOptions}
-set_permutation!(opt::PardisoOptions, perm) = (opt.pardiso_user_perm = perm; opt)
+MadCore.set_permutation!(opt::PardisoOptions, perm) = (opt.pardiso_user_perm = perm; opt)
 
 # Hand the option `pardiso_user_perm` to Pardiso, whose perm is the pivot order.
 _set_user_perm!(ps, ::Nothing) = ps
