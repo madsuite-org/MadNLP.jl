@@ -34,6 +34,35 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         @test MadCore.is_async(S)
     end
 
+    # a given permutation, as an ordering of the KKT system
+    struct GivenOrdering <: MadCore.AbstractOrdering
+        perm::Vector{Int}
+    end
+    MadCore.ordering_permutation(o::GivenOrdering, ::SparseMatrixCSC) = o.perm
+
+    @testset "Orderings without their backend" begin
+        # Metis and AMD are not test dependencies, so their extensions are not loaded.
+        A = sparse([1, 2, 2], [1, 1, 2], [2.0, 1.0, 0.0])
+        for (o, pkg) in ((MetisOrdering(), "Metis"), (AMDOrdering(), "AMD"))
+            err = try
+                MadCore.ordering_permutation(o, A)
+            catch e
+                e
+            end
+            @test err isa MethodError
+            @test occursin("Load $pkg", sprint(showerror, err))
+        end
+        @test MadCore.ordering_permutation(DefaultOrdering(), A) == [1, 2]
+    end
+
+    @testset "An ordering needs a solver that accepts a permutation" begin
+        A = sparse([1, 2, 2], [1, 1, 2], [2.0, 1.0, 0.0])
+        @test_throws ArgumentError MadCore.create_kkt_linear_solver(FailedAsyncSolver, A, 1; opt = nothing, kkt_ordering = GivenOrdering([2, 1]))
+        @test_throws ArgumentError MadCore.create_kkt_linear_solver(LapackCPUSolver, A, 1; kkt_ordering = GivenOrdering([2, 1]))
+        # an ordering that does not return a permutation
+        @test_throws "did not return a permutation" MadCore.create_kkt_linear_solver(FailedAsyncSolver, A, 1; opt = nothing, kkt_ordering = GivenOrdering([1, 1]))
+    end
+
     @testset "LDLSolver through its extension" begin
         using LDLFactorizations
         @test MadCore.is_supported(LDLSolver, Float64)
@@ -53,36 +82,16 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         MadCore.solve_linear_system!(solver, x)
         @test A * x ≈ b
         @test MadCore.inertia(solver) == (2, 0, 1)
-    end
 
-    @testset "cuDSS orderings" begin
-        # Lower triangle of a symmetric 3x3 matrix.
-        A = sparse([1, 2, 3, 3], [1, 1, 2, 3], [2.0, 1.0, 1.0, 3.0], 3, 3)
-        @test MadCore.ordering_permutation(Val(MadCore.DEFAULT_ORDERING), A, Int[]) === nothing
-        @test MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, [2, 1, 3]) == [2, 1, 3]
-        @test_throws ArgumentError MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, Int[])
-        @test_throws ArgumentError MadCore.ordering_permutation(Val(MadCore.USER_ORDERING), A, [1, 1, 2])
-        # Without Metis and AMD loaded, the error names the package to load.
-        function msg(o)
-            err = try
-                MadCore.ordering_permutation(Val(o), A, Int[])
-            catch e
-                e
-            end
-            return sprint(showerror, err)
-        end
-        if Base.get_extension(MadCore, :MadCoreMetisExt) === nothing
-            @test occursin("Load Metis", msg(MadCore.METIS_ORDERING))
-        end
-        if Base.get_extension(MadCore, :MadCoreAMDExt) === nothing
-            for o in (MadCore.AMD_ORDERING, MadCore.SYMAMD_ORDERING, MadCore.COLAMD_ORDERING)
-                @test occursin("Load AMD", msg(o))
-            end
-        end
-        @eval using AMD, Metis
-        for o in (MadCore.METIS_ORDERING, MadCore.AMD_ORDERING, MadCore.SYMAMD_ORDERING, MadCore.COLAMD_ORDERING)
-            p = Base.invokelatest(MadCore.ordering_permutation, Val(o), A, Int[])
-            @test length(p) == size(A, 1) && isperm(p)
-        end
+        # the same matrix in a given pivot order, handed to LDLFactorizations as its P
+        opt = MadCore.default_options(LDLSolver)
+        S = MadCore.create_kkt_linear_solver(LDLSolver, tril_A, 2; opt, kkt_ordering = GivenOrdering([3, 1, 2]))
+        @test S.inner.P == [3, 1, 2]
+        @test opt.ldl_user_perm === nothing
+        MadCore.factorize!(S)
+        x = copy(b)
+        MadCore.solve_linear_system!(S, x)
+        @test A * x ≈ b
+        @test MadCore.inertia(S) == (2, 0, 1)
     end
 end

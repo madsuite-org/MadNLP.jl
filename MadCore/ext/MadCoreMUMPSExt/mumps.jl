@@ -10,6 +10,9 @@ tzeros(n) = tuple((0 for i=1:n)...)
     mumps_pivtol::Float64 = 1e-6
     mumps_pivtolmax::Float64 = 1e-1
     mumps_scaling::Int = 1
+    # the pivot order, read with ICNTL(7) = 1 instead of mumps_pivot_order: row and column i
+    # of the factorized matrix are row and column mumps_user_perm[i] (see set_permutation!)
+    mumps_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 @kwdef mutable struct Struc{T}
@@ -137,6 +140,7 @@ mutable struct MumpsState{T} <: AbstractLinearSolver{T}
     I::Vector{Int32}
     J::Vector{Int32}
     sym_perm::Vector{Int32}
+    perm_in::Vector{Int32}
     pivnul_list::Vector{Int32}
     mumps_struc::Struc{T}
     is_singular::Bool
@@ -172,6 +176,8 @@ function MumpsState(csc::SparseMatrixCSC{T,Int32};
 
     I,J = findIJ(csc)
     sym_perm = zeros(Int32,csc.n)
+    # PERM_IN(i) is the position of variable i in the pivot order
+    perm_in = opt.mumps_user_perm === nothing ? Int32[] : Int32.(invperm(opt.mumps_user_perm))
     pivnul_list = zeros(Int32,csc.n)
 
     mumps_struc = Struc{T}()
@@ -198,6 +204,11 @@ function MumpsState(csc::SparseMatrixCSC{T,Int32};
     mumps_struc.icntl = setindex(mumps_struc.icntl,0,4)
     mumps_struc.icntl = setindex(mumps_struc.icntl,opt.mumps_permuting_scaling,6)
     mumps_struc.icntl = setindex(mumps_struc.icntl,opt.mumps_pivot_order,7)
+    if opt.mumps_user_perm !== nothing
+        mumps_struc.perm_in = pointer(perm_in)
+        mumps_struc.icntl = setindex(mumps_struc.icntl, 1, 7)
+        mumps_struc.icntl = setindex(mumps_struc.icntl, 1, 28) # sequential analysis, which reads ICNTL(7)
+    end
     mumps_struc.icntl = setindex(mumps_struc.icntl,opt.mumps_scaling,8)
     mumps_struc.icntl = setindex(mumps_struc.icntl,0,10)
     mumps_struc.icntl = setindex(mumps_struc.icntl,1,13)
@@ -209,7 +220,7 @@ function MumpsState(csc::SparseMatrixCSC{T,Int32};
     locked_mumps_c(mumps_struc);
     mumps_struc.info[1] < 0 && throw(SymbolicException())
 
-    M = MumpsState{T}(csc,I,J,sym_perm,pivnul_list,mumps_struc,false,opt,logger)
+    M = MumpsState{T}(csc, I, J, sym_perm, perm_in, pivnul_list, mumps_struc, false, opt, logger)
     finalizer(finalize,M)
 
     return M
@@ -272,5 +283,6 @@ end
 introduce(M::MumpsState)="MUMPS v$(join(Char(c) for c in M.mumps_struc.version_number if c != 0))"
 input_type(::Type{MumpsState}) = :csc
 default_options(::Type{MumpsState}) = MumpsOptions()
+set_permutation!(opt::MumpsOptions, perm) = (opt.mumps_user_perm = perm; opt)
 is_supported(::Type{MumpsState},::Type{Float32}) = true
 is_supported(::Type{MumpsState},::Type{Float64}) = true

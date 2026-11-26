@@ -163,7 +163,7 @@ function build_solver(nlp::AbstractNLPModel{T,VT}, options::NamedTuple) where {T
         hessian_approximation=ipm_opt.hessian_approximation,
         opt_linear_solver=options.linear_solver,
         qn_options=ipm_opt.quasi_newton_options,
-        # the top-level kkt_scaler, primal_shift and dual_shift take precedence over kkt_options
+        # the top-level kkt_scaler, primal_shift, dual_shift and kkt_ordering take precedence over kkt_options
         (; ipm_opt.kkt_options..., factorization_options(ipm_opt)...)...,
     )
 
