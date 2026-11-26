@@ -62,6 +62,99 @@ function test_MOI_Test()
     return
 end
 
+    struct _TestAD <: MOI.Nonlinear.AbstractAutomaticDifferentiation
+        evaluations::Base.RefValue{Int}
+    end
+
+    function MOI.Nonlinear.model(::_TestAD)
+        return MOI.Nonlinear.ModelWithQuad(MOI.Nonlinear.Model())
+    end
+
+    function MOI.Nonlinear.Evaluator(
+            model::MOI.Nonlinear.Model,
+            backend::_TestAD,
+            vars::Vector{MOI.VariableIndex},
+        )
+        backend.evaluations[] += 1
+        return MOI.Nonlinear.Evaluator(model, MOI.Nonlinear.SparseReverseMode(), vars)
+    end
+
+    function test_ad_backend()
+        model = MadNLP.Optimizer()
+        MOI.set(model, MOI.Silent(), true)
+        attr = MOI.AutomaticDifferentiationBackend()
+        @test MOI.supports(model, attr)
+        default = MOI.get(model, attr)
+        @test default isa MOI.Nonlinear.SparseReverseMode
+        @test typeof(model.model) == typeof(MOI.Nonlinear.model(default))
+
+        first = _TestAD(Ref(0))
+        MOI.set(model, attr, first)
+        storage = model.model
+        @test typeof(storage) == typeof(MOI.Nonlinear.model(first))
+        x = MOI.add_variable(model)
+        f = MOI.ScalarNonlinearFunction(:-, Any[2.0, (x - 3.0)^2])
+        MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
+        MOI.set(model, MOI.ObjectiveFunction{typeof(f)}(), f)
+        MOI.optimize!(model)
+        @test first.evaluations[] == 1
+        @test MOI.get(model, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
+
+        second = _TestAD(Ref(0))
+        MOI.set(model, attr, second)
+        @test model.model === storage
+        @test MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
+        MOI.optimize!(model)
+        @test second.evaluations[] == 1
+        err = ErrorException("The automatic-differentiation backend must be set before adding model data.")
+        @test_throws err MOI.set(model, attr, default)
+        @test MOI.get(model, attr) === second
+        @test MOI.get(model, MOI.VariablePrimal(), x) ≈ 3.0
+        @test MOI.get(model, MOI.ObjectiveValue()) ≈ 2.0
+
+        MOI.empty!(model)
+        @test MOI.is_empty(model)
+        @test MOI.get(model, attr) === second
+        @test model.model !== storage
+        @test typeof(model.model) == typeof(storage)
+        MOI.set(model, attr, default)
+        @test typeof(model.model) == typeof(MOI.Nonlinear.model(default))
+        return
+    end
+
+    function test_ad_backend_legacy_block()
+        model = MadNLP.Optimizer()
+        MOI.set(model, MOI.Silent(), true)
+        backend = _TestAD(Ref(0))
+        MOI.set(model, MOI.AutomaticDifferentiationBackend(), backend)
+        x = MOI.add_variable(model)
+        MOI.add_constraint(model, 2.0 * x * x, MOI.LessThan(8.0))
+        f = -3.0 * x * x
+        MOI.set(model, MOI.ObjectiveFunction{typeof(f)}(), f)
+        MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
+        legacy = MOI.Nonlinear.Model()
+        MOI.Nonlinear.set_objective(legacy, :(-($x - 1)^2))
+        MOI.Nonlinear.add_constraint(legacy, :($x^2), MOI.LessThan(4.0))
+        evaluator = MOI.Nonlinear.Evaluator(legacy, MOI.Nonlinear.SparseReverseMode(), [x])
+        bounds = [MOI.NLPBoundsPair(-Inf, 4.0)]
+        for has_objective in (true, false)
+            MOI.set(model, MOI.NLPBlock(), MOI.NLPBlockData(bounds, evaluator, has_objective))
+            MOI.optimize!(model)
+            @test MOI.get(model, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
+            @test MOI.get(model, MOI.VariablePrimal(), x) ≈ (has_objective ? 1.0 : 0.0) atol = 1.0e-6
+            Jv, Jtv, Hv = zeros(2), zeros(1), zeros(1)
+            MOI.eval_constraint_jacobian_product(model, Jv, [2.0], [2.0])
+            MOI.eval_constraint_jacobian_transpose_product(model, Jtv, [2.0], [0.5, 2.0])
+            MOI.eval_hessian_lagrangian_product(model, Hv, [2.0], [2.0], 3.0, [0.5, 2.0])
+            @test Jv == [16.0, 8.0]
+            @test Jtv == [12.0]
+            # Objective curvature is 2 for the block and 6 for the backend.
+            @test Hv == [has_objective ? 24.0 : 48.0]
+        end
+        @test backend.evaluations[] == 2
+        return
+    end
+
 function test_extra()
     model = MadNLP.Optimizer()
     MOI.set(model, MOI.RawOptimizerAttribute("linear_solver"), UmfpackSolver)
