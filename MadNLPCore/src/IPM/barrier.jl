@@ -133,7 +133,14 @@ function update_barrier!(barrier::AbstractAdaptiveUpdate{T}, solver::AbstractMad
     progress = _check_progress(barrier, solver)
     # Update state of barrier algorithm
     if !barrier.free_mode
-        if progress
+        # The progress test uses the line-search filter, which is reset to its single entry
+        # (theta_max, -Inf) whenever mu changes (and by some line-search heuristics), and which
+        # only the line search augments. Until the line search has added an entry, any point
+        # with theta < theta_max passes the test: leaving the monotone mode then would hand mu
+        # back to the adaptive rule right after a monotone decrease, which can undo that
+        # decrease at every iteration. So the monotone mode is left only once the line search
+        # has added an entry at the current mu; while every step is f-type, it continues.
+        if progress && (!barrier.globalization || length(get_filter(solver)) > 1)
             @trace(get_logger(solver), "Moving adaptive barrier back to free mode.")
             barrier.free_mode = true
         else
