@@ -62,6 +62,80 @@ function test_MOI_Test()
     return
 end
 
+    struct _TestAD <: MOI.Nonlinear.AbstractAutomaticDifferentiation
+        evaluations::Base.RefValue{Int}
+    end
+
+    function MOI.Nonlinear.model(::_TestAD)
+        return MOI.Nonlinear.ModelWithQuad(MOI.Nonlinear.Model())
+    end
+
+    function MOI.Nonlinear.Evaluator(
+            model::MOI.Nonlinear.Model,
+            backend::_TestAD,
+            vars::Vector{MOI.VariableIndex},
+        )
+        backend.evaluations[] += 1
+        return MOI.Nonlinear.Evaluator(model, MOI.Nonlinear.SparseReverseMode(), vars)
+    end
+
+    function test_ad_backend()
+        model = MadNLP.Optimizer()
+        MOI.set(model, MOI.Silent(), true)
+        attr = MOI.AutomaticDifferentiationBackend()
+        @test MOI.supports(model, attr)
+        default = MOI.get(model, attr)
+        @test default isa MOI.Nonlinear.SparseReverseMode
+        @test typeof(model.model) == typeof(MOI.Nonlinear.model(default))
+
+        first = _TestAD(Ref(0))
+        MOI.set(model, attr, first)
+        @test MOI.supports(model, MOI.NLPBlock())
+        @test MOI.supports(model, MOI.NLPBlockDualStart())
+        storage = model.model
+        @test typeof(storage) == typeof(MOI.Nonlinear.model(first))
+        x = MOI.add_variable(model)
+        f = MOI.ScalarNonlinearFunction(:-, Any[2.0, (x - 3.0)^2])
+        MOI.set(model, MOI.ObjectiveSense(), MOI.MAX_SENSE)
+        MOI.set(model, MOI.ObjectiveFunction{typeof(f)}(), f)
+        MOI.optimize!(model)
+        @test first.evaluations[] == 1
+        @test MOI.get(model, MOI.TerminationStatus()) == MOI.LOCALLY_SOLVED
+
+        second = _TestAD(Ref(0))
+        MOI.set(model, attr, second)
+        @test model.model === storage
+        @test MOI.get(model, MOI.TerminationStatus()) == MOI.OPTIMIZE_NOT_CALLED
+        MOI.optimize!(model)
+        @test second.evaluations[] == 1
+        err = ErrorException("The automatic-differentiation backend must be set before adding model data.")
+        @test_throws err MOI.set(model, attr, default)
+        @test MOI.get(model, attr) === second
+        @test MOI.get(model, MOI.VariablePrimal(), x) ≈ 3.0
+        @test MOI.get(model, MOI.ObjectiveValue()) ≈ 2.0
+
+        MOI.empty!(model)
+        @test MOI.is_empty(model)
+        @test MOI.get(model, attr) === second
+        @test model.model !== storage
+        @test typeof(model.model) == typeof(storage)
+        MOI.set(model, attr, default)
+        @test typeof(model.model) == typeof(MOI.Nonlinear.model(default))
+        block = MOI.NLPBlockData(MOI.Nonlinear.Evaluator(MOI.Nonlinear.Model()))
+        MOI.set(model, MOI.NLPBlock(), block)
+        MOI.set(model, attr, MOI.Nonlinear.SymbolicMode())
+        @test MOI.supports(model, MOI.NLPBlock())
+        @test_throws err MOI.set(model, attr, first)
+        MOI.empty!(model)
+        MOI.set(model, attr, first)
+        MOI.set(model, MOI.NLPBlock(), block)
+        MOI.set(model, MOI.NLPBlockDualStart(), Float64[])
+        MOI.set(model, attr, second)
+        @test MOI.get(model, MOI.NLPBlock()) === block
+        @test MOI.get(model, MOI.NLPBlockDualStart()) == Float64[]
+        return
+    end
+
 function test_extra()
     model = MadNLP.Optimizer()
     MOI.set(model, MOI.RawOptimizerAttribute("linear_solver"), UmfpackSolver)
