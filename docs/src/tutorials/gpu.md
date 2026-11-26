@@ -93,6 +93,10 @@ On the CPU, `preset = ShiftedPreset` selects the same setting with CHOLMOD's LDL
 
 The equality constraints are kept as equalities, and the tolerance `tol` is `1e-8`, as on the CPU.
 
+The option `kkt_ordering` replaces the reordering of cuDSS (and of SparseDirectSolver.jl) by a
+fill-reducing ordering computed on the host, handed to the solver as its `user_perm`, e.g.
+`using Metis; madnlp(nlp; kkt_ordering = MetisOrdering())`.
+
 `preset = CondensedPreset` condenses every constraint. The equality constraints are enforced, and
 their multipliers are eliminated through a small dual shift (1e-8), so the condensed matrix is
 positive definite and is factorized by cuDSS's Cholesky without pivoting; the refinement targets the

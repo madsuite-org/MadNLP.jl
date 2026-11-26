@@ -1,14 +1,16 @@
 MadCore.@kwdef mutable struct CudssSolverOptions <: MadCore.AbstractOptions
     # Use LDLᵀ by default in CUDSS as Cholesky can lead to undefined behavior.
     cudss_algorithm::MadCore.LinearFactorization = MadCore.LDL
-    cudss_ordering::ORDERING = DEFAULT_ORDERING
-    cudss_perm::Vector{Cint} = Cint[]
     cudss_ir::Int = 0
     cudss_ir_tol::Float64 = 1.0e-8  # currently ignored by cuDSS
     cudss_pivot_threshold::Float64 = 0.0
     cudss_pivot_epsilon::Float64 = 0.0
     cudss_matching_alg::String = "default"
     cudss_reordering_alg::String = "default"
+    # the pivot order, cuDSS's "user_perm" instead of the reordering of cudss_reordering_alg:
+    # row and column i of the factorized matrix are row and column cudss_user_perm[i] (see
+    # MadCore.set_permutation!); matching and pivoting still apply
+    cudss_user_perm::Union{Nothing, Vector{Int}} = nothing
     cudss_factorization_alg::String = "default"
     cudss_solve_alg::String = "default"
     cudss_matching::Bool = false
@@ -105,12 +107,21 @@ function set_cudss_options!(solver::CUDSS.CudssSolver, opt::CudssSolverOptions)
     end
 end
 
+# Hand the option `cudss_user_perm` to cuDSS; return the vector cuDSS reads.
+set_user_perm!(solver, ::Nothing) = Cint[]
+function set_user_perm!(solver, perm::Vector{Int})
+    user_perm = Cint.(perm)
+    CUDSS.cudss_set(solver, "user_perm", user_perm)
+    return user_perm
+end
+
 mutable struct CUDSSState{T, V} <: MadCore.AbstractLinearSolver{T}
     inner::CUDSS.CudssSolver{T}
     tril::cuSPARSE.CuSparseMatrixCSC{T, Cint}
     x_gpu::CUDSS.CudssMatrix{T}
     b_gpu::CUDSS.CudssMatrix{T}
     buffer::V
+    user_perm::Vector{Cint}         # read by every analysis
     analyzed::Bool
     improved::Bool                  # improve! already ran since the last factorize!
     reanalysis_cnt::Int             # analyses redone by improve! over the solver's life
@@ -136,12 +147,7 @@ function CUDSSState(
 
     solver = CUDSS.CudssSolver(csc.colPtr, csc.rowVal, csc.nzVal, structure, view)
     set_cudss_options!(solver, opt)
-
-    perm = MadCore.ordering_permutation(Val(opt.cudss_ordering), csc, opt.cudss_perm)
-    if perm !== nothing
-        opt.cudss_perm = perm
-        CUDSS.cudss_set(solver, "user_perm", perm)
-    end
+    user_perm = set_user_perm!(solver, opt.cudss_user_perm)
 
     # Check if we want to use the batch solver for matrices with a common sparsity pattern
     nbatch = solver.matrix.nbatch
@@ -161,7 +167,7 @@ function CUDSSState(
 
     return CUDSSState(
         solver, csc,
-        x_gpu, b_gpu, buffer, analyzed, false, 0,
+        x_gpu, b_gpu, buffer, user_perm, analyzed, false, 0,
         opt, logger,
     )
 end
@@ -207,6 +213,7 @@ end
 
 MadCore.input_type(::Type{CUDSSState}) = :csc
 MadCore.default_options(::Type{CUDSSState}) = CudssSolverOptions()
+MadCore.set_permutation!(opt::CudssSolverOptions, perm) = (opt.cudss_user_perm = perm; opt)
 MadCore.is_inertia(M::CUDSSState) = (M.inner.matrix.nbatch == 1)  # Uncomment if MadCore.LU is supported -- (M.opt.cudss_algorithm ∈ (MadCore.CHOLESKY, MadCore.LDL))
 function MadCore.inertia(M::CUDSSState)
     @assert M.inner.matrix.nbatch == 1

@@ -38,6 +38,9 @@ ma27_default_cntl(T) = T[0.1, 1.0, 0.0, 0.0, 0.0]
     ma27_liw_init_factor::Float64 = 5.0
     ma27_la_init_factor::Float64 = 5.0
     ma27_meminc_factor::Float64 = 2.0
+    # the pivot order instead of the solver's ordering: row and column i of the factorized
+    # matrix are row and column ma27_user_perm[i] (see set_permutation!)
+    ma27_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 mutable struct Ma27State{T,INT} <: AbstractLinearSolver{T}
@@ -79,7 +82,9 @@ function Ma27State(
     ikeep = Vector{INT}(undef, 3 * csc.n)
     iw1 = Vector{INT}(undef, 2 * csc.n)
     nsteps = INT[1]
-    iflag = INT(0)
+    # IFLAG = 1 reads the pivot order in IKEEP
+    iflag = INT(opt.ma27_user_perm !== nothing)
+    opt.ma27_user_perm === nothing || (ikeep[1:csc.n] .= invperm(opt.ma27_user_perm))
 
     icntl = ma27_default_icntl(INT)
     cntl = ma27_default_cntl(T)

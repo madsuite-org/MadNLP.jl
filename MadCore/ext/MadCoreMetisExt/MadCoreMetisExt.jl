@@ -2,14 +2,13 @@ module MadCoreMetisExt
 
 import MadCore
 import Metis
-import LinearAlgebra
+import LinearAlgebra: Symmetric
 import SparseArrays: SparseMatrixCSC
 
-function MadCore.ordering_permutation(::Val{MadCore.METIS_ORDERING}, A, perm)
-    L = SparseMatrixCSC(A)
-    G = Metis.graph(L + L' - LinearAlgebra.Diagonal(L), check_hermitian = false)
-    p, _ = Metis.permutation(G)
-    return p
+# nested dissection of the graph of the symmetric matrix whose lower triangle is `A`
+function MadCore.ordering_permutation(::MadCore.MetisOrdering, A::SparseMatrixCSC)
+    perm, _ = Metis.permutation(Symmetric(A, :L))
+    return Vector{Int}(perm)
 end
 
 end # module

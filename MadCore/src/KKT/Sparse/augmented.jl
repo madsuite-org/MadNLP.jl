@@ -46,6 +46,7 @@ function _sparse_augmented_data(
     kkt_scaler::AbstractScaler=NoScaler(),
     primal_shift=0.0,
     dual_shift=0.0,
+        kkt_ordering::AbstractOrdering = DefaultOrdering(),
 ) where {T,VT}
 
     n_slack = length(cb.ind_ineq)
@@ -130,7 +131,7 @@ function _sparse_augmented_data(
     # tell the linear solver the saddle-point partition before it analyzes
     _np = length(pr_diag)
     _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver,
-        aug_com, _np; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift
+            aug_com, _np; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift, kkt_ordering
     ))
 
     return (;

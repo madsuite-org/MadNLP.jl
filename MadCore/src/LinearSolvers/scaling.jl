@@ -1,7 +1,7 @@
 # Scaling and diagonal shifts of the matrix a sparse KKT system hands to its linear solver.
 
 """
-    create_kkt_linear_solver(linear_solver, A, n_primal; opt, logger, kkt_scaler, primal_shift, dual_shift)
+    create_kkt_linear_solver(linear_solver, A, n_primal; opt, logger, kkt_scaler, primal_shift, dual_shift, kkt_ordering)
 
 Create the linear solver of a sparse KKT system for its matrix `A` (lower triangle, CSC), whose
 first `n_primal` rows and columns are the primal block. With a scaler or a nonzero shift, the
@@ -12,17 +12,20 @@ W A W + \\begin{bmatrix} σ_p I & 0 \\\\ 0 & -σ_d I \\end{bmatrix}
 ```
 
 (`σ_p = primal_shift`, `σ_d = dual_shift`) instead of `A`; without, it factorizes `A` itself.
+With an ordering other than [`DefaultOrdering`](@ref), the solver factorizes the matrix in the
+pivot order of `kkt_ordering`, handed to it with [`set_permutation!`](@ref).
 """
 function create_kkt_linear_solver(
         linear_solver, A, n_primal;
         opt = default_options(linear_solver), logger = MadNLPLogger(),
         kkt_scaler::AbstractScaler = NoScaler(), primal_shift = 0.0, dual_shift = 0.0,
+        kkt_ordering::AbstractOrdering = DefaultOrdering(),
     )
     set_block_structure!(opt, n_primal, size(A, 1) - n_primal)
     if kkt_scaler isa NoScaler && iszero(primal_shift) && iszero(dual_shift)
-        return create_linear_solver(linear_solver, A; opt, logger)
+        return _create_ordered_solver(linear_solver, A, kkt_ordering; opt, logger)
     end
-    return ScaledShiftedSolver(linear_solver, A, n_primal; opt, logger, kkt_scaler, primal_shift, dual_shift)
+    return ScaledShiftedSolver(linear_solver, A, n_primal; opt, logger, kkt_scaler, primal_shift, dual_shift, kkt_ordering)
 end
 
 """
@@ -55,7 +58,7 @@ end
 
 function ScaledShiftedSolver(
         linear_solver, A, n_primal;
-        opt, logger, kkt_scaler, primal_shift, dual_shift,
+        opt, logger, kkt_scaler, primal_shift, dual_shift, kkt_ordering = DefaultOrdering(),
     )
     T = eltype(nonzeros(A))
     n = size(A, 1)
@@ -74,7 +77,7 @@ function ScaledShiftedSolver(
     Ti = eltype(rowvals(A))
     dv(v) = device_array(A, v)
     fac = copy(A)
-    inner = create_linear_solver(linear_solver, fac; opt, logger)
+    inner = _create_ordered_solver(linear_solver, fac, kkt_ordering; opt, logger)
     return ScaledShiftedSolver(
         A, fac, inner, kkt_scaler, T(primal_shift), T(dual_shift), n_primal,
         dv(ones(T, n)), dv(ones(T, n)), dv(zeros(T, nnz(S))), dv(Ti.(nonzeros(S))), dv(Ti.(S.colptr)),

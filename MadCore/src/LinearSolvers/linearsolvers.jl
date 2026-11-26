@@ -251,5 +251,5 @@ include("lapack.jl")
 
 # sparse solvers, implemented in package extensions
 include("markers.jl")
-include("orderings.jl")
 include("scaling.jl")
+include("ordering.jl")

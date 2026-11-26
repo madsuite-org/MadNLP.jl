@@ -1,9 +1,14 @@
+using SparseArrays.LibSuiteSparse: UMFPACK_FIXQ
+
 @kwdef mutable struct UmfpackOptions <: AbstractOptions
     umfpack_pivtol::Float64 = 1e-4
     umfpack_pivtolmax::Float64 = 1e-1
     umfpack_sym_pivtol::Float64 = 1e-3
     umfpack_block_size::Float64 = 16
     umfpack_strategy::Float64 = 2.
+    # the column pre-ordering instead of UMFPACK's, kept during the factorization (FIXQ):
+    # column i of the factorized matrix is column umfpack_user_perm[i]
+    umfpack_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 mutable struct UmfpackState{T} <: AbstractLinearSolver{T}
@@ -32,7 +37,10 @@ function UmfpackState(
     controls[5] = opt.umfpack_block_size
     controls[6] = opt.umfpack_strategy
     controls[12] = opt.umfpack_sym_pivtol
+    opt.umfpack_user_perm === nothing || (controls[UMFPACK_FIXQ + 1] = 1) # 0-based indices
     inner = UMFPACK.UmfpackLU(full; control=controls)
+    # the symbolic analysis with the given column pre-ordering, kept by the factorizations
+    opt.umfpack_user_perm === nothing || UMFPACK.umfpack_symbolic!(inner, Int32.(opt.umfpack_user_perm))
     return UmfpackState(inner, csc, full, tril_to_full_view, p, d, opt, logger)
 end
 
@@ -59,6 +67,7 @@ is_inertia(::UmfpackState) = false
 inertia(M::UmfpackState) = throw(InertiaException())
 input_type(::Type{UmfpackState}) = :csc
 default_options(::Type{UmfpackState}) = UmfpackOptions()
+set_permutation!(opt::UmfpackOptions, perm) = (opt.umfpack_user_perm = perm; opt)
 
 function improve!(M::UmfpackState)
     if M.inner.control[4] == M.opt.umfpack_pivtolmax
