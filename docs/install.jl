@@ -13,7 +13,6 @@ Pkg.develop(
     ]
 )
 Pkg.update()
-Pkg.add(PackageSpec(name = "MathOptInterface", rev = "bl/qp_block_data"))
 Base.compilecache(Base.identify_package("MadNLPTests"))
 Base.compilecache(Base.identify_package("cuMadNLP"))
 Base.compilecache(Base.identify_package("MadNLP"))
