@@ -90,7 +90,8 @@ end
 
         first = _TestAD(Ref(0))
         MOI.set(model, attr, first)
-        @test !MOI.supports(model, MOI.NLPBlock())
+        @test MOI.supports(model, MOI.NLPBlock())
+        @test MOI.supports(model, MOI.NLPBlockDualStart())
         storage = model.model
         @test typeof(storage) == typeof(MOI.Nonlinear.model(first))
         x = MOI.add_variable(model)
@@ -124,11 +125,14 @@ end
         MOI.set(model, MOI.NLPBlock(), block)
         MOI.set(model, attr, MOI.Nonlinear.SymbolicMode())
         @test MOI.supports(model, MOI.NLPBlock())
-        @test_throws ErrorException MOI.set(model, attr, first)
+        @test_throws err MOI.set(model, attr, first)
         MOI.empty!(model)
         MOI.set(model, attr, first)
-        @test_throws MOI.UnsupportedAttribute MOI.set(model, MOI.NLPBlock(), block)
-        @test_throws MOI.UnsupportedAttribute MOI.set(model, MOI.NLPBlockDualStart(), Float64[])
+        MOI.set(model, MOI.NLPBlock(), block)
+        MOI.set(model, MOI.NLPBlockDualStart(), Float64[])
+        MOI.set(model, attr, second)
+        @test MOI.get(model, MOI.NLPBlock()) === block
+        @test MOI.get(model, MOI.NLPBlockDualStart()) == Float64[]
         return
     end
 

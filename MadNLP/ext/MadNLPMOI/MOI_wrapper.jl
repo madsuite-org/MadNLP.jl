@@ -511,24 +511,13 @@ end
 
 ### MOI.NLPBlockDualStart
 
-const _BuiltinAD = Union{
-    MOI.Nonlinear.ExprGraphOnly,
-    MOI.Nonlinear.SparseReverseMode,
-    MOI.Nonlinear.SymbolicMode,
-}
-
-function MOI.supports(model::Optimizer, ::Union{MOI.NLPBlock, MOI.NLPBlockDualStart})
-    return model.ad_backend isa _BuiltinAD
-end
+MOI.supports(::Optimizer, ::MOI.NLPBlockDualStart) = true
 
 function MOI.set(
         model::Optimizer,
-        attr::MOI.NLPBlockDualStart,
+        ::MOI.NLPBlockDualStart,
         values::Union{Nothing, Vector},
     )
-    if !MOI.supports(model, attr)
-        throw(MOI.UnsupportedAttribute(attr))
-    end
     model.nlp_dual_start = values
     model.needs_new_nlp = true
     return
@@ -538,20 +527,16 @@ MOI.get(model::Optimizer, ::MOI.NLPBlockDualStart) = model.nlp_dual_start
 
 ### MOI.NLPBlock
 
-function MOI.get(model::Optimizer, attr::MOI.NLPBlock)
-    if !MOI.supports(model, attr)
-        throw(MOI.UnsupportedAttribute(attr))
-    end
+MOI.supports(::Optimizer, ::MOI.NLPBlock) = true
+
+function MOI.get(model::Optimizer, ::MOI.NLPBlock)
     if model.uses_nlp_block || model.solver === nothing
         return model.nlp_data
     end
     return MOI.NLPBlockData(model.evaluator)
 end
 
-function MOI.set(model::Optimizer, attr::MOI.NLPBlock, data::MOI.NLPBlockData)
-    if !MOI.supports(model, attr)
-        throw(MOI.UnsupportedAttribute(attr))
-    end
+function MOI.set(model::Optimizer, ::MOI.NLPBlock, data::MOI.NLPBlockData)
     types = MOI.get(model.model, MOI.ListOfConstraintTypesPresent())
     if model.objective_type == MOI.ScalarNonlinearFunction ||
             any(F == MOI.ScalarNonlinearFunction || S == MOI.Parameter{Float64} for (F, S) in types)
@@ -672,9 +657,6 @@ function MOI.set(
     ::MOI.AutomaticDifferentiationBackend,
     backend::MOI.Nonlinear.AbstractAutomaticDifferentiation,
 )
-    if model.uses_nlp_block && !(backend isa _BuiltinAD)
-        error("Cannot set a custom AD backend with an NLPBlock.")
-    end
     new_model = MOI.Nonlinear.model(backend)
     if typeof(new_model) != typeof(model.model)
         if !MOI.is_empty(model)
