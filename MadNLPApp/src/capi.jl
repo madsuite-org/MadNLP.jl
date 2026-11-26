@@ -5,69 +5,17 @@
 
 using CNLPLib: CNLPProblem, CNLPResult, ProblemModel
 
-# ── options ─────────────────────────────────────────────────────────────────────────
-# key=value strings, as a user wrote them, to MadNLP's options. print_level takes
-# MadNLP's level names (INFO, ERROR, ...) or 1-6, and 0 for quiet; a value naming one of
-# MadNLP's types (linear_solver=LapackCPUSolver) is that type; otherwise integers, numbers
-# and booleans are read as such. `sb` (Ipopt's banner switch) is accepted and ignored.
+# ── options and the solve (MadNLPAppBase, shared with cuMadNLPApp) ────────────────────
+# key=value strings, as a user wrote them, to MadNLP's options (MadNLPAppBase.parse_value).
+# MUMPS is the sparse linear solver unless the caller names another: MadNLP's own default
+# would be HSL's, which this library does not carry.
 const OPTION_MODULES = Module[MadCore, MadNLPCore]
-
-function parse_value(key::Symbol, v::String)
-    if key === :print_level || key === :file_print_level
-        n = tryparse(Int, v)
-        n === nothing && return getfield(MadCore, Symbol(uppercase(v)))::MadCore.LogLevels
-        return n == 0 ? MadCore.ERROR : MadCore.LogLevels(n)
-    end
-    for mod in OPTION_MODULES
-        isdefined(mod, Symbol(v)) && (t = getfield(mod, Symbol(v)); t isa Type) && return t
-    end
-    v == "true" && return true
-    v == "false" && return false
-    n = tryparse(Int, v); n === nothing || return n
-    x = tryparse(Float64, v); x === nothing || return x
-    return v
-end
-
 function options(opts)
-    kw = Pair{Symbol, Any}[]
-    for (k, v) in opts
-        key = Symbol(k)
-        key === :sb && continue
-        push!(kw, key => parse_value(key, String(v)))
-    end
+    kw = MadNLPAppBase.options(opts, OPTION_MODULES)
+    any(p -> first(p) === :linear_solver, kw) || push!(kw, :linear_solver => MadCore.MumpsSolver)
     return kw
 end
-
-# ── solve ───────────────────────────────────────────────────────────────────────────
-
-function status_of(s)
-    s == MadCore.SOLVE_SUCCEEDED && return CNLPLib.CNLP_SOLVED
-    s == MadCore.SOLVED_TO_ACCEPTABLE_LEVEL && return CNLPLib.CNLP_ACCEPTABLE
-    s == MadCore.INFEASIBLE_PROBLEM_DETECTED && return CNLPLib.CNLP_INFEASIBLE
-    s == MadCore.DIVERGING_ITERATES && return CNLPLib.CNLP_UNBOUNDED
-    s == MadCore.MAXIMUM_ITERATIONS_EXCEEDED && return CNLPLib.CNLP_ITERATION_LIMIT
-    s == MadCore.MAXIMUM_WALLTIME_EXCEEDED && return CNLPLib.CNLP_TIME_LIMIT
-    return CNLPLib.CNLP_ERROR
-end
-
-"""
-    run_madnlp(model, options::Vector{Pair{Symbol, Any}})
-
-Solve as `madnlp(model; options...)` does, with the options passed as a `Dict` instead of
-keywords: a keyword call is compiled for every set of option names and value types, this is
-compiled once.
-"""
-function run_madnlp(m::AbstractNLPModel, kw::Vector{Pair{Symbol, Any}})
-    nlp = MadCore.ModelBarrier(m)
-    solver = MadNLPCore.build_solver(nlp, MadNLPCore.load_options(nlp, Dict{Symbol, Any}(kw)))
-    return MadNLPCore.solve!(solver)
-end
-
-function madnlp_outcome(m, kw)
-    s = run_madnlp(m, kw)
-    return (s.solution, s.multipliers, s.multipliers_L, s.multipliers_U, s.objective,
-            status_of(s.status), s.iter, "MadNLP: " * string(s.status))
-end
+const madnlp_outcome = MadNLPAppBase.outcome
 
 # MADNLPAPP_TRACE=1: every method compiled at run time on stderr, and the total after each
 # solve (what the library still lacks; a build is checked to report 0)

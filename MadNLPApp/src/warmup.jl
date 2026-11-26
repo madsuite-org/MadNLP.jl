@@ -97,7 +97,8 @@ end
         # so these synthetic problems cover every model's solve.
         MadNLPCore._precompile_solves(
             Float64[];
-            presets = (MadNLPCore.AugmentedPreset, MadNLPCore.ShiftedPreset, MadNLPCore.CondensedPreset)
+            presets = (MadNLPCore.AugmentedPreset, MadNLPCore.ShiftedPreset, MadNLPCore.CondensedPreset),
+            linear_solver = MadCore.MumpsSolver
         )
         MadNLPCore._precompile_linear_solver(Float64[], MadCore.LapackCPUSolver)
         solve_toy()                                             # minimize

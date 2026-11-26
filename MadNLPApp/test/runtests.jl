@@ -26,7 +26,7 @@ const F = (
     fail = @cfunction(qp_fail, Int64, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64})),
 )
 
-function run(; minimize = true, opts = ("print_level" => "0",), obj = F.obj)
+function solve_qp(; minimize = true, opts = ("print_level" => "0",), obj = F.obj)
     SIGN[] = minimize ? 1.0 : -1.0
     x0, lv, uv = zeros(4), fill(-Inf, 4), fill(Inf, 4)
     lc, uc = [1.0], [1.0]
@@ -55,7 +55,7 @@ end
 
 @testset "MadNLPApp C entry point" begin
     @testset "minimize" begin
-        s = run()
+        s = solve_qp()
         @test s.rc == 0 && s.r.status == 0
         @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1.0e-7
         @test s.y ≈ [1.0] atol = 1.0e-7
@@ -64,29 +64,29 @@ end
         @test startswith(s.msg, "MadNLP: SOLVE_SUCCEEDED")
     end
     @testset "maximize: same x, same y in the convention" begin
-        s = run(minimize = false)
+        s = solve_qp(minimize = false)
         @test s.rc == 0 && s.r.status == 0
         @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1.0e-7
         @test s.y ≈ [1.0] atol = 1.0e-7
         @test s.r.objective ≈ -0.5 atol = 1.0e-8
     end
     @testset "options" begin
-        s = run(opts = ("print_level" => "ERROR", "tol" => "1e-10", "max_iter" => "50", "sb" => "yes"))
+        s = solve_qp(opts = ("print_level" => "ERROR", "tol" => "1e-10", "max_iter" => "50", "sb" => "yes"))
         @test s.rc == 0 && s.r.status == 0
-        s = run(opts = ("print_level" => "0", "max_iter" => "0"))
+        s = solve_qp(opts = ("print_level" => "0", "max_iter" => "0"))
         @test s.rc == 0 && s.r.status == 4            # iteration limit
-        s = run(opts = ("print_level" => "NOSUCHLEVEL",))
+        s = solve_qp(opts = ("print_level" => "NOSUCHLEVEL",))
         @test s.rc == 1 && occursin("invalid option", s.msg)
     end
     @testset "a failing callback is reported, not thrown" begin
-        s = run(obj = F.fail)
+        s = solve_qp(obj = F.fail)
         @test s.rc == 2 && s.r.status == 6
         @test occursin("obj callback returned 7", s.msg)
     end
 end
 
 @testset "quasi-Newton (Jacobian products)" begin
-    s = run(opts = ("print_level" => "0", "hessian_approximation" => "CompactLBFGS"))
+    s = solve_qp(opts = ("print_level" => "0", "hessian_approximation" => "CompactLBFGS"))
     @test s.rc == 0 && s.r.status == 0
     @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1.0e-6
 end

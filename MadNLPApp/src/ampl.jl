@@ -41,17 +41,12 @@ function _main(args::Vector{String})::Cint
     end
     path = endswith(stub, ".nl") ? stub : stub * ".nl"
     isfile(path) || (println(stderr, "madnlp: no file ", path); return 2)
-    kw = Pair{Symbol, Any}[]
-    for o in opts
-        k, v = split(o, '='; limit = 2)
-        k == "sb" && continue
-        push!(kw, Symbol(k) => parse_value(Symbol(k), String(v)))
-    end
+    kw = options([String(k) => String(v) for (k, v) in (split(o, '='; limit = 2) for o in opts)])
     nlp = AmplModel(path)
     try
         # AmplModel carries AmplNLReader's own meta type; the wrapper gives MadNLP a
         # standard NLPModelMeta.
-        stats = run_madnlp(MadCore.SparseWrapperModel(Vector, nlp), kw)
+        stats = MadNLPAppBase.run_madnlp(MadCore.SparseWrapperModel(Vector, nlp), kw)
         if ampl
             # AMPL's duals are the objective's sensitivities to the constraints' right-hand
             # sides, -y for NLPModels' y (grad f + J'y - zL + zU = 0), in either sense.
@@ -60,7 +55,7 @@ function _main(args::Vector{String})::Cint
                 -Vector{Float64}(stats.multipliers)
             )
         end
-        return status_of(stats.status) <= CNLPLib.CNLP_ACCEPTABLE ? 0 : 1
+        return MadNLPAppBase.status_of(stats.status) <= CNLPLib.CNLP_ACCEPTABLE ? 0 : 1
     finally
         finalize(nlp)
     end

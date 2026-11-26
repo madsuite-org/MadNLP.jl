@@ -2,20 +2,9 @@
 # solve path, plus the method instances that traced runs of a built library still compiled
 # (precompile_statements.jl, collected with MADNLPAPP_TRACE=1; see check.sh).
 using MadNLPApp
-module PrecompileStatements
-    for (id, m) in Base.loaded_modules
-        name = Symbol(id.name)
-        isdefined(@__MODULE__, name) || Core.eval(@__MODULE__, :(const $name = $m))
-    end
-    file = joinpath(@__DIR__, "precompile_statements.jl")
-    for line in (isfile(file) ? eachline(file) : ())
-        startswith(line, "precompile(") || continue
-        try
-            Core.eval(@__MODULE__, Meta.parse(line))
-        catch
-            println(stderr, "stale precompile statement: ", line[1:min(end, 160)])
-        end
-    end
+module PrecompileStatements end
+let file = joinpath(@__DIR__, "precompile_statements.jl")
+    isfile(file) && MadNLPApp.CNLPLib.eval_statements(PrecompileStatements, file)
 end
 
 # Base.merge_names builds a Symbol[...] when it merges keyword-argument names not known at

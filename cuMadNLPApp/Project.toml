@@ -6,6 +6,7 @@ version = "0.1.0"
 CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
 CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadNLPAppBase = "5b0f7c3e-2d4a-4c9e-9a51-8e6f3b7d2c41"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
@@ -14,6 +15,7 @@ cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 # until CNLPLib is registered: its home is cnlplib's interfaces/ (madsuite-org/cnlplib#33)
 CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "interfaces"}
 MadCore = {path = "../MadCore"}
+MadNLPAppBase = {path = "../MadNLPAppBase"}
 MadNLPCore = {path = "../MadNLPCore"}
 cuMadNLP = {path = "../cuMadNLP"}
 
@@ -21,6 +23,7 @@ cuMadNLP = {path = "../cuMadNLP"}
 CNLPLib = "0.4"
 CUDACore = "6"
 MadCore = "=0.12.0"
+MadNLPAppBase = "0.1"
 MadNLPCore = "=0.12.0"
 NLPModels = "0.21.9"
 cuMadNLP = "=0.12.0"

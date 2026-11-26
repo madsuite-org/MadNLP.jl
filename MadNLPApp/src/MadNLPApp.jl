@@ -19,11 +19,7 @@ import MUMPS_seq_jll, OpenBLAS32_jll   # MadCore's MUMPS extension: the default 
 import Krylov                          # GMRES refinement (KrylovIterator) of the default preset
 import NLPModels
 using NLPModels: AbstractNLPModel
-import CNLPLib
-
-# MUMPS is the sparse linear solver, under every preset (as MadNLP sets it, without HSL)
-MadCore.default_sparse_solver(::AbstractNLPModel) = MadCore.MumpsSolver
-MadNLPCore.shifted_sparse_solver(::AbstractNLPModel) = MadCore.MumpsSolver
+import CNLPLib, MadNLPAppBase
 
 include("capi.jl")
 include("ampl.jl")
