@@ -3,6 +3,7 @@ uuid = "7d1c5b9e-3a42-4f0e-8c61-2b9d4e7a1f53"
 version = "0.1.0"
 
 [deps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 AmplNLReader = "77dd3d4c-cb1d-5e09-9340-85030ff7ba66"
 CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
@@ -26,6 +27,7 @@ MadNLP = {path = "../MadNLP"}
 MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]
+LinearAlgebra = "1"
 AmplNLReader = "0.11, 0.12"
 CUDACore = "6"
 CNLPLib = "0.4"

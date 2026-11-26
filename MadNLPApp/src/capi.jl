@@ -98,6 +98,7 @@ Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
 function c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult})::Int64
     trace = trace_on()
     ct0 = trace ? compile_ns() : UInt64(0)
+    restore_blas!()
     rc = _c_solve(model, nopt, keys, vals, result)
     trace ? report_compiled(compile_ns() - ct0) : (flush(stdout); flush(stderr))
     return rc
@@ -151,10 +152,12 @@ Base.@ccallable function cnlp_solve(
 end
 
 Base.@ccallable function cnlp_solver_version()::Int64
+    blas_libs()
     return Int64(CNLPLib.CNLP_SOLVER_VERSION)
 end
 
 Base.@ccallable function cnlp_solver_name(buf::Ptr{UInt8}, cap::Int64)::Int64
+    blas_libs()
     return copyout("madnlp", buf, cap)
 end
 
