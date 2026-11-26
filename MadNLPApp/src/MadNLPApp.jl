@@ -31,7 +31,9 @@ include("warmup.jl")
 
 function __init__()
     TRACE.on = -1     # an image keeps the build's setting
-    empty!(BLAS)      # recorded at the first call (an image keeps the build's)
+    # the BLAS as this library starts (MUMPS's LP64 OpenBLAS included), recorded before a
+    # model library's runtime in the same process can forward libblastrampoline elsewhere
+    append!(empty!(BLAS), CNLPLib.blas_state())
     return nothing
 end
 

@@ -72,12 +72,10 @@ end
 # MADNLPAPP_TRACE=1: every method compiled at run time on stderr, and the total after each
 # solve (what the library still lacks; a build is checked to report 0)
 const TRACE = CNLPLib.CompileTrace("MADNLPAPP_TRACE")
-# The BLAS this library forwards libblastrampoline to, recorded at the first call into the
-# library (when all of it has started, MUMPS's LP64 OpenBLAS included) and restored before
-# every solve: another Julia runtime in the process (a model library) may open the same
-# libblastrampoline by name when it starts, and forward it elsewhere.
+# The BLAS this library forwards libblastrampoline to, recorded by `__init__` and restored
+# before every solve: another Julia runtime in the process (a model library) may open the
+# same libblastrampoline by name when it starts, and forward it elsewhere.
 const BLAS = String[]
-blas() = (isempty(BLAS) && append!(BLAS, CNLPLib.blas_state()); BLAS)
 
 """
     c_solve(model, nopt, keys, vals, result)
@@ -86,7 +84,7 @@ Solve for a C caller: `model()` builds the model, options come as C strings, the
 goes to `result`. Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
 """
 c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
-    CNLPLib.serve(madnlp_outcome, model, nopt, keys, vals, result; options, blas = blas(), trace = TRACE, name = "madnlp")
+    CNLPLib.serve(madnlp_outcome, model, nopt, keys, vals, result; options, blas = BLAS, trace = TRACE, name = "madnlp")
 c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
     c_solve(() -> ProblemModel(problem), nopt, keys, vals, result)
 
@@ -103,7 +101,6 @@ Base.@ccallable function madnlp_solve(
 end
 
 Base.@ccallable function madnlp_version(buf::Ptr{UInt8}, cap::Int64)::Int64
-    blas()
     return CNLPLib.copyout(VERSION_STRING, buf, cap)
 end
 
@@ -116,11 +113,9 @@ Base.@ccallable function cnlp_solve(
 end
 
 Base.@ccallable function cnlp_solver_version()::Int64
-    blas()
     return Int64(CNLPLib.CNLP_SOLVER_VERSION)
 end
 
 Base.@ccallable function cnlp_solver_name(buf::Ptr{UInt8}, cap::Int64)::Int64
-    blas()
     return CNLPLib.copyout("madnlp", buf, cap)
 end
