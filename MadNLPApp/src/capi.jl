@@ -3,27 +3,6 @@
 # (`cnlp_solver.h`). CNLPLib carries the binding and what a solver library does around its
 # solve (`CNLPLib.serve`); what is MadNLP's is here.
 
-using CNLPLib: CNLPProblem, CNLPResult, ProblemModel
-
-# ── the solver (MadNLPAppCore, shared with cuMadNLPApp) ───────────────────────────────
-# Option values may name MadNLP's types. MUMPS is the sparse linear solver unless the caller
-# names another: MadNLP's own default would be HSL's, which this library does not carry.
-# MADNLPAPP_TRACE=1: every method compiled at run time on stderr, and the total after each
-# solve (what the library still lacks; a build is checked to report 0).
-const APP = MadNLPAppCore.App("madnlp", "MADNLPAPP_TRACE", (MadCore, MadNLPCore);
-                              defaults = [:linear_solver => MadCore.MumpsSolver])
-options(opts) = MadNLPAppCore.options(APP, opts)
-
-"""
-    c_solve(model, nopt, keys, vals, result)
-
-Solve for a C caller: `model()` builds the model, options come as C strings, the outcome
-goes to `result`. Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
-"""
-c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
-    MadNLPAppCore.serve(APP, model, nopt, keys, vals, result)
-c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
-    c_solve(() -> ProblemModel(problem), nopt, keys, vals, result)
 
 # ── the library's exports (`juliac --output-lib`) ─────────────────────────────────────
 
@@ -47,6 +26,23 @@ Base.@ccallable function cnlp_solve(
         vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
     )::Int64
     return c_solve(problem, nopt, keys, vals, result)
+end
+
+"The cnlp solver interface's device entry point (`cnlp_solver.h` 0.2): CUDA."
+Base.@ccallable function cnlp_solve_device(
+        p::Ptr{CNLPProblem}, d::Ptr{CNLPDeviceProblem}, nopt::Int64,
+        keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
+    )::Int64
+    dev = unsafe_load(d).device
+    if dev != CNLPLib.CNLP_DEVICE_CUDA
+        CNLPLib.set_failure!(result, "madnlp: device $dev is not supported (CUDA is $(CNLPLib.CNLP_DEVICE_CUDA))")
+        return Int64(1)
+    end
+    if !CUDACore.functional()
+        CNLPLib.set_failure!(result, "madnlp: no usable CUDA GPU")
+        return Int64(2)
+    end
+    return c_solve_device(p, d, nopt, keys, vals, result)
 end
 
 Base.@ccallable function cnlp_solver_version()::Int64

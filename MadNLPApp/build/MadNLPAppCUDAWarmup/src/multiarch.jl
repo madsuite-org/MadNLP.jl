@@ -1,4 +1,4 @@
-# Multi-architecture GPU kernels for libcumadnlp (build/libcumadnlp.jl): every kernel the
+# Multi-architecture GPU kernels for libmadnlp (build/libmadnlp.jl): every kernel the
 # warm-up compiled for the build machine's GPU is compiled for other compute capabilities as
 # well, so that a GPU of those finds its kernel in the image instead of compiling it at run
 # time. (From the earlier madnlp executable, after empower's gpu/kernels.)

@@ -1,14 +1,16 @@
 # MadNLPApp
 
-MadNLP on the CPU compiled ahead of time (`juliac`), for callers that are not Julia. It is
-MadNLPCore with MUMPS as the linear solver; the HSL solvers are not included, since their
-license does not allow redistributing them. The GPU solver is [cuMadNLPApp](../cuMadNLPApp).
-One bundle carries:
+MadNLP compiled ahead of time (`juliac`), for callers that are not Julia, on the CPU and on
+a CUDA GPU. On the CPU it is MadNLPCore with MUMPS as the linear solver; the HSL solvers are
+not included, since their license does not allow redistributing them. On the GPU it is
+cuMadNLP (cuDSS). One bundle carries:
 
 - `lib/libmadnlp.so` (also as `lib/libcnlp_madnlp.so`), a shared library with a C entry point, `madnlp_solve` (`include/madnlp.h`):
   a problem given as sizes, bounds, a starting point and evaluation callbacks, solved with
   MadNLP on the CPU. The same function is exported as `cnlp_solve`, so the library is also a
   solver for [cnlplib](https://cnlplib.madsuite.org) (`cnlp solve LIB:MODEL ... --solver madnlp`).
+  `cnlp_solve_device` solves a model through its device (CUDA) callbacks, with the solver's
+  vectors on the GPU; the GPU is brought up by the first device solve.
 - `bin/madnlp`, an [AMPL](https://ampl.com) solver for `.nl` files (CPU):
   `madnlp model.nl [-AMPL] [key=value ...]`, options also read from the environment variable
   `madnlp_options`. With `-AMPL` the solution is written to `model.sol`.
@@ -25,8 +27,10 @@ MADNLPAPP_WARMUP_RUNS=runs.txt MADNLPAPP_WARMUP_NL=model.nl \
     julia --project=MadNLPApp/build MadNLPApp/build/build.jl OUT
 ```
 
-The bundle is `OUT/madnlp`. The build solves problems through the C entry point while it
-precompiles (`src/warmup.jl`), so that a solve compiles nothing at run time:
+The bundle is `OUT/madnlp`. The build needs a CUDA GPU. It solves problems through the C
+entry points while it precompiles, so that a solve compiles nothing at run time: on the CPU
+(`src/warmup.jl`), and on the GPU (`build/MadNLPAppCUDAWarmup`, which also compiles the
+solver's GPU kernels for compute capabilities 7.0 to 9.0, `MADNLPAPP_CUDA_CAPS`).
 `MADNLPAPP_WARMUP_RUNS` is a file of lines `LIB MODEL ARGS...` (cnlp libraries and models),
 and `MADNLPAPP_WARMUP_NL` lists `.nl` files. Methods that runs of a built library still
 compiled are listed in `build/precompile_statements.jl` and compiled into the image.

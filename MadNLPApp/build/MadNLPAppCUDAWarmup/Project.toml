@@ -1,11 +1,11 @@
-name = "cuMadNLPAppWarmup"
+name = "MadNLPAppCUDAWarmup"
 uuid = "3f6c2a8e-91d4-4b7a-a5e2-6c0d9f1b2e47"
 version = "0.1.0"
 
 [deps]
 CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
 CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
-cuMadNLPApp = "cdd3ec7b-448e-460c-a676-bcce88788105"
+MadNLPApp = "7d1c5b9e-3a42-4f0e-8c61-2b9d4e7a1f53"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
