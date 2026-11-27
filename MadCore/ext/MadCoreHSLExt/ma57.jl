@@ -13,8 +13,10 @@ ma57_default_cntl(T) = T[1e-8, 1.0e-20, 0.5, 0.0, 0.0]
     ma57_node_amalgamation::Int = 16
     ma57_small_pivot_flag::Int = 0
     # with a positive bound, a factorization in the analysis order with small pivots bounded, as
-    # CHOLMOD's under ShiftedPreset: no threshold pivoting (CNTL(1) = 0, and no increase of it in
-    # `improve!`), a pivot smaller than the bound in magnitude is treated as zero (CNTL(2)) and
+    # CHOLMOD's under ShiftedPreset: almost no threshold pivoting (CNTL(1) = 1e-20, not 0: with
+    # static pivoting MA57 lowers the threshold tenfold until it reaches √(CNTL(1) CNTL(4)), which
+    # never ends at 0; and no increase of it in `improve!`), a pivot smaller than the bound in
+    # magnitude is treated as zero (CNTL(2)) and
     # replaced by MA57's static pivoting (CNTL(4) > 0, CNTL(5) = 0), by an entry of magnitude the
     # bound: CNTL(4) is relative to the largest entry, so it is set at each factorization
     ma57_pivot_bound::Float64 = 0.0
@@ -64,7 +66,7 @@ function Ma57State(
 
     cntl[1] = opt.ma57_pivtol
     if opt.ma57_pivot_bound > 0
-        cntl[1] = 0
+        cntl[1] = 1e-20
         cntl[2] = opt.ma57_pivot_bound
         cntl[5] = 0
     end
