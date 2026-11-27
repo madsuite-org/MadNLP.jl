@@ -141,7 +141,9 @@ abstract type AbstractAdaptiveUpdate{T} <: AbstractBarrierUpdate{T} end
 Find the barrier parameter using a quality function encoding the ℓ1-norm of the KKT violations.
 At each IPM iteration, the minimum of the quality function is found using a golden-section search algorithm.
 
-If no sufficient progress is made, the barrier falls back to a monotone rule.
+If no sufficient progress is made, the barrier falls back to a monotone rule. It returns to the
+free mode when the current point is acceptable to the line-search filter, once the line search
+has added an entry to the filter at the current barrier parameter.
 
 The new barrier parameter is `σ μ_avg`, with `μ_avg` the average complementarity and `σ` at least
 `sigma_min`; it is also at least `μ / mu_decrease_max`, with `μ` the current barrier parameter
@@ -179,7 +181,9 @@ end
 Find the barrier parameter using the rule used in the LOQO solver.
 The rule is explicit in [Nocedal2009, Eq (3.6)].
 
-If no sufficient progress is made, the barrier falls back to a monotone rule.
+If no sufficient progress is made, the barrier falls back to a monotone rule. It returns to the
+free mode when the current point is acceptable to the line-search filter, once the line search
+has added an entry to the filter at the current barrier parameter.
 
 ## References
 The algorithm is described in [Nocedal2009, Section 3].
