@@ -20,8 +20,8 @@ TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 
 [sources]
-# until CNLPLib is registered: its home is cnlplib's interfaces/ (madsuite-org/cnlplib#33)
-CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "interfaces"}
+# until CNLPLib is registered: its home is cnlplib
+CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "main"}
 MadCore = {path = "../MadCore"}
 MadNLPCore = {path = "../MadNLPCore"}
 cuMadNLP = {path = "../cuMadNLP"}

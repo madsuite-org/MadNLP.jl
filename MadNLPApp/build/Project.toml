@@ -14,7 +14,7 @@ cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 
 [sources]
 BundleDepot = {path = "BundleDepot"}
-CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "interfaces"}
+CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "main"}
 MadCore = {path = "../../MadCore"}
 MadNLPApp = {path = ".."}
 MadNLPAppCUDAWarmup = {path = "MadNLPAppCUDAWarmup"}
