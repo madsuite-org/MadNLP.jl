@@ -56,6 +56,7 @@ function Ma86State(
     control.f_arrays = 1
     control.nemin = opt.ma86_nemin
     control.small_ = opt.ma86_small
+    control.static_ = opt.ma86_static
     control.u = opt.ma86_u
     control.scaling = INT(opt.ma86_scaling)
 

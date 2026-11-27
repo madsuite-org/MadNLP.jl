@@ -28,6 +28,26 @@
     @test sh.barrier isa MadNLP.QualityFunctionUpdate{Float64}
     @test sh.barrier.sigma_max == 2.0 && sh.barrier.mu_min ≈ 1.0e-3 * sh.tol
     @test sh.barrier.mu_decrease_max == 10.0 && sh.barrier.sigma_min == 1.0e-6
+
+    # the other LDLᵀ solvers under ShiftedPreset bound small pivots as CHOLMOD does: LDLFactorizations
+    # by block, positive in the primal block (variables, then slacks) and negative in the dual one
+    δ = MadNLP.MadNLPCore.preset_perturbation(Float64)
+    lopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.LDLSolver)
+    @test (lopt.ldl_r1, lopt.ldl_r2, lopt.ldl_tol) == (δ, -δ, δ)
+    @test lopt.ldl_n_d == nlp.meta.nvar - length(nlp.meta.ifix) + nlp.meta.ncon - length(nlp.meta.jfix)
+    mopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.Ma86Solver)
+    @test mopt.ma86_static == δ && mopt.ma86_u == 0.0
+    # [1 0 0; 0 0 1; 0 1 0] in the order 1, 2, 3, primal rows 1 and 2: the second pivot is zero, so
+    # the factorization fails without the bound; with it, that pivot becomes δ and the third -1/δ
+    tril = sparse(Int32[1, 2, 3, 3], Int32[1, 2, 2, 3], [1.0, 0.0, 1.0, 0.0])
+    off = MC.default_options(MadNLP.LDLSolver)
+    off.ldl_user_perm = [1, 2, 3]
+    @test !MC.is_factorized(MC.solver_type(MadNLP.LDLSolver)(tril; opt = off))
+    on = MC.default_options(MadNLP.LDLSolver)
+    on.ldl_user_perm = [1, 2, 3]
+    on.ldl_r1, on.ldl_r2, on.ldl_tol, on.ldl_n_d = δ, -δ, δ, 2
+    M = MC.solver_type(MadNLP.LDLSolver)(tril; opt = on)
+    @test MC.is_factorized(M) && MC.inertia(M) == (2, 0, 1)
     @test sh.slack_reset
     if Base.USE_GPL_LIBS
         lopt = MC.default_options(nlp, sh.preset, sh.kkt_system, sh.linear_solver)
