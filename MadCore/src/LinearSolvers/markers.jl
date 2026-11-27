@@ -120,7 +120,7 @@ function DummySolver(args...; kwargs...)
     error(
         "No sparse linear solver is selected. Pass the option `linear_solver` " *
         "(for example `linear_solver = LDLSolver` with LDLFactorizations loaded), " *
-        "or load MadNLP, which uses MUMPS by default.",
+        "or load MadNLP, which uses MA27 or MUMPS by default.",
     )
 end
 default_options(::Type{DummySolver}) = DummySolverOptions()

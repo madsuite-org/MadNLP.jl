@@ -40,7 +40,7 @@ The first point is problem-dependent and is often related to the automatic diffe
 The second point is more problematic, as the primal-dual KKT system is symmetric indefinite and ill-conditioned.
 
 ### Linear solvers
-By default, MadNLP is using [MUMPS](https://mumps-solver.org/) to solve the primal-dual KKT system.
+By default, MadNLP solves the primal-dual KKT system with HSL's MA27 when a functional HSL library is installed (see [HSL.jl](https://github.com/JuliaSmoothOptimizers/HSL.jl)), and with [MUMPS](https://mumps-solver.org/) otherwise.
 Other efficient linear solvers are interfaced, all listed in the table below.
 
 
@@ -49,7 +49,7 @@ Linear solver | Type | Hardware
 ||
 __MadNLP__||
 ||
-MumpsSolver (default)   | sparse | CPU
+MumpsSolver (default without HSL) | sparse | CPU
 UmfpackSolver           | sparse | CPU
 LapackCPUSolver         | dense  | CPU
 LDLSolver               | sparse | CPU
@@ -67,7 +67,7 @@ LapackOneMKLSolver       | dense  | Intel GPU
 ||
 __MadNLP, with a licensed HSL library__||
 ||
-Ma27Solver              | sparse | CPU
+Ma27Solver (default with HSL) | sparse | CPU
 Ma57Solver              | sparse | CPU
 Ma77Solver              | sparse | CPU
 Ma86Solver              | sparse | CPU

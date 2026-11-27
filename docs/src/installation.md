@@ -4,7 +4,7 @@ To install MadNLP, run
 pkg> add MadNLP
 ```
 
-By default, MadNLP uses the sparse linear solver MUMPS.
+By default, MadNLP uses the sparse linear solver MA27 when a functional HSL library is installed, and MUMPS otherwise.
 The other linear solvers are package extensions: they are available as soon as the
 package they wrap is loaded alongside MadNLP.
 

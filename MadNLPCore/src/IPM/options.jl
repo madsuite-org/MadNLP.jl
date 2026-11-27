@@ -163,7 +163,7 @@ __Primary options__||
 tol                            | 1e-8                 | termination tolerance on KKT residual
 callback                       | [`SparseCallback`](@ref) | type of callback (`SparseCallback` or `DenseCallback`)
 kkt\\_system                   | [`SparseKKTSystem`](@ref) | type of primal-dual KKT system
-linear\\_solver                | `DummySolver` (`MumpsSolver` with MadNLP) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
+linear\\_solver                | `DummySolver` (with MadNLP, `Ma27Solver` if HSL is functional, else `MumpsSolver`) | linear solver used for solving primal-dual KKT system; `CHOLMODSolver` under `ShiftedPreset` with MadNLP
 preset                         | [`AugmentedPreset`](@ref) | set of options chosen together for a sparse model (an `AbstractPreset`): `AugmentedPreset`, `ShiftedPreset` (the default on a GPU) or `CondensedPreset`; options given explicitly take precedence
 dense\\_row\\_fallback           | `true`               | under `CondensedPreset`, solve a model whose condensed matrix would be dense or far larger than the augmented one (`dense_row_abs`, `dense_row_rel`, `dense_fill_rel`) with `ShiftedPreset`
 ||

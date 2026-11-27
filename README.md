@@ -50,7 +50,7 @@ version number and are released together.
 |:---|:---|
 | `MadCore` | Callbacks, KKT systems, linear solver interface, options and the helpers shared by the interior-point solvers; the GPU KKT systems, kernels and GPU linear solvers are its extensions |
 | `MadNLPCore` | The filter line-search interior-point method |
-| `MadNLP` | CPU entry point, with MUMPS as default linear solver |
+| `MadNLP` | CPU entry point, with MA27 as default linear solver when HSL is installed, MUMPS otherwise |
 | `cuMadNLP` | NVIDIA entry point, with cuDSS as default linear solver |
 | `rocMadNLP` | AMD entry point, with SparseDirectSolver.jl as default linear solver; not registered |
 | `oneMadNLP` | Intel entry point, with SparseDirectSolver.jl as default linear solver; not registered |
