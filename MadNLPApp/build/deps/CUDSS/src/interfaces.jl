@@ -30,60 +30,62 @@ Two constructors of `CudssSolver` take as input the same parameters as [`CudssMa
 
 `CudssSolver` can be also constructed from the three structures [`CudssMatrix`](@ref), [`CudssConfig`](@ref) and [`CudssData`](@ref) if needed.
 """
-mutable struct CudssSolver{T,INT} <: AbstractCudssSolver{T,INT}
-  matrix::CudssMatrix{T,INT}
-  config::CudssConfig
-  data::CudssData
-  fresh_factorization::Bool
-  pointer::PtrOrCuPtr{Cvoid}
-  ref_cint::Base.RefValue{Cint}
-  ref_int64::Base.RefValue{Int64}
-  ref_float64::Base.RefValue{Float64}
-  ref_inertia::Base.RefValue{Tuple{INT,INT}}
-  ref_schur::Base.RefValue{Tuple{Int64,Int64,Int64}}
-  ref_algo::Base.RefValue{Cint}
-  ref_pivot::Base.RefValue{cudssPivotType_t}
-  ref_matrix::Base.RefValue{cudssMatrix_t}
-  nbytes_provided::Csize_t
-  nbytes_written::Base.RefValue{Csize_t}
+mutable struct CudssSolver{T, INT} <: AbstractCudssSolver{T, INT}
+    matrix::CudssMatrix{T, INT}
+    config::CudssConfig
+    data::CudssData
+    fresh_factorization::Bool
+    pointer::PtrOrCuPtr{Cvoid}
+    ref_cint::Base.RefValue{Cint}
+    ref_int64::Base.RefValue{Int64}
+    ref_float64::Base.RefValue{Float64}
+    ref_inertia::Base.RefValue{Tuple{INT, INT}}
+    ref_schur::Base.RefValue{Tuple{Int64, Int64, Int64}}
+    ref_algo::Base.RefValue{Cint}
+    ref_pivot::Base.RefValue{cudssPivotType_t}
+    ref_matrix::Base.RefValue{cudssMatrix_t}
+    nbytes_provided::Csize_t
+    nbytes_written::Base.RefValue{Csize_t}
 
-  function CudssSolver(matrix::CudssMatrix{T,INT}, config::CudssConfig, data::CudssData) where {T <: BlasFloat, INT <: CudssInt}
-    fresh_factorization = true
-    pointer = Base.unsafe_convert(PtrOrCuPtr{Cvoid}, C_NULL)
-    ref_cint = Ref{Cint}()
-    ref_int64 = Ref{Int64}()
-    ref_float64 = Ref{Float64}()
-    ref_inertia = Ref{Tuple{INT,INT}}()
-    ref_schur = Ref{Tuple{Int64,Int64,Int64}}()
-    ref_algo = Ref{Cint}()
-    ref_pivot = Ref{cudssPivotType_t}()
-    ref_matrix = Ref{cudssMatrix_t}()
-    nbytes_provided = Csize_t(0)
-    nbytes_written = Ref{Csize_t}()
-    return new{T,INT}(matrix, config, data, fresh_factorization, pointer, ref_cint, ref_int64, ref_float64,
-                      ref_inertia, ref_schur, ref_algo, ref_pivot, ref_matrix, nbytes_provided, nbytes_written)
-  end
+    function CudssSolver(matrix::CudssMatrix{T, INT}, config::CudssConfig, data::CudssData) where {T <: BlasFloat, INT <: CudssInt}
+        fresh_factorization = true
+        pointer = Base.unsafe_convert(PtrOrCuPtr{Cvoid}, C_NULL)
+        ref_cint = Ref{Cint}()
+        ref_int64 = Ref{Int64}()
+        ref_float64 = Ref{Float64}()
+        ref_inertia = Ref{Tuple{INT, INT}}()
+        ref_schur = Ref{Tuple{Int64, Int64, Int64}}()
+        ref_algo = Ref{Cint}()
+        ref_pivot = Ref{cudssPivotType_t}()
+        ref_matrix = Ref{cudssMatrix_t}()
+        nbytes_provided = Csize_t(0)
+        nbytes_written = Ref{Csize_t}()
+        return new{T, INT}(
+            matrix, config, data, fresh_factorization, pointer, ref_cint, ref_int64, ref_float64,
+            ref_inertia, ref_schur, ref_algo, ref_pivot, ref_matrix, nbytes_provided, nbytes_written
+        )
+    end
 
-  function CudssSolver(A::CuSparseMatrixCSR{T,INT}, structure::String, view::Char; index::Char='O') where {T <: BlasFloat, INT <: CudssInt}
-    matrix = CudssMatrix(A, structure, view; index)
-    config = CudssConfig()
-    data = CudssData()
-    return CudssSolver(matrix, config, data)
-  end
+    function CudssSolver(A::CuSparseMatrixCSR{T, INT}, structure::String, view::Char; index::Char = 'O') where {T <: BlasFloat, INT <: CudssInt}
+        matrix = CudssMatrix(A, structure, view; index)
+        config = CudssConfig()
+        data = CudssData()
+        return CudssSolver(matrix, config, data)
+    end
 
-  function CudssSolver(rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuVector{T}, structure::String, view::Char; index::Char='O') where {T <: BlasFloat, INT <: CudssInt}
-    matrix = CudssMatrix(rowPtr, colVal, nzVal, structure, view; index)
-    config = CudssConfig()
-    data = CudssData()
-    return CudssSolver(matrix, config, data)
-  end
+    function CudssSolver(rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuVector{T}, structure::String, view::Char; index::Char = 'O') where {T <: BlasFloat, INT <: CudssInt}
+        matrix = CudssMatrix(rowPtr, colVal, nzVal, structure, view; index)
+        config = CudssConfig()
+        data = CudssData()
+        return CudssSolver(matrix, config, data)
+    end
 
-  function CudssSolver(rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuMatrix{T}, structure::String, view::Char; index::Char='O') where {T <: BlasFloat, INT <: CudssInt}
-    matrix = CudssMatrix(rowPtr, colVal, nzVal, structure, view; index)
-    config = CudssConfig()
-    data = CudssData()
-    return CudssSolver(matrix, config, data)
-  end
+    function CudssSolver(rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuMatrix{T}, structure::String, view::Char; index::Char = 'O') where {T <: BlasFloat, INT <: CudssInt}
+        matrix = CudssMatrix(rowPtr, colVal, nzVal, structure, view; index)
+        config = CudssConfig()
+        data = CudssData()
+        return CudssSolver(matrix, config, data)
+    end
 end
 
 """
@@ -113,47 +115,49 @@ One constructor of `CudssBatchedSolver` takes as input the same parameters as [`
 
 `CudssBatchedSolver` can be also constructed from the three structures [`CudssBatchedMatrix`](@ref), [`CudssConfig`](@ref) and [`CudssData`](@ref) if needed.
 """
-mutable struct CudssBatchedSolver{T,INT,M} <: AbstractCudssSolver{T,INT}
-  matrix::CudssBatchedMatrix{T,INT,M}
-  config::CudssConfig
-  data::CudssData
-  fresh_factorization::Bool
-  pointer::PtrOrCuPtr{Cvoid}
-  ref_cint::Base.RefValue{Cint}
-  ref_int64::Base.RefValue{Int64}
-  ref_float64::Base.RefValue{Float64}
-  ref_inertia::Base.RefValue{Tuple{INT,INT}}
-  ref_schur::Base.RefValue{Tuple{Int64,Int64,Int64}}
-  ref_algo::Base.RefValue{Cint}
-  ref_pivot::Base.RefValue{cudssPivotType_t}
-  ref_matrix::Base.RefValue{cudssMatrix_t}
-  nbytes_provided::Csize_t
-  nbytes_written::Base.RefValue{Csize_t}
+mutable struct CudssBatchedSolver{T, INT, M} <: AbstractCudssSolver{T, INT}
+    matrix::CudssBatchedMatrix{T, INT, M}
+    config::CudssConfig
+    data::CudssData
+    fresh_factorization::Bool
+    pointer::PtrOrCuPtr{Cvoid}
+    ref_cint::Base.RefValue{Cint}
+    ref_int64::Base.RefValue{Int64}
+    ref_float64::Base.RefValue{Float64}
+    ref_inertia::Base.RefValue{Tuple{INT, INT}}
+    ref_schur::Base.RefValue{Tuple{Int64, Int64, Int64}}
+    ref_algo::Base.RefValue{Cint}
+    ref_pivot::Base.RefValue{cudssPivotType_t}
+    ref_matrix::Base.RefValue{cudssMatrix_t}
+    nbytes_provided::Csize_t
+    nbytes_written::Base.RefValue{Csize_t}
 
-  function CudssBatchedSolver(matrix::CudssBatchedMatrix{T,INT}, config::CudssConfig, data::CudssData) where {T <: BlasFloat, INT <: CudssInt}
-    fresh_factorization = true
-    pointer = Base.unsafe_convert(PtrOrCuPtr{Cvoid}, C_NULL)
-    ref_cint = Ref{Cint}()
-    ref_int64 = Ref{Int64}()
-    ref_float64 = Ref{Float64}()
-    ref_inertia = Ref{Tuple{INT,INT}}()
-    ref_schur = Ref{Tuple{Int64,Int64,Int64}}()
-    ref_algo = Ref{Cint}()
-    ref_pivot = Ref{cudssPivotType_t}()
-    ref_matrix = Ref{cudssMatrix_t}()
-    nbytes_provided = Csize_t(0)
-    nbytes_written = Ref{Csize_t}()
-    M = typeof(matrix.Mptrs)
-    return new{T,INT,M}(matrix, config, data, fresh_factorization, pointer, ref_cint, ref_int64, ref_float64,
-                        ref_inertia, ref_schur, ref_algo, ref_pivot, ref_matrix, nbytes_provided, nbytes_written)
-  end
+    function CudssBatchedSolver(matrix::CudssBatchedMatrix{T, INT}, config::CudssConfig, data::CudssData) where {T <: BlasFloat, INT <: CudssInt}
+        fresh_factorization = true
+        pointer = Base.unsafe_convert(PtrOrCuPtr{Cvoid}, C_NULL)
+        ref_cint = Ref{Cint}()
+        ref_int64 = Ref{Int64}()
+        ref_float64 = Ref{Float64}()
+        ref_inertia = Ref{Tuple{INT, INT}}()
+        ref_schur = Ref{Tuple{Int64, Int64, Int64}}()
+        ref_algo = Ref{Cint}()
+        ref_pivot = Ref{cudssPivotType_t}()
+        ref_matrix = Ref{cudssMatrix_t}()
+        nbytes_provided = Csize_t(0)
+        nbytes_written = Ref{Csize_t}()
+        M = typeof(matrix.Mptrs)
+        return new{T, INT, M}(
+            matrix, config, data, fresh_factorization, pointer, ref_cint, ref_int64, ref_float64,
+            ref_inertia, ref_schur, ref_algo, ref_pivot, ref_matrix, nbytes_provided, nbytes_written
+        )
+    end
 
-  function CudssBatchedSolver(A::Vector{CuSparseMatrixCSR{T,INT}}, structure::String, view::Char; index::Char='O') where {T <: BlasFloat, INT <: CudssInt}
-    matrix = CudssBatchedMatrix(A, structure, view; index)
-    config = CudssConfig()
-    data = CudssData()
-    return CudssBatchedSolver(matrix, config, data)
-  end
+    function CudssBatchedSolver(A::Vector{CuSparseMatrixCSR{T, INT}}, structure::String, view::Char; index::Char = 'O') where {T <: BlasFloat, INT <: CudssInt}
+        matrix = CudssBatchedMatrix(A, structure, view; index)
+        config = CudssConfig()
+        data = CudssData()
+        return CudssBatchedSolver(matrix, config, data)
+    end
 end
 
 """
@@ -177,79 +181,79 @@ Update the contents of a `CudssMatrix` -- `CudssBatchedMatrix` or `CudssSolver` 
 """
 function cudss_update end
 
-function cudss_update(matrix::CudssMatrix{T}, b::CuVector{T}) where T <: BlasFloat
-  cudssMatrixSetValues(matrix, b)
-  matrix.refs = b
+function cudss_update(matrix::CudssMatrix{T}, b::CuVector{T}) where {T <: BlasFloat}
+    cudssMatrixSetValues(matrix, b)
+    return matrix.refs = b
 end
 
-function cudss_update(matrix::CudssMatrix{T}, B::CuMatrix{T}) where T <: BlasFloat
-  cudssMatrixSetValues(matrix, B)
-  matrix.refs = B
+function cudss_update(matrix::CudssMatrix{T}, B::CuMatrix{T}) where {T <: BlasFloat}
+    cudssMatrixSetValues(matrix, B)
+    return matrix.refs = B
 end
 
-function cudss_update(matrix::CudssMatrix{T}, tensor::CuArray{T}) where T <: BlasFloat
-  @assert matrix.nbatch > 1
-  cudssMatrixSetValues(matrix, tensor)
-  matrix.refs = tensor
+function cudss_update(matrix::CudssMatrix{T}, tensor::CuArray{T}) where {T <: BlasFloat}
+    @assert matrix.nbatch > 1
+    cudssMatrixSetValues(matrix, tensor)
+    return matrix.refs = tensor
 end
 
-function cudss_update(matrix::CudssMatrix{T,INT}, A::CuSparseMatrixCSR{T,INT}) where {T <: BlasFloat, INT <: CudssInt}
-  cudssMatrixSetCsrPointers(matrix, A.rowPtr, CU_NULL, A.colVal, A.nzVal)
-  matrix.refs = (A.rowPtr, A.colVal, A.nzVal)
+function cudss_update(matrix::CudssMatrix{T, INT}, A::CuSparseMatrixCSR{T, INT}) where {T <: BlasFloat, INT <: CudssInt}
+    cudssMatrixSetCsrPointers(matrix, A.rowPtr, CU_NULL, A.colVal, A.nzVal)
+    return matrix.refs = (A.rowPtr, A.colVal, A.nzVal)
 end
 
-function cudss_update(solver::CudssSolver{T,INT}, A::CuSparseMatrixCSR{T,INT}) where {T <: BlasFloat, INT <: CudssInt}
-  cudss_update(solver.matrix, A)
+function cudss_update(solver::CudssSolver{T, INT}, A::CuSparseMatrixCSR{T, INT}) where {T <: BlasFloat, INT <: CudssInt}
+    return cudss_update(solver.matrix, A)
 end
 
-function cudss_update(matrix::CudssMatrix{T,INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuVector{T}) where {T <: BlasFloat, INT <: CudssInt}
-  cudssMatrixSetCsrPointers(matrix, rowPtr, CU_NULL, colVal, nzVal)
-  matrix.refs = (rowPtr, colVal, nzVal)
+function cudss_update(matrix::CudssMatrix{T, INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuVector{T}) where {T <: BlasFloat, INT <: CudssInt}
+    cudssMatrixSetCsrPointers(matrix, rowPtr, CU_NULL, colVal, nzVal)
+    return matrix.refs = (rowPtr, colVal, nzVal)
 end
 
-function cudss_update(solver::CudssSolver{T,INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuVector{T}) where {T <: BlasFloat, INT <: CudssInt}
-  cudss_update(solver.matrix, rowPtr, colVal, nzVal)
+function cudss_update(solver::CudssSolver{T, INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuVector{T}) where {T <: BlasFloat, INT <: CudssInt}
+    return cudss_update(solver.matrix, rowPtr, colVal, nzVal)
 end
 
-function cudss_update(matrix::CudssMatrix{T,INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuMatrix{T}) where {T <: BlasFloat, INT <: CudssInt}
-  cudssMatrixSetCsrPointers(matrix, rowPtr, CU_NULL, colVal, nzVal)
-  matrix.refs = (rowPtr, colVal, nzVal)
+function cudss_update(matrix::CudssMatrix{T, INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuMatrix{T}) where {T <: BlasFloat, INT <: CudssInt}
+    cudssMatrixSetCsrPointers(matrix, rowPtr, CU_NULL, colVal, nzVal)
+    return matrix.refs = (rowPtr, colVal, nzVal)
 end
 
-function cudss_update(solver::CudssSolver{T,INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuMatrix{T}) where {T <: BlasFloat, INT <: CudssInt}
-  cudss_update(solver.matrix, rowPtr, colVal, nzVal)
+function cudss_update(solver::CudssSolver{T, INT}, rowPtr::CuVector{INT}, colVal::CuVector{INT}, nzVal::CuMatrix{T}) where {T <: BlasFloat, INT <: CudssInt}
+    return cudss_update(solver.matrix, rowPtr, colVal, nzVal)
 end
 
-function cudss_update(matrix::CudssBatchedMatrix{T}, b::Vector{<:CuVector{T}}) where T <: BlasFloat
-  Mptrs = unsafe_cudss_batch(b)
-  copyto!(matrix.Mptrs, Mptrs)
-  cudssMatrixSetBatchValues(matrix, matrix.Mptrs)
-  unsafe_free!(Mptrs)
-  matrix.refs = b
+function cudss_update(matrix::CudssBatchedMatrix{T}, b::Vector{<:CuVector{T}}) where {T <: BlasFloat}
+    Mptrs = unsafe_cudss_batch(b)
+    copyto!(matrix.Mptrs, Mptrs)
+    cudssMatrixSetBatchValues(matrix, matrix.Mptrs)
+    unsafe_free!(Mptrs)
+    return matrix.refs = b
 end
 
-function cudss_update(matrix::CudssBatchedMatrix{T}, B::Vector{<:CuMatrix{T}}) where T <: BlasFloat
-  Mptrs = unsafe_cudss_batch(B)
-  copyto!(matrix.Mptrs, Mptrs)
-  cudssMatrixSetBatchValues(matrix, matrix.Mptrs)
-  unsafe_free!(Mptrs)
-  matrix.refs = B
+function cudss_update(matrix::CudssBatchedMatrix{T}, B::Vector{<:CuMatrix{T}}) where {T <: BlasFloat}
+    Mptrs = unsafe_cudss_batch(B)
+    copyto!(matrix.Mptrs, Mptrs)
+    cudssMatrixSetBatchValues(matrix, matrix.Mptrs)
+    unsafe_free!(Mptrs)
+    return matrix.refs = B
 end
 
-function cudss_update(matrix::CudssBatchedMatrix{T,INT}, A::Vector{CuSparseMatrixCSR{T,INT}}) where {T <: BlasFloat, INT <: CudssInt}
-  rowPtrs, colVals, nzVals = unsafe_cudss_batch(A)
-  copyto!(matrix.Mptrs[1], rowPtrs)
-  copyto!(matrix.Mptrs[2], colVals)
-  copyto!(matrix.Mptrs[3], nzVals)
-  cudssMatrixSetBatchCsrPointers(matrix, matrix.Mptrs[1], CUPTR_C_NULL, matrix.Mptrs[2], matrix.Mptrs[3])
-  unsafe_free!(rowPtrs)
-  unsafe_free!(colVals)
-  unsafe_free!(nzVals)
-  matrix.refs = A
+function cudss_update(matrix::CudssBatchedMatrix{T, INT}, A::Vector{CuSparseMatrixCSR{T, INT}}) where {T <: BlasFloat, INT <: CudssInt}
+    rowPtrs, colVals, nzVals = unsafe_cudss_batch(A)
+    copyto!(matrix.Mptrs[1], rowPtrs)
+    copyto!(matrix.Mptrs[2], colVals)
+    copyto!(matrix.Mptrs[3], nzVals)
+    cudssMatrixSetBatchCsrPointers(matrix, matrix.Mptrs[1], CUPTR_C_NULL, matrix.Mptrs[2], matrix.Mptrs[3])
+    unsafe_free!(rowPtrs)
+    unsafe_free!(colVals)
+    unsafe_free!(nzVals)
+    return matrix.refs = A
 end
 
-function cudss_update(solver::CudssBatchedSolver{T,INT}, A::Vector{CuSparseMatrixCSR{T,INT}}) where {T <: BlasFloat, INT <: CudssInt}
-  cudss_update(solver.matrix, A)
+function cudss_update(solver::CudssBatchedSolver{T, INT}, A::Vector{CuSparseMatrixCSR{T, INT}}) where {T <: BlasFloat, INT <: CudssInt}
+    return cudss_update(solver.matrix, A)
 end
 
 """
@@ -307,80 +311,80 @@ Note that for the data parameters `"perm_reorder_row"`, `"perm_row"`, `"scale_ro
 function cudss_set end
 
 function cudss_set(solver::AbstractCudssSolver, parameter::String, value)
-  if parameter ∈ CUDSS_CONFIG_PARAMETERS
-    cudss_set_config(solver, parameter, value)
-  elseif parameter ∈ CUDSS_DATA_PARAMETERS
-    cudss_set_data(solver, parameter, value)
-  else
-    throw(ArgumentError("Unknown data or config parameter \"$parameter\"."))
-  end
-  return
+    if parameter ∈ CUDSS_CONFIG_PARAMETERS
+        cudss_set_config(solver, parameter, value)
+    elseif parameter ∈ CUDSS_DATA_PARAMETERS
+        cudss_set_data(solver, parameter, value)
+    else
+        throw(ArgumentError("Unknown data or config parameter \"$parameter\"."))
+    end
+    return
 end
 
-function cudss_set_data(solver::AbstractCudssSolver{T,INT}, parameter::String, value) where {T <: BlasFloat, INT <: CudssInt}
-  if parameter == "info"
-    solver.ref_cint[] = value
-    cudssDataSet(solver.data.handle, solver.data, parameter, solver.ref_cint, 4)
-  elseif parameter == "user_perm" || parameter == "user_schur_indices"
-    (value isa Vector{INT} || value isa CuVector{INT}) || throw(ArgumentError("The data parameter \"$parameter\" provided is neither a Vector{$INT} nor a CuVector{$INT}."))
-    cudssDataSet(solver.data.handle, solver.data, parameter, value, sizeof(value))
-  elseif parameter == "schur_matrix"
-    solver.ref_matrix[] = value
-  elseif parameter == "perm_reorder_row" || parameter == "perm_row" || parameter == "scale_row" ||
-         parameter == "perm_reorder_col" || parameter == "perm_col" || parameter == "scale_col" ||
-         parameter == "perm_matching" || parameter == "diag" || parameter == "memory_estimates"
-    solver.pointer = Base.unsafe_convert(PtrOrCuPtr{Cvoid}, value)
-    solver.nbytes_provided = sizeof(value)
-  elseif parameter == "ubatch_mask"
-    value isa Vector{Cint} || throw(ArgumentError("The data parameter \"$parameter\" provided is not a Vector{Cint}."))
-    cudssDataSet(solver.data.handle, solver.data, parameter, value, sizeof(value))
-  elseif parameter == "comm_device" || parameter == "comm_host" || parameter == "user_nd_partition_tree" || parameter == "user_host_interrupt"
-    throw(ArgumentError("The data parameter \"$parameter\" is not yet supported by CUDSS.jl."))
-  elseif parameter == "lu_nnz" || parameter == "npivots" || parameter == "inertia" || parameter == "hybrid_device_memory_min" ||
-         parameter == "nsuperpanels" || parameter == "schur_shape" || parameter == "nd_partition_tree" ||
-         parameter == "ir_n_steps_performed" || parameter == "flops"
-    throw(ArgumentError("The data parameter \"$parameter\" can't be set."))
-  else
-    throw(ArgumentError("Unknown data parameter \"$parameter\"."))
-  end
-  return
+function cudss_set_data(solver::AbstractCudssSolver{T, INT}, parameter::String, value) where {T <: BlasFloat, INT <: CudssInt}
+    if parameter == "info"
+        solver.ref_cint[] = value
+        cudssDataSet(solver.data.handle, solver.data, parameter, solver.ref_cint, 4)
+    elseif parameter == "user_perm" || parameter == "user_schur_indices"
+        (value isa Vector{INT} || value isa CuVector{INT}) || throw(ArgumentError("The data parameter \"$parameter\" provided is neither a Vector{$INT} nor a CuVector{$INT}."))
+        cudssDataSet(solver.data.handle, solver.data, parameter, value, sizeof(value))
+    elseif parameter == "schur_matrix"
+        solver.ref_matrix[] = value
+    elseif parameter == "perm_reorder_row" || parameter == "perm_row" || parameter == "scale_row" ||
+            parameter == "perm_reorder_col" || parameter == "perm_col" || parameter == "scale_col" ||
+            parameter == "perm_matching" || parameter == "diag" || parameter == "memory_estimates"
+        solver.pointer = Base.unsafe_convert(PtrOrCuPtr{Cvoid}, value)
+        solver.nbytes_provided = sizeof(value)
+    elseif parameter == "ubatch_mask"
+        value isa Vector{Cint} || throw(ArgumentError("The data parameter \"$parameter\" provided is not a Vector{Cint}."))
+        cudssDataSet(solver.data.handle, solver.data, parameter, value, sizeof(value))
+    elseif parameter == "comm_device" || parameter == "comm_host" || parameter == "user_nd_partition_tree" || parameter == "user_host_interrupt"
+        throw(ArgumentError("The data parameter \"$parameter\" is not yet supported by CUDSS.jl."))
+    elseif parameter == "lu_nnz" || parameter == "npivots" || parameter == "inertia" || parameter == "hybrid_device_memory_min" ||
+            parameter == "nsuperpanels" || parameter == "schur_shape" || parameter == "nd_partition_tree" ||
+            parameter == "ir_n_steps_performed" || parameter == "flops"
+        throw(ArgumentError("The data parameter \"$parameter\" can't be set."))
+    else
+        throw(ArgumentError("Unknown data parameter \"$parameter\"."))
+    end
+    return
 end
 
 function cudss_set_config(solver::AbstractCudssSolver, parameter::String, value)
-  if parameter == "reordering_alg" || parameter == "factorization_alg" || parameter == "solve_alg" ||
-     parameter == "matching_alg" || parameter == "pivot_epsilon_alg"
-    solver.ref_algo[] = cudss_algorithm(value)
-    cudssConfigSet(solver.config, parameter, solver.ref_algo, 4)
-  elseif parameter == "pivot_type"
-    solver.ref_pivot[] = value
-    cudssConfigSet(solver.config, parameter, solver.ref_pivot, 4)
-  elseif parameter == "ir_tol" || parameter == "pivot_threshold" || parameter == "pivot_epsilon"
-    solver.ref_float64[] = value
-    cudssConfigSet(solver.config, parameter, solver.ref_float64, 8)
-  elseif parameter == "max_lu_nnz" || parameter == "hybrid_device_memory_limit"
-    solver.ref_int64[] = value
-    cudssConfigSet(solver.config, parameter, solver.ref_int64, 8)
-  elseif parameter == "hybrid_memory_mode" || parameter == "hybrid_execute_mode" ||
-         parameter == "deterministic_mode" || parameter == "schur_mode" || parameter == "use_cuda_register_memory" ||
-         parameter == "use_superpanels" || parameter == "ir_n_steps" || parameter == "host_nthreads" ||
-         parameter == "device_count" || parameter == "nd_nlevels" || parameter == "nd_ubfactor" ||
-         parameter == "ubatch_size" || parameter == "ubatch_index" || parameter == "emulation_mantissa_bit_count" ||
-         parameter == "force_nonsymmetric_matching" || parameter == "memory_optimization_setting"
-    solver.ref_cint[] = value
-    cudssConfigSet(solver.config, parameter, solver.ref_cint, 4)
-  elseif parameter == "solve_mode"
-    solver.ref_cint[] = Cint(convert(cudssSolveMode_t, value))
-    cudssConfigSet(solver.config, parameter, solver.ref_cint, 4)
-  elseif parameter == "downcast_factors"
-    solver.ref_cint[] = Cint(convert(cudssDowncastFactorsMode_t, value))
-    cudssConfigSet(solver.config, parameter, solver.ref_cint, 4)
-  elseif parameter == "device_indices"
-    value isa Vector{Cint} || throw(ArgumentError("The config parameter \"$parameter\" provided is not a Vector{Cint}."))
-    cudssConfigSet(solver.config, parameter, value, sizeof(value))
-  else
-    throw(ArgumentError("Unknown config parameter \"$parameter\"."))
-  end
-  return
+    if parameter == "reordering_alg" || parameter == "factorization_alg" || parameter == "solve_alg" ||
+            parameter == "matching_alg" || parameter == "pivot_epsilon_alg"
+        solver.ref_algo[] = cudss_algorithm(value)
+        cudssConfigSet(solver.config, parameter, solver.ref_algo, 4)
+    elseif parameter == "pivot_type"
+        solver.ref_pivot[] = value
+        cudssConfigSet(solver.config, parameter, solver.ref_pivot, 4)
+    elseif parameter == "ir_tol" || parameter == "pivot_threshold" || parameter == "pivot_epsilon"
+        solver.ref_float64[] = value
+        cudssConfigSet(solver.config, parameter, solver.ref_float64, 8)
+    elseif parameter == "max_lu_nnz" || parameter == "hybrid_device_memory_limit"
+        solver.ref_int64[] = value
+        cudssConfigSet(solver.config, parameter, solver.ref_int64, 8)
+    elseif parameter == "hybrid_memory_mode" || parameter == "hybrid_execute_mode" ||
+            parameter == "deterministic_mode" || parameter == "schur_mode" || parameter == "use_cuda_register_memory" ||
+            parameter == "use_superpanels" || parameter == "ir_n_steps" || parameter == "host_nthreads" ||
+            parameter == "device_count" || parameter == "nd_nlevels" || parameter == "nd_ubfactor" ||
+            parameter == "ubatch_size" || parameter == "ubatch_index" || parameter == "emulation_mantissa_bit_count" ||
+            parameter == "force_nonsymmetric_matching" || parameter == "memory_optimization_setting"
+        solver.ref_cint[] = value
+        cudssConfigSet(solver.config, parameter, solver.ref_cint, 4)
+    elseif parameter == "solve_mode"
+        solver.ref_cint[] = Cint(convert(cudssSolveMode_t, value))
+        cudssConfigSet(solver.config, parameter, solver.ref_cint, 4)
+    elseif parameter == "downcast_factors"
+        solver.ref_cint[] = Cint(convert(cudssDowncastFactorsMode_t, value))
+        cudssConfigSet(solver.config, parameter, solver.ref_cint, 4)
+    elseif parameter == "device_indices"
+        value isa Vector{Cint} || throw(ArgumentError("The config parameter \"$parameter\" provided is not a Vector{Cint}."))
+        cudssConfigSet(solver.config, parameter, value, sizeof(value))
+    else
+        throw(ArgumentError("Unknown config parameter \"$parameter\"."))
+    end
+    return
 end
 
 """
@@ -452,90 +456,90 @@ Note that for the data parameters `"perm_reorder_row"`, `"perm_row"`, `"scale_ro
 function cudss_get end
 
 function cudss_get(solver::AbstractCudssSolver, parameter::String)
-  if parameter ∈ CUDSS_CONFIG_PARAMETERS
-    cudss_get_config(solver, parameter)
-  elseif parameter ∈ CUDSS_DATA_PARAMETERS
-    cudss_get_data(solver, parameter)
-  else
-    throw(ArgumentError("Unknown data or config parameter \"$parameter\"."))
-  end
+    return if parameter ∈ CUDSS_CONFIG_PARAMETERS
+        cudss_get_config(solver, parameter)
+    elseif parameter ∈ CUDSS_DATA_PARAMETERS
+        cudss_get_data(solver, parameter)
+    else
+        throw(ArgumentError("Unknown data or config parameter \"$parameter\"."))
+    end
 end
 
-function cudss_get_data(solver::AbstractCudssSolver{T,INT}, parameter::String) where {T <: BlasFloat, INT <: CudssInt}
-  if parameter == "info"
-    cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_cint, 4, solver.nbytes_written)
-    return solver.ref_cint[]
-  elseif parameter == "nsuperpanels" || parameter == "npivots"
-    ref_INT = (INT == Cint) ? solver.ref_cint : solver.ref_int64
-    cudssDataGet(solver.data.handle, solver.data, parameter, ref_INT, sizeof(INT), solver.nbytes_written)
-    return ref_INT[]
-  elseif parameter == "lu_nnz" || parameter == "hybrid_device_memory_min" || parameter == "flops"
-    cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_int64, 8, solver.nbytes_written)
-    return solver.ref_int64[]
-  elseif parameter == "ir_n_steps_performed"
-    cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_cint, 4, solver.nbytes_written)
-    return solver.ref_cint[]
-  elseif parameter == "ubatch_mask"
-    # `ubatch_mask` is an input of the solver, so it can't use the "register a buffer
-    # with cudss_set, then fill it with cudss_get" protocol of the permutations.
-    mask = Vector{Cint}(undef, cudss_get_config(solver, "ubatch_size"))
-    cudssDataGet(solver.data.handle, solver.data, parameter, mask, sizeof(mask), solver.nbytes_written)
-    return mask
-  elseif parameter == "inertia"
-    cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_inertia, 2 * sizeof(INT), solver.nbytes_written)
-    return solver.ref_inertia[]
-  elseif parameter == "schur_shape"
-    cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_schur, 24, solver.nbytes_written)
-    return solver.ref_schur[]
-  elseif parameter == "schur_matrix"
-    cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_matrix, 8, solver.nbytes_written)
-    return nothing
-  elseif parameter == "perm_reorder_row" || parameter == "perm_row" || parameter == "scale_row" ||
-         parameter == "perm_reorder_col" || parameter == "perm_col" || parameter == "scale_col" ||
-         parameter == "perm_matching" || parameter == "diag" || parameter == "memory_estimates"
-    cudssDataGet(solver.data.handle, solver.data, parameter, solver.pointer, solver.nbytes_provided, solver.nbytes_written)
-    return nothing
-  elseif parameter == "user_perm" || parameter == "user_nd_partition_tree" || parameter == "user_host_interrupt" ||
-         parameter == "user_schur_indices" || parameter == "comm_device" || parameter == "comm_host" || parameter == "nd_partition_tree"
-    throw(ArgumentError("The data parameter \"$parameter\" can't be retrieved."))
-  else
-    throw(ArgumentError("Unknown data parameter \"$parameter\"."))
-  end
+function cudss_get_data(solver::AbstractCudssSolver{T, INT}, parameter::String) where {T <: BlasFloat, INT <: CudssInt}
+    if parameter == "info"
+        cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_cint, 4, solver.nbytes_written)
+        return solver.ref_cint[]
+    elseif parameter == "nsuperpanels" || parameter == "npivots"
+        ref_INT = (INT == Cint) ? solver.ref_cint : solver.ref_int64
+        cudssDataGet(solver.data.handle, solver.data, parameter, ref_INT, sizeof(INT), solver.nbytes_written)
+        return ref_INT[]
+    elseif parameter == "lu_nnz" || parameter == "hybrid_device_memory_min" || parameter == "flops"
+        cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_int64, 8, solver.nbytes_written)
+        return solver.ref_int64[]
+    elseif parameter == "ir_n_steps_performed"
+        cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_cint, 4, solver.nbytes_written)
+        return solver.ref_cint[]
+    elseif parameter == "ubatch_mask"
+        # `ubatch_mask` is an input of the solver, so it can't use the "register a buffer
+        # with cudss_set, then fill it with cudss_get" protocol of the permutations.
+        mask = Vector{Cint}(undef, cudss_get_config(solver, "ubatch_size"))
+        cudssDataGet(solver.data.handle, solver.data, parameter, mask, sizeof(mask), solver.nbytes_written)
+        return mask
+    elseif parameter == "inertia"
+        cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_inertia, 2 * sizeof(INT), solver.nbytes_written)
+        return solver.ref_inertia[]
+    elseif parameter == "schur_shape"
+        cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_schur, 24, solver.nbytes_written)
+        return solver.ref_schur[]
+    elseif parameter == "schur_matrix"
+        cudssDataGet(solver.data.handle, solver.data, parameter, solver.ref_matrix, 8, solver.nbytes_written)
+        return nothing
+    elseif parameter == "perm_reorder_row" || parameter == "perm_row" || parameter == "scale_row" ||
+            parameter == "perm_reorder_col" || parameter == "perm_col" || parameter == "scale_col" ||
+            parameter == "perm_matching" || parameter == "diag" || parameter == "memory_estimates"
+        cudssDataGet(solver.data.handle, solver.data, parameter, solver.pointer, solver.nbytes_provided, solver.nbytes_written)
+        return nothing
+    elseif parameter == "user_perm" || parameter == "user_nd_partition_tree" || parameter == "user_host_interrupt" ||
+            parameter == "user_schur_indices" || parameter == "comm_device" || parameter == "comm_host" || parameter == "nd_partition_tree"
+        throw(ArgumentError("The data parameter \"$parameter\" can't be retrieved."))
+    else
+        throw(ArgumentError("Unknown data parameter \"$parameter\"."))
+    end
 end
 
 function cudss_get_config(solver::AbstractCudssSolver, parameter::String)
-  if parameter == "reordering_alg" || parameter == "factorization_alg" || parameter == "solve_alg" ||
-     parameter == "matching_alg" || parameter == "pivot_epsilon_alg"
-    cudssConfigGet(solver.config, parameter, solver.ref_algo, 4, solver.nbytes_written)
-    return solver.ref_algo[]
-  elseif parameter == "pivot_type"
-    cudssConfigGet(solver.config, parameter, solver.ref_pivot, 4, solver.nbytes_written)
-    return solver.ref_pivot[]
-  elseif parameter == "ir_tol" || parameter == "pivot_threshold" || parameter == "pivot_epsilon"
-    cudssConfigGet(solver.config, parameter, solver.ref_float64, 8, solver.nbytes_written)
-    return solver.ref_float64[]
-  elseif parameter == "max_lu_nnz" || parameter == "hybrid_device_memory_limit"
-    cudssConfigGet(solver.config, parameter, solver.ref_int64, 8, solver.nbytes_written)
-    return solver.ref_int64[]
-  elseif parameter == "hybrid_memory_mode" || parameter == "hybrid_execute_mode" ||
-         parameter == "deterministic_mode" || parameter == "schur_mode" || parameter == "use_cuda_register_memory" ||
-         parameter == "use_superpanels" || parameter == "ir_n_steps" || parameter == "host_nthreads" ||
-         parameter == "device_count" || parameter == "nd_nlevels" || parameter == "nd_ubfactor" ||
-         parameter == "ubatch_size" || parameter == "ubatch_index" || parameter == "emulation_mantissa_bit_count" ||
-         parameter == "force_nonsymmetric_matching" || parameter == "memory_optimization_setting"
-    cudssConfigGet(solver.config, parameter, solver.ref_cint, 4, solver.nbytes_written)
-    return solver.ref_cint[]
-  elseif parameter == "solve_mode"
-    cudssConfigGet(solver.config, parameter, solver.ref_cint, 4, solver.nbytes_written)
-    return cudssSolveMode_t(solver.ref_cint[])
-  elseif parameter == "downcast_factors"
-    cudssConfigGet(solver.config, parameter, solver.ref_cint, 4, solver.nbytes_written)
-    return cudssDowncastFactorsMode_t(solver.ref_cint[])
-  elseif parameter == "device_indices"
-    throw(ArgumentError("The config parameter \"device_indices\" is not supported by CUDSS.jl."))
-  else
-    throw(ArgumentError("Unknown config parameter \"$parameter\"."))
-  end
+    if parameter == "reordering_alg" || parameter == "factorization_alg" || parameter == "solve_alg" ||
+            parameter == "matching_alg" || parameter == "pivot_epsilon_alg"
+        cudssConfigGet(solver.config, parameter, solver.ref_algo, 4, solver.nbytes_written)
+        return solver.ref_algo[]
+    elseif parameter == "pivot_type"
+        cudssConfigGet(solver.config, parameter, solver.ref_pivot, 4, solver.nbytes_written)
+        return solver.ref_pivot[]
+    elseif parameter == "ir_tol" || parameter == "pivot_threshold" || parameter == "pivot_epsilon"
+        cudssConfigGet(solver.config, parameter, solver.ref_float64, 8, solver.nbytes_written)
+        return solver.ref_float64[]
+    elseif parameter == "max_lu_nnz" || parameter == "hybrid_device_memory_limit"
+        cudssConfigGet(solver.config, parameter, solver.ref_int64, 8, solver.nbytes_written)
+        return solver.ref_int64[]
+    elseif parameter == "hybrid_memory_mode" || parameter == "hybrid_execute_mode" ||
+            parameter == "deterministic_mode" || parameter == "schur_mode" || parameter == "use_cuda_register_memory" ||
+            parameter == "use_superpanels" || parameter == "ir_n_steps" || parameter == "host_nthreads" ||
+            parameter == "device_count" || parameter == "nd_nlevels" || parameter == "nd_ubfactor" ||
+            parameter == "ubatch_size" || parameter == "ubatch_index" || parameter == "emulation_mantissa_bit_count" ||
+            parameter == "force_nonsymmetric_matching" || parameter == "memory_optimization_setting"
+        cudssConfigGet(solver.config, parameter, solver.ref_cint, 4, solver.nbytes_written)
+        return solver.ref_cint[]
+    elseif parameter == "solve_mode"
+        cudssConfigGet(solver.config, parameter, solver.ref_cint, 4, solver.nbytes_written)
+        return cudssSolveMode_t(solver.ref_cint[])
+    elseif parameter == "downcast_factors"
+        cudssConfigGet(solver.config, parameter, solver.ref_cint, 4, solver.nbytes_written)
+        return cudssDowncastFactorsMode_t(solver.ref_cint[])
+    elseif parameter == "device_indices"
+        throw(ArgumentError("The config parameter \"device_indices\" is not supported by CUDSS.jl."))
+    else
+        throw(ArgumentError("Unknown config parameter \"$parameter\"."))
+    end
 end
 
 """
@@ -570,52 +574,52 @@ For that reason, we added shorthand phases:
 """
 function cudss end
 
-function cudss(phase::String, solver::CudssSolver{T}, X::CudssMatrix{T}, B::CudssMatrix{T}; asynchronous::Bool=true) where T <: BlasFloat
-  (phase == "refactorization") && cudss_set(solver, "info", 0)
-  cudss_phase = convert(cudssPhase_t, phase)
-  cudssExecute(solver.data.handle, cudss_phase, solver.config, solver.data, solver.matrix, X, B)
-  !asynchronous && CUDACore.synchronize()
-  if (phase == "factorization") && solver.fresh_factorization
-    solver.fresh_factorization = false
-  end
-  return nothing
+function cudss(phase::String, solver::CudssSolver{T}, X::CudssMatrix{T}, B::CudssMatrix{T}; asynchronous::Bool = true) where {T <: BlasFloat}
+    (phase == "refactorization") && cudss_set(solver, "info", 0)
+    cudss_phase = convert(cudssPhase_t, phase)
+    cudssExecute(solver.data.handle, cudss_phase, solver.config, solver.data, solver.matrix, X, B)
+    !asynchronous && CUDACore.synchronize()
+    if (phase == "factorization") && solver.fresh_factorization
+        solver.fresh_factorization = false
+    end
+    return nothing
 end
 
-function cudss(phase::String, solver::CudssSolver{T}, x::CuVector{T}, b::CuVector{T}; asynchronous::Bool=true) where T <: BlasFloat
-  (phase == "refactorization") && cudss_set(solver, "info", 0)
-  solution = CudssMatrix(x)
-  rhs = CudssMatrix(b)
-  cudss(phase, solver, solution, rhs; asynchronous)
+function cudss(phase::String, solver::CudssSolver{T}, x::CuVector{T}, b::CuVector{T}; asynchronous::Bool = true) where {T <: BlasFloat}
+    (phase == "refactorization") && cudss_set(solver, "info", 0)
+    solution = CudssMatrix(x)
+    rhs = CudssMatrix(b)
+    return cudss(phase, solver, solution, rhs; asynchronous)
 end
 
-function cudss(phase::String, solver::CudssSolver{T}, X::CuMatrix{T}, B::CuMatrix{T}; asynchronous::Bool=true) where T <: BlasFloat
-  (phase == "refactorization") && cudss_set(solver, "info", 0)
-  solution = CudssMatrix(X)
-  rhs = CudssMatrix(B)
-  cudss(phase, solver, solution, rhs; asynchronous)
+function cudss(phase::String, solver::CudssSolver{T}, X::CuMatrix{T}, B::CuMatrix{T}; asynchronous::Bool = true) where {T <: BlasFloat}
+    (phase == "refactorization") && cudss_set(solver, "info", 0)
+    solution = CudssMatrix(X)
+    rhs = CudssMatrix(B)
+    return cudss(phase, solver, solution, rhs; asynchronous)
 end
 
-function cudss(phase::String, solver::CudssBatchedSolver{T}, X::CudssBatchedMatrix{T}, B::CudssBatchedMatrix{T}; asynchronous::Bool=true) where T <: BlasFloat
-  (phase == "refactorization") && cudss_set(solver, "info", 0)
-  cudss_phase = convert(cudssPhase_t, phase)
-  cudssExecute(solver.data.handle, cudss_phase, solver.config, solver.data, solver.matrix, X, B)
-  !asynchronous && CUDACore.synchronize()
-  if (phase == "factorization") && solver.fresh_factorization
-    solver.fresh_factorization = false
-  end
-  return nothing
+function cudss(phase::String, solver::CudssBatchedSolver{T}, X::CudssBatchedMatrix{T}, B::CudssBatchedMatrix{T}; asynchronous::Bool = true) where {T <: BlasFloat}
+    (phase == "refactorization") && cudss_set(solver, "info", 0)
+    cudss_phase = convert(cudssPhase_t, phase)
+    cudssExecute(solver.data.handle, cudss_phase, solver.config, solver.data, solver.matrix, X, B)
+    !asynchronous && CUDACore.synchronize()
+    if (phase == "factorization") && solver.fresh_factorization
+        solver.fresh_factorization = false
+    end
+    return nothing
 end
 
-function cudss(phase::String, solver::CudssBatchedSolver{T}, x::Vector{<:CuVector{T}}, b::Vector{<:CuVector{T}}; asynchronous::Bool=true) where T <: BlasFloat
-  (phase == "refactorization") && cudss_set(solver, "info", 0)
-  solution = CudssBatchedMatrix(x)
-  rhs = CudssBatchedMatrix(b)
-  cudss(phase, solver, solution, rhs; asynchronous)
+function cudss(phase::String, solver::CudssBatchedSolver{T}, x::Vector{<:CuVector{T}}, b::Vector{<:CuVector{T}}; asynchronous::Bool = true) where {T <: BlasFloat}
+    (phase == "refactorization") && cudss_set(solver, "info", 0)
+    solution = CudssBatchedMatrix(x)
+    rhs = CudssBatchedMatrix(b)
+    return cudss(phase, solver, solution, rhs; asynchronous)
 end
 
-function cudss(phase::String, solver::CudssBatchedSolver{T}, X::Vector{<:CuMatrix{T}}, B::Vector{<:CuMatrix{T}}; asynchronous::Bool=true) where T <: BlasFloat
-  (phase == "refactorization") && cudss_set(solver, "info", 0)
-  solution = CudssBatchedMatrix(X)
-  rhs = CudssBatchedMatrix(B)
-  cudss(phase, solver, solution, rhs; asynchronous)
+function cudss(phase::String, solver::CudssBatchedSolver{T}, X::Vector{<:CuMatrix{T}}, B::Vector{<:CuMatrix{T}}; asynchronous::Bool = true) where {T <: BlasFloat}
+    (phase == "refactorization") && cudss_set(solver, "info", 0)
+    solution = CudssBatchedMatrix(X)
+    rhs = CudssBatchedMatrix(B)
+    return cudss(phase, solver, solution, rhs; asynchronous)
 end

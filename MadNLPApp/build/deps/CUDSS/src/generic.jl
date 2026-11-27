@@ -16,16 +16,16 @@ We automatically detect whether we have a uniform batch or a single matrix by co
 
 * `solver`: an opaque structure [`CudssSolver`](@ref) that stores the factors of the LU decomposition.
 """
-function LinearAlgebra.lu(A::CuSparseMatrixCSR{T,INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
-  n = checksquare(A)
-  nbatch = length(A.nzVal) ÷ length(A.colVal)
-  solver = CudssSolver(A, "G", 'F')
-  (nbatch > 1) && cudss_set(solver, "ubatch_size", nbatch)
-  x = CudssMatrix(T, n; nbatch)
-  b = CudssMatrix(T, n; nbatch)
-  cudss("analysis", solver, x, b; asynchronous=true)
-  cudss("factorization", solver, x, b; asynchronous=false)
-  return solver
+function LinearAlgebra.lu(A::CuSparseMatrixCSR{T, INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
+    n = checksquare(A)
+    nbatch = length(A.nzVal) ÷ length(A.colVal)
+    solver = CudssSolver(A, "G", 'F')
+    (nbatch > 1) && cudss_set(solver, "ubatch_size", nbatch)
+    x = CudssMatrix(T, n; nbatch)
+    b = CudssMatrix(T, n; nbatch)
+    cudss("analysis", solver, x, b; asynchronous = true)
+    cudss("factorization", solver, x, b; asynchronous = false)
+    return solver
 end
 
 """
@@ -34,15 +34,15 @@ end
 Compute the LU factorization of a sparse matrix `A` or a uniform batch of sparse matrices on an NVIDIA GPU, reusing the symbolic factorization stored in `solver`.
 The parameter type `T` is restricted to `Float32`, `Float64`, `ComplexF32`, or `ComplexF64`, while `INT` is restricted to `Int32` or `Int64`.
 """
-function LinearAlgebra.lu!(solver::CudssSolver{T,INT}, A::CuSparseMatrixCSR{T,INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
-  n = checksquare(A)
-  nbatch = length(A.nzVal) ÷ length(A.colVal)
-  cudss_update(solver, A)
-  x = CudssMatrix(T, n; nbatch)
-  b = CudssMatrix(T, n; nbatch)
-  phase = solver.fresh_factorization ? "factorization" : "refactorization"
-  cudss(phase, solver, x, b; asynchronous=false)
-  return solver
+function LinearAlgebra.lu!(solver::CudssSolver{T, INT}, A::CuSparseMatrixCSR{T, INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
+    n = checksquare(A)
+    nbatch = length(A.nzVal) ÷ length(A.colVal)
+    cudss_update(solver, A)
+    x = CudssMatrix(T, n; nbatch)
+    b = CudssMatrix(T, n; nbatch)
+    phase = solver.fresh_factorization ? "factorization" : "refactorization"
+    cudss(phase, solver, x, b; asynchronous = false)
+    return solver
 end
 
 """
@@ -74,22 +74,22 @@ We automatically detect whether we have a uniform batch or a single matrix by co
 
 * `solver`: Opaque structure [`CudssSolver`](@ref) that stores the factors of the LDLᵀ / LDLᴴ decomposition.
 """
-function LinearAlgebra.ldlt(A::CuSparseMatrixCSR{T,INT}; view::Char='F', structure::String=(T <: Real ? "S" : "H"), check = false) where {T <: BlasFloat, INT <: CudssInt}
-  (structure == "S" || structure == "H") || throw(ArgumentError("ldlt requires the structure \"S\" or \"H\", got \"$structure\"."))
-  n = checksquare(A)
-  nbatch = length(A.nzVal) ÷ length(A.colVal)
-  solver = CudssSolver(A, structure, view)
-  (nbatch > 1) && cudss_set(solver, "ubatch_size", nbatch)
-  x = CudssMatrix(T, n; nbatch)
-  b = CudssMatrix(T, n; nbatch)
-  cudss("analysis", solver, x, b; asynchronous=true)
-  cudss("factorization", solver, x, b; asynchronous=false)
-  return solver
+function LinearAlgebra.ldlt(A::CuSparseMatrixCSR{T, INT}; view::Char = 'F', structure::String = (T <: Real ? "S" : "H"), check = false) where {T <: BlasFloat, INT <: CudssInt}
+    (structure == "S" || structure == "H") || throw(ArgumentError("ldlt requires the structure \"S\" or \"H\", got \"$structure\"."))
+    n = checksquare(A)
+    nbatch = length(A.nzVal) ÷ length(A.colVal)
+    solver = CudssSolver(A, structure, view)
+    (nbatch > 1) && cudss_set(solver, "ubatch_size", nbatch)
+    x = CudssMatrix(T, n; nbatch)
+    b = CudssMatrix(T, n; nbatch)
+    cudss("analysis", solver, x, b; asynchronous = true)
+    cudss("factorization", solver, x, b; asynchronous = false)
+    return solver
 end
 
 # `Symmetric` selects the complex symmetric LDLᵀ ("S") for complex matrices, `Hermitian` the LDLᴴ ("H").
-LinearAlgebra.ldlt(A::Symmetric{T,<:CuSparseMatrixCSR{T,INT}}; check = false) where {T <: BlasFloat, INT <: CudssInt} = LinearAlgebra.ldlt(A.data; view=A.uplo, structure="S")
-LinearAlgebra.ldlt(A::Hermitian{T,<:CuSparseMatrixCSR{T,INT}}; check = false) where {T <: BlasFloat, INT <: CudssInt} = LinearAlgebra.ldlt(A.data; view=A.uplo)
+LinearAlgebra.ldlt(A::Symmetric{T, <:CuSparseMatrixCSR{T, INT}}; check = false) where {T <: BlasFloat, INT <: CudssInt} = LinearAlgebra.ldlt(A.data; view = A.uplo, structure = "S")
+LinearAlgebra.ldlt(A::Hermitian{T, <:CuSparseMatrixCSR{T, INT}}; check = false) where {T <: BlasFloat, INT <: CudssInt} = LinearAlgebra.ldlt(A.data; view = A.uplo)
 
 """
     solver = ldlt!(solver::CudssSolver{T,INT}, A::CuSparseMatrixCSR{T,INT})
@@ -97,15 +97,15 @@ LinearAlgebra.ldlt(A::Hermitian{T,<:CuSparseMatrixCSR{T,INT}}; check = false) wh
 Compute the LDLᴴ factorization of a sparse matrix `A` or a uniform batch of sparse matrices on an NVIDIA GPU, reusing the symbolic factorization stored in `solver`.
 The parameter type `T` is restricted to `Float32`, `Float64`, `ComplexF32`, or `ComplexF64`, while `INT` is restricted to `Int32` or `Int64`.
 """
-function LinearAlgebra.ldlt!(solver::CudssSolver{T,INT}, A::CuSparseMatrixCSR{T,INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
-  n = checksquare(A)
-  nbatch = length(A.nzVal) ÷ length(A.colVal)
-  cudss_update(solver, A)
-  x = CudssMatrix(T, n; nbatch)
-  b = CudssMatrix(T, n; nbatch)
-  phase = solver.fresh_factorization ? "factorization" : "refactorization"
-  cudss(phase, solver, x, b; asynchronous=false)
-  return solver
+function LinearAlgebra.ldlt!(solver::CudssSolver{T, INT}, A::CuSparseMatrixCSR{T, INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
+    n = checksquare(A)
+    nbatch = length(A.nzVal) ÷ length(A.colVal)
+    cudss_update(solver, A)
+    x = CudssMatrix(T, n; nbatch)
+    b = CudssMatrix(T, n; nbatch)
+    phase = solver.fresh_factorization ? "factorization" : "refactorization"
+    cudss(phase, solver, x, b; asynchronous = false)
+    return solver
 end
 
 """
@@ -130,22 +130,22 @@ We automatically detect whether we have a uniform batch or a single matrix by co
 
 * `solver`: Opaque structure [`CudssSolver`](@ref) that stores the factors of the LLᴴ decomposition.
 """
-function LinearAlgebra.cholesky(A::CuSparseMatrixCSR{T,INT}, p::NoPivot=NoPivot(); view::Char='F', check = false) where {T <: BlasFloat, INT <: CudssInt}
-  n = checksquare(A)
-  nbatch = length(A.nzVal) ÷ length(A.colVal)
-  structure = T <: Real ? "SPD" : "HPD"
-  solver = CudssSolver(A, structure, view)
-  (nbatch > 1) && cudss_set(solver, "ubatch_size", nbatch)
-  x = CudssMatrix(T, n; nbatch)
-  b = CudssMatrix(T, n; nbatch)
-  cudss("analysis", solver, x, b; asynchronous=true)
-  cudss("factorization", solver, x, b; asynchronous=false)
-  return solver
+function LinearAlgebra.cholesky(A::CuSparseMatrixCSR{T, INT}, p::NoPivot = NoPivot(); view::Char = 'F', check = false) where {T <: BlasFloat, INT <: CudssInt}
+    n = checksquare(A)
+    nbatch = length(A.nzVal) ÷ length(A.colVal)
+    structure = T <: Real ? "SPD" : "HPD"
+    solver = CudssSolver(A, structure, view)
+    (nbatch > 1) && cudss_set(solver, "ubatch_size", nbatch)
+    x = CudssMatrix(T, n; nbatch)
+    b = CudssMatrix(T, n; nbatch)
+    cudss("analysis", solver, x, b; asynchronous = true)
+    cudss("factorization", solver, x, b; asynchronous = false)
+    return solver
 end
 
 # No `cholesky` for a complex `Symmetric` wrapper: cuDSS returns wrong results for the LLᵀ factorization of complex symmetric matrices ("SPD" with a complex type).
-LinearAlgebra.cholesky(A::Symmetric{T,<:CuSparseMatrixCSR{T,INT}}, p::NoPivot=NoPivot(); check = false) where {T <: BlasReal, INT <: CudssInt} = LinearAlgebra.cholesky(A.data, p; view=A.uplo)
-LinearAlgebra.cholesky(A::Hermitian{T,<:CuSparseMatrixCSR{T,INT}}, p::NoPivot=NoPivot(); check = false) where {T <: BlasFloat, INT <: CudssInt} = LinearAlgebra.cholesky(A.data, p; view=A.uplo)
+LinearAlgebra.cholesky(A::Symmetric{T, <:CuSparseMatrixCSR{T, INT}}, p::NoPivot = NoPivot(); check = false) where {T <: BlasReal, INT <: CudssInt} = LinearAlgebra.cholesky(A.data, p; view = A.uplo)
+LinearAlgebra.cholesky(A::Hermitian{T, <:CuSparseMatrixCSR{T, INT}}, p::NoPivot = NoPivot(); check = false) where {T <: BlasFloat, INT <: CudssInt} = LinearAlgebra.cholesky(A.data, p; view = A.uplo)
 
 """
     solver = cholesky!(solver::CudssSolver{T,INT}, A::CuSparseMatrixCSR{T,INT})
@@ -153,68 +153,68 @@ LinearAlgebra.cholesky(A::Hermitian{T,<:CuSparseMatrixCSR{T,INT}}, p::NoPivot=No
 Compute the LLᴴ factorization of a sparse matrix `A` or a uniform batch of sparse matrices on an NVIDIA GPU, reusing the symbolic factorization stored in `solver`.
 The parameter type `T` is restricted to `Float32`, `Float64`, `ComplexF32`, or `ComplexF64`, while `INT` is restricted to `Int32` or `Int64`.
 """
-function LinearAlgebra.cholesky!(solver::CudssSolver{T,INT}, A::CuSparseMatrixCSR{T,INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
-  n = checksquare(A)
-  nbatch = length(A.nzVal) ÷ length(A.colVal)
-  cudss_update(solver, A)
-  x = CudssMatrix(T, n; nbatch)
-  b = CudssMatrix(T, n; nbatch)
-  phase = solver.fresh_factorization ? "factorization" : "refactorization"
-  cudss(phase, solver, x, b; asynchronous=false)
-  return solver
+function LinearAlgebra.cholesky!(solver::CudssSolver{T, INT}, A::CuSparseMatrixCSR{T, INT}; check = false) where {T <: BlasFloat, INT <: CudssInt}
+    n = checksquare(A)
+    nbatch = length(A.nzVal) ÷ length(A.colVal)
+    cudss_update(solver, A)
+    x = CudssMatrix(T, n; nbatch)
+    b = CudssMatrix(T, n; nbatch)
+    phase = solver.fresh_factorization ? "factorization" : "refactorization"
+    cudss(phase, solver, x, b; asynchronous = false)
+    return solver
 end
 
-function LinearAlgebra.ldiv!(solver::CudssSolver{T}, b::CudssMatrix{T}) where T <: BlasFloat
-  @assert solver.matrix.nbatch == b.nbatch
-  @assert solver.matrix.nrows == b.nrows
-  cudss("solve", solver, b, b; asynchronous=false)
-  return b
+function LinearAlgebra.ldiv!(solver::CudssSolver{T}, b::CudssMatrix{T}) where {T <: BlasFloat}
+    @assert solver.matrix.nbatch == b.nbatch
+    @assert solver.matrix.nrows == b.nrows
+    cudss("solve", solver, b, b; asynchronous = false)
+    return b
 end
 
-function LinearAlgebra.ldiv!(x::CudssMatrix{T}, solver::CudssSolver{T}, b::CudssMatrix{T}) where T <: BlasFloat
-  @assert solver.matrix.nbatch == b.nbatch == x.nbatch
-  @assert solver.matrix.nrows == b.nrows == x.nrows
-  @assert b.ncols == x.ncols
-  cudss("solve", solver, x, b; asynchronous=false)
-  return x
+function LinearAlgebra.ldiv!(x::CudssMatrix{T}, solver::CudssSolver{T}, b::CudssMatrix{T}) where {T <: BlasFloat}
+    @assert solver.matrix.nbatch == b.nbatch == x.nbatch
+    @assert solver.matrix.nrows == b.nrows == x.nrows
+    @assert b.ncols == x.ncols
+    cudss("solve", solver, x, b; asynchronous = false)
+    return x
 end
 
-function LinearAlgebra.ldiv!(solver::CudssSolver{T}, b::CuArray{T}) where T <: BlasFloat
-  if solver.matrix.nbatch == 1
-    @assert ndims(b) ≤ 2
-    @assert solver.matrix.nrows == size(b, 1)
-    cudss_b = CudssMatrix(b)
-  else
-    @assert ndims(b) ≤ 3
-    p = length(b) ÷ (solver.matrix.nrows * solver.matrix.nbatch)
-    cudss_b = CudssMatrix(T, solver.matrix.nrows, p; nbatch=solver.matrix.nbatch)
-    cudss_update(cudss_b, b)
-  end
-  cudss("solve", solver, cudss_b, cudss_b; asynchronous=false)
-  return b
+function LinearAlgebra.ldiv!(solver::CudssSolver{T}, b::CuArray{T}) where {T <: BlasFloat}
+    if solver.matrix.nbatch == 1
+        @assert ndims(b) ≤ 2
+        @assert solver.matrix.nrows == size(b, 1)
+        cudss_b = CudssMatrix(b)
+    else
+        @assert ndims(b) ≤ 3
+        p = length(b) ÷ (solver.matrix.nrows * solver.matrix.nbatch)
+        cudss_b = CudssMatrix(T, solver.matrix.nrows, p; nbatch = solver.matrix.nbatch)
+        cudss_update(cudss_b, b)
+    end
+    cudss("solve", solver, cudss_b, cudss_b; asynchronous = false)
+    return b
 end
 
-function LinearAlgebra.ldiv!(x::CuArray{T}, solver::CudssSolver{T}, b::CuArray{T}) where T <: BlasFloat
-  @assert size(b) == size(x)
-  if solver.matrix.nbatch == 1
-    @assert ndims(b) ≤ 2
-    @assert solver.matrix.nrows == size(b, 1)
-    cudss_x = CudssMatrix(x)
-    cudss_b = CudssMatrix(b)
-  else
-    @assert ndims(b) ≤ 3
-    p = length(b) ÷ (solver.matrix.nrows * solver.matrix.nbatch)
-    cudss_x = CudssMatrix(T, solver.matrix.nrows, p; nbatch=solver.matrix.nbatch)
-    cudss_b = CudssMatrix(T, solver.matrix.nrows, p; nbatch=solver.matrix.nbatch)
-    cudss_update(cudss_x, x)
-    cudss_update(cudss_b, b)
-  end
-  cudss("solve", solver, cudss_x, cudss_b; asynchronous=false)
-  return x
+function LinearAlgebra.ldiv!(x::CuArray{T}, solver::CudssSolver{T}, b::CuArray{T}) where {T <: BlasFloat}
+    @assert size(b) == size(x)
+    if solver.matrix.nbatch == 1
+        @assert ndims(b) ≤ 2
+        @assert solver.matrix.nrows == size(b, 1)
+        cudss_x = CudssMatrix(x)
+        cudss_b = CudssMatrix(b)
+    else
+        @assert ndims(b) ≤ 3
+        p = length(b) ÷ (solver.matrix.nrows * solver.matrix.nbatch)
+        cudss_x = CudssMatrix(T, solver.matrix.nrows, p; nbatch = solver.matrix.nbatch)
+        cudss_b = CudssMatrix(T, solver.matrix.nrows, p; nbatch = solver.matrix.nbatch)
+        cudss_update(cudss_x, x)
+        cudss_update(cudss_b, b)
+    end
+    cudss("solve", solver, cudss_x, cudss_b; asynchronous = false)
+    return x
 end
 
-function Base.:\(solver::CudssSolver{T}, b::CuArray{T}) where T <: BlasFloat
-  x = similar(b)
-  ldiv!(x, solver, b)
-  return x
+function Base.:\(solver::CudssSolver{T}, b::CuArray{T}) where {T <: BlasFloat}
+    x = similar(b)
+    ldiv!(x, solver, b)
+    return x
 end

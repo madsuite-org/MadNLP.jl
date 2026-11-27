@@ -1,22 +1,26 @@
 # cuDSS types
 
-const CUDSS_DATA_PARAMETERS = ("info", "lu_nnz", "npivots", "inertia", "perm_reorder_row",
-                               "perm_reorder_col", "perm_row", "perm_col", "diag", "user_perm",
-                               "hybrid_device_memory_min", "comm_device", "comm_host", "memory_estimates",
-                               "perm_matching", "scale_row", "scale_col", "nsuperpanels",
-                               "user_schur_indices", "schur_shape", "schur_matrix",
-                               "user_nd_partition_tree", "nd_partition_tree", "user_host_interrupt",
-                               "ir_n_steps_performed", "ubatch_mask", "flops")
+const CUDSS_DATA_PARAMETERS = (
+    "info", "lu_nnz", "npivots", "inertia", "perm_reorder_row",
+    "perm_reorder_col", "perm_row", "perm_col", "diag", "user_perm",
+    "hybrid_device_memory_min", "comm_device", "comm_host", "memory_estimates",
+    "perm_matching", "scale_row", "scale_col", "nsuperpanels",
+    "user_schur_indices", "schur_shape", "schur_matrix",
+    "user_nd_partition_tree", "nd_partition_tree", "user_host_interrupt",
+    "ir_n_steps_performed", "ubatch_mask", "flops",
+)
 
-const CUDSS_CONFIG_PARAMETERS = ("reordering_alg", "factorization_alg", "solve_alg",
-                                 "matching_alg", "solve_mode", "ir_n_steps", "ir_tol", "pivot_type",
-                                 "pivot_threshold", "pivot_epsilon", "max_lu_nnz", "hybrid_memory_mode",
-                                 "hybrid_device_memory_limit", "use_cuda_register_memory", "host_nthreads",
-                                 "hybrid_execute_mode", "pivot_epsilon_alg", "nd_nlevels", "ubatch_size",
-                                 "ubatch_index", "use_superpanels", "device_count", "device_indices",
-                                 "schur_mode", "deterministic_mode", "nd_ubfactor",
-                                 "emulation_mantissa_bit_count", "force_nonsymmetric_matching",
-                                 "downcast_factors", "memory_optimization_setting")
+const CUDSS_CONFIG_PARAMETERS = (
+    "reordering_alg", "factorization_alg", "solve_alg",
+    "matching_alg", "solve_mode", "ir_n_steps", "ir_tol", "pivot_type",
+    "pivot_threshold", "pivot_epsilon", "max_lu_nnz", "hybrid_memory_mode",
+    "hybrid_device_memory_limit", "use_cuda_register_memory", "host_nthreads",
+    "hybrid_execute_mode", "pivot_epsilon_alg", "nd_nlevels", "ubatch_size",
+    "ubatch_index", "use_superpanels", "device_count", "device_indices",
+    "schur_mode", "deterministic_mode", "nd_ubfactor",
+    "emulation_mantissa_bit_count", "force_nonsymmetric_matching",
+    "downcast_factors", "memory_optimization_setting",
+)
 
 ## config type
 

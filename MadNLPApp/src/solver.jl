@@ -67,8 +67,10 @@ A MadNLP solve, as `CNLPLib.serve` takes it.
 """
 function outcome(m::AbstractNLPModel, kw::Vector{Pair{Symbol, Any}})
     s = run_madnlp(m, kw)
-    return (s.solution, s.multipliers, s.multipliers_L, s.multipliers_U, s.objective,
-            status_of(s.status), s.iter, "MadNLP: " * string(s.status))
+    return (
+        s.solution, s.multipliers, s.multipliers_L, s.multipliers_U, s.objective,
+        status_of(s.status), s.iter, "MadNLP: " * string(s.status),
+    )
 end
 
 """
@@ -100,7 +102,9 @@ Solve for a C caller: `model()` builds the model, options come as C strings, the
 goes to `result`. Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
 """
 c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}; device::Bool = false) =
-    CNLPLib.serve(outcome, model, nopt, keys, vals, result;
-                  options = o -> options(o; device), blas = BLAS, trace = TRACE, name = "madnlp")
+    CNLPLib.serve(
+    outcome, model, nopt, keys, vals, result;
+    options = o -> options(o; device), blas = BLAS, trace = TRACE, name = "madnlp"
+)
 c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
     c_solve(() -> ProblemModel(problem), nopt, keys, vals, result)

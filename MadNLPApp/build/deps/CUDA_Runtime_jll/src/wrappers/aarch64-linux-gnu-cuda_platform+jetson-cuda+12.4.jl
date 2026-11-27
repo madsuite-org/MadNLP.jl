@@ -87,17 +87,17 @@ function __init__()
     )
 
     JLLWrappers.@generate_init_footer()
-    if isdefined(CUDA_Compiler_jll, :cuda_version)
-    let runtime = v"12.4",
-        compiler = Base.thisminor(CUDA_Compiler_jll.cuda_version)
-        if compiler.major != runtime.major
-            @error """CUDA_Runtime_jll provides CUDA $runtime, but CUDA_Compiler_jll provides CUDA $compiler.
-                       These versions need to have the same major version; call `CUDA.set_runtime_version!` to
-                       reconfigure both, or remove stale entries from your LocalPreferences.toml."""
-        elseif compiler < runtime
-            @warn """CUDA_Runtime_jll provides CUDA $runtime, which is newer than CUDA_Compiler_jll's CUDA $compiler.
-                      This is an unsupported combination; call `CUDA.set_runtime_version!` to reconfigure both."""
+    return if isdefined(CUDA_Compiler_jll, :cuda_version)
+        let runtime = v"12.4",
+                compiler = Base.thisminor(CUDA_Compiler_jll.cuda_version)
+            if compiler.major != runtime.major
+                @error """CUDA_Runtime_jll provides CUDA $runtime, but CUDA_Compiler_jll provides CUDA $compiler.
+                These versions need to have the same major version; call `CUDA.set_runtime_version!` to
+                reconfigure both, or remove stale entries from your LocalPreferences.toml."""
+            elseif compiler < runtime
+                @warn """CUDA_Runtime_jll provides CUDA $runtime, which is newer than CUDA_Compiler_jll's CUDA $compiler.
+                This is an unsupported combination; call `CUDA.set_runtime_version!` to reconfigure both."""
+            end
         end
     end
-end
 end  # __init__()

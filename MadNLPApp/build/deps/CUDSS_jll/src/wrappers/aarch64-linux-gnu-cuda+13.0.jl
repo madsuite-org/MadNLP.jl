@@ -16,5 +16,5 @@ function __init__()
         RTLD_LAZY | RTLD_DEEPBIND,
     )
 
-    JLLWrappers.@generate_init_footer()
+    return JLLWrappers.@generate_init_footer()
 end  # __init__()

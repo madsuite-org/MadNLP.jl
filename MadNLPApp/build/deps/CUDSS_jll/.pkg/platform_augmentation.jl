@@ -38,15 +38,15 @@ function cuda_comparison_strategy(_a::String, _b::String, a_requested::Bool, b_r
 
     # otherwise, do the comparison between the the single version cap and the single version:
     function is_compatible(artifact::VersionNumber, host::VersionNumber)
-        if host >= v"11.0"
+        return if host >= v"11.0"
             # enhanced compatibility, semver-style
             artifact.major == host.major &&
-            Base.thisminor(artifact) <= Base.thisminor(host)
+                Base.thisminor(artifact) <= Base.thisminor(host)
         else
             Base.thisminor(artifact) == Base.thisminor(host)
         end
     end
-    if a_requested
+    return if a_requested
         is_compatible(b, a)
     else
         is_compatible(a, b)

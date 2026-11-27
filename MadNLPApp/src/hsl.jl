@@ -46,8 +46,11 @@ function use_hsl!(dir::AbstractString)
     HSL.libhsl = lib
     HSL.libhsl_subset = joinpath(dir, "libhsl_subset.$(Libdl.dlext)")
     HSL.libhsl_subset_64 = joinpath(dir, "libhsl_subset_64.$(Libdl.dlext)")
-    HSL.LIBHSL_isfunctional() || throw(ArgumentError(
-        "$lib is not a working HSL (HSL_jll's placeholder?): use the HSL_jll you obtained from STFC"))
+    HSL.LIBHSL_isfunctional() || throw(
+        ArgumentError(
+            "$lib is not a working HSL (HSL_jll's placeholder?): use the HSL_jll you obtained from STFC"
+        )
+    )
     HSL_IN_USE[] = lib
     return nothing
 end
@@ -62,10 +65,13 @@ function hsl_options!(kw::Vector{Pair{Symbol, Any}})
         dir = hsl_dir(option)
         # an HSL already in use (an earlier hsl_library=) serves the solves that name none
         dir === nothing && !isempty(HSL_IN_USE[]) && return kw
-        dir === nothing && throw(ArgumentError(
-            "$(nameof(ls)) needs HSL, which this library does not include (its license does not allow " *
-            "it): add your own with `cnlp hsl add <your HSL_jll directory or tarball>`, or set " *
-            "JULIA_HSL_LIBRARY_PATH, or pass hsl_library=DIR"))
+        dir === nothing && throw(
+            ArgumentError(
+                "$(nameof(ls)) needs HSL, which this library does not include (its license does not allow " *
+                    "it): add your own with `cnlp hsl add <your HSL_jll directory or tarball>`, or set " *
+                    "JULIA_HSL_LIBRARY_PATH, or pass hsl_library=DIR"
+            )
+        )
         use_hsl!(dir)
     end
     return kw

@@ -13,8 +13,10 @@
 # CUDA GPU: the device warm-up (MadNLPAppCUDAWarmup) solves on it.
 using JuliaC, Random, SHA
 
-function build_library(name::AbstractString, image::AbstractString, project::AbstractString,
-                       out::AbstractString; trim::AbstractString = "no")
+function build_library(
+        name::AbstractString, image::AbstractString, project::AbstractString,
+        out::AbstractString; trim::AbstractString = "no"
+    )
     dest = joinpath(abspath(out), name)
     rm(dest; recursive = true, force = true); mkpath(dest)
     # the CPUs the binary runs on: any x86-64, with code cloned for the common extensions
@@ -33,8 +35,8 @@ function build_library(name::AbstractString, image::AbstractString, project::Abs
             JuliaC.bundle_products(JuliaC.BundleRecipe(link_recipe = link, output_dir = dest, privatize = true))
         end
     )
-# share/julia/artifacts stays: the libraries the image's packages load (MUMPS, OpenBLAS32,
-# METIS, the CUDA libraries, ...), so that the bundle needs nothing from a Julia installation
+    # share/julia/artifacts stays: the libraries the image's packages load (MUMPS, OpenBLAS32,
+    # METIS, the CUDA libraries, ...), so that the bundle needs nothing from a Julia installation
     symlink("lib" * name * ".so", joinpath(dest, "lib", "libcnlp_" * name * ".so"))
     return dest, t
 end
@@ -51,7 +53,11 @@ dest, t = build_library("madnlp", joinpath(@__DIR__, "libmadnlp.jl"), @__DIR__, 
 for (root, _, files) in walkdir(dest), f in files
     p = joinpath(root, f)
     (isfile(p) && !islink(p) && occursin(".so", f)) || continue
-    syms = try read(`nm -D -S --defined-only $p`, String) catch; "" end
+    syms = try
+        read(`nm -D -S --defined-only $p`, String)
+    catch
+        ""
+    end
     for l in eachline(IOBuffer(syms))
         w = split(l)
         length(w) == 4 && w[4] in ("ma57ad_", "ma27ad_", "ma97_analyse_d", "ma86_factor_d") &&

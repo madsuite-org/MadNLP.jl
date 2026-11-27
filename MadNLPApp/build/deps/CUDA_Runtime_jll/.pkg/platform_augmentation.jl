@@ -33,11 +33,11 @@ const preferences = let
         Base.record_compiletime_preference(uuid, "local")
         prefs = Base.get_preferences(uuid)
         if selected === nothing &&
-           any(key -> haskey(prefs, key), ["version", "local", "actual_version"])
+                any(key -> haskey(prefs, key), ["version", "local", "actual_version"])
             selected = prefs
         end
     end
-    something(selected, Dict{String,Any}())
+    something(selected, Dict{String, Any}())
 end
 
 const local_preference = if haskey(preferences, "local")
@@ -66,7 +66,7 @@ else
 end
 
 function parse_version_preference(key)
-    if haskey(preferences, key)
+    return if haskey(preferences, key)
         if isa(preferences[key], String)
             version = tryparse(VersionNumber, preferences[key])
             if version === nothing
@@ -122,7 +122,7 @@ function get_runtime_version()
 
     # minimal API call wrappers we need
     function cudaRuntimeGetVersion(library_handle)
-        function_handle = Libdl.dlsym(library_handle, "cudaRuntimeGetVersion"; throw_error=false)
+        function_handle = Libdl.dlsym(library_handle, "cudaRuntimeGetVersion"; throw_error = false)
         if function_handle === nothing
             @debug "Runtime library seems invalid (does not contain 'cudaRuntimeGetVersion')"
             return nothing
@@ -138,13 +138,13 @@ function get_runtime_version()
         return VersionNumber(major, minor, patch)
     end
 
-    runtime_handle = Libdl.dlopen(cuda_runtime; throw_error=false)
+    runtime_handle = Libdl.dlopen(cuda_runtime; throw_error = false)
     if runtime_handle === nothing
         @debug "Failed to load CUDA runtime library"
         return nothing
     end
 
-    cudaRuntimeGetVersion(runtime_handle)
+    return cudaRuntimeGetVersion(runtime_handle)
 end
 
 # query the CUDA driver, returning `nothing` on failure, or a tuple
@@ -167,7 +167,7 @@ function get_driver_info()
         system_driver
     end
 
-    driver_handle = Libdl.dlopen(libcuda; throw_error=false)
+    driver_handle = Libdl.dlopen(libcuda; throw_error = false)
     if driver_handle === nothing
         @debug "Failed to load CUDA driver $libcuda"
         return nothing
@@ -175,7 +175,7 @@ function get_driver_info()
 
     # minimal API call wrappers we need
     function lookup(name)
-        function_handle = Libdl.dlsym(driver_handle, name; throw_error=false)
+        function_handle = Libdl.dlsym(driver_handle, name; throw_error = false)
         if function_handle === nothing
             @debug "Driver library seems invalid (does not contain '$name')"
         end
@@ -220,7 +220,7 @@ function get_driver_info()
             @debug "Call to 'cuDeviceGetCount' failed with status $status; selecting on the driver version alone"
             count_ref[] = 0
         end
-        for i in 0:count_ref[]-1
+        for i in 0:(count_ref[] - 1)
             dev_ref = Ref{Cint}()
             status = ccall(get_fn, Cint, (Ptr{Cint}, Cint), dev_ref, i)
             if status != 0
@@ -268,38 +268,38 @@ end
 # are measured (by pinning `CUDA_SDK_jll` to each release and reading the `--gpu-name`
 # list off that toolkit's ptxas) rather than inferred.
 const cuda_cap_db = Dict{VersionNumber, NTuple{2, VersionNumber}}(
-    v"1.0"   => (v"0",     v"6.5"),
-    v"1.1"   => (v"0",     v"6.5"),
-    v"1.2"   => (v"0",     v"6.5"),
-    v"1.3"   => (v"0",     v"6.5"),
-    v"2.0"   => (v"0",     v"8.0"),
-    v"2.1"   => (v"0",     v"8.0"),
-    v"3.0"   => (v"4.2",   v"10.2"),
-    v"3.2"   => (v"6.0",   v"10.2"),
-    v"3.5"   => (v"5.0",   v"11.8"),
-    v"3.7"   => (v"6.5",   v"11.8"),
-    v"5.0"   => (v"6.0",   v"12.9"),
-    v"5.2"   => (v"7.0",   v"12.9"),
-    v"5.3"   => (v"7.5",   v"12.9"),
-    v"6.0"   => (v"8.0",   v"12.9"),
-    v"6.1"   => (v"8.0",   v"12.9"),
-    v"6.2"   => (v"8.0",   v"12.9"),
-    v"7.0"   => (v"9.0",   v"12.9"),
-    v"7.2"   => (v"9.2",   v"12.9"),
-    v"7.5"   => (v"10.0",  v"99"),
-    v"8.0"   => (v"11.0",  v"99"),
-    v"8.6"   => (v"11.1",  v"99"),
-    v"8.7"   => (v"11.4",  v"99"),
-    v"8.8"   => (v"13.0",  v"99"),
-    v"8.9"   => (v"11.8",  v"99"),
-    v"9.0"   => (v"11.8",  v"99"),
-    v"10.0"  => (v"12.8",  v"99"),
-    v"10.1"  => (v"12.8",  v"12.9"),
-    v"10.3"  => (v"12.9",  v"99"),
-    v"10.7"  => (v"13.4",  v"99"),
-    v"11.0"  => (v"13.0",  v"99"),
-    v"12.0"  => (v"12.8",  v"99"),
-    v"12.1"  => (v"12.9",  v"99"),
+    v"1.0" => (v"0", v"6.5"),
+    v"1.1" => (v"0", v"6.5"),
+    v"1.2" => (v"0", v"6.5"),
+    v"1.3" => (v"0", v"6.5"),
+    v"2.0" => (v"0", v"8.0"),
+    v"2.1" => (v"0", v"8.0"),
+    v"3.0" => (v"4.2", v"10.2"),
+    v"3.2" => (v"6.0", v"10.2"),
+    v"3.5" => (v"5.0", v"11.8"),
+    v"3.7" => (v"6.5", v"11.8"),
+    v"5.0" => (v"6.0", v"12.9"),
+    v"5.2" => (v"7.0", v"12.9"),
+    v"5.3" => (v"7.5", v"12.9"),
+    v"6.0" => (v"8.0", v"12.9"),
+    v"6.1" => (v"8.0", v"12.9"),
+    v"6.2" => (v"8.0", v"12.9"),
+    v"7.0" => (v"9.0", v"12.9"),
+    v"7.2" => (v"9.2", v"12.9"),
+    v"7.5" => (v"10.0", v"99"),
+    v"8.0" => (v"11.0", v"99"),
+    v"8.6" => (v"11.1", v"99"),
+    v"8.7" => (v"11.4", v"99"),
+    v"8.8" => (v"13.0", v"99"),
+    v"8.9" => (v"11.8", v"99"),
+    v"9.0" => (v"11.8", v"99"),
+    v"10.0" => (v"12.8", v"99"),
+    v"10.1" => (v"12.8", v"12.9"),
+    v"10.3" => (v"12.9", v"99"),
+    v"10.7" => (v"13.4", v"99"),
+    v"11.0" => (v"13.0", v"99"),
+    v"12.0" => (v"12.8", v"99"),
+    v"12.1" => (v"12.9", v"99"),
 )
 
 # Jetson library ceilings. NVIDIA builds the Tegra (`linux-aarch64`) redistributables for
@@ -311,15 +311,17 @@ const cuda_cap_db = Dict{VersionNumber, NTuple{2, VersionNumber}}(
 # newest Jetson redistributable that still ships its SASS. Measured with
 # `cuobjdump --list-elf` on the Jetson artifacts of CUDA_Runtime_jll.
 const jetson_cap_db = Dict{VersionNumber, NTuple{2, VersionNumber}}(
-    v"7.2"   => (v"9.2",   v"12.5"),
+    v"7.2" => (v"9.2", v"12.5"),
 )
 
 # select the best CUDA toolkit from `toolkits` (an ascending list of candidate versions)
 # for the driver and its devices, or `nothing` if the driver cannot be queried or no
 # candidate is compatible. Toolkits listed in `prerelease_toolkits` are never selected
 # automatically.
-function select_cuda_toolkit(toolkits::Vector{VersionNumber},
-                             prerelease_toolkits::Vector{VersionNumber})
+function select_cuda_toolkit(
+        toolkits::Vector{VersionNumber},
+        prerelease_toolkits::Vector{VersionNumber}
+    )
     driver_info = get_driver_info()
     if driver_info === nothing
         @debug "Failed to query the CUDA driver and its devices"
@@ -375,7 +377,7 @@ function select_cuda_toolkit(toolkits::Vector{VersionNumber},
             end
             lo <= minor <= hi
         end
-        for cap in sort(unique(device_capabilities); rev=true)
+        for cap in sort(unique(device_capabilities); rev = true)
             subset = filter(t -> supports_capability(t, cap), compatible_toolkits)
             if isempty(subset)
                 @debug "No remaining toolkit supports device with compute capability $cap; dropping it from the selection"
@@ -407,7 +409,7 @@ function cuda_toolkit_tag()
             version = get_runtime_version()
             if version === nothing
                 @error """Local CUDA version requested, but could not query the runtime version.
-                          Either make sure CUDA is available, or set the CUDA version explicitly."""
+                Either make sure CUDA is available, or set the CUDA version explicitly."""
                 return nothing
             end
             @debug "Local CUDA runtime version: $version"
@@ -425,8 +427,10 @@ function cuda_toolkit_tag()
     # this supports precompiling with a fixed version without a driver available.
     if @isdefined(cuda_version_override)
         compatible_toolkits =
-            filter(toolkit -> thisminor(toolkit) == thisminor(cuda_version_override),
-                   cuda_toolkits)
+            filter(
+            toolkit -> thisminor(toolkit) == thisminor(cuda_version_override),
+            cuda_toolkits
+        )
         if isempty(compatible_toolkits)
             @error "Requested CUDA version $(cuda_version_override) does not match any supported CUDA toolkit ($(join(cuda_toolkits, ", ", " or ")))"
             return nothing
@@ -442,7 +446,7 @@ function cuda_toolkit_tag()
         select_cuda_toolkit(cuda_toolkits, cuda_prerelease_toolkits)
     catch err
         # an error here would abort the Pkg operation; don't select an artifact instead.
-        @debug "Could not select a CUDA toolkit" exception=err
+        @debug "Could not select a CUDA toolkit" exception = err
         return nothing
     end
     cuda_toolkit === nothing && return nothing
@@ -465,7 +469,7 @@ function is_tegra()
         return true
     end
     if isfile("/proc/device-tree/compatible") &&
-        contains(read("/proc/device-tree/compatible", String), "tegra")
+            contains(read("/proc/device-tree/compatible", String), "tegra")
         return true
     end
     return false
