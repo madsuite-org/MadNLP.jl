@@ -1,6 +1,7 @@
 # The environment of the build (build.jl): MadNLPApp, with MadNLPAppCUDAWarmup, whose
 # precompile workload compiles the device path, and JuliaC.
 [deps]
+BundleDepot = "9d2f6a4c-7e1b-4c35-8f0a-2b6d5e1c3a97"
 CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
 CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
@@ -12,6 +13,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
 
 [sources]
+BundleDepot = {path = "BundleDepot"}
 CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "interfaces"}
 MadCore = {path = "../../MadCore"}
 MadNLPApp = {path = ".."}

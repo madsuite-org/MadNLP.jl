@@ -2,6 +2,7 @@
 # CPU solve path, and the device path MadNLPAppCUDAWarmup's workload compiled, plus the method
 # instances that traced runs of a built library still compiled (precompile_statements.jl,
 # collected with MADNLPAPP_TRACE=1; see check.sh).
+using BundleDepot   # first: its __init__ narrows the depot path before any other package's runs
 using CUDACore, cuMadNLP, MadNLPApp, MadNLPAppCUDAWarmup
 const GPUCompiler = first(m for m in Base.loaded_modules_array() if nameof(m) == :GPUCompiler)
 const GPUToolbox = first(m for m in Base.loaded_modules_array() if nameof(m) == :GPUToolbox)
