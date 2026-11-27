@@ -4,8 +4,7 @@ import MadCore
 import AMD
 import SparseArrays: SparseMatrixCSC
 
-MadCore.ordering_permutation(::Val{MadCore.AMD_ORDERING}, A, perm) = AMD.amd(SparseMatrixCSC(A))
-MadCore.ordering_permutation(::Val{MadCore.SYMAMD_ORDERING}, A, perm) = AMD.symamd(SparseMatrixCSC(A))
-MadCore.ordering_permutation(::Val{MadCore.COLAMD_ORDERING}, A, perm) = AMD.colamd(SparseMatrixCSC(A))
+# AMD orders the pattern of A + Aᵀ, so it takes the lower triangle `A` as it is.
+MadCore.ordering_permutation(::MadCore.AMDOrdering, A::SparseMatrixCSC) = Vector{Int}(AMD.amd(A))
 
 end # module

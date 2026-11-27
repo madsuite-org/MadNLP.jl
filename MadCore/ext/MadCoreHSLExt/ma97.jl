@@ -7,6 +7,9 @@
     ma97_scaling::HSLScaling = SCALING_NONE
     ma97_u::Float64 = 1e-8
     ma97_umax::Float64 = 1e-4
+    # the pivot order instead of the solver's ordering: row and column i of the factorized
+    # matrix are row and column ma97_user_perm[i] (see set_permutation!)
+    ma97_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 mutable struct Ma97State{T,INT} <: AbstractLinearSolver{T}
@@ -43,7 +46,8 @@ function Ma97State(
     control.print_level = opt.ma97_print_level
     control.f_arrays = 1
     control.nemin = opt.ma97_nemin
-    control.ordering = INT(opt.ma97_order)
+    # ordering 0 reads the pivot order
+    control.ordering = opt.ma97_user_perm === nothing ? INT(opt.ma97_order) : INT(0)
     control.small = opt.ma97_small
     control.u = opt.ma97_u
     control.scaling = INT(opt.ma97_scaling)
@@ -62,7 +66,7 @@ function Ma97State(
         akeep,
         control,
         info,
-        C_NULL,
+        opt.ma97_user_perm === nothing ? C_NULL : INT.(invperm(opt.ma97_user_perm)),
     )
     info.flag < 0 && throw(SymbolicException())
     M = Ma97State{T,INT}(n, csc, control, info, akeep, fkeep, opt, logger)

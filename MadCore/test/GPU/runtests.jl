@@ -1,6 +1,7 @@
 using Test, MadNLP, MadCore, MadNLPTests
 import SparseArrays
 import SparseDirectSolver  # loads MadCoreSDSExt (SDSSolver)
+import AMD, Metis  # load MadCoreAMDExt and MadCoreMetisExt (the orderings of kkt_ordering)
 
 # The GPU entry points set the option presets for GPU models; CI installs the one
 # matching the runner's GPU.
@@ -35,6 +36,7 @@ end
     if HAS_CUDA && CUDA.functional()
         test_augmented_transfer(CuArray, MadCore.LapackCUDASolver)
         include("densekkt_cuda.jl")
+        include("lapack_cuda.jl")
         include("condensed_mul_cuda.jl")
         # Need to add support for CompactLBFGS in SparseCondensedKKTSystem (Issue #563)
         # include("sparsekkt_cuda.jl")

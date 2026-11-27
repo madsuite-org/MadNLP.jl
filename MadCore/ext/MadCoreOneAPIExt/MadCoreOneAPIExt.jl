@@ -13,7 +13,8 @@ include("oneapi_sparse.jl")
 include("onemkl.jl")
 include("oneapi.jl")
 
-MadCore.solver_type(::Type{MadCore.LapackOneMKLSolver}) = LapackOneMKLState
+MadCore.solver_type(::Type{MadCore.LapackOneMKLSolver}) = MadCore.LapackSolver
+MadCore.default_options(::Type{MadCore.LapackOneMKLSolver}) = MadCore.LapackOptions(MadCore.EVD)
 
 # Default linear solvers of models on Intel GPUs (SDSSolver needs SparseDirectSolver loaded).
 MadCore.default_sparse_solver(::MadCore.AbstractNLPModel{T, <:oneVector{T}}) where {T} = MadCore.SDSSolver

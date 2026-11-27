@@ -11,8 +11,6 @@ module cuMadNLP
 
 import MadCore, MadNLPCore
 import CUDACore, CUDSS, cuBLAS, cuSOLVER, cuSPARSE
-# Fill-reducing orderings of cuDSS (`cudss_ordering`): MadCoreAMDExt and MadCoreMetisExt
-import AMD, Metis
 using CUDACore: CuVector, CUDABackend
 import PrecompileTools
 import Krylov   # GMRES refinement (KrylovIterator) of the default options

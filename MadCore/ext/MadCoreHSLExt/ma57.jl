@@ -12,6 +12,9 @@ ma57_default_cntl(T) = T[1e-8, 1.0e-20, 0.5, 0.0, 0.0]
     ma57_block_size::Int = 16
     ma57_node_amalgamation::Int = 16
     ma57_small_pivot_flag::Int = 0
+    # the pivot order instead of the solver's ordering: row and column i of the factorized
+    # matrix are row and column ma57_user_perm[i] (see set_permutation!)
+    ma57_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 mutable struct Ma57State{T,INT} <: AbstractLinearSolver{T}
@@ -57,7 +60,8 @@ function Ma57State(
     icntl[1] = -1
     icntl[2] = -1
     icntl[3] = -1
-    icntl[6] = opt.ma57_pivot_order
+    # ICNTL(6) = 1 reads the pivot order in KEEP
+    icntl[6] = opt.ma57_user_perm === nothing ? opt.ma57_pivot_order : 1
     icntl[15] = opt.ma57_automatic_scaling ? 1 : 0
     icntl[11] = opt.ma57_block_size
     icntl[12] = opt.ma57_node_amalgamation
@@ -67,6 +71,7 @@ function Ma57State(
 
     lkeep = INT(5 * csc.n + nnz(csc) + max(csc.n, nnz(csc)) + 42)
     keep = Vector{INT}(undef, lkeep)
+    opt.ma57_user_perm === nothing || (keep[1:csc.n] .= invperm(opt.ma57_user_perm))
 
     HSL.ma57ar(
         T,

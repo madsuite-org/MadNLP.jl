@@ -6,6 +6,9 @@
     pardisomkl_max_iterative_refinement_steps::Int = 1
     pardisomkl_msglvl::Int = 0
     pardisomkl_order::Int = 2
+    # the pivot order, read with iparm[5] = 1 instead of the ordering of iparm[2]: row and
+    # column i of the factorized matrix are row and column pardiso_user_perm[i]
+    pardiso_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 @kwdef mutable struct PanuaPardisoOptions <: AbstractOptions
@@ -14,6 +17,19 @@ end
     pardiso_msglvl::Int = 0
     pardiso_order::Int = 2
     pardiso_algorithm::LinearFactorization = BUNCHKAUFMAN
+    # as for PardisoMKLOptions
+    pardiso_user_perm::Union{Nothing, Vector{Int}} = nothing
+end
+
+const PardisoOptions = Union{PardisoMKLOptions, PanuaPardisoOptions}
+set_permutation!(opt::PardisoOptions, perm) = (opt.pardiso_user_perm = perm; opt)
+
+# Hand the option `pardiso_user_perm` to Pardiso, whose perm is the pivot order.
+_set_user_perm!(ps, ::Nothing) = ps
+function _set_user_perm!(ps, perm)
+    Pardiso.set_iparm!(ps, 5, 1)
+    Pardiso.set_perm!(ps, perm)
+    return ps
 end
 
 # A Pardiso solver of Pardiso.jl and the lower triangle of the KKT matrix in CSC,
@@ -81,6 +97,7 @@ function PardisoMKLState(
     Pardiso.set_iparm!(ps, 28, T == Float64 ? 0 : 1)
     Pardiso.set_msglvl!(ps, opt.pardisomkl_msglvl == 0 ? Pardiso.MESSAGE_LEVEL_OFF : Pardiso.MESSAGE_LEVEL_ON)
     csc = SparseMatrixCSC{T, Int32}(csc)
+    _set_user_perm!(ps, opt.pardiso_user_perm)
     M = PardisoState(ps, csc, Vector{T}(undef, csc.n), opt, logger)
     return _analyze!(M)
 end
@@ -117,6 +134,7 @@ function PanuaPardisoState(
     Pardiso.set_iparm!(ps, 25, 1)     # parallel solve
     Pardiso.set_msglvl!(ps, opt.pardiso_msglvl == 0 ? Pardiso.MESSAGE_LEVEL_OFF : Pardiso.MESSAGE_LEVEL_ON)
     csc = SparseMatrixCSC{T, Int32}(csc)
+    _set_user_perm!(ps, opt.pardiso_user_perm)
     M = PardisoState(ps, csc, Vector{T}(undef, csc.n), opt, logger)
     return _analyze!(M)
 end

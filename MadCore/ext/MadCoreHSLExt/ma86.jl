@@ -8,6 +8,9 @@
     ma86_static::Float64 = 0.0
     ma86_u::Float64 = 1e-8
     ma86_umax::Float64 = 1e-4
+    # the pivot order instead of the solver's ordering: row and column i of the factorized
+    # matrix are row and column ma86_user_perm[i] (see set_permutation!)
+    ma86_user_perm::Union{Nothing, Vector{Int}} = nothing
 end
 
 mutable struct Ma86State{T,INT} <: AbstractLinearSolver{T}
@@ -44,18 +47,7 @@ function Ma86State(
 
     keep = [C_NULL]
 
-    mc68control.f_array_in = 1
-    mc68control.f_array_out = 1
-    HSL.mc68_order(
-        INT,
-        INT(opt.ma86_order),
-        INT(csc.n),
-        csc.colptr,
-        csc.rowval,
-        order,
-        mc68control,
-        mc68info,
-    )
+    hsl_pivot_order!(order, opt.ma86_user_perm, opt.ma86_order, csc, mc68control, mc68info)
 
     info = Ma86Info{T,INT}()
     control = Ma86Control{T,INT}()
