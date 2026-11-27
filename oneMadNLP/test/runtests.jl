@@ -10,9 +10,10 @@ using Test, oneMadNLP, MadNLPCore, MadCore, oneAPI
         SDSExt = Base.get_extension(MadCore, :MadCoreSDSExt)
         @test MadCore.default_options(SDSSolver) isa SDSExt.SDSSolverOptions
         @test MadCore.input_type(SDSSolver) === :csc
-        # the GPU option preset of MadNLPCoreGPUExt, not the generic one, applies to oneVector models
-        preset = which(MadNLPCore.MadNLPOptions{Float64}, Tuple{MadNLPCore.AbstractNLPModel{Float64, oneVector{Float64}}})
-        @test preset.module === Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
+        # the GPU defaults of MadNLPCoreGPUExt (preset and shifted-preset solver) apply to oneVector models
+        GPUExt = Base.get_extension(MadNLPCore, :MadNLPCoreGPUExt)
+        @test which(MadNLPCore.default_preset, Tuple{MadNLPCore.AbstractNLPModel{Float64, oneVector{Float64}}}).module === GPUExt
+        @test which(MadNLPCore.shifted_sparse_solver, Tuple{MadNLPCore.AbstractNLPModel{Float64, oneVector{Float64}}}).module === GPUExt
     end
     if oneAPI.functional()
         @testset "oneMKL Cholesky reports failure" begin
@@ -29,7 +30,7 @@ using Test, oneMadNLP, MadNLPCore, MadCore, oneAPI
         # Arc GPUs have no native Float64, so the solves run in Float32.
         T = oneL0.module_properties(oneAPI.device()).fp64flags == 0 ? Float32 : Float64
         @testset "Option presets for oneVector models, $T" begin
-            nlp = MadNLPCore.SparseWrapperModel(oneVector, MadNLPCore.HS15Model(; T))
+            nlp = MadCore.SparseWrapperModel(oneVector, MadNLPCore.HS15Model(; T))
             # the default, ShiftedPreset: the augmented system with SparseDirectSolver's LDLᵀ with diagonal pivoting
             opt = MadNLPCore.MadNLPOptions{T}(nlp)
             @test opt.preset === MadNLPCore.ShiftedPreset

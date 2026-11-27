@@ -2,9 +2,14 @@ module MadCorePardisoExt
 
 import MadCore
 import Pardiso
-for name in MadCore.internal_names()
+for name in MadCore.public_names()
     @eval import MadCore: $name
 end
+import MadCore: improve!, input_type, is_inertia
+import Base: @kwdef
+import MadCore: BUNCHKAUFMAN, CHOLESKY, FactorizationException, LDL, LinearFactorization,
+    PanuaPardisoSolver, SymbolicException, blas_num_threads
+import SparseArrays: SparseMatrixCSC
 
 include("pardiso.jl")
 

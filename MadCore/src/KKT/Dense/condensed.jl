@@ -239,8 +239,3 @@ function mul!(y::AbstractVector, kkt::DenseCondensedKKTSystem{T}, x::AbstractVec
         _mul_expanded!(y, kkt, x)
     end
 end
-
-function jprod_ineq!(y::AbstractVector, kkt::DenseCondensedKKTSystem, x::AbstractVector)
-    mul!(y, kkt.jac_ineq, x)
-end
-

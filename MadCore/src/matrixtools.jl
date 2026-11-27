@@ -91,7 +91,14 @@ function _get_coo_to_csc(I,J,cscind,map)
         @inbounds map[i] = cscind[I[i],J[i]]
     end
 end
-function _transfer!(vec1, vec2, map)
+"""
+    coo_to_csc_values!(nzval, V, map)
+
+Set the nonzeros `nzval` of a CSC matrix from the COO values `V`, with the map returned by
+[`coo_to_csc`](@ref): `nzval` is zeroed, then `V[i]` is added to `nzval[map[i]]`, so
+duplicate COO entries are summed.
+"""
+function coo_to_csc_values!(vec1, vec2, map)
     T = eltype(vec1)
     fill!(vec1, zero(T))
     for i=1:length(map)
@@ -100,7 +107,7 @@ function _transfer!(vec1, vec2, map)
 end
 
 function transfer!(dest::AbstractSparseMatrix, src::SparseMatrixCOO, map)
-    _transfer!(nonzeros(dest), src.V, map)
+    coo_to_csc_values!(nonzeros(dest), src.V, map)
     return dest
 end
 
@@ -122,25 +129,6 @@ function _copyto!(dense::Matrix{Tv},I,J,V) where Tv
         @inbounds dense[I[i], J[i]] += V[i]
     end
     return dense
-end
-
-function get_cscsy_view(csc::SparseMatrixCSC{Tv,Ti},Ix;inds=collect(1:nnz(csc))) where {Tv,Ti<:Integer}
-    cscind = SparseMatrixCSC{Int,Ti}(csc.m,csc.n,csc.colptr,csc.rowval,inds)
-    cscindsub = cscind[Ix,Ix]
-    return SparseMatrixCSC{Tv,Ti}(
-        cscindsub.m,cscindsub.n,cscindsub.colptr,
-        cscindsub.rowval,Vector{Tv}(undef,nnz(cscindsub))), view(csc.nzval,cscindsub.nzval)
-
-end
-
-function get_csc_view(csc::SparseMatrixCSC{Tv,Ti},Ix,Jx;inds=collect(1:nnz(csc))) where {Tv,Ti<:Integer}
-    cscind = Symmetric(SparseMatrixCSC{Int,Ti}(csc.m,csc.n,csc.colptr,csc.rowval,inds),:L)
-    cscindsub = cscind[Ix,Jx]
-    resize!(cscindsub.rowval,cscindsub.colptr[end]-1)
-    resize!(cscindsub.nzval,cscindsub.colptr[end]-1)
-    return SparseMatrixCSC{Tv,Ti}(
-        cscindsub.m,cscindsub.n,cscindsub.colptr,
-        cscindsub.rowval,Vector{Tv}(undef,nnz(cscindsub))), view(csc.nzval,cscindsub.nzval)
 end
 
 function force_lower_triangular!(I,J)

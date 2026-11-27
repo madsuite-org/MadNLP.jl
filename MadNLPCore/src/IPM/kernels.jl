@@ -3,13 +3,75 @@
 # Fields used only by the filter line search and the restoration phase.
 const FILTER_FIELDS = (:theta_min, :theta_max, :ftype, :filter, :RR, :watchdog)
 
-for attribute in FILTER_FIELDS
-    getter = Symbol("get_", attribute)
-    setter = Symbol("set_", attribute, "!")
-    @eval begin
-        @inline $getter(solver::AbstractMadNLPSolver) = getfield(solver, $(QuoteNode(attribute)))
-        @inline $setter(solver::AbstractMadNLPSolver, rhs) = setfield!(solver, $(QuoteNode(attribute)), rhs)
-    end
+# The diagonal of the KKT system from the iterate and the regularization options of the solver
+function set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
+    fill!(kkt.reg, get_opt(solver).default_primal_regularization)
+    fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
+    kkt.l_diag .= get_xl_r(solver) .- get_x_lr(solver)   # (Xˡ - X)
+    kkt.u_diag .= get_x_ur(solver) .- get_xu_r(solver)   # (X - Xᵘ)
+    copyto!(kkt.l_lower, get_zl_r(solver))
+    copyto!(kkt.u_lower, get_zu_r(solver))
+
+    set_aug_diagonal!(kkt)
+    return
+end
+
+function set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
+    fill!(kkt.reg, get_opt(solver).default_primal_regularization)
+    fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
+    # Ensure l_diag and u_diag have only non negative entries
+    kkt.l_diag .= get_x_lr(solver) .- get_xl_r(solver)   # (X - Xˡ)
+    kkt.u_diag .= get_xu_r(solver) .- get_x_ur(solver)   # (Xᵘ - X)
+    copyto!(kkt.l_lower, get_zl_r(solver))
+    copyto!(kkt.u_lower, get_zu_r(solver))
+    set_aug_diagonal!(kkt)
+end
+
+# Termination measures and the initial right-hand side of MadNLPSolver
+get_inf_barrier(solver::AbstractMadNLPSolver) = max(get_inf_pr(solver),get_inf_du(solver),get_inf_compl_mu(solver))
+# Violation of the bounds l <= g <= u by g; zero inside them.
+bound_violation(g, l, u) = max(l - g, g - u, zero(g))
+
+"""
+    get_inf_pr_orig(solver)
+
+Primal infeasibility for the termination test. On equality rows it is |c|. On an inequality row
+it is the larger of two quantities.
+- The violation of the slack bounds by g(x) = c + s. Those bounds are the constraint bounds
+  after scaling and the `bound_relax_factor` relaxation.
+- The slack residual |c| weighted by the row's multiplier, |y| |c|.
+A slack that lags g(x) inside the bounds therefore counts only as far as its multiplier makes it
+matter. In particular, a slack held at its bound with a nonzero multiplier, while g(x) is inside,
+still has to close the gap for the solve to stop.
+"""
+function get_inf_pr_orig(solver::AbstractMadNLPSolver{T}) where {T}
+    # _w4 is scratch outside a linear solve; _w1 holds a backup during restore!
+    buf = dual(get__w4(solver))
+    ind_ineq = get_ind_ineq(solver)
+    copyto!(buf, get_c(solver))
+    c = view(get_c(solver), ind_ineq)
+    y = view(get_y(solver), ind_ineq)
+    s = slack(get_x(solver))
+    view(buf, ind_ineq) .= max.(
+        bound_violation.(c .+ s, slack(get_xl(solver)), slack(get_xu(solver))),
+        abs.(y) .* abs.(c),
+    )
+    return norm(buf, Inf)
+end
+# The convergence test uses this measure in place of the slack residual; the filter and the
+# barrier sub-problem keep the slack residual.
+get_inf_total(solver::AbstractMadNLPSolver) = max(get_inf_pr_orig(solver), get_inf_du(solver), get_inf_compl(solver))
+
+function set_initial_rhs!(solver::AbstractMadNLPSolver{T}, kkt::AbstractKKTSystem) where T
+    f = primal(get_f(solver))
+    zl = primal(get_zl(solver))
+    zu = primal(get_zu(solver))
+    px = primal(get_p(solver))
+    px .= .-f .+ zl .- zu
+    fill!(dual(get_p(solver)), zero(T))
+    fill!(dual_lb(get_p(solver)), zero(T))
+    fill!(dual_ub(get_p(solver)), zero(T))
+    return
 end
 
 # The watchdog state, or `nothing` for a solver type without a `watchdog` field, which then
@@ -22,7 +84,7 @@ watchdog_active(solver::AbstractMadNLPSolver) =
 get_theta(solver::AbstractMadNLPSolver) = get_theta(get_c(solver))
 get_varphi(solver::AbstractMadNLPSolver) = get_varphi(get_obj_val(solver), get_x_lr(solver), get_xl_r(solver), get_xu_r(solver), get_x_ur(solver), get_mu(solver))
 
-function print_iter(solver::AbstractMadNLPSolver; is_resto=false)
+function print_iter(solver::MadNLPSolver; is_resto=false)
     obj_scale = get_cb(solver).obj_scale[]
     mod(get_cnt(solver).k,10)==0&& @info(get_logger(solver),@sprintf(
         "iter    objective    inf_pr   inf_du inf_compl lg(mu) lg(rg) alpha_pr ir ls"))
@@ -65,7 +127,7 @@ function set_aug_RR!(kkt::AbstractKKTSystem, solver::AbstractMadNLPSolver, RR::R
     kkt.l_diag .= get_xl_r(solver) .- get_x_lr(solver)
     kkt.u_diag .= get_x_ur(solver) .- get_xu_r(solver)
 
-    _set_aug_diagonal!(kkt)
+    set_aug_diagonal!(kkt)
     return
 end
 
@@ -82,7 +144,7 @@ function set_aug_RR!(kkt::ScaledSparseKKTSystem, solver::AbstractMadNLPSolver, R
     kkt.l_diag .= get_x_lr(solver) .- get_xl_r(solver)
     kkt.u_diag .= get_xu_r(solver) .- get_x_ur(solver)
 
-    _set_aug_diagonal!(kkt)
+    set_aug_diagonal!(kkt)
     return
 end
 

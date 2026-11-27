@@ -7,10 +7,10 @@ import Krylov   # GMRES refinement (KrylovIterator), which the default preset us
 
 # MadNLP bundles MadNLPCore with the CPU linear solvers. For backward compatibility,
 # every name of MadCore and MadNLPCore also resolves as `MadNLP.name`.
-for name in MadCore.internal_names()
+for name in MadCore.defined_names(MadCore)
     @eval import MadCore: $name
 end
-for name in MadCore.internal_names(MadNLPCore)
+for name in MadCore.defined_names(MadNLPCore)
     name === :MadCore && continue
     @eval import MadNLPCore: $name
 end
@@ -21,6 +21,16 @@ Base.USE_GPL_LIBS && export UmfpackSolver, CHOLMODSolver
 export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSolver, PanuaPardisoSolver, KrylovIterator
 export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
 export AbstractOrdering, DefaultOrdering, MetisOrdering, AMDOrdering
+
+# The public names of MadCore and MadNLPCore are public in MadNLP too, so that
+# `MadNLP.name` raises no warning in the REPL. The keyword `public` does not parse on Julia 1.10.
+@static if VERSION >= v"1.11"
+    let pub = union(MadCore.public_names(), MadNLPCore.NLPCORE_PUBLIC_NAMES,
+                      filter(n -> Base.isexported(MadCore, n), names(MadCore)),
+                      filter(n -> Base.isexported(MadNLPCore, n), names(MadNLPCore)))
+        eval(Expr(:public, filter(n -> n ∉ (:MadCore, :MadNLPCore) && !Base.isexported(@__MODULE__, n), pub)...))
+    end
+end
 
 # MUMPS is the default sparse linear solver of MadNLP. MadCore and MadNLPCore have none.
 MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = MumpsSolver

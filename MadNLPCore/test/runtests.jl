@@ -12,7 +12,13 @@ struct MyLDL end
     nlp = HS15Model()
 
     @testset "Solver fields match the MadCore getters" begin
-        @test Set(fieldnames(MadNLPSolver)) == Set((MadNLPCore.MadCore.SOLVER_FIELDS..., MadNLPCore.FILTER_FIELDS...))
+        @test Set(fieldnames(MadNLPSolver)) == Set((MadNLPCore.MadCore.SOLVER_FIELDS..., MadNLPCore.NLP_SOLVER_FIELDS..., MadNLPCore.FILTER_FIELDS...))
+    end
+
+    @testset "Public names of MadCore are not exported" begin
+        @test Base.isexported(MadNLPCore, :MumpsSolver)
+        @test !Base.isexported(MadNLPCore, Symbol("@warn"))
+        @test !Base.isexported(MadNLPCore, :factorize!)
     end
 
     @testset "Default sparse solver is DummySolver" begin
@@ -39,8 +45,8 @@ struct MyLDL end
 
     @testset "Any type selects a linear solver" begin
         @eval begin
-            MadNLPCore.create_linear_solver(::Type{MyLDL}, A; kwargs...) =
-                MadNLPCore.create_linear_solver(LDLSolver, A; kwargs...)
+            MadNLPCore.MadCore.create_linear_solver(::Type{MyLDL}, A; kwargs...) =
+                MadNLPCore.MadCore.create_linear_solver(LDLSolver, A; kwargs...)
             MadNLPCore.default_options(::Type{MyLDL}) = MadNLPCore.default_options(LDLSolver)
             MadNLPCore.input_type(::Type{MyLDL}) = MadNLPCore.input_type(LDLSolver)
             MadNLPCore.is_supported(::Type{MyLDL}, ::Type{T}) where {T <: AbstractFloat} =

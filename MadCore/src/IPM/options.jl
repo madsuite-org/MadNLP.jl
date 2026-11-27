@@ -23,9 +23,6 @@ end
 
 is_dense_callback(nlp) = !nlp.meta.sparse_jacobian && !nlp.meta.sparse_hessian
 
-get_tolerance(::Type{T},::Type{KKT}) where {T, KKT} = 10^round(log10(eps(T))/2)
-get_tolerance(::Type{T},::Type{SparseCondensedKKTSystem}) where T = 10^(round(log10(eps(T))/2))
-
 """
     default_sparse_solver(nlp)
 
@@ -51,11 +48,11 @@ function print_ignored_options(logger,option_dict)
     end
 end
 
-function _get_primary_options(options)
+function get_primary_options(options, keys = (:tol, :linear_solver, :callback, :kkt_system))
     primary_opt = Dict{Symbol,Any}()
     remaining_opt = Dict{Symbol,Any}()
     for (k,v) in options
-        if k in [:tol, :linear_solver, :callback, :kkt_system, :preset, :dense_row_fallback]
+        if k in keys
             primary_opt[k] = v
         else
             remaining_opt[k] = v

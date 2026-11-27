@@ -1,46 +1,21 @@
 
 # KKT system updates -------------------------------------------------------
 # Set diagonal
-set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T = _set_aug_diagonal!(kkt, solver)
-
-function _set_aug_diagonal!(kkt::AbstractKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
-    fill!(kkt.reg, get_opt(solver).default_primal_regularization)
-    fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
-    kkt.l_diag .= get_xl_r(solver) .- get_x_lr(solver)   # (Xˡ - X)
-    kkt.u_diag .= get_x_ur(solver) .- get_xu_r(solver)   # (X - Xᵘ)
-    copyto!(kkt.l_lower, get_zl_r(solver))
-    copyto!(kkt.u_lower, get_zu_r(solver))
-
-    _set_aug_diagonal!(kkt)
-    return
-end
-
-function _set_aug_diagonal!(kkt::AbstractKKTSystem)
+function set_aug_diagonal!(kkt::AbstractKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
     @views kkt.pr_diag[kkt.ind_lb] .-= kkt.l_lower ./ kkt.l_diag
     @views kkt.pr_diag[kkt.ind_ub] .-= kkt.u_lower ./ kkt.u_diag
     return
 end
 
-function _set_aug_diagonal!(kkt::AbstractUnreducedKKTSystem)
+function set_aug_diagonal!(kkt::AbstractUnreducedKKTSystem)
     copyto!(kkt.pr_diag, kkt.reg)
     kkt.l_lower_aug .= sqrt.(kkt.l_lower)
     kkt.u_lower_aug .= sqrt.(kkt.u_lower)
     return
 end
 
-function set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}, solver::AbstractMadNLPSolver{T}) where T
-    fill!(kkt.reg, get_opt(solver).default_primal_regularization)
-    fill!(kkt.du_diag, -get_opt(solver).default_dual_regularization)
-    # Ensure l_diag and u_diag have only non negative entries
-    kkt.l_diag .= get_x_lr(solver) .- get_xl_r(solver)   # (X - Xˡ)
-    kkt.u_diag .= get_xu_r(solver) .- get_x_ur(solver)   # (Xᵘ - X)
-    copyto!(kkt.l_lower, get_zl_r(solver))
-    copyto!(kkt.u_lower, get_zu_r(solver))
-    _set_aug_diagonal!(kkt)
-end
-
-function _set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}) where T
+function set_aug_diagonal!(kkt::ScaledSparseKKTSystem{T}) where T
     xlzu = kkt.buffer1
     xuzl = kkt.buffer2
     fill!(xlzu, zero(T))
@@ -85,7 +60,16 @@ function set_aug_rhs!(solver::AbstractMadNLPSolver, kkt::AbstractKKTSystem, c::A
 end
 
 # solving KKT system
-@inbounds function _kktmul!(
+"""
+    kktmul!(w, x, reg, du_diag, l_lower, u_lower, l_diag, u_diag, alpha, beta)
+
+Add to `w` the contribution of the diagonal blocks of the unreduced KKT matrix to the
+product with `x`. It completes the `mul!` of a KKT system, after the products with the
+Hessian and the Jacobian.
+"""
+function kktmul! end
+
+@inbounds function kktmul!(
     w::AbstractKKTVector,
     x::AbstractKKTVector,
     reg,
@@ -144,18 +128,6 @@ function set_initial_bounds!(xl::AbstractVector{T}, xu::AbstractVector{T}, tol) 
             xu, xu
         )
     end
-end
-
-function set_initial_rhs!(solver::AbstractMadNLPSolver{T}, kkt::AbstractKKTSystem) where T
-    f = primal(get_f(solver))
-    zl = primal(get_zl(solver))
-    zu = primal(get_zu(solver))
-    px = primal(get_p(solver))
-    px .= .-f .+ zl .- zu
-    fill!(dual(get_p(solver)), zero(T))
-    fill!(dual_lb(get_p(solver)), zero(T))
-    fill!(dual_ub(get_p(solver)), zero(T))
-    return
 end
 
 # Kernel functions ---------------------------------------------------------
@@ -255,7 +227,7 @@ function get_alpha_z(
     return alpha_z
 end
 
-function _initialize_variables!(x::T, xl, xu, bound_push, bound_fac) where T
+function initialize_variable(x::T, xl, xu, bound_push, bound_fac) where T
     if xl!=-T(Inf) && xu!=T(Inf)
         return min(
             xu-min(bound_push*max(1,abs(xu)), bound_fac*(xu-xl)),
@@ -270,7 +242,7 @@ function _initialize_variables!(x::T, xl, xu, bound_push, bound_fac) where T
 end
 
 function initialize_variables!(x, xl, xu, bound_push, bound_fac)
-    map!((x,l,u) -> _initialize_variables!(x,l,u, bound_push, bound_fac), x, x, xl, xu)
+    map!((x,l,u) -> initialize_variable(x,l,u, bound_push, bound_fac), x, x, xl, xu)
 end
 
 function adjust_boundary!(

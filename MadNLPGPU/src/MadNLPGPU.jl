@@ -14,7 +14,7 @@ import CUDA
 # The names of MadNLPGPU before the split resolve as `MadNLPGPU.name`: the GPU
 # internals of MadCore's GPU extension, and the solver markers of MadCore.
 const _GPUExt = Base.get_extension(MadCore, :MadCoreGPUExt)
-for name in MadCore.internal_names(_GPUExt)
+for name in MadCore.defined_names(_GPUExt)
     name === :MadCore && continue
     @eval import ._GPUExt: $name
 end

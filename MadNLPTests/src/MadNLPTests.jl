@@ -65,11 +65,11 @@ function test_kkt_system(kkt, cb)
     y0 = NLPModels.get_y0(cb.nlp)
     # Update Jacobian manually
     jac = MadNLP.get_jacobian(kkt)
-    MadNLP._eval_jac_wrapper!(cb, x0, jac)
+    MadNLP.eval_jac_callback!(cb, x0, jac)
     MadNLP.compress_jacobian!(kkt)
     # Update Hessian manually
     hess = MadNLP.get_hessian(kkt)
-    MadNLP._eval_lag_hess_wrapper!(cb, x0, y0, hess)
+    MadNLP.eval_lag_hess_callback!(cb, x0, y0, hess)
     MadNLP.compress_hessian!(kkt)
 
     # N.B.: set non-trivial dual's bounds to ensure
@@ -80,7 +80,7 @@ function test_kkt_system(kkt, cb)
     fill!(kkt.u_lower, 1e-3)
 
     # Update diagonal terms manually.
-    MadNLP._set_aug_diagonal!(kkt)
+    MadNLP.set_aug_diagonal!(kkt)
 
     # Factorization
     MadNLP.build_kkt!(kkt)

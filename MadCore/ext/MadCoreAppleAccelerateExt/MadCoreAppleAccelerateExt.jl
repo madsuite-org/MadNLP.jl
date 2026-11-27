@@ -7,7 +7,7 @@ module MadCoreAppleAccelerateExt
     import MadCore
     import AppleAccelerate as AA
     using SparseArrays: SparseMatrixCSC
-    for name in MadCore.internal_names()
+    for name in MadCore.defined_names(MadCore)
         @eval import MadCore: $name
     end
 

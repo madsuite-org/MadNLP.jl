@@ -66,118 +66,19 @@ struct ScaledSparseKKTSystem{T, VT, MT, QN, LS, VI, VI32} <: AbstractReducedKKTS
 end
 
 # Build KKT system directly from SparseCallback
-function create_kkt_system(
-    ::Type{ScaledSparseKKTSystem},
-    cb::SparseCallback{T,VT},
-    linear_solver::Type;
-    opt_linear_solver=default_options(linear_solver),
-    hessian_approximation=ExactHessian,
-    qn_options=QuasiNewtonOptions(),
-    kkt_scaler::AbstractScaler=NoScaler(),
-    primal_shift=0.0,
-    dual_shift=0.0,
-        kkt_ordering::AbstractOrdering = DefaultOrdering(),
-) where {T,VT}
-
-    n_slack = length(cb.ind_ineq)
-    # Deduce KKT size.
-
-    n = cb.nvar
-    m = cb.ncon
-    # Evaluate sparsity pattern
-    jac_sparsity_I = create_array(cb, Int32, cb.nnzj)
-    jac_sparsity_J = create_array(cb, Int32, cb.nnzj)
-    _jac_sparsity_wrapper!(cb,jac_sparsity_I, jac_sparsity_J)
-
-    quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
-    hess_sparsity_I, hess_sparsity_J = build_hessian_structure(cb, hessian_approximation)
-
-    nlb = length(cb.ind_lb)
-    nub = length(cb.ind_ub)
-
-    force_lower_triangular!(hess_sparsity_I,hess_sparsity_J)
-
-    ind_ineq = cb.ind_ineq
-
-    n_slack = length(ind_ineq)
-    n_jac = length(jac_sparsity_I)
-    n_hess = length(hess_sparsity_I)
-    n_tot = n + n_slack
-
-
-    aug_vec_length = n_tot+m
-    aug_mat_length = n_tot+m+n_hess+n_jac+n_slack
-
-    I = create_array(cb, Int32, aug_mat_length)
-    J = create_array(cb, Int32, aug_mat_length)
-    V = VT(undef, aug_mat_length)
-    fill!(V, zero(T))  # Need to initiate V to avoid NaN
-
-    offset = n_tot+n_jac+n_slack+n_hess+m
-
-    I[1:n_tot] .= 1:n_tot
-    I[n_tot+1:n_tot+n_hess] = hess_sparsity_I
-    I[n_tot+n_hess+1:n_tot+n_hess+n_jac] .= (jac_sparsity_I.+n_tot)
-    I[n_tot+n_hess+n_jac+1:n_tot+n_hess+n_jac+n_slack] .= ind_ineq .+ n_tot
-    I[n_tot+n_hess+n_jac+n_slack+1:offset] .= (n_tot+1:n_tot+m)
-
-    J[1:n_tot] .= 1:n_tot
-    J[n_tot+1:n_tot+n_hess] = hess_sparsity_J
-    J[n_tot+n_hess+1:n_tot+n_hess+n_jac] .= jac_sparsity_J
-    J[n_tot+n_hess+n_jac+1:n_tot+n_hess+n_jac+n_slack] .= (n+1:n+n_slack)
-    J[n_tot+n_hess+n_jac+n_slack+1:offset] .= (n_tot+1:n_tot+m)
-
-    pr_diag = _madnlp_unsafe_wrap(V, n_tot)
-    du_diag = _madnlp_unsafe_wrap(V, m, n_jac+n_slack+n_hess+n_tot+1)
-
-    reg = VT(undef, n_tot)
-    l_diag = VT(undef, nlb)
-    u_diag = VT(undef, nub)
-    l_lower = VT(undef, nlb)
-    u_lower = VT(undef, nub)
-
-    scaling_factor = VT(undef, n_tot)
-    buffer1 = VT(undef, n_tot)
-    buffer2 = VT(undef, n_tot)
-
-    hess = _madnlp_unsafe_wrap(V, n_hess, n_tot+1)
-    jac = _madnlp_unsafe_wrap(V, n_jac+n_slack, n_hess+n_tot+1)
-    jac_callback = _madnlp_unsafe_wrap(V, n_jac, n_hess+n_tot+1)
-
-    aug_raw = SparseMatrixCOO(aug_vec_length,aug_vec_length,I,J,V)
-    jac_raw = SparseMatrixCOO(
-        m, n_tot,
-        Int32[jac_sparsity_I; ind_ineq],
-        Int32[jac_sparsity_J; n+1:n+n_slack],
-        jac,
-    )
-    hess_raw = SparseMatrixCOO(
-        n_tot, n_tot,
-        hess_sparsity_I,
-        hess_sparsity_J,
-        hess,
-    )
-    scaled_aug_raw = SparseMatrixCOO(aug_vec_length,aug_vec_length,I,J,copy(V))
-
-    aug_com, aug_csc_map = coo_to_csc(aug_raw)
-    jac_com, jac_csc_map = coo_to_csc(jac_raw)
-    hess_com, hess_csc_map = coo_to_csc(hess_raw)
-
-    # tell the linear solver the saddle-point partition before it analyzes
-    _np = length(pr_diag)
-    _linear_solver = LinearSolverBarrier(create_kkt_linear_solver(linear_solver,
-            aug_com, _np; opt = opt_linear_solver, kkt_scaler, primal_shift, dual_shift, kkt_ordering
-    ))
-
+function create_kkt_system(::Type{ScaledSparseKKTSystem}, cb::SparseCallback{T, VT}, linear_solver::Type; kwargs...) where {T, VT}
+    d = _sparse_augmented_data(cb, linear_solver; kwargs...)
+    aug = d.aug_raw
+    scaled_aug_raw = SparseMatrixCOO(aug.m, aug.n, aug.I, aug.J, copy(aug.V))
     return ScaledSparseKKTSystem(
-        hess, jac_callback, jac, quasi_newton, reg, pr_diag, du_diag,
-        l_diag, u_diag, l_lower, u_lower,
-        scaling_factor, buffer1, buffer2,
-        aug_raw, aug_com, aug_csc_map, scaled_aug_raw,
-        hess_raw, hess_com, hess_csc_map,
-        jac_raw, jac_com, jac_csc_map,
-        _linear_solver,
-        ind_ineq, cb.ind_lb, cb.ind_ub,
+        d.hess, d.jac_callback, d.jac, d.quasi_newton, d.reg, d.pr_diag, d.du_diag,
+        d.l_diag, d.u_diag, d.l_lower, d.u_lower,
+        VT(undef, d.n_tot), VT(undef, d.n_tot), VT(undef, d.n_tot),  # scaling_factor, buffer1, buffer2
+        d.aug_raw, d.aug_com, d.aug_csc_map, scaled_aug_raw,
+        d.hess_raw, d.hess_com, d.hess_csc_map,
+        d.jac_raw, d.jac_com, d.jac_csc_map,
+        d.linear_solver,
+        d.ind_ineq, cb.ind_lb, cb.ind_ub,
     )
 end
 
@@ -185,16 +86,9 @@ num_variables(kkt::ScaledSparseKKTSystem) = length(kkt.pr_diag)
 get_jacobian(kkt::ScaledSparseKKTSystem) = kkt.jac_callback
 
 function initialize!(kkt::ScaledSparseKKTSystem{T}) where T
-    fill!(kkt.reg, one(T))
-    fill!(kkt.pr_diag, one(T))
-    fill!(kkt.du_diag, zero(T))
-    fill!(kkt.hess, zero(T))
-    fill!(kkt.l_lower, zero(T))
-    fill!(kkt.u_lower, zero(T))
-    fill!(kkt.l_diag, one(T))
-    fill!(kkt.u_diag, one(T))
+    _initialize_sparse!(kkt)
     fill!(kkt.scaling_factor, one(T))
-    fill!(nonzeros(kkt.hess_com), zero(T)) # so that mul! in the initial primal-dual solve has no effect
+    return
 end
 
 function jtprod!(y::AbstractVector, kkt::ScaledSparseKKTSystem, x::AbstractVector)

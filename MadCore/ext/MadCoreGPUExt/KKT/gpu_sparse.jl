@@ -11,7 +11,7 @@
     MadCore.transfer! (COO to CSC): the accumulation into the CSC nonzeros
 =#
 
-# Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `_transfer!`:
+# Scatter COO values into CSC nonzeros, accumulating duplicates (as the CPU `coo_to_csc_values!`:
 # `nzval[map[k]] += V[k]`). The COO of the augmented KKT system has duplicate (i, i) entries
 # (primal-dual diagonal and Hessian diagonal) that must be summed, so a non-accumulating
 # scatter (`copyto!` into a view) would drop all but one of each group.
@@ -66,7 +66,7 @@ function _csc_grouping(cscmap::AbstractVector)
     return grouping
 end
 
-function MadCore._transfer!(nzval::AbstractGPUVector, V, cscmap)
+function MadCore.coo_to_csc_values!(nzval::AbstractGPUVector, V, cscmap)
     ptr, ptrptr = _csc_grouping(cscmap)
     fill!(nzval, zero(eltype(nzval)))
     if length(ptrptr) > 1
@@ -121,7 +121,7 @@ function MadCore.mul!(
     MadCore.mul!(wz, kkt.jt_csc', xx, alpha, beta)
     ws .= beta .* ws .- alpha .* view(xz, kkt.ind_ineq)
     view(wz, kkt.ind_ineq) .-= alpha .* xs
-    return MadCore._kktmul!(
+    return MadCore.kktmul!(
         w,
         x,
         kkt.reg,
@@ -173,7 +173,7 @@ function MadCore.mul!(
     MadCore.mul!(wx, kkt.jac_com', xz, alpha, one(T))
     MadCore.mul!(wz, kkt.jac_com, xx, alpha, beta)
 
-    return MadCore._kktmul!(
+    return MadCore.kktmul!(
         w,
         x,
         kkt.reg,
@@ -375,10 +375,10 @@ function MadCore.force_lower_triangular!(I::AbstractGPUVector{T}, J) where {T}
 end
 
 #=
-    MadCore._set_con_scale_sparse!
+    MadCore.update_con_scale_sparse!
 =#
 
-function MadCore._set_con_scale_sparse!(
+function MadCore.update_con_scale_sparse!(
         con_scale::VT,
         jac_I,
         jac_buffer,
@@ -454,7 +454,7 @@ end
 =#
 
 # the condensed block into `aug` from the Jacobian columns `Jt` and the diagonal `D`
-function MadCore._build_condensed_aug_coord!(
+function MadCore.build_condensed_aug_coord!(
         kkt::MadCore.AbstractCondensedKKTSystem{T, VT}, aug, Jt, D,
     ) where {T, VT <: AbstractGPUVector{T}}
     fill!(nonzeros(aug), zero(T))

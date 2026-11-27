@@ -144,7 +144,7 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
     ns = length(kkt.ind_ineq)
 
     # Decompose buffers
-    wx = _madnlp_unsafe_wrap(full(w), n)
+    wx = madnlp_unsafe_wrap(full(w), n)
     ws = view(full(w), (n + 1):(n + ns))
     wz = view(full(w), (n + ns + 1):(n + ns + m))
     Σs = view(kkt.pr_diag, (n + 1):(n + ns))
@@ -184,24 +184,14 @@ function solve_kkt!(kkt::SparseCondensedKKTSystem{T}, w::AbstractKKTVector) wher
 end
 
 function solve_kkt!(
-    kkt::SparseUnreducedKKTSystem{T, VT, MT, QN},
-    w::AbstractKKTVector
+    kkt::Union{
+        SparseUnreducedKKTSystem{T, VT, MT, QN},
+        SparseCondensedKKTSystem{T, VT, MT, QN},
+        ScaledSparseKKTSystem{T, VT, MT, QN},
+    },
+    w::AbstractKKTVector,
     ) where {T, VT, MT, QN<:CompactLBFGS}
-    error("Quasi-Newton approximation of the Hessian is not supported by the KKT formulation SparseUnreducedKKTSystem. Please use SparseKKTSystem instead.")
-end
-
-function solve_kkt!(
-    kkt::SparseCondensedKKTSystem{T, VT, MT, QN},
-    w::AbstractKKTVector
-    ) where {T, VT, MT, QN<:CompactLBFGS}
-    error("Quasi-Newton approximation of the Hessian is not supported by the KKT formulation SparseCondensedKKTSystem. Please use SparseKKTSystem instead.")
-end
-
-function solve_kkt!(
-    kkt::ScaledSparseKKTSystem{T, VT, MT, QN},
-    w::AbstractKKTVector
-    ) where {T, VT, MT, QN<:CompactLBFGS}
-    error("Quasi-Newton approximation of the Hessian is not supported by the KKT formulation ScaledSparseKKTSystem. Please use SparseKKTSystem instead.")
+    error("Quasi-Newton approximation of the Hessian is not supported by the KKT formulation $(nameof(typeof(kkt))). Please use SparseKKTSystem instead.")
 end
 
 function solve_kkt!(
@@ -249,7 +239,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::Union{SparseKKTSystem{T,VT,MT,QN},Sp
     mul!(primal(w), Symmetric(kkt.hess_com, :L), primal(x), alpha, beta)
     mul!(primal(w), kkt.jac_com', dual(x), alpha, one(T))
     mul!(dual(w), kkt.jac_com,  primal(x), alpha, beta)
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
 
@@ -289,7 +279,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::Union{SparseKKTSystem{T,VT,MT,QN},Sp
     end
     mul!(primal_dual(w), qn.E, vx, alpha, one(T))
 
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    return kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
 end
 
 function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::AbstractKKTVector, alpha, beta) where T
@@ -303,7 +293,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::Abstrac
     xz = view(full(x), (n + ns + 1):(n + ns + m))
 
     # Decompose buffers
-    wx = _madnlp_unsafe_wrap(full(w), n)
+    wx = madnlp_unsafe_wrap(full(w), n)
     ws = view(full(w), (n + 1):(n + ns))
     wz = view(full(w), (n + ns + 1):(n + ns + m))
 
@@ -314,7 +304,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::SparseCondensedKKTSystem, x::Abstrac
     ws .= beta .* ws .- alpha .* view(xz, kkt.ind_ineq)
     view(wz, kkt.ind_ineq) .-= alpha .* xs
 
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
 
@@ -337,7 +327,7 @@ function mul!(w::AbstractKKTVector{T}, kkt::AbstractDenseKKTSystem, x::AbstractK
     end
     ws .= beta.*ws .- alpha.* xz
     wz .-= alpha.* xs
-    _kktmul!(w,x,kkt.reg,kkt.du_diag,kkt.l_lower,kkt.u_lower,kkt.l_diag,kkt.u_diag, alpha, beta)
+    kktmul!(w, x, kkt.reg, kkt.du_diag, kkt.l_lower, kkt.u_lower, kkt.l_diag, kkt.u_diag, alpha, beta)
     return w
 end
 

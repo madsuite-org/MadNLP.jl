@@ -65,8 +65,6 @@ function update!(stats::MadNLPExecutionStats, solver::AbstractMadNLPSolver)
     return stats
 end
 
-get_counters(nlp::NLPModels.AbstractNLPModel) = nlp.counters
-get_counters(nlp::NLPModels.AbstractNLSModel) = nlp.counters.counters
 getStatus(result::MadNLPExecutionStats) = get_status_output(result.status, result.options)
 
 # Exceptions
@@ -122,8 +120,8 @@ function get_cons_info(solver::AbstractMadNLPSolver)
     g_lb = get_lcon(nlp)
     g_ub = get_ucon(nlp)
 
-    num_eq_cons = length(solver.cb.ind_eq)
-    num_ineq_cons = length(solver.cb.ind_ineq)
+    num_eq_cons = length(get_cb(solver).ind_eq)
+    num_ineq_cons = length(get_cb(solver).ind_ineq)
     _,num_le_cons,num_ue_cons = count_lu_bounds(g_lb, g_ub)
     num_lu_cons = num_ineq_cons - num_le_cons - num_ue_cons
 

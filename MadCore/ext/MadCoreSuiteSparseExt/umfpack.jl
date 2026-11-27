@@ -67,7 +67,7 @@ is_inertia(::UmfpackState) = false
 inertia(M::UmfpackState) = throw(InertiaException())
 input_type(::Type{UmfpackState}) = :csc
 default_options(::Type{UmfpackState}) = UmfpackOptions()
-set_permutation!(opt::UmfpackOptions, perm) = (opt.umfpack_user_perm = perm; opt)
+MadCore.set_permutation!(opt::UmfpackOptions, perm) = (opt.umfpack_user_perm = perm; opt)
 
 function improve!(M::UmfpackState)
     if M.inner.control[4] == M.opt.umfpack_pivtolmax

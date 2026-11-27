@@ -95,6 +95,30 @@ using Test, MadCore, SparseArrays, LinearAlgebra
         @test MadCore.inertia(S) == (2, 0, 1)
     end
 
+    @testset "Every status has a message" begin
+        opt = (tol = 1.0e-8, acceptable_tol = 1.0e-6)
+        for status in instances(MadCore.Status)
+            status in (
+                MadCore.INITIAL, MadCore.REGULAR, MadCore.RESTORE, MadCore.ROBUST,
+                MadCore.LINESEARCH_SUCCEEDED,
+            ) && continue
+            @test MadCore.get_status_output(status, opt) isa String
+        end
+    end
+
+    @testset "Public API" begin
+        names = MadCore.public_names()
+        @test allunique(names)
+        @test all(name -> isdefined(MadCore, name), names)
+        @test !any(startswith("_"), string.(names))
+        @test !(:set_kkt! in names)
+        @test !(:defined_names in names)
+        if VERSION >= v"1.11"
+            @test all(name -> Base.ispublic(MadCore, name), names)
+            @test !Base.ispublic(MadCore, :defined_names)
+        end
+    end
+
     @testset "LapackCPUSolver" begin
         n = 12
         for T in (Float32, Float64), alg in (MadCore.BUNCHKAUFMAN, MadCore.LU, MadCore.QR, MadCore.EVD, MadCore.CHOLESKY)

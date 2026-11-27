@@ -9,10 +9,16 @@ const AbstractSparseKKTSystem{T, VT, MT, QN} = Union{
 #=
     Generic sparse methods
 =#
+"""
+    build_hessian_structure(cb::SparseCallback, hessian_approximation)
+
+Return the row and column indices of the Hessian block of the KKT system. A quasi-Newton
+approximation only stores the diagonal.
+"""
 function build_hessian_structure(cb::SparseCallback, ::Type{<:ExactHessian})
     hess_I = create_array(cb, Int32, cb.nnzh)
     hess_J = create_array(cb, Int32, cb.nnzh)
-    _hess_sparsity_wrapper!(cb,hess_I,hess_J)
+    hess_sparsity_callback!(cb, hess_I, hess_J)
     return hess_I, hess_J
 end
 # NB. Quasi-Newton methods require only the sparsity pattern
@@ -49,7 +55,9 @@ function compress_hessian!(kkt::AbstractSparseKKTSystem)
     transfer!(kkt.hess_com, kkt.hess_raw, kkt.hess_csc_map)
 end
 
-function initialize!(kkt::AbstractSparseKKTSystem{T}) where T
+initialize!(kkt::AbstractSparseKKTSystem) = _initialize_sparse!(kkt)
+
+function _initialize_sparse!(kkt::AbstractKKTSystem{T}) where T
     fill!(kkt.reg, one(T))
     fill!(kkt.pr_diag, one(T))
     fill!(kkt.du_diag, zero(T))

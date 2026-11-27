@@ -5,17 +5,10 @@
 
 MadNLPCore.default_preset(::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}) where {T} = MadNLPCore.ShiftedPreset
 
-function MadNLPCore.MadNLPOptions{T}(
-        nlp::MadNLPCore.AbstractNLPModel{T, VT};
-        preset::Type{<:MadNLPCore.AbstractPreset} = MadNLPCore.default_preset(nlp),
-        dense_callback = MadNLPCore.is_dense_callback(nlp),
-        callback = dense_callback ? MadNLPCore.DenseCallback : MadNLPCore.SparseCallback,
-        kkt_system = dense_callback ? MadNLPCore.DenseCondensedKKTSystem : MadNLPCore.preset_kkt_system(preset),
-        linear_solver = dense_callback ? MadNLPCore.default_dense_solver(nlp) : MadNLPCore.default_sparse_solver(nlp),
-        tol = MadNLPCore.get_tolerance(T, kkt_system),
-    ) where {T, VT <: AbstractGPUVector{T}}
-    return MadNLPCore.options_with_preset(T, preset, tol, callback, kkt_system, linear_solver)
-end
+# The sparse solver of a shifted preset is the GPU entry point's default, not the bundle's
+# CPU choice (CHOLMOD in MadNLP).
+MadNLPCore.shifted_sparse_solver(nlp::MadNLPCore.AbstractNLPModel{T, <:AbstractGPUVector{T}}) where {T} =
+    MadNLPCore.default_sparse_solver(nlp)
 
 # SparseDirectSolver.jl (AMD, Intel and Apple GPUs) under ShiftedPreset: LDLᵀ with diagonal pivoting
 # inside each front, on the fused pipeline where SparseDirectSolver has it (cuDSS pivots on the diagonal under this preset too), after

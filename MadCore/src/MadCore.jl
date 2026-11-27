@@ -22,8 +22,9 @@ export MadNLPExecutionStats, SchurComplementKKTSystem, solve!, madsuite
     AbstractMadNLPSolver{T}
 
 Supertype of the interior-point solvers built on MadCore. The helpers in MadCore
-(statistics, logging, KKT assembly, step computations) access the solver through
-its fields, so a subtype is expected to carry the same fields as `MadNLPSolver`.
+(statistics, logging, KKT assembly, step computations) access the solver through the
+getters of `MadCore.SOLVER_FIELDS`, so a subtype carries those fields or overloads their
+getters.
 """
 abstract type AbstractMadNLPSolver{T} end
 
@@ -51,19 +52,16 @@ include(joinpath("IPM", "callbacks.jl"))
 include(joinpath("IPM", "factorization.jl"))
 include("event_timer.jl")
 
-"""
-    MadCore.internal_names(mod::Module = MadCore)
+include("public.jl")
 
-Return the names defined in `mod`, excluding compiler-generated names. The packages
-built on MadCore import these names to use MadCore's internals without qualification:
-
-```julia
-for name in MadCore.internal_names()
-    @eval import MadCore: \$name
-end
-```
 """
-function internal_names(mod::Module = MadCore)
+    MadCore.defined_names(mod::Module)
+
+Return the names defined or imported in `mod`, excluding compiler-generated names.
+The packages kept for backward compatibility use it to forward every name of the
+package they bundle.
+"""
+function defined_names(mod::Module)
     return filter(names(mod; all = true, imported = true)) do name
         s = string(name)
         !startswith(s, '#') &&

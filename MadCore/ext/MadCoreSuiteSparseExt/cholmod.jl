@@ -225,7 +225,7 @@ function inertia(M::CHOLMODState)
 end
 input_type(::Type{CHOLMODState}) = :csc
 default_options(::Type{CHOLMODState}) = CHOLMODOptions()
-set_permutation!(opt::CHOLMODOptions, perm) = (opt.cholmod_user_perm = perm; opt)
+MadCore.set_permutation!(opt::CHOLMODOptions, perm) = (opt.cholmod_user_perm = perm; opt)
 
 improve!(M::CHOLMODState) = false
 introduce(::CHOLMODState) = "cholmod v$(CHOLMOD.BUILD_VERSION)"

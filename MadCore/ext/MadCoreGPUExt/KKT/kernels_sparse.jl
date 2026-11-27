@@ -189,7 +189,7 @@ end
 end
 
 #=
-    MadCore._set_con_scale_sparse!
+    MadCore.update_con_scale_sparse!
 =#
 
 @kernel function _set_con_scale_sparse_kernel!(

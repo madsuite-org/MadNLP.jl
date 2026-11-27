@@ -27,7 +27,7 @@ import MadCore:
     get_tril_to_full,
     transfer!,
     input_type,
-    _madnlp_unsafe_wrap,
+    madnlp_unsafe_wrap,
     is_supported,
     default_options
 
@@ -53,11 +53,11 @@ include("ma86.jl")
 include("ma97.jl")
 
 # The HSL solvers read the pivot order as the position of each variable, `invperm(perm)`.
-set_permutation!(opt::Ma27Options, perm) = (opt.ma27_user_perm = perm; opt)
-set_permutation!(opt::Ma57Options, perm) = (opt.ma57_user_perm = perm; opt)
-set_permutation!(opt::Ma77Options, perm) = (opt.ma77_user_perm = perm; opt)
-set_permutation!(opt::Ma86Options, perm) = (opt.ma86_user_perm = perm; opt)
-set_permutation!(opt::Ma97Options, perm) = (opt.ma97_user_perm = perm; opt)
+MadCore.set_permutation!(opt::Ma27Options, perm) = (opt.ma27_user_perm = perm; opt)
+MadCore.set_permutation!(opt::Ma57Options, perm) = (opt.ma57_user_perm = perm; opt)
+MadCore.set_permutation!(opt::Ma77Options, perm) = (opt.ma77_user_perm = perm; opt)
+MadCore.set_permutation!(opt::Ma86Options, perm) = (opt.ma86_user_perm = perm; opt)
+MadCore.set_permutation!(opt::Ma97Options, perm) = (opt.ma97_user_perm = perm; opt)
 
 # The pivot order of MA77 and MA86 (position of each variable): MC68's ordering `ordering`,
 # or the given `perm`.

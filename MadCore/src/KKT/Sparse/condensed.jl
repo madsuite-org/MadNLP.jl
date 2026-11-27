@@ -121,7 +121,7 @@ function create_kkt_system(
     # Evaluate sparsity pattern
     jac_sparsity_I = create_array(cb, Int32, cb.nnzj)
     jac_sparsity_J = create_array(cb, Int32, cb.nnzj)
-    _jac_sparsity_wrapper!(cb,jac_sparsity_I, jac_sparsity_J)
+    jac_sparsity_callback!(cb, jac_sparsity_I, jac_sparsity_J)
 
     quasi_newton = create_quasi_newton(hessian_approximation, cb, n; options=qn_options)
     hess_sparsity_I, hess_sparsity_J = build_hessian_structure(cb, hessian_approximation)
@@ -193,6 +193,12 @@ _sort_tuples!(v; kw...) = sort!(v; kw...)
 _sortperm_tuples(v; kw...) = sortperm(v; kw...)
 _permute_tuples!(v, p) = permute!(v, p)
 
+"""
+    get_sparse_condensed_ext(::Type{VT}, args...)
+
+Return the data of [`SparseCondensedKKTSystem`](@ref) specific to the array type `VT`.
+GPU backends add a method; the default is `nothing`.
+"""
 get_sparse_condensed_ext(::Type{Vector{T}},args...) where T = nothing
 
 num_variables(kkt::SparseCondensedKKTSystem) = length(kkt.pr_diag)
@@ -260,6 +266,14 @@ function getptr(array; by = (x,y)->x != y)
     bitarray[2:end-1] .= by.(@view(array[1:end-1]),  @view(array[2:end]))
     findall(bitarray)
 end
+
+"""
+    build_condensed_aug_symbolic(H, Jt)
+
+Return the sparsity pattern of the condensed matrix `H + Jt * D * Jt'` and the maps used by
+[`build_condensed_aug_coord!`](@ref) to update its values.
+"""
+function build_condensed_aug_symbolic end
 
 @inbounds function build_condensed_aug_symbolic(H::AbstractSparseMatrix{Tv,Ti}, Jt) where {Tv, Ti}
     nnzjtsj = _sym_length(Jt)
@@ -391,7 +405,7 @@ function _set_colptr!(colptr, ptr2, sym2, guide)
     end
 end
 
-@inbounds function _build_condensed_aug_coord!(aug_com::SparseMatrixCSC{Tv,Ti}, pr_diag, H, Jt, diag_buffer, dptr, hptr, jptr) where {Tv, Ti}
+@inbounds function build_condensed_aug_coord!(aug_com::SparseMatrixCSC{Tv,Ti}, pr_diag, H, Jt, diag_buffer, dptr, hptr, jptr) where {Tv, Ti}
     fill!(aug_com.nzval, zero(Tv))
 
     @simd for idx in eachindex(hptr)
@@ -412,11 +426,16 @@ end
 
 # the condensed block H + Σx + Jtᵀ D Jt into aug, from the Jacobian columns Jt and the
 # diagonal D; the symbolic maps dptr/hptr/jptr were built for exactly these arguments
-function _build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem{T,VT,MT}, aug::MT, Jt::MT, D::VT) where {T, VT, MT <: SparseMatrixCSC{T}}
-    _build_condensed_aug_coord!(aug, kkt.pr_diag, kkt.hess_com, Jt, D, kkt.dptr, kkt.hptr, kkt.jptr)
+function build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem{T,VT,MT}, aug::MT, Jt::MT, D::VT) where {T, VT, MT <: SparseMatrixCSC{T}}
+    build_condensed_aug_coord!(aug, kkt.pr_diag, kkt.hess_com, Jt, D, kkt.dptr, kkt.hptr, kkt.jptr)
 end
 
-build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = _build_condensed_aug_coord!(kkt, kkt.aug_com, kkt.jt_csc, kkt.diag_buffer)
+"""
+    build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem)
+
+Update the values of the condensed matrix of `kkt` from its Hessian, Jacobian and diagonals.
+"""
+build_condensed_aug_coord!(kkt::AbstractCondensedKKTSystem) = build_condensed_aug_coord!(kkt, kkt.aug_com, kkt.jt_csc, kkt.diag_buffer)
 
 
 # The weights of the condensed equality rows: D_i = 1 / (δ - Σd_i), with δ the base shift or, once,

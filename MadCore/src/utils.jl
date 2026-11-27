@@ -51,11 +51,6 @@ for (name,level,color) in [(:trace,TRACE,7),(:debug,DEBUG,6),(:info,INFO,256),(:
     end
 end
 
-# Wrapper around BLAS.scal! using an explicit length and stride.
-function _scal!(a::T, x::AbstractVector{T}) where T
-    return BLAS.scal!(length(x), a, x, 1)
-end
-
 # BLAS
 # _ger! wraps ger! to dispatch on the data type.
 _ger!(alpha::T, x::AbstractVector{T}, y::AbstractVector{T}, A::AbstractMatrix{T}) where T = BLAS.ger!(alpha, x, y, A)
@@ -106,7 +101,13 @@ macro blas_safe_threads(args...)
 end
 
 # unsafe wrap
-function _madnlp_unsafe_wrap(vec::VT, n, shift=1) where VT
+"""
+    madnlp_unsafe_wrap(vec, n, shift = 1)
+
+Return an array of length `n` that shares memory with `vec`, starting at index `shift`.
+The caller must keep `vec` alive.
+"""
+function madnlp_unsafe_wrap(vec::VT, n, shift = 1) where {VT}
     return unsafe_wrap(VT, pointer(vec,shift), n)
 end
 
@@ -304,7 +305,7 @@ end
 end
 
 """
-    timing_callbacks(ips::MadNLPSolver; ntrials=10)
+    timing_callbacks(solver::AbstractMadNLPSolver; ntrials=10)
 
 Return the average timings spent in each callback for `ntrials` different trials.
 Results are returned inside a named-tuple.
@@ -313,11 +314,11 @@ Results are returned inside a named-tuple.
 function timing_callbacks(ips; ntrials=10)
     t_f, t_c, t_g, t_j, t_h = (0.0, 0.0, 0.0, 0.0, 0.0)
     for _ in 1:ntrials
-        t_f += @elapsed eval_f_wrapper(ips, ips.x)
-        t_c += @elapsed eval_cons_wrapper!(ips, ips.c, ips.x)
-        t_g += @elapsed eval_grad_f_wrapper!(ips, ips.f,ips.x)
-        t_j += @elapsed eval_jac_wrapper!(ips, ips.kkt, ips.x)
-        t_h += @elapsed eval_lag_hess_wrapper!(ips, ips.kkt, ips.x, ips.y)
+        t_f += @elapsed eval_f_wrapper(ips, get_x(ips))
+        t_c += @elapsed eval_cons_wrapper!(ips, get_c(ips), get_x(ips))
+        t_g += @elapsed eval_grad_f_wrapper!(ips, get_f(ips),get_x(ips))
+        t_j += @elapsed eval_jac_wrapper!(ips, get_kkt(ips), get_x(ips))
+        t_h += @elapsed eval_lag_hess_wrapper!(ips, get_kkt(ips), get_x(ips), get_y(ips))
     end
     return (
         time_eval_objective   = t_f / ntrials,
@@ -329,7 +330,7 @@ function timing_callbacks(ips; ntrials=10)
 end
 
 """
-    timing_linear_solver(ips::MadNLPSolver; ntrials=10)
+    timing_linear_solver(solver::AbstractMadNLPSolver; ntrials=10)
 
 Return the average timings spent in the linear solver for `ntrials` different trials.
 Results are returned inside a named-tuple.
@@ -338,9 +339,9 @@ Results are returned inside a named-tuple.
 function timing_linear_solver(ips; ntrials=10)
     t_build, t_factorize, t_backsolve = (0.0, 0.0, 0.0)
     for _ in 1:ntrials
-        t_build     += @elapsed build_kkt!(ips.kkt)
-        t_factorize += @elapsed factorize_kkt!(ips.kkt)
-        t_backsolve += @elapsed solve_kkt!(ips.kkt, ips.d)
+        t_build     += @elapsed build_kkt!(get_kkt(ips))
+        t_factorize += @elapsed factorize_kkt!(get_kkt(ips))
+        t_backsolve += @elapsed solve_kkt!(get_kkt(ips), get_d(ips))
     end
     return (
         time_build_kkt = t_build / ntrials,
@@ -350,7 +351,7 @@ function timing_linear_solver(ips; ntrials=10)
 end
 
 """
-    timing_madnlp(ips::MadNLPSolver; ntrials=10)
+    timing_madnlp(solver::AbstractMadNLPSolver; ntrials=10)
 
 Return the average time spent in the callbacks and in the linear solver,
 for `ntrials` different trials.

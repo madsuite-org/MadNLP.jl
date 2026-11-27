@@ -101,7 +101,17 @@ mutable struct MadNLPSolver{
     output::Dict
 end
 
+# Fields of `MadNLPSolver` beyond `MadCore.SOLVER_FIELDS`, with their getters and setters.
+const NLP_SOLVER_FIELDS = (
+    :_w3, :_w4, :x_trial, :c_trial, :obj_val_trial, :c_slk, :x_trial_lr, :x_trial_ur,
+    :iterator, :inf_compl_mu, :tau, :alpha, :alpha_z, :del_w_last, :inertia_corrector,
+    :intermediate_callback, :output,
+)
+
+define_solver_accessors(@__MODULE__, MadNLPSolver, NLP_SOLVER_FIELDS)
+
 include("kernels.jl")
+define_solver_accessors(@__MODULE__, MadNLPSolver, FILTER_FIELDS)
 include("restoration.jl")
 include("feasibility.jl")
 include("inertiacorrector.jl")
