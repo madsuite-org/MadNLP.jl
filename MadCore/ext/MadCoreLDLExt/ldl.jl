@@ -3,12 +3,14 @@
     # row and column i of the factorized matrix are row and column ldl_user_perm[i]
     ldl_user_perm::Union{Nothing, Vector{Int}} = nothing
     # LDLFactorizations' dynamic regularization: a pivot smaller than `ldl_tol` in magnitude is
-    # replaced by `ldl_r1` in the first `ldl_n_d` rows and columns (in the order of the matrix,
-    # before any permutation) and by `ldl_r2` in the others; off with both `ldl_r1` and `ldl_r2` zero
+    # replaced by `ldl_r1` in the primal block (the first `n_primal` rows and columns, in the order
+    # of the matrix before any permutation) and by `ldl_r2` in the dual block; off with both zero
     ldl_r1::Float64 = 0.0
     ldl_r2::Float64 = 0.0
     ldl_tol::Float64 = 0.0
-    ldl_n_d::Int = 0
+    # the size of the primal block, set by the KKT system (see `set_block_structure!`); all rows
+    # are primal when it is not set
+    n_primal::Int = -1
 end
 const LDLF = LDLFactorizations
 
@@ -40,7 +42,7 @@ end
 function factorize!(M::LDLState{T}) where T
     M.triu.nzval .= view(M.tril.nzval, M.tril_to_triu)
     M.inner.r1, M.inner.r2, M.inner.tol = T(M.opt.ldl_r1), T(M.opt.ldl_r2), T(M.opt.ldl_tol)
-    M.inner.n_d = M.opt.ldl_n_d
+    M.inner.n_d = M.opt.n_primal < 0 ? size(M.tril, 1) : M.opt.n_primal
     LDLF.ldl_factorize!(Symmetric(M.triu, :U), M.inner)
     return M
 end

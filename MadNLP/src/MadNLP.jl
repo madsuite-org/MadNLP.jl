@@ -61,18 +61,16 @@ end
 
 # The other LDLᵀ solvers under ShiftedPreset on the augmented system, with small pivots bounded as
 # CHOLMOD's and cuDSS's are: a pivot smaller than `preset_perturbation(T)` in magnitude becomes one of
-# that magnitude. LDLFactorizations chooses the sign by block, positive in the primal block (the
-# variables that are not fixed, then the slacks of the inequality constraints) and negative in the
-# dual block, which is the sign of the pivots in the inertia the interior-point method wants.
+# that magnitude. LDLFactorizations chooses the sign by block, positive in the primal block and
+# negative in the dual block (the KKT system declares the blocks), as SparseDirectSolver.jl does: the
+# sign of the pivots in the inertia the interior-point method wants.
 function MadCore.default_options(
-        nlp::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
+        ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
         ::Type{MadCore.LDLSolver},
     ) where {T}
     opt = MadCore.default_options(MadCore.LDLSolver)
     δ = Float64(MadNLPCore.preset_perturbation(T))
-    meta = nlp.meta
     opt.ldl_r1, opt.ldl_r2, opt.ldl_tol = δ, -δ, δ
-    opt.ldl_n_d = meta.nvar - length(meta.ifix) + meta.ncon - length(meta.jfix)
     return opt
 end
 # MA86 under ShiftedPreset: static pivoting, no threshold pivoting

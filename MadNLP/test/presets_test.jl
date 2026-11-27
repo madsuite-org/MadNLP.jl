@@ -30,11 +30,10 @@
     @test sh.barrier.mu_decrease_max == 10.0 && sh.barrier.sigma_min == 1.0e-6
 
     # the other LDLᵀ solvers under ShiftedPreset bound small pivots as CHOLMOD does: LDLFactorizations
-    # by block, positive in the primal block (variables, then slacks) and negative in the dual one
+    # by block, positive in the primal block and negative in the dual one, the blocks the KKT system declares
     δ = MadNLP.MadNLPCore.preset_perturbation(Float64)
     lopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.LDLSolver)
     @test (lopt.ldl_r1, lopt.ldl_r2, lopt.ldl_tol) == (δ, -δ, δ)
-    @test lopt.ldl_n_d == nlp.meta.nvar - length(nlp.meta.ifix) + nlp.meta.ncon - length(nlp.meta.jfix)
     mopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.Ma86Solver)
     @test mopt.ma86_static == δ && mopt.ma86_u == 0.0
     mopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.Ma57Solver)
@@ -47,7 +46,8 @@
     @test !MC.is_factorized(MC.solver_type(MadNLP.LDLSolver)(tril; opt = off))
     on = MC.default_options(MadNLP.LDLSolver)
     on.ldl_user_perm = [1, 2, 3]
-    on.ldl_r1, on.ldl_r2, on.ldl_tol, on.ldl_n_d = δ, -δ, δ, 2
+    on.ldl_r1, on.ldl_r2, on.ldl_tol = δ, -δ, δ
+    MC.set_block_structure!(on, 2, 1)
     M = MC.solver_type(MadNLP.LDLSolver)(tril; opt = on)
     @test MC.is_factorized(M) && MC.inertia(M) == (2, 0, 1)
     @test sh.slack_reset
