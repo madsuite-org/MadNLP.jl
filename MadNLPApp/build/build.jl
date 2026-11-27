@@ -33,7 +33,8 @@ function build_library(name::AbstractString, image::AbstractString, project::Abs
             JuliaC.bundle_products(JuliaC.BundleRecipe(link_recipe = link, output_dir = dest, privatize = true))
         end
     )
-    rm(joinpath(dest, "share"); recursive = true, force = true)
+# share/julia/artifacts stays: the libraries the image's packages load (MUMPS, OpenBLAS32,
+# METIS, the CUDA libraries, ...), so that the bundle needs nothing from a Julia installation
     symlink("lib" * name * ".so", joinpath(dest, "lib", "libcnlp_" * name * ".so"))
     return dest, t
 end
@@ -44,15 +45,12 @@ trim = length(ARGS) >= 2 ? ARGS[2] : "no"
 dest, t = build_library("madnlp", joinpath(@__DIR__, "libmadnlp.jl"), @__DIR__, ARGS[1]; trim)
 
 # No HSL in the bundle, ever (its license does not allow passing it on): HSL_jll's placeholder
-# is all the build may carry, so any libhsl that is not tiny, or any library defining an HSL
-# routine with a body, fails the build.
+# is all the build may carry. Its libraries define the HSL entry points as stubs of a byte or
+# so; a real HSL's are kilobytes (ma57ad_ is 11 kB), so any library defining one of them with
+# a body fails the build.
 for (root, _, files) in walkdir(dest), f in files
     p = joinpath(root, f)
     (isfile(p) && !islink(p) && occursin(".so", f)) || continue
-    if startswith(f, "libhsl") && filesize(p) > 100_000
-        rm(dest; recursive = true)
-        error("$p looks like a real HSL ($(filesize(p)) bytes): the bundle must not carry HSL")
-    end
     syms = try read(`nm -D -S --defined-only $p`, String) catch; "" end
     for l in eachline(IOBuffer(syms))
         w = split(l)

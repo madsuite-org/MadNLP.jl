@@ -5,7 +5,8 @@
 #   1. the option `hsl_library=DIR`;
 #   2. `JULIA_HSL_LIBRARY_PATH` (as HSL.jl reads it);
 #   3. `artifacts.hsl` in $CNLPLIB_HOME/config.toml (`cnlp config set artifacts.hsl DIR`);
-#   4. $CNLPLIB_HOME/solvers/madnlp/lib/hsl, where `cnlp hsl add` puts a user's HSL_jll.
+#   4. $CNLPLIB_HOME/solvers/madnlp/lib/julia, where `cnlp hsl add` puts a user's HSL_jll, beside
+#      the runtime libraries it needs (under the private names the store gives them).
 #
 # DIR holds libhsl.so (and libhsl_subset.so, libhsl_subset_64.so).
 
@@ -28,7 +29,7 @@ function hsl_dir(option::Union{Nothing, AbstractString} = nothing)
     option === nothing || return String(option)
     d = get(ENV, "JULIA_HSL_LIBRARY_PATH", ""); isempty(d) || return d
     d = _configured_hsl(); d === nothing || return d
-    d = joinpath(_cnlplib_home(), "solvers", "madnlp", "lib", "hsl")
+    d = joinpath(_cnlplib_home(), "solvers", "madnlp", "lib", "julia")
     return isfile(joinpath(d, "libhsl.$(Libdl.dlext)")) ? d : nothing
 end
 
