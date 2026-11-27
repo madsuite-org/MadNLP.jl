@@ -43,6 +43,26 @@ trim = length(ARGS) >= 2 ? ARGS[2] : "no"
 # the build environment: MadNLPApp and MadNLPAppCUDAWarmup, whose workload compiles the device path
 dest, t = build_library("madnlp", joinpath(@__DIR__, "libmadnlp.jl"), @__DIR__, ARGS[1]; trim)
 
+# No HSL in the bundle, ever (its license does not allow passing it on): HSL_jll's placeholder
+# is all the build may carry, so any libhsl that is not tiny, or any library defining an HSL
+# routine with a body, fails the build.
+for (root, _, files) in walkdir(dest), f in files
+    p = joinpath(root, f)
+    (isfile(p) && !islink(p) && occursin(".so", f)) || continue
+    if startswith(f, "libhsl") && filesize(p) > 100_000
+        rm(dest; recursive = true)
+        error("$p looks like a real HSL ($(filesize(p)) bytes): the bundle must not carry HSL")
+    end
+    syms = try read(`nm -D -S --defined-only $p`, String) catch; "" end
+    for l in eachline(IOBuffer(syms))
+        w = split(l)
+        length(w) == 4 && w[4] in ("ma57ad_", "ma27ad_", "ma97_analyse_d", "ma86_factor_d") &&
+            parse(Int, w[2]; base = 16) > 256 || continue
+        rm(dest; recursive = true)
+        error("$p defines the HSL routine $(w[4]): the bundle must not carry HSL")
+    end
+end
+
 mkpath(joinpath(dest, "bin")); mkpath(joinpath(dest, "include"))
 cp(joinpath(app, "include", "madnlp.h"), joinpath(dest, "include", "madnlp.h"); force = true)
 run(`cc -std=c99 -O2 -o $(joinpath(dest, "bin", "madnlp")) $(joinpath(@__DIR__, "madnlp.c"))

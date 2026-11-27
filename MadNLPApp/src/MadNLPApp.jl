@@ -16,13 +16,17 @@ included (their license does not allow it). On the GPU it is cuMadNLP (cuDSS).
 module MadNLPApp
 
 import MadCore, MadNLPCore
+using Libdl: Libdl
 import MUMPS_seq_jll, OpenBLAS32_jll   # MadCore's MUMPS extension: the default linear solver
 import Krylov                          # GMRES refinement (KrylovIterator) of the default preset
 import NLPModels
 using NLPModels: AbstractNLPModel
 import CNLPLib, CUDACore, cuMadNLP
+import HSL, TOML              # HSL: the wrappers only; the user brings the library (src/hsl.jl)
+import METIS_jll              # libmetis: a user's libhsl needs it, and this library provides it
 using CNLPLib: CNLPDeviceProblem, CNLPProblem, CNLPResult, ProblemModel
 
+include("hsl.jl")
 include("solver.jl")
 include("device.jl")
 include("capi.jl")

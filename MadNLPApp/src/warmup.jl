@@ -73,8 +73,12 @@ toy_callbacks() = (
     @cfunction(toy_hs, Int64, (Ptr{Cvoid}, Ptr{Int64}, Ptr{Int64})),
     @cfunction(toy_hess, Int64, (Ptr{Cvoid}, Ptr{Float64}, Ptr{Float64}, Float64, Ptr{Float64})),
 )
+# The toys context, held by a global: its address goes to C as the problems ctx, which the
+# compiler does not count as an escape, so a local would be free to live on the stack (and
+# did, in a package session: the callbacks then read garbage).
+const TOY = Ref{Toy}()
 function solve_toy(; s = 1.0, b = 1.0, fixed = false, opts = Pair{String, String}[])
-    t = Toy(s, b)
+    t = TOY[] = Toy(s, b)
     # with `fixed`, x2 is fixed at 0.5: the other solver type a default solve can reach
     x0, lv, uv, lc, uc = [0.5, 0.5], [-1.0, fixed ? 0.5 : -1.0], [2.0, fixed ? 0.5 : 2.0], [b], [b]
     GC.@preserve t x0 lv uv lc uc begin

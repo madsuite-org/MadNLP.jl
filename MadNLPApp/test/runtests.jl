@@ -90,3 +90,14 @@ end
     @test s.rc == 0 && s.r.status == 0
     @test s.x ≈ [0.5, 0.5, 1, 1] atol = 1.0e-6
 end
+
+@testset "HSL is the user's own" begin
+    # no HSL in the library and none configured: an HSL solver is refused, other solves work
+    @test isempty(MadNLPApp.HSL_IN_USE[])
+    @test_throws "no libhsl" MadNLPApp.options(["linear_solver" => "Ma57Solver", "hsl_library" => "/nonexistent"])
+    if !haskey(ENV, "JULIA_HSL_LIBRARY_PATH") && MadNLPApp.hsl_dir() === nothing
+        @test_throws "needs HSL" MadNLPApp.options(["linear_solver" => "Ma57Solver"])
+        @test MadNLPApp.solve_toy(opts = ["linear_solver" => "Ma57Solver"]) == MadNLPApp.CNLPLib.CNLP_ERROR
+    end
+    @test MadNLPApp.solve_toy() == MadNLPApp.CNLPLib.CNLP_SOLVED
+end

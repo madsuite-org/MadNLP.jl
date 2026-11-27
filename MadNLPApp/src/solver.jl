@@ -79,7 +79,7 @@ solver unless the caller names another (MadNLP's own default would be HSL's, whi
 library does not carry); on the GPU, cuMadNLP's defaults apply.
 """
 function options(opts; device::Bool = false)
-    kw = options(opts, OPTION_MODULES)
+    kw = hsl_options!(options(opts, OPTION_MODULES))
     device || any(p -> first(p) === :linear_solver, kw) || push!(kw, :linear_solver => MadCore.MumpsSolver)
     return kw
 end

@@ -19,6 +19,18 @@ Options are MadNLP's, as `key=value` strings: `tol=1e-8`, `max_iter=500`,
 `print_level=INFO` (or `1`-`6`, `0` for quiet), `linear_solver=LapackCPUSolver`,
 `hessian_approximation=CompactLBFGS`, ...
 
+## HSL
+
+The HSL linear solvers (`linear_solver=Ma27Solver`, `Ma57Solver`, `Ma77Solver`, `Ma86Solver`,
+`Ma97Solver`) are supported, but the bundle does not carry HSL: its license does not allow
+passing it on, and the build refuses a bundle with any HSL in it. A user brings their own
+HSL_jll (from STFC), found in this order: the option `hsl_library=DIR`,
+`JULIA_HSL_LIBRARY_PATH`, `artifacts.hsl` in `$CNLPLIB_HOME/config.toml`, and
+`$CNLPLIB_HOME/solvers/madnlp/lib/hsl`, where `cnlp hsl add` puts it. Without one, an HSL
+solver is refused with what to do, and MUMPS stays the default. The compiled HSL code paths
+come from `build/precompile_statements.jl` (method signatures traced once from HSL solves),
+so the build needs no HSL either.
+
 ## Building
 
 ```sh
