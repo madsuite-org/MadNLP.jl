@@ -1,0 +1,6 @@
+# libmadnlp synchronizes the GPU by blocking the calling thread. CUDA.jl's
+# default waits on worker threads, which the garbage collector must stop at safepoints, through
+# Julia's signal handler; a library image has none (juliac builds it with handle-signals=no),
+# so a collection during a long GPU wait crashed the process (pglib case78484 on a GPU).
+[CUDACore]
+nonblocking_synchronization = false

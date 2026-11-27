@@ -1,0 +1,51 @@
+name = "MadNLPApp"
+uuid = "7d1c5b9e-3a42-4f0e-8c61-2b9d4e7a1f53"
+version = "0.1.0"
+
+[deps]
+AmplNLReader = "77dd3d4c-cb1d-5e09-9340-85030ff7ba66"
+CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
+CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
+HSL = "34c5aeac-e683-54a6-a0e9-6e0fdc586c50"
+Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+MUMPS_seq_jll = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
+MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
+MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
+METIS_jll = "d00139f3-1899-568f-a2f0-47f597d42d70"
+NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
+OpenBLAS32_jll = "656ef2d0-ae68-5445-9ca0-591084a874a2"
+PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+cuMadNLP = "0bc90ec8-66ae-4354-8e1d-92c57c2bd2b2"
+
+[sources]
+# until CNLPLib is registered: its home is cnlplib
+CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "main"}
+MadCore = {path = "../MadCore"}
+MadNLPCore = {path = "../MadNLPCore"}
+cuMadNLP = {path = "../cuMadNLP"}
+
+[compat]
+AmplNLReader = "0.11, 0.12"
+CNLPLib = "0.4"
+CUDACore = "6"
+HSL = "0.5.7"
+Krylov = "0.10"
+Libdl = "1"
+MUMPS_seq_jll = "~500.900"
+MadCore = "=0.12.0"
+MadNLPCore = "=0.12.0"
+METIS_jll = "5"
+NLPModels = "0.21.9"
+OpenBLAS32_jll = "0.3"
+PrecompileTools = "1"
+TOML = "1"
+cuMadNLP = "=0.12.0"
+julia = "1.12"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
