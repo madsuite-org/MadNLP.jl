@@ -65,6 +65,9 @@ const PUBLIC_NAMES = (
     :get_status_output, :get_tau, :LogLevels, :MadNLPCounters, :MadNLPLogger, :madsuite,
 )
 
+# The getters of the solver fields, `get_x(solver)`; the scratch buffers `_w1` and `_w2` stay internal.
+const SOLVER_GETTERS = Tuple(Symbol("get_", f) for f in SOLVER_FIELDS if !startswith(string(f), "_"))
+
 """
     MadCore.public_names()
 
@@ -77,9 +80,6 @@ for name in MadCore.public_names()
 end
 ```
 """
-# The getters of the solver fields, `get_x(solver)`; the scratch buffers `_w1` and `_w2` stay internal.
-const SOLVER_GETTERS = Tuple(Symbol("get_", f) for f in SOLVER_FIELDS if !startswith(string(f), "_"))
-
 public_names() = Tuple(unique((PUBLIC_NAMES..., SOLVER_GETTERS..., :public_names)))
 
 # The keyword `public` does not parse on Julia 1.10.
