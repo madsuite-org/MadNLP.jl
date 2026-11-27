@@ -7,7 +7,7 @@
     opt = MadNLP.MadNLPOptions{Float64}(nlp)
     @test opt.preset === MadNLP.AugmentedPreset
     @test opt.kkt_system === MadNLP.SparseKKTSystem
-    @test opt.linear_solver === MadNLP.MumpsSolver
+    @test opt.linear_solver === (MadNLP.HSL.LIBHSL_isfunctional() ? MadNLP.Ma27Solver : MadNLP.MumpsSolver)
     @test opt.kkt_scaler isa MadNLP.NoScaler && iszero(opt.dual_shift)
     @test opt.iterator === MadNLP.RichardsonIterator
     @test opt.barrier isa MadNLP.MonotoneUpdate && !opt.slack_reset

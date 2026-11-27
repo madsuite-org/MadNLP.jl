@@ -31,7 +31,8 @@ get_tolerance(::Type{T},::Type{SparseCondensedKKTSystem}) where T = 10^(round(lo
 
 Return the sparse linear solver used when the option `linear_solver` is not set.
 MadCore and MadNLPCore return [`DummySolver`](@ref), which throws an error when the
-solver is built; MadNLP sets the default to [`MumpsSolver`](@ref).
+solver is built; MadNLP sets the default to `Ma27Solver` when a functional HSL library is
+installed, and to [`MumpsSolver`](@ref) otherwise.
 """
 default_sparse_solver(nlp) = DummySolver
 

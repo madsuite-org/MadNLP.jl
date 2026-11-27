@@ -22,8 +22,9 @@ export Ma27Solver, Ma57Solver, Ma77Solver, Ma86Solver, Ma97Solver, PardisoMKLSol
 export AbstractScaler, NoScaler, JacobiScaler, MaxNormScaler, RuizScaler
 export AbstractOrdering, DefaultOrdering, MetisOrdering, AMDOrdering
 
-# MUMPS is the default sparse linear solver of MadNLP. MadCore and MadNLPCore have none.
-MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = MumpsSolver
+# The default sparse linear solver of MadNLP: HSL's MA27 when a functional HSL library is
+# installed, MUMPS otherwise. MadCore and MadNLPCore have none.
+MadCore.default_sparse_solver(::NLPModels.AbstractNLPModel) = HSL.LIBHSL_isfunctional() ? Ma27Solver : MumpsSolver
 
 # ShiftedPreset factorizes by CHOLMOD's LDLᵀ, with small pivots bounded as cuDSS's are on a GPU,
 # and CondensedPreset by CHOLMOD's Cholesky; without Julia's GPL libraries, by MUMPS.
