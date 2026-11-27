@@ -1,0 +1,22 @@
+name = "CUDA_Runtime_jll"
+uuid = "76a88914-d11a-5bdc-97e0-2f5a05c973a2"
+version = "0.25.0+3"
+
+[deps]
+JLLWrappers = "692b3bcd-3c85-4b1f-b108-f13ce0eb3210"
+CUDA_Driver_jll = "4ee394cb-3365-5eb0-8335-949819d2adfc"
+CUDA_Compiler_jll = "d1e2174e-dfdc-576e-b43e-73b79eb1aca8"
+MSVCRuntime_jll = "ce32ce21-2cee-52aa-a084-5c6dad4fa7db"
+LazyArtifacts = "4af54fe1-eca0-43a8-85a7-787d91b784e3"
+Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
+TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+Artifacts = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
+
+[compat]
+JLLWrappers = "1.7.0"
+julia = "1.10"
+CUDA_Driver_jll = "13.3.4 - 13"
+LazyArtifacts = "< 0.0.1, 1"
+Libdl = "< 0.0.1, 1"
+TOML = "< 0.0.1, 1"
+Artifacts = "< 0.0.1, 1"

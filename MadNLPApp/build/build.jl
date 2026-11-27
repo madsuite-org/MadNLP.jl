@@ -11,7 +11,7 @@
 # trim is juliac's trim mode (default "no"). The environment variables of the workload
 # (MADNLPAPP_WARMUP_RUNS, MADNLPAPP_WARMUP_NL; src/warmup.jl) choose what it solves. Needs a
 # CUDA GPU: the device warm-up (MadNLPAppCUDAWarmup) solves on it.
-using JuliaC, Random
+using JuliaC, Random, SHA
 
 function build_library(name::AbstractString, image::AbstractString, project::AbstractString,
                        out::AbstractString; trim::AbstractString = "no")
@@ -65,4 +65,52 @@ mkpath(joinpath(dest, "bin")); mkpath(joinpath(dest, "include"))
 cp(joinpath(app, "include", "madnlp.h"), joinpath(dest, "include", "madnlp.h"); force = true)
 run(`cc -std=c99 -O2 -o $(joinpath(dest, "bin", "madnlp")) $(joinpath(@__DIR__, "madnlp.c"))
      -L$(joinpath(dest, "lib")) -lmadnlp -Wl,-rpath,\$ORIGIN/../lib`)
+
+# The CUDA libraries a GPU solve loads (cuBLAS, cuSPARSE, cuSOLVER, cuDSS, ...: about 2 GB)
+# are a separate download: moved out of the bundle into one artifact, OUT/artifacts/cuda-HASH
+# (runtime/ and cudss/), listed in the bundle's ARTIFACTS file for the cuda device, so `cnlp
+# install` fetches it only for a GPU and every library naming the same artifact shares one
+# copy (see cnlplib's docs/src/models.md). It is privatized as one unit, so it holds all the
+# libraries those load: its own copies of nvJitLink and nvRTC as well, which the bundle also
+# keeps (CUDA_Compiler_jll loads them when the library starts). The CUDA runtime library
+# itself stays (CUDACore's initialization needs it), and so do the artifact folders, empty:
+# the JLLs then load nothing and a GPU solve is refused (deps/, "MadNLPApp:").
+function content_hash(dir)
+    ctx = SHA.SHA256_CTX()
+    for (root, _, files) in walkdir(dir), f in sort(files)
+        p = joinpath(root, f)
+        SHA.update!(ctx, codeunits(relpath(p, dir)))
+        SHA.update!(ctx, islink(p) ? codeunits(readlink(p)) : SHA.sha256(read(p)))
+    end
+    return bytes2hex(SHA.digest!(ctx))[1:40]
+end
+arts = joinpath(dest, "share", "julia", "artifacts")
+with(f) = only(filter(d -> isfile(joinpath(arts, d, "lib", f)), readdir(arts)))
+runtime, compiler, cudss = with("libcublas.so"), with("libnvJitLink.so"), with("libcudss.so")
+outart = joinpath(abspath(ARGS[1]), "artifacts"); mkpath(outart)
+stage = mktempdir(outart)
+mkpath(joinpath(stage, "runtime")); mkpath(joinpath(stage, "cudss"))
+for f in readdir(joinpath(arts, runtime, "lib"))
+    startswith(f, "libcudart") || mv(joinpath(arts, runtime, "lib", f), joinpath(stage, "runtime", f))
+end
+for f in readdir(joinpath(arts, compiler, "lib"))
+    startswith(f, "libnvJitLink") || startswith(f, "libnvrtc") || continue
+    cp(joinpath(arts, compiler, "lib", f), joinpath(stage, "runtime", f); follow_symlinks = false)
+end
+for f in readdir(joinpath(arts, cudss))
+    mv(joinpath(arts, cudss, f), joinpath(stage, "cudss", f))
+end
+# cuDSS loads cuBLAS and nvRTC by name, looked up beside it ($ORIGIN): links to runtime/
+for f in readdir(joinpath(stage, "runtime"))
+    l = joinpath(stage, "cudss", "lib", f)
+    ispath(l) || islink(l) || symlink(joinpath("..", "..", "runtime", f), l)
+end
+a = string("cuda-", content_hash(stage))
+rm(joinpath(outart, a); recursive = true, force = true); mv(stage, joinpath(outart, a))
+lines = [
+    string(a, "/runtime share/julia/artifacts/", runtime, "/lib cuda"),
+    string(a, "/cudss share/julia/artifacts/", cudss, " cuda"),
+]
+open(io -> foreach(l -> println(io, l), lines), joinpath(dest, "ARTIFACTS"), "a")
+println("the CUDA libraries, a separate download: ", join(lines, "; "))
 println("built $(dest) in $(round(t; digits = 1)) s (trim = $trim)")

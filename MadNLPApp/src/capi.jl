@@ -42,6 +42,12 @@ Base.@ccallable function cnlp_solve_device(
         CNLPLib.set_failure!(result, "madnlp: no usable CUDA GPU")
         return Int64(2)
     end
+    # the CUDA libraries (cuBLAS, cuSPARSE, cuDSS, ...) are a separate download from the
+    # library itself; a CPU-only install has the CUDA runtime but not them
+    if isempty(CUDACore.CUDA_Runtime.libcublas)
+        CNLPLib.set_failure!(result, "madnlp: its CUDA libraries are not installed; install them with `cnlp install --device cuda madnlp`")
+        return Int64(2)
+    end
     return c_solve_device(p, d, nopt, keys, vals, result)
 end
 

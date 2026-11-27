@@ -1,0 +1,25 @@
+name = "CUDSS"
+uuid = "45b445bb-4962-46a0-9369-b4df9d0f772e"
+authors = ["Alexis Montoison <amontoison@anl.gov>"]
+version = "1.0.0"
+
+[deps]
+CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+CUDACore = "bd0ed864-bdfe-4181-a5ed-ce625a5fdea2"
+CUDA_Runtime_Discovery = "1af6417a-86b4-443c-805f-a4643ffb695f"
+CUDSS_jll = "4889d778-9329-5762-9fec-0578a5d30366"
+GPUToolbox = "096a3bc2-3ced-46d0-87f4-dd12716f4bfc"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+cuSPARSE = "b26da814-b3bc-49ef-b0ee-c816305aa060"
+
+[compat]
+CEnum = "0.5, 1"
+CUDACore = "6.0.0"
+CUDA_Runtime_Discovery = "1.0.0, 2.0.0"
+CUDSS_jll = "1.0.0"
+GPUToolbox = "0.3, 1, 2, 3"
+LinearAlgebra = "1.10"
+SparseArrays = "1.10"
+cuSPARSE = "6.0.0"
+julia = "1.10"
