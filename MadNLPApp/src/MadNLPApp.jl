@@ -19,18 +19,12 @@ import MUMPS_seq_jll, OpenBLAS32_jll   # MadCore's MUMPS extension: the default 
 import Krylov                          # GMRES refinement (KrylovIterator) of the default preset
 import NLPModels
 using NLPModels: AbstractNLPModel
-import CNLPLib, MadNLPAppBase
+import CNLPLib, MadNLPAppCore
 
 include("capi.jl")
 include("ampl.jl")
 include("warmup.jl")
 
-function __init__()
-    TRACE.on = -1     # an image keeps the build's setting
-    # the BLAS as this library starts (MUMPS's LP64 OpenBLAS included), recorded before a
-    # model library's runtime in the same process can forward libblastrampoline elsewhere
-    append!(empty!(BLAS), CNLPLib.blas_state())
-    return nothing
-end
+__init__() = MadNLPAppCore.init!(APP)
 
 end # module

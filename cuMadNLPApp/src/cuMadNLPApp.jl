@@ -7,47 +7,35 @@ its device callbacks, with the solver's vectors on the GPU. The CPU solver is Ma
 """
 module cuMadNLPApp
 
-import CNLPLib, CUDACore, cuMadNLP, NLPModels, MadNLPAppBase
+import CNLPLib, CUDACore, cuMadNLP, NLPModels, MadNLPAppCore
 import MadCore, MadNLPCore
 using CNLPLib: CNLPDeviceProblem, CNLPProblem, CNLPResult, ProblemModel
 using NLPModels: AbstractNLPModel
 
-# ── options and the solve (MadNLPAppBase, shared with MadNLPApp), with cuMadNLP's types ──
-const OPTION_MODULES = Module[cuMadNLP, MadCore, MadNLPCore]
-options(opts) = MadNLPAppBase.options(opts, OPTION_MODULES)
-const outcome = MadNLPAppBase.outcome
-
+# ── the solver (MadNLPAppCore, shared with MadNLPApp), with cuMadNLP's types ──────────────
 # CUMADNLPAPP_TRACE=1: every method compiled at run time on stderr, and the total after each
 # solve; with a device solve also the model's first GPU evaluations and the GPU kernels
 # compiled at run time (a build is checked to report 0)
-const TRACE = CNLPLib.CompileTrace("CUMADNLPAPP_TRACE")
-# The BLAS this library forwards libblastrampoline to, recorded by `__init__` and restored
-# before every solve: another Julia runtime in the process (a model library) may open the
-# same libblastrampoline by name when it starts, and forward it elsewhere.
-const BLAS = String[]
-c_solve(model, nopt, keys, vals, result) =
-    CNLPLib.serve(outcome, model, nopt, keys, vals, result; options, blas = BLAS, trace = TRACE, name = "cumadnlp")
+const APP = MadNLPAppCore.App("cumadnlp", "CUMADNLPAPP_TRACE", (cuMadNLP, MadCore, MadNLPCore))
+c_solve(model, nopt, keys, vals, result) = MadNLPAppCore.serve(APP, model, nopt, keys, vals, result)
 
 function __init__()
-    TRACE.on = -1   # an image keeps the build's
     # When the library loads (not while it is being built), bring up the GPU and solve a tiny
     # problem on it: the CUDA context, the cuBLAS, cuSPARSE and cuDSS handles, the solver's
     # kernels and cuDSS's first call are then done before a caller times its solve, as
     # empower does at startup. MADNLPAPP_WARMUP=0 skips it.
     if ccall(:jl_generating_output, Cint, ()) == 0 && get(ENV, "MADNLPAPP_WARMUP", "1") != "0"
         # quietly: CUMADNLPAPP_TRACE reports describe the caller's solves, not this one
-        trace = TRACE.on
+        trace = APP.trace.on
         try
-            TRACE.on = 0
+            APP.trace.on = 0
             CUDACore.functional() && (solve_toy_device(false); solve_toy_device(true))
         catch err
             @warn "cumadnlp: the GPU warm-up failed; the first solve brings up the GPU instead" exception = err
         end
-        TRACE.on = trace
+        APP.trace.on = trace
     end
-    # the BLAS as this library starts, recorded before a model library's runtime in the same
-    # process can forward libblastrampoline elsewhere
-    append!(empty!(BLAS), CNLPLib.blas_state())
+    MadNLPAppCore.init!(APP)   # the trace setting, and the BLAS it starts with
     return nothing
 end
 
@@ -55,7 +43,7 @@ function c_solve_device(
         p::Ptr{CNLPProblem}, d::Ptr{CNLPDeviceProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}},
         vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}
     )
-    CNLPLib.tracing(TRACE) || return c_solve(() -> ProblemModel(p, d), nopt, keys, vals, result)
+    CNLPLib.tracing(APP.trace) || return c_solve(() -> ProblemModel(p, d), nopt, keys, vals, result)
     # CUMADNLPAPP_TRACE=1: evaluate the model once on the device before solving, and report how
     # long its first evaluations took: loading the model library's GPU code, and the driver
     # compiling its PTX when the driver's cache (~/.nv/ComputeCache) does not hold it yet

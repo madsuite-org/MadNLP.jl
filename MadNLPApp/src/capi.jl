@@ -5,25 +5,14 @@
 
 using CNLPLib: CNLPProblem, CNLPResult, ProblemModel
 
-# ── options and the solve (MadNLPAppBase, shared with cuMadNLPApp) ────────────────────
-# key=value strings, as a user wrote them, to MadNLP's options (MadNLPAppBase.parse_value).
-# MUMPS is the sparse linear solver unless the caller names another: MadNLP's own default
-# would be HSL's, which this library does not carry.
-const OPTION_MODULES = Module[MadCore, MadNLPCore]
-function options(opts)
-    kw = MadNLPAppBase.options(opts, OPTION_MODULES)
-    any(p -> first(p) === :linear_solver, kw) || push!(kw, :linear_solver => MadCore.MumpsSolver)
-    return kw
-end
-const madnlp_outcome = MadNLPAppBase.outcome
-
+# ── the solver (MadNLPAppCore, shared with cuMadNLPApp) ───────────────────────────────
+# Option values may name MadNLP's types. MUMPS is the sparse linear solver unless the caller
+# names another: MadNLP's own default would be HSL's, which this library does not carry.
 # MADNLPAPP_TRACE=1: every method compiled at run time on stderr, and the total after each
-# solve (what the library still lacks; a build is checked to report 0)
-const TRACE = CNLPLib.CompileTrace("MADNLPAPP_TRACE")
-# The BLAS this library forwards libblastrampoline to, recorded by `__init__` and restored
-# before every solve: another Julia runtime in the process (a model library) may open the
-# same libblastrampoline by name when it starts, and forward it elsewhere.
-const BLAS = String[]
+# solve (what the library still lacks; a build is checked to report 0).
+const APP = MadNLPAppCore.App("madnlp", "MADNLPAPP_TRACE", (MadCore, MadNLPCore);
+                              defaults = [:linear_solver => MadCore.MumpsSolver])
+options(opts) = MadNLPAppCore.options(APP, opts)
 
 """
     c_solve(model, nopt, keys, vals, result)
@@ -32,7 +21,7 @@ Solve for a C caller: `model()` builds the model, options come as C strings, the
 goes to `result`. Returns 0 when the solver ran, 1 for an invalid option, 2 for a failure.
 """
 c_solve(model, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
-    CNLPLib.serve(madnlp_outcome, model, nopt, keys, vals, result; options, blas = BLAS, trace = TRACE, name = "madnlp")
+    MadNLPAppCore.serve(APP, model, nopt, keys, vals, result)
 c_solve(problem::Ptr{CNLPProblem}, nopt::Int64, keys::Ptr{Ptr{UInt8}}, vals::Ptr{Ptr{UInt8}}, result::Ptr{CNLPResult}) =
     c_solve(() -> ProblemModel(problem), nopt, keys, vals, result)
 

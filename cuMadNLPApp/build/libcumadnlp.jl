@@ -19,13 +19,4 @@ precompile(cuMadNLPApp.kernel_hook, (GPUCompiler.CompilerJob{GPUCompiler.PTXComp
 # reached only in some runs: a long GPU synchronize waits through the CUDA worker
 precompile(Tuple{typeof(GPUToolbox.perform!), GPUToolbox.WaitRequest{typeof(CUDACore.worker_synchronize), Tuple{CUDACore.CuStream, CUDACore.CuContext}, CUDACore.cudaError_enum}})
 
-module PrecompileStatements end
-let file = joinpath(@__DIR__, "precompile_statements.jl")
-    isfile(file) && cuMadNLPApp.CNLPLib.eval_statements(PrecompileStatements, file)
-end
-
-# stdout and stderr may be a file, a pipe or a terminal
-for io in (Base.PipeEndpoint, Base.TTY, IOStream), f in (println, print)
-    precompile(f, (io, String))
-    precompile(flush, (io,))
-end
+cuMadNLPApp.MadNLPAppCore.precompile_image(joinpath(@__DIR__, "precompile_statements.jl"))

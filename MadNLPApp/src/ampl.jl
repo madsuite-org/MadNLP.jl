@@ -14,10 +14,10 @@ Options (also read from the environment variable madnlp_options), e.g.
   tol=1e-8 max_iter=500 print_level=INFO linear_solver=LapackCPUSolver"""
 
 function main(args::Vector{String})::Cint
-    trace = CNLPLib.tracing(TRACE)
+    trace = CNLPLib.tracing(APP.trace)
     ct0 = trace ? CNLPLib.compile_ns() : UInt64(0)
     rc = _main(args)
-    trace ? CNLPLib.report(TRACE, "madnlp", CNLPLib.compile_ns() - ct0) : (flush(stdout); flush(stderr))
+    trace ? CNLPLib.report(APP.trace, "madnlp", CNLPLib.compile_ns() - ct0) : (flush(stdout); flush(stderr))
     return rc
 end
 
@@ -46,7 +46,7 @@ function _main(args::Vector{String})::Cint
     try
         # AmplModel carries AmplNLReader's own meta type; the wrapper gives MadNLP a
         # standard NLPModelMeta.
-        stats = MadNLPAppBase.run_madnlp(MadCore.SparseWrapperModel(Vector, nlp), kw)
+        stats = MadNLPAppCore.run_madnlp(MadCore.SparseWrapperModel(Vector, nlp), kw)
         if ampl
             # AMPL's duals are the objective's sensitivities to the constraints' right-hand
             # sides, -y for NLPModels' y (grad f + J'y - zL + zU = 0), in either sense.
@@ -55,7 +55,7 @@ function _main(args::Vector{String})::Cint
                 -Vector{Float64}(stats.multipliers)
             )
         end
-        return MadNLPAppBase.status_of(stats.status) <= CNLPLib.CNLP_ACCEPTABLE ? 0 : 1
+        return MadNLPAppCore.status_of(stats.status) <= CNLPLib.CNLP_ACCEPTABLE ? 0 : 1
     finally
         finalize(nlp)
     end

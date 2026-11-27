@@ -8,7 +8,7 @@ CNLPLib = "e8ddee8d-ce21-405b-9ec9-45cea2c1b284"
 Krylov = "ba0b0d4f-ebba-5204-a429-3ac8c609bfb7"
 MUMPS_seq_jll = "d7ed1dd3-d0ae-5e8e-bfb4-87a502085b8d"
 MadCore = "a65213e2-99b2-4dc2-8349-7a266ca2b67f"
-MadNLPAppBase = "5b0f7c3e-2d4a-4c9e-9a51-8e6f3b7d2c41"
+MadNLPAppCore = "5b0f7c3e-2d4a-4c9e-9a51-8e6f3b7d2c41"
 MadNLPCore = "38486723-7c71-48b9-ad12-dc22a86097e8"
 NLPModels = "a4795742-8479-5a88-8948-cc11e1c8c1a6"
 OpenBLAS32_jll = "656ef2d0-ae68-5445-9ca0-591084a874a2"
@@ -18,7 +18,7 @@ PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 # until CNLPLib is registered: its home is cnlplib's interfaces/ (madsuite-org/cnlplib#33)
 CNLPLib = {url = "https://github.com/madsuite-org/cnlplib", subdir = "interfaces/CNLPLib.jl", rev = "interfaces"}
 MadCore = {path = "../MadCore"}
-MadNLPAppBase = {path = "../MadNLPAppBase"}
+MadNLPAppCore = {path = "../MadNLPAppCore"}
 MadNLPCore = {path = "../MadNLPCore"}
 
 [compat]
@@ -27,7 +27,7 @@ CNLPLib = "0.4"
 Krylov = "0.10"
 MUMPS_seq_jll = "~500.900"
 MadCore = "=0.12.0"
-MadNLPAppBase = "0.1"
+MadNLPAppCore = "0.1"
 MadNLPCore = "=0.12.0"
 NLPModels = "0.21.9"
 OpenBLAS32_jll = "0.3"
