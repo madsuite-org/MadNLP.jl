@@ -12,11 +12,12 @@ ma57_default_cntl(T) = T[1e-8, 1.0e-20, 0.5, 0.0, 0.0]
     ma57_block_size::Int = 16
     ma57_node_amalgamation::Int = 16
     ma57_small_pivot_flag::Int = 0
-    # static pivoting, CNTL(4) and CNTL(5): fully summed rows that fail the threshold test get a pivot
-    # of `ma57_static` times the largest entry of the scaled matrix instead of being delayed, once
-    # `ma57_static_delay` times the size of the matrix of them have been delayed; off with 0
-    ma57_static::Float64 = 0.0
-    ma57_static_delay::Float64 = 0.0
+    # with a positive bound, a factorization in the analysis order with small pivots bounded, as
+    # CHOLMOD's under ShiftedPreset: no threshold pivoting (CNTL(1) = 0, and no increase of it in
+    # `improve!`), a pivot smaller than the bound in magnitude is treated as zero (CNTL(2)) and
+    # replaced by MA57's static pivoting (CNTL(4) > 0, CNTL(5) = 0), by an entry of magnitude the
+    # bound: CNTL(4) is relative to the largest entry, so it is set at each factorization
+    ma57_pivot_bound::Float64 = 0.0
     # the pivot order instead of the solver's ordering: row and column i of the factorized
     # matrix are row and column ma57_user_perm[i] (see set_permutation!)
     ma57_user_perm::Union{Nothing, Vector{Int}} = nothing
@@ -62,8 +63,11 @@ function Ma57State(
     cntl = ma57_default_cntl(T)
 
     cntl[1] = opt.ma57_pivtol
-    cntl[4] = opt.ma57_static
-    cntl[5] = opt.ma57_static_delay
+    if opt.ma57_pivot_bound > 0
+        cntl[1] = 0
+        cntl[2] = opt.ma57_pivot_bound
+        cntl[5] = 0
+    end
     icntl[1] = -1
     icntl[2] = -1
     icntl[3] = -1
@@ -129,6 +133,10 @@ function Ma57State(
 end
 
 function factorize!(M::Ma57State{T,INT}) where {T,INT}
+    if M.opt.ma57_pivot_bound > 0
+        largest = maximum(abs, M.csc.nzval; init = zero(T))
+        M.cntl[4] = iszero(largest) ? one(T) : T(M.opt.ma57_pivot_bound) / largest
+    end
     while true
         HSL.ma57br(
             T,
@@ -193,7 +201,7 @@ function inertia(M::Ma57State)
     return (M.info[25] - M.info[24], Int64(M.csc.n) - M.info[25], M.info[24])
 end
 function improve!(M::Ma57State)
-    if M.cntl[1] == M.opt.ma57_pivtolmax
+    if M.opt.ma57_pivot_bound > 0 || M.cntl[1] == M.opt.ma57_pivtolmax
         @debug(M.logger, "improve quality failed.")
         return false
     end

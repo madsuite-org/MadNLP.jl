@@ -83,15 +83,13 @@ function MadCore.default_options(
     opt.ma86_u = 0.0
     return opt
 end
-# MA57 under ShiftedPreset: its static pivoting, the closest it has to a bound. Threshold pivoting
-# stays, and the rows it cannot pivot on get a pivot of `preset_perturbation(T)` times the largest
-# entry instead of being delayed.
+# MA57 under ShiftedPreset: no threshold pivoting, and small pivots bounded by its static pivoting
 function MadCore.default_options(
         ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
         ::Type{MadCore.Ma57Solver},
     ) where {T}
     opt = MadCore.default_options(MadCore.Ma57Solver)
-    opt.ma57_static = Float64(MadNLPCore.preset_perturbation(T))
+    opt.ma57_pivot_bound = Float64(MadNLPCore.preset_perturbation(T))
     return opt
 end
 
