@@ -12,6 +12,11 @@ ma57_default_cntl(T) = T[1e-8, 1.0e-20, 0.5, 0.0, 0.0]
     ma57_block_size::Int = 16
     ma57_node_amalgamation::Int = 16
     ma57_small_pivot_flag::Int = 0
+    # static pivoting, CNTL(4) and CNTL(5): fully summed rows that fail the threshold test get a pivot
+    # of `ma57_static` times the largest entry of the scaled matrix instead of being delayed, once
+    # `ma57_static_delay` times the size of the matrix of them have been delayed; off with 0
+    ma57_static::Float64 = 0.0
+    ma57_static_delay::Float64 = 0.0
     # the pivot order instead of the solver's ordering: row and column i of the factorized
     # matrix are row and column ma57_user_perm[i] (see set_permutation!)
     ma57_user_perm::Union{Nothing, Vector{Int}} = nothing
@@ -57,6 +62,8 @@ function Ma57State(
     cntl = ma57_default_cntl(T)
 
     cntl[1] = opt.ma57_pivtol
+    cntl[4] = opt.ma57_static
+    cntl[5] = opt.ma57_static_delay
     icntl[1] = -1
     icntl[2] = -1
     icntl[3] = -1

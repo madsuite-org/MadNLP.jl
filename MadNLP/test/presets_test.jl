@@ -37,6 +37,8 @@
     @test lopt.ldl_n_d == nlp.meta.nvar - length(nlp.meta.ifix) + nlp.meta.ncon - length(nlp.meta.jfix)
     mopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.Ma86Solver)
     @test mopt.ma86_static == δ && mopt.ma86_u == 0.0
+    mopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.Ma57Solver)
+    @test mopt.ma57_static == δ && mopt.ma57_static_delay == 0.0
     # [1 0 0; 0 0 1; 0 1 0] in the order 1, 2, 3, primal rows 1 and 2: the second pivot is zero, so
     # the factorization fails without the bound; with it, that pivot becomes δ and the third -1/δ
     tril = sparse(Int32[1, 2, 3, 3], Int32[1, 2, 2, 3], [1.0, 0.0, 1.0, 0.0])
