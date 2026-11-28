@@ -25,8 +25,11 @@ Options of [`MadCore.SDSSolver`](@ref), passed as keywords of `madnlp`.
 * `sds_deferred_analysis::Bool = false`: run the analysis at the first factorization, so that a
   value-dependent analysis (matching, 2×2 pivot pairs) sees the first KKT matrix.
 * `sds_pivot_threshold`: `:diagonal` and `:bk` only, the in-front acceptance threshold.
-* `sds_pivot_epsilon`: `:ldl` only, pivots below this magnitude are replaced, with the sign of
-  their block (positive for the primal, negative for the dual rows).
+* `sds_pivot_epsilon`: `:ldl` only, pivots below this magnitude are replaced by pivots of this
+  magnitude, with the sign `sds_pivot_sign` gives them.
+* `sds_pivot_sign::Symbol = :block`: `:ldl` only, the sign of a replaced pivot. `:block`: the sign
+  of its block, positive for the primal and negative for the dual rows. `:keep`: its own sign, zero
+  becoming positive (CHOLMOD's `dbound`), so that the inertia still shows a pivot of the wrong sign.
 * `sds_ir::Int = 0`: the steps of iterative refinement inside SparseDirectSolver after every
   solve (as `cudss_ir` for cuDSS).
 * `sds_reordering::String = "algo4"`: the `reordering_alg` of the analysis (`"algo4"` is nested
@@ -55,6 +58,7 @@ MadCore.@kwdef mutable struct SDSSolverOptions <: MadCore.AbstractOptions
     sds_deferred_analysis::Bool = false
     sds_pivot_threshold::Union{Nothing, Float64} = nothing
     sds_pivot_epsilon::Union{Nothing, Float64} = nothing
+    sds_pivot_sign::Symbol = :block
     sds_ir::Int = 0
     sds_reordering::String = "algo4"
     sds_tuning::Union{Nothing, SDS.SDSTuning} = nothing
@@ -84,6 +88,7 @@ _kkt_solver(csc; kwargs...) = SDS.KKTSolver(csc.colPtr, csc.rowVal, csc.nzVal, '
 function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger())
     n = size(csc, 1)
     ldl = opt.sds_factorization === :ldl
+    opt.sds_pivot_sign in (:block, :keep) || throw(ArgumentError("sds_pivot_sign is :block or :keep, not $(repr(opt.sds_pivot_sign))"))
     pivots = opt.sds_pivoting === :diagonal || opt.sds_pivoting === :bk
     n_primal = opt.n_primal < 0 ? n : opt.n_primal
     inner = _kkt_solver(
@@ -95,7 +100,7 @@ function SDSState(csc; opt = SDSSolverOptions(), logger = MadCore.MadNLPLogger()
         # LDLᵀ options, ignored for Cholesky so that a preset that sets them still allows it
         matching = ldl ? opt.sds_matching : "none",
         pivot_epsilon = ldl ? opt.sds_pivot_epsilon : nothing,
-        pivot_sign = ldl ? vcat(ones(Int8, n_primal), fill(Int8(-1), n - n_primal)) : nothing,
+        pivot_sign = ldl && opt.sds_pivot_sign === :block ? vcat(ones(Int8, n_primal), fill(Int8(-1), n - n_primal)) : nothing,
         ir_n_steps = opt.sds_ir,
         deferred_analysis = opt.sds_deferred_analysis,
         reordering = opt.sds_reordering,
