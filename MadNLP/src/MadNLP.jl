@@ -59,6 +59,43 @@ if Base.USE_GPL_LIBS
     end
 end
 
+# The other LDLᵀ solvers under ShiftedPreset on the augmented system, with small pivots bounded as
+# CHOLMOD's and cuDSS's are: a pivot smaller than `preset_perturbation(T)` in magnitude becomes one of
+# that magnitude. LDLFactorizations chooses the sign by block, positive in the primal block and
+# negative in the dual block (the KKT system declares the blocks), as SparseDirectSolver.jl does: the
+# sign of the pivots in the inertia the interior-point method wants.
+function MadCore.default_options(
+        ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
+        ::Type{MadCore.LDLSolver},
+    ) where {T}
+    opt = MadCore.default_options(MadCore.LDLSolver)
+    δ = Float64(MadNLPCore.preset_perturbation(T))
+    opt.ldl_r1, opt.ldl_r2, opt.ldl_tol = δ, -δ, δ
+    return opt
+end
+# MA86 under ShiftedPreset: a pivot smaller than δ in magnitude is treated as zero (`small`), fails
+# the threshold test of a relative tolerance of 1e-20 (`u` = `umin`, so that no other pivot fails it
+# and `improve!`, which raises `u` up to `umax`, does not apply) and is replaced by static pivoting
+# with the value of its sign and magnitude δ (`static`), as CHOLMOD's bound does
+function MadCore.default_options(
+        ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
+        ::Type{MadCore.Ma86Solver},
+    ) where {T}
+    opt = MadCore.default_options(MadCore.Ma86Solver)
+    δ = Float64(MadNLPCore.preset_perturbation(T))
+    opt.ma86_small = opt.ma86_static = δ
+    opt.ma86_u = opt.ma86_umin = opt.ma86_umax = 1e-20
+    return opt
+end
+# MA57 under ShiftedPreset: no threshold pivoting, and small pivots bounded by its static pivoting
+function MadCore.default_options(
+        ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
+        ::Type{MadCore.Ma57Solver},
+    ) where {T}
+    opt = MadCore.default_options(MadCore.Ma57Solver)
+    opt.ma57_pivot_bound = Float64(MadNLPCore.preset_perturbation(T))
+    return opt
+end
 
 using PrecompileTools: @setup_workload, @compile_workload
 include("precompile.jl")
