@@ -73,14 +73,18 @@ function MadCore.default_options(
     opt.ldl_r1, opt.ldl_r2, opt.ldl_tol = δ, -δ, δ
     return opt
 end
-# MA86 under ShiftedPreset: static pivoting, no threshold pivoting
+# MA86 under ShiftedPreset: a pivot smaller than δ in magnitude is treated as zero (`small`), fails
+# the threshold test of a relative tolerance of 1e-20 (`u` = `umin`, so that no other pivot fails it
+# and `improve!`, which raises `u` up to `umax`, does not apply) and is replaced by static pivoting
+# with the value of its sign and magnitude δ (`static`), as CHOLMOD's bound does
 function MadCore.default_options(
         ::NLPModels.AbstractNLPModel{T}, ::Type{MadNLPCore.ShiftedPreset}, ::Type{MadCore.SparseKKTSystem},
         ::Type{MadCore.Ma86Solver},
     ) where {T}
     opt = MadCore.default_options(MadCore.Ma86Solver)
-    opt.ma86_static = Float64(MadNLPCore.preset_perturbation(T))
-    opt.ma86_u = 0.0
+    δ = Float64(MadNLPCore.preset_perturbation(T))
+    opt.ma86_small = opt.ma86_static = δ
+    opt.ma86_u = opt.ma86_umin = opt.ma86_umax = 1e-20
     return opt
 end
 # MA57 under ShiftedPreset: no threshold pivoting, and small pivots bounded by its static pivoting

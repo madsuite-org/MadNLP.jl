@@ -8,6 +8,8 @@
     ma86_static::Float64 = 0.0
     ma86_u::Float64 = 1e-8
     ma86_umax::Float64 = 1e-4
+    # the minimum relative pivot tolerance (`umin` of MA86); `nothing` keeps MA86's default
+    ma86_umin::Union{Nothing, Float64} = nothing
     # the pivot order instead of the solver's ordering: row and column i of the factorized
     # matrix are row and column ma86_user_perm[i] (see set_permutation!)
     ma86_user_perm::Union{Nothing, Vector{Int}} = nothing
@@ -58,6 +60,7 @@ function Ma86State(
     control.small_ = opt.ma86_small
     control.static_ = opt.ma86_static
     control.u = opt.ma86_u
+    opt.ma86_umin === nothing || (control.umin = opt.ma86_umin)
     control.scaling = INT(opt.ma86_scaling)
 
     HSL.ma86_analyse(T, INT, INT(csc.n), csc.colptr, csc.rowval, order, keep, control, info)

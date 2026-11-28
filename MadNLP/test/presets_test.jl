@@ -35,7 +35,8 @@
     lopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.LDLSolver)
     @test (lopt.ldl_r1, lopt.ldl_r2, lopt.ldl_tol) == (δ, -δ, δ)
     mopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.Ma86Solver)
-    @test mopt.ma86_static == δ && mopt.ma86_u == 0.0
+    @test mopt.ma86_small == mopt.ma86_static == δ
+    @test mopt.ma86_u == mopt.ma86_umin == mopt.ma86_umax == 1e-20
     mopt = MC.default_options(nlp, MadNLP.ShiftedPreset, MadNLP.SparseKKTSystem, MadNLP.Ma57Solver)
     @test mopt.ma57_pivot_bound == δ
     # [1 0 0; 0 0 1; 0 1 0] in the order 1, 2, 3, primal rows 1 and 2: the second pivot is zero, so
